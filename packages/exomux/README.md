@@ -8,10 +8,43 @@ workbench client that can exit and reattach without disturbing them.
 ```sh
 deno task start          # from this directory
 deno task --cwd packages/exomux start   # from the repository root
+./install-exomux.sh      # from the repository root: compile + install ~/.local/bin/exomux
 ```
 
-`deno task exomux` at the repository root delegates here. `--memory` skips layout persistence, `--daemon` runs the host
-alone (it requires a valid `EXOMUX_TOKEN` and is normally started for you by the client).
+`deno task exomux` at the repository root delegates here, and `install-exomux.sh` compiles a self-contained binary so
+`exomux` works from any directory. `--memory` skips layout persistence, `--daemon` runs the host alone (it requires a
+valid `EXOMUX_TOKEN` and is normally started for you by the client).
+
+Settings open from the start menu into an ordinary floating window — drag its title bar, resize its borders, close it
+from its chrome. Windows default to 85% opacity so the live desktop shows through terminal text, and the butterchurn
+background defaults to 60 Hz; both are knobs in that window.
+
+## Sessions
+
+Exomux hosts are named sessions, tmux-style. A bare launch attaches to the one live session, creates the default session
+(`main`) when none exists, and prints the list below instead of guessing when several are live. Each session is its own
+detached host: its shells survive client exit and crash independently of every other session.
+
+| Flag              | Behavior                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| _(none)_          | Attach to the single live session, or create `main` when there is none                   |
+| `-a <name>`       | Attach to that session only; never launches a host                                       |
+| `-n [name]`       | Create a new session (numeric names are generated when omitted); never reuses a live one |
+| `--list-sessions` | Print every session: state, uptime, terminal count, and foreground commands              |
+
+```
+NAME  STATE       UP      TERMINALS  RUNNING
+main  attachable  3h 12m  2          nvim, htop
+work  attachable  1d 2h   1          cargo
+```
+
+The default session keeps its state where pre-session Exomux kept it, so an already-running host and its persisted
+layout carry across the upgrade unrenamed; named sessions live under `sessions/<name>/` beside it.
+
+A crash cannot wedge launching. If a recorded host's pid died — or was recycled by an unrelated process — its descriptor
+is pruned and the session simply reports stopped; if the pid still looks like an Exomux daemon but never answers, the
+descriptor is quarantined beside the live path (`host.json.unresponsive`, keeping the pid for a manual `kill`) and a
+fresh host is launched. The status line reports either recovery.
 
 ## The butterchurn background
 

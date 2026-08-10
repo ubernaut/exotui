@@ -31,6 +31,19 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- `install-exomux.sh` compiles Exomux and installs it to `~/.local/bin/exomux` for the current user, so `exomux` runs
+  from any directory; re-running it refreshes the installed binary.
+- Terminal backends now support consumer backpressure: `TerminalBackendSpawnOptions.onData` (and the pipe backend's
+  `onOutputData`) may return a promise, and both the Sigma PTY poll loop and the process pipe pump await it before the
+  next read. Callbacks that returned a value from a concise arrow must add braces — the return type is now
+  `void | Promise<void>`.
+- Exomux hosts are named sessions, tmux-style. A bare launch attaches to the single live session, creates the default
+  session (`main`) when none exists, and lists the candidates — state, uptime, terminal count, foreground commands —
+  instead of guessing when several are live. `-a <name>` attaches and never launches, `-n [name]` creates and never
+  reuses (numeric names are generated when omitted), and `--list-sessions` prints the same listing and exits. The
+  default session keeps its state where pre-session Exomux kept it, so an already-detached host and its persisted layout
+  carry across the upgrade; named sessions live under `sessions/<name>/` beside it. `packages/exomux/sessions.ts`
+  carries the naming, discovery, probing, and listing surface.
 - The butterchurn background reports which renderer is drawing it. Falling back to the software renderer used to be
   silent, and its symptom — most of the rotation resolving to nothing — is indistinguishable from a broken background.
   The desktop now says so in the status line when the renderer changes, and the preset name shown when stepping presets
@@ -192,6 +205,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Changed
 
+- Exomux's global settings left their modal behind: they now live in an ordinary floating window — movable, resizable,
+  always-on-top, born minimized — so the desktop stays fully interactive while it is open. Keyboard behavior follows
+  window focus (arrows, Tab, Enter, and Escape drive the settings only while the window is active), wheel scrolling
+  moves the current pane's selection, the chrome close button tucks the window away, and the `[ b Background config ]`
+  button now wears the theme's warning hue — theme-derived but deliberately distinct from the accent and the desktop
+  background — so it reads at a glance.
+- Exomux ships slightly translucent by default: the desktop-wide window opacity now defaults to 85% instead of opaque,
+  and the butterchurn background's update-rate setting defaults to 60 Hz (the value list leads with 60, then 120, and
+  wraps through the slower steps).
 - Exomux's desktop repaint now invalidates on desktop-wide and per-window settings changes. Both reach the painter
   directly — border glyphs, window opacity — and previously only repainted because cycling a setting also rewrote the
   status line.
@@ -285,6 +307,29 @@ quickly, but the affected entrypoint or module family should be named here.
   asynchronous capture handlers while dropping disabled or removed captured gestures without retargeting releases.
 
 ### Fixed
+
+- A flooding child can no longer wedge the Exomux daemon (plan/todo 028). A paused terminal game rendering full-screen
+  TV static at 2–4 MiB/s used to overflow the per-client outbound queue — executing even a fast client as `slow-client`
+  — and then pin the daemon at 100% CPU with unbounded memory growth once nobody was attached, leaving it too saturated
+  to answer the next launch. Ingestion now applies flow control: a session whose every attached client sits above the
+  outbound high-water mark waits for one of them to drain (fully stalled clients stop gating after a bounded wait and
+  meet the existing 1013 quota), an unattached session is held to a small drain budget (`unattachedBytesPerSecond`,
+  default 256 KiB/s) since it only feeds the replay ring, large backend batches yield to the event loop periodically so
+  delivery and handshakes keep running, and every deferral aborts promptly when the session is killed. Validated against
+  the real game: the attached client survives the full flood, unattached daemon CPU drops from 100%+ to under a third of
+  a core, reconnect answers in milliseconds, and the flooding session still kills cleanly. Residual: the Sigma PTY FFI
+  layer buffers internally, so a truly abandoned flood still grows daemon memory slowly until upstream grows a way to
+  pause its pump.
+
+- A crash could permanently block Exomux from launching. Bootstrap probed the recorded host pid only for existence, so
+  after a hard crash — where the pid was recycled by an unrelated process, or the daemon survived wedged — every launch
+  threw `The recorded Exomux host still appears alive but did not respond; its descriptor was retained` forever. The
+  probe now reads the process's argv: a pid that is dead or no longer an Exomux daemon has its descriptor removed and a
+  fresh host launches; a pid that still looks like a daemon but never answers has its descriptor quarantined beside the
+  live path (`host.json.unresponsive`, keeping the pid and token for manual inspection) before a replacement host
+  launches with a fresh startup window. The status line reports either recovery. The daemon itself now also treats
+  uncaught errors and unhandled rejections as fatal: it shuts down within a bounded window, clears its descriptor, and
+  force-exits if teardown wedges, so a faulting host can no longer linger half-alive.
 
 - The butterchurn background stalled the desktop on preset transitions. Two costs landed on the frame of the switch:
   `createRenderPipeline` is synchronous and compiles a shader, which for a MilkDrop composite shader can block for

@@ -18,6 +18,7 @@ reattach without disturbing a single running process.
 
 ```sh
 deno task exomux            # or: ./visualization exomux
+./install-exomux.sh         # compile + install ~/.local/bin/exomux for use from anywhere
 ```
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
@@ -25,6 +26,8 @@ deno task exomux            # or: ./visualization exomux
 | Capability           | Detail                                                                                        |
 | -------------------- | --------------------------------------------------------------------------------------------- |
 | Detachable host      | Loopback WebSocket daemon, token-authenticated, survives client exit and relaunch             |
+| Named sessions       | tmux-style: bare launch attaches, `-n` creates, `-a <name>` targets, `--list-sessions` lists  |
+| Crash-safe launch    | Stale or wedged host descriptors are pruned or quarantined; a crash can never block relaunch  |
 | Real terminals       | PTY-backed shells through the optional `@sigma/pty-ffi` adapter, with a pipe fallback         |
 | Floating workbench   | Draggable, resizable, snapping windows over a live desktop, with session and network panels   |
 | Animated backgrounds | Twelve theme-derived fields, cycled with prefix `b`; all deterministic bar the mic-driven one |
@@ -34,7 +37,7 @@ deno task exomux            # or: ./visualization exomux
 | Overgrowth           | Organic backgrounds slowly reclaim idle windows and retreat when focused                      |
 | Network panel        | Remembered SSH hosts and live Tailscale devices, one keystroke to spawn a shell               |
 
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 285
+It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 311
 tests, and it reaches the toolkit only through the public entrypoints listed below — nothing in it imports `src/`. That
 constraint is the point; Exomux is the standing proof that the published API is sufficient to build a non-trivial
 application, and every gap it hit became a library export.
