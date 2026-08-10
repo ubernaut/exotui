@@ -407,6 +407,8 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     this.#autoCycle = options.autoCycle ?? true;
     const cycle = finite(options.cycleSeconds, PRESET_HOLD_SECONDS);
     this.#cycleSeconds = cycle > 0 ? clamp(cycle, 3, 3600) : 0;
+    // Exomux passes its 60 Hz settings default explicitly; bare construction
+    // keeps the deterministic baseline cadence the field tests are pinned to.
     this.#frameMs = 1000 / clamp(finite(options.updateHz, 1000 / FRAME_BASELINE_MS), 1, 240);
     this.#audioMode = options.audioMode ?? "mic";
     this.#wantsGpu = options.gpu ?? true;

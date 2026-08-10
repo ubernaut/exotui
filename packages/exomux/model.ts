@@ -600,7 +600,9 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     overgrowInactive: true,
     overgrowFullMs: 120_000,
     borderStyle: "thin" as const,
-    opacity: 1,
+    // Slightly translucent out of the box: the live desktop showing through
+    // terminal text is the look Exomux leads with.
+    opacity: 0.85,
   });
 }
 
@@ -682,7 +684,7 @@ export const EXOMUX_BACKGROUND_SETTING_SPECS: Readonly<
       id: "updateHz",
       label: "Update rate",
       detail: "Frames per second the field advances at.",
-      values: Object.freeze([10, 15, 30, 60, 120, 5]),
+      values: Object.freeze([60, 120, 5, 10, 15, 30]),
       format: (value: ExomuxSettingValue) => `${value} Hz`,
     }),
     Object.freeze({

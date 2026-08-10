@@ -26,11 +26,11 @@ Deno.test("background settings: defaults, cycling and persistence round-trip", (
 
   // Cycling walks the value list and wraps; persistence keeps only valid values.
   let map = cycleExomuxBackgroundSetting({}, "butterchurn", "updateHz", 1);
-  assertEquals(exomuxBackgroundSettingsFor(map, "butterchurn").updateHz, 15);
+  assertEquals(exomuxBackgroundSettingsFor(map, "butterchurn").updateHz, 120);
   map = cycleExomuxBackgroundSetting(map, "butterchurn", "updateHz", -2);
-  assertEquals(exomuxBackgroundSettingsFor(map, "butterchurn").updateHz, 5);
+  assertEquals(exomuxBackgroundSettingsFor(map, "butterchurn").updateHz, 30);
   const restored = normalizeExomuxBackgroundSettings(JSON.parse(JSON.stringify(map)));
-  assertEquals(exomuxBackgroundSettingsFor(restored, "butterchurn").updateHz, 5);
+  assertEquals(exomuxBackgroundSettingsFor(restored, "butterchurn").updateHz, 30);
 
   // Junk is dropped wholesale rather than half-kept.
   assertEquals(normalizeExomuxBackgroundSettings(null), {});

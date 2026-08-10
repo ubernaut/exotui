@@ -31,6 +31,7 @@ import {
   createExomuxController,
   EXOMUX_NETWORK_WINDOW_ID,
   EXOMUX_SESSIONS_WINDOW_ID,
+  EXOMUX_SETTINGS_WINDOW_ID,
   ExomuxController,
   type ExomuxControllerOptions,
   exomuxNetworkNodeHostShellTarget,
@@ -511,7 +512,7 @@ export function mountExomuxDesktop(
         : id === "butterchurn"
         ? new ExomuxButterchurnField({
           cycleSeconds: Number(values.cycleSeconds ?? 15),
-          updateHz: Number(values.updateHz ?? 10),
+          updateHz: Number(values.updateHz ?? 60),
           audioMode: values.audioMode === "system" ? "system" : values.audioMode === "synth" ? "synth" : "mic",
         })
         : id === "image"
@@ -670,6 +671,12 @@ export function mountExomuxDesktop(
     const closeWindowId = command.kind === "close"
       ? command.id ?? fallbackWindowId ?? controller.windowHost.controller.inspect().activeWindowId
       : undefined;
+    if (closeWindowId === EXOMUX_SETTINGS_WINDOW_ID) {
+      // Closing the settings window tucks it away; there is nothing to kill.
+      controller.closeGlobalConfig(bodyRect.peek());
+      await syncWindows();
+      return;
+    }
     const closeSessionId = exomuxSessionIdFromWindow(closeWindowId);
     if (closeSessionId && controller.runtime(closeSessionId)) {
       const killed = await controller.killSession(closeSessionId);
@@ -828,7 +835,7 @@ export function mountExomuxDesktop(
   const backgroundTickMs = (): number => {
     if (controller.backgroundId.peek() !== "butterchurn") return EXOMUX_METABALL_FRAME_INTERVAL_MS;
     const values = exomuxBackgroundSettingsFor(controller.backgroundSettings.peek(), "butterchurn");
-    const hz = Number(values.updateHz ?? 10);
+    const hz = Number(values.updateHz ?? 60);
     return Number.isFinite(hz) && hz > 0 ? Math.max(4, Math.round(1000 / hz)) : EXOMUX_METABALL_FRAME_INTERVAL_MS;
   };
   let metaballTimer = setInterval(animateMetaballs, backgroundTickMs());
@@ -935,10 +942,12 @@ export function mountExomuxDesktop(
   const terminalMouse = new ExomuxTerminalMouseRouter(controller);
   const touchGestures = new Map<number, ExomuxTouchGesture>();
   let pendingPointerMove: ExomuxPointerMoveSlot | undefined;
+  // Global settings are deliberately absent: they live in an ordinary
+  // floating window now, so the rest of the desktop stays interactive.
   const modalOpen = (): boolean =>
     controller.helpVisible.peek() || controller.pendingKillSessionId.peek() !== undefined ||
     controller.quitModalVisible.peek() || controller.pendingScp.peek() !== undefined ||
-    controller.configSessionId.peek() !== undefined || controller.globalConfigVisible.peek() ||
+    controller.configSessionId.peek() !== undefined ||
     controller.backgroundConfigVisible.peek() ||
     controller.startMenuVisible.peek();
 
@@ -975,7 +984,7 @@ export function mountExomuxDesktop(
         controller.toggleNetworkPanel(bodyRect.peek());
         break;
       case "config":
-        controller.openGlobalConfig();
+        controller.openGlobalConfig(bodyRect.peek());
         break;
       case "help":
         controller.openHelp();
@@ -1067,6 +1076,45 @@ export function mountExomuxDesktop(
     return result.handled;
   };
 
+  /** Routes a click inside the settings window's client area to its rows. */
+  const activateSettingsHit = (column: number, row: number): boolean => {
+    const clientRect = windowProjection.peek().windows.find(
+      (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
+    )?.clientRect;
+    if (!clientRect || !controller.globalConfigVisible.peek()) return false;
+    const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
+    const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
+    const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
+    if (contains(layout.backgroundConfigRect, column, row)) {
+      controller.openBackgroundConfig();
+      return true;
+    }
+    if (contains(layout.closeRect, column, row)) {
+      controller.closeGlobalConfig(bodyRect.peek());
+      return true;
+    }
+    for (const entry of layout.themeRows) {
+      if (!contains(entry.rect, column, row)) continue;
+      controller.globalConfigPane.value = "theme";
+      controller.setTheme(EXOMUX_THEMES[entry.index]!.id);
+      return true;
+    }
+    for (const entry of layout.backgroundRows) {
+      if (!contains(entry.rect, column, row)) continue;
+      controller.globalConfigPane.value = "background";
+      controller.setBackground(EXOMUX_BACKGROUND_IDS[entry.index]!);
+      return true;
+    }
+    for (let index = 0; index < layout.optionRows.length; index += 1) {
+      if (!contains(layout.optionRows[index]!, column, row)) continue;
+      controller.globalConfigPane.value = "options";
+      controller.globalConfigOptionIndex.value = index;
+      controller.cycleGlobalSetting(EXOMUX_GLOBAL_SETTING_SPECS[index]!.id, 1);
+      return true;
+    }
+    return contains(clientRect, column, row);
+  };
+
   const activateManagerHit = async (hit: ExomuxManagerSessionHit): Promise<void> => {
     selectedSessionIndex.value = hit.index;
     await controller.openSession(hit.session.id, bodyRect.peek());
@@ -1083,6 +1131,10 @@ export function mountExomuxDesktop(
     }
     if (windowId === EXOMUX_NETWORK_WINDOW_ID) {
       controller.networkTree.move(Math.sign(delta));
+      return true;
+    }
+    if (windowId === EXOMUX_SETTINGS_WINDOW_ID) {
+      controller.moveGlobalConfigSelection(Math.sign(delta));
       return true;
     }
     const sessionId = exomuxSessionIdFromWindow(windowId);
@@ -1186,39 +1238,6 @@ export function mountExomuxDesktop(
         controller.backgroundConfigPane.value = "options";
         controller.backgroundConfigOptionIndex.value = optionAt;
         controller.cycleBackgroundSetting(specs[optionAt]!.id, 1);
-      }
-      return true;
-    }
-    if (controller.globalConfigVisible.peek()) {
-      const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
-      const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-      const layout = exomuxGlobalConfigLayout(windowProjection.peek().bounds, themeIndex, backgroundIndex);
-      if (contains(layout.backgroundConfigRect, column, row)) {
-        controller.openBackgroundConfig();
-        return true;
-      }
-      if (contains(layout.closeRect, column, row)) {
-        controller.closeGlobalConfig();
-        return true;
-      }
-      for (const entry of layout.themeRows) {
-        if (!contains(entry.rect, column, row)) continue;
-        controller.globalConfigPane.value = "theme";
-        controller.setTheme(EXOMUX_THEMES[entry.index]!.id);
-        return true;
-      }
-      for (const entry of layout.backgroundRows) {
-        if (!contains(entry.rect, column, row)) continue;
-        controller.globalConfigPane.value = "background";
-        controller.setBackground(EXOMUX_BACKGROUND_IDS[entry.index]!);
-        return true;
-      }
-      for (let index = 0; index < layout.optionRows.length; index += 1) {
-        if (!contains(layout.optionRows[index]!, column, row)) continue;
-        controller.globalConfigPane.value = "options";
-        controller.globalConfigOptionIndex.value = index;
-        controller.cycleGlobalSetting(EXOMUX_GLOBAL_SETTING_SPECS[index]!.id, 1);
-        return true;
       }
       return true;
     }
@@ -1355,6 +1374,13 @@ export function mountExomuxDesktop(
           await enqueue(() => activateNetworkHit(networkRow));
           return true;
         }
+      }
+      if (clientWindow?.id === EXOMUX_SETTINGS_WINDOW_ID) {
+        let settingsHandled = false;
+        await enqueue(() => {
+          settingsHandled = activateSettingsHit(event.x, event.y);
+        });
+        if (settingsHandled) return true;
       }
       if (clientWindow) handled = true;
       if (clientWindow && clientWindow.id !== EXOMUX_SESSIONS_WINDOW_ID) controller.syncActiveSession();
@@ -1571,6 +1597,8 @@ export function mountExomuxDesktop(
         } else if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
           const networkRow = networkRowAt(point.x, point.y);
           if (networkRow) await activateNetworkHit(networkRow);
+        } else if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
+          activateSettingsHit(point.x, point.y);
         }
         return true;
       }
@@ -1946,11 +1974,16 @@ export function mountExomuxDesktop(
       }
       return;
     }
-    if (controller.globalConfigVisible.peek()) {
+    if (
+      controller.globalConfigVisible.peek() &&
+      controller.windowHost.controller.inspect().activeWindowId === EXOMUX_SETTINGS_WINDOW_ID
+    ) {
+      // A normal window only owns the keyboard while focused; an unfocused
+      // settings window lets these keys reach the active terminal instead.
       const optionId = EXOMUX_GLOBAL_SETTING_SPECS[controller.globalConfigOptionIndex.peek()]?.id;
       const inOptions = controller.globalConfigPane.peek() === "options";
       if (event.key === "escape" || event.key.toLowerCase() === "q") {
-        controller.closeGlobalConfig();
+        controller.closeGlobalConfig(bodyRect.peek());
       } else if (event.key === "tab") {
         controller.moveGlobalConfigPane(event.shift ? -1 : 1);
       } else if (event.key === "up") {
@@ -2429,6 +2462,11 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
       event.key === "return" || event.key === "space" || event.key === "delete" || event.key === "pageup" ||
       event.key === "pagedown" || event.key === "home" || event.key === "end" || event.key.toLowerCase() === "r";
   }
+  if (activeWindowId === EXOMUX_SETTINGS_WINDOW_ID) {
+    return event.key === "up" || event.key === "down" || event.key === "left" || event.key === "right" ||
+      event.key === "return" || event.key === "space" || event.key === "tab" || event.key === "escape" ||
+      event.key.toLowerCase() === "q" || event.key.toLowerCase() === "b";
+  }
   if (activeWindowId !== EXOMUX_SESSIONS_WINDOW_ID) return false;
   return event.key === "up" || event.key === "down" || event.key === "return" || event.key === "space" ||
     event.key === "delete";
@@ -2645,7 +2683,6 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   if (scpRequest) paintScpModal(painter, projection, theme, scpRequest);
   const configSessionId = controller.configSessionId.peek();
   if (configSessionId) paintWindowConfigModal(painter, projection, theme, controller, configSessionId);
-  if (controller.globalConfigVisible.peek()) paintGlobalConfigModal(painter, projection, theme, controller);
   if (controller.backgroundConfigVisible.peek()) {
     paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField);
   }
@@ -2858,6 +2895,10 @@ function paintWindow(
   }
   if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
     paintNetworkPanel(painter, window.clientRect, controller, window.active, ground);
+    return;
+  }
+  if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
+    paintGlobalSettingsWindow(painter, window.clientRect, controller);
     return;
   }
   if (runtime && sessionId) {
@@ -3322,20 +3363,21 @@ function clampNumber(value: number, low: number, high: number): number {
 }
 
 /** Layout for the global config modal; exported for deterministic pointer tests. */
+/**
+ * Lays the settings content out inside the settings window's client area. The
+ * window host owns position and size — this only apportions whatever rect the
+ * user has dragged the window to.
+ */
 export function exomuxGlobalConfigLayout(
-  bounds: Rectangle,
+  rect: Rectangle,
   themeIndex: number,
   backgroundIndex: number,
 ): ExomuxGlobalConfigLayout {
-  const width = fitModalSpan(bounds.width, 52, 78, 6);
   const optionCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
-  // Frame + title + headers + lists + gap + options + buttons + frame.
-  const desired = EXOMUX_THEMES.length + optionCount + 6;
-  const height = Math.min(desired, fitModalSpan(bounds.height, 12, bounds.height, 2));
-  const rect = centeredRect(bounds, width, height);
-  const listTop = rect.row + 2;
-  const visibleRows = Math.max(1, rect.height - optionCount - 5);
-  const columnWidth = Math.max(8, Math.floor((rect.width - 5) / 2));
+  // Headers + lists + options + button row.
+  const listTop = rect.row + 1;
+  const visibleRows = Math.max(1, rect.height - optionCount - 3);
+  const columnWidth = Math.max(8, Math.floor((rect.width - 3) / 2));
   const themeStart = selectListStart(themeIndex, EXOMUX_THEMES.length, visibleRows);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, visibleRows);
   const themeRows: { rect: Rectangle; index: number }[] = [];
@@ -3344,26 +3386,26 @@ export function exomuxGlobalConfigLayout(
     const row = listTop + offset;
     if (themeStart + offset < EXOMUX_THEMES.length) {
       themeRows.push({
-        rect: { column: rect.column + 2, row, width: columnWidth, height: 1 },
+        rect: { column: rect.column + 1, row, width: columnWidth, height: 1 },
         index: themeStart + offset,
       });
     }
     if (backgroundStart + offset < EXOMUX_BACKGROUND_IDS.length) {
       backgroundRows.push({
-        rect: { column: rect.column + 3 + columnWidth, row, width: columnWidth, height: 1 },
+        rect: { column: rect.column + 2 + columnWidth, row, width: columnWidth, height: 1 },
         index: backgroundStart + offset,
       });
     }
   }
-  const optionTop = rect.row + rect.height - optionCount - 2;
+  const optionTop = rect.row + rect.height - optionCount - 1;
   const optionRows: Rectangle[] = [];
   for (let index = 0; index < optionCount; index += 1) {
-    optionRows.push({ column: rect.column + 2, row: optionTop + index, width: Math.max(0, rect.width - 4), height: 1 });
+    optionRows.push({ column: rect.column + 1, row: optionTop + index, width: Math.max(0, rect.width - 2), height: 1 });
   }
   const closeRect = {
-    column: Math.max(rect.column + 1, rect.column + rect.width - 10),
+    column: Math.max(rect.column, rect.column + rect.width - 9),
     row: rect.row + rect.height - 1,
-    width: Math.max(1, Math.min(9, rect.width - 2)),
+    width: Math.max(1, Math.min(9, rect.width)),
     height: 1,
   };
   return {
@@ -3373,9 +3415,9 @@ export function exomuxGlobalConfigLayout(
     optionRows,
     closeRect,
     backgroundConfigRect: {
-      column: Math.max(rect.column + 1, closeRect.column - 22),
+      column: Math.max(rect.column, closeRect.column - 23),
       row: closeRect.row,
-      width: Math.max(1, Math.min(21, closeRect.column - rect.column - 2)),
+      width: Math.max(1, Math.min(22, closeRect.column - rect.column - 1)),
       height: 1,
     },
   };
@@ -3573,30 +3615,22 @@ function paintBackgroundConfigModal(
   });
 }
 
-function paintGlobalConfigModal(
+function paintGlobalSettingsWindow(
   painter: DesktopPainter,
-  projection: WorkbenchWindowHostProjection,
-  theme: ExomuxThemeSpec,
+  rect: Rectangle,
   controller: ExomuxController,
 ): void {
+  const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
   const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-  const layout = exomuxGlobalConfigLayout(projection.bounds, themeIndex, backgroundIndex);
-  const { rect, themeRows, backgroundRows, optionRows, closeRect } = layout;
+  const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex);
+  const { themeRows, backgroundRows, optionRows, closeRect } = layout;
   const pane = controller.globalConfigPane.peek();
   const settings = controller.globalSettings.peek();
   const optionIndex = controller.globalConfigOptionIndex.peek();
 
-  painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
-  painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
-  painter.write(rect.column + 2, rect.row, " Exomux settings ", {
-    foreground: theme.background,
-    background: theme.accent,
-    bold: true,
-  });
-
-  const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 5) / 2));
-  const headerRow = rect.row + 1;
+  const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 3) / 2));
+  const headerRow = rect.row;
   const header = (column: number, text: string, focused: boolean) => {
     painter.write(column, headerRow, fitText(text, columnWidth), {
       foreground: focused ? theme.accent : theme.muted,
@@ -3604,8 +3638,8 @@ function paintGlobalConfigModal(
       bold: focused,
     });
   };
-  header(rect.column + 2, "Theme", pane === "theme");
-  header(rect.column + 3 + columnWidth, "Background", pane === "background");
+  header(rect.column + 1, "Theme", pane === "theme");
+  header(rect.column + 2 + columnWidth, "Background", pane === "background");
 
   const paintRow = (rowRect: Rectangle, label: string, selected: boolean, focused: boolean) => {
     painter.fill(rowRect, " ", {
@@ -3657,13 +3691,22 @@ function paintGlobalConfigModal(
     });
   }
 
-  painter.write(rect.column + 2, rect.row + rect.height - 1, fitText(" * overgrows idle windows ", rect.width - 36), {
-    foreground: theme.muted,
-    background: theme.surfaceStrong,
-  });
+  painter.write(
+    rect.column + 1,
+    rect.row + rect.height - 1,
+    fitText(" * overgrows idle windows ", Math.max(0, layout.backgroundConfigRect.column - rect.column - 2)),
+    {
+      foreground: theme.muted,
+      background: theme.surfaceStrong,
+    },
+  );
+  // The background-config button is the doorway to a whole second settings
+  // surface, so it wears the theme's warning hue — derived from the theme but
+  // deliberately not the accent everything else uses and never the desktop
+  // background — to stay visible at a glance.
   painter.write(layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
     foreground: theme.background,
-    background: theme.accent,
+    background: theme.warning,
     bold: true,
   });
   painter.write(closeRect.column, closeRect.row, "[ Close ]", {

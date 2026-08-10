@@ -253,6 +253,10 @@ export function buildExomuxNetworkNodes(
 }
 /** Stable left-docked network panel window listing saved hosts and tailnet devices. */
 export const EXOMUX_NETWORK_WINDOW_ID = "network" as const;
+/** Stable floating window carrying the desktop-wide settings. */
+export const EXOMUX_SETTINGS_WINDOW_ID = "settings" as const;
+/** Bounds used for settings-window commands when the caller has no live desktop rect. */
+const SETTINGS_FALLBACK_BOUNDS: Rectangle = Object.freeze({ column: 0, row: 0, width: 120, height: 36 });
 const WINDOW_RECONCILE_ATTEMPTS = 8;
 
 /** Live client-side projection of one daemon-owned terminal. */
@@ -638,8 +642,8 @@ export class ExomuxController {
     return next;
   }
 
-  /** Opens the desktop-wide config modal. */
-  openGlobalConfig(): void {
+  /** Opens the desktop-wide settings window and focuses it. */
+  openGlobalConfig(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): void {
     this.#assertActive();
     this.prefixPending.value = false;
     this.helpVisible.value = false;
@@ -648,13 +652,16 @@ export class ExomuxController {
     this.globalConfigPane.value = "theme";
     this.globalConfigOptionIndex.value = 0;
     this.globalConfigVisible.value = true;
+    this.windowHost.execute({ kind: "restore", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
+    this.windowHost.execute({ kind: "focus", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
     this.status.value = "Settings · Tab pane · ↑↓ choose · ←→ change · Escape close";
   }
 
-  /** Closes the desktop-wide config modal. */
-  closeGlobalConfig(): void {
+  /** Closes the desktop-wide settings window. */
+  closeGlobalConfig(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): void {
     if (this.#disposed) return;
     this.globalConfigVisible.value = false;
+    this.windowHost.execute({ kind: "minimize", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
     this.status.value = this.#statusSummary();
   }
 
@@ -706,7 +713,10 @@ export class ExomuxController {
     this.#assertActive();
     this.prefixPending.value = false;
     this.helpVisible.value = false;
-    this.globalConfigVisible.value = false;
+    if (this.globalConfigVisible.peek()) {
+      this.globalConfigVisible.value = false;
+      this.windowHost.execute({ kind: "minimize", id: EXOMUX_SETTINGS_WINDOW_ID }, SETTINGS_FALLBACK_BOUNDS);
+    }
     this.configSessionId.value = undefined;
     const id = this.backgroundId.peek();
     const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
@@ -1596,10 +1606,15 @@ export class ExomuxController {
       this.#applyWindowSettings(sessionId, settings);
     }
     this.themeRevision.value += 1;
-    // The network panel opens on demand from the menu; a restored session
-    // starts with it tucked away regardless of how the last run ended.
+    // The network panel and settings window open on demand from the menu; a
+    // restored session starts with both tucked away regardless of how the
+    // last run ended.
     this.windowHost.execute(
       { kind: "minimize", id: EXOMUX_NETWORK_WINDOW_ID },
+      { column: 0, row: 0, width: 120, height: 36 },
+    );
+    this.windowHost.execute(
+      { kind: "minimize", id: EXOMUX_SETTINGS_WINDOW_ID },
       { column: 0, row: 0, width: 120, height: 36 },
     );
     const windows = this.windowHost.controller.inspect().windows;
@@ -1801,6 +1816,21 @@ export class ExomuxController {
         maxHeight: 42,
         placement: "floating",
         floatingRect: { column: 0, row: 0, width: 32, height: 22 },
+      },
+      // Settings ride an ordinary floating window — movable, resizable, and
+      // stacked above terminals so opening them never hides the knobs. Born
+      // minimized: the menu restores it on demand.
+      {
+        id: EXOMUX_SETTINGS_WINDOW_ID,
+        title: "Exomux settings",
+        minWidth: 48,
+        minHeight: 16,
+        maxWidth: 90,
+        maxHeight: 44,
+        state: "minimized",
+        placement: "floating",
+        floatingRect: { column: 5, row: 2, width: 64, height: 24 },
+        alwaysOnTop: true,
       },
       ...[...runtimes.values()].map((runtime) => ({
         id: exomuxWindowId(runtime.sessionId),

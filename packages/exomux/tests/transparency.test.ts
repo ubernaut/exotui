@@ -30,7 +30,7 @@ Deno.test("opacity: a window defers to the desktop until it overrides it", () =>
 
 Deno.test("opacity: resolution is clamped and survives nonsense", () => {
   const global = defaultExomuxGlobalSettings();
-  assertEquals(global.opacity, 1, "the desktop ships opaque, so nothing changes until asked");
+  assertEquals(global.opacity, 0.85, "the desktop ships slightly translucent out of the box");
   for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, undefined as unknown as number]) {
     const resolved = exomuxResolvedOpacity({ ...global, opacity: bad });
     assert(Number.isFinite(resolved), `opacity ${String(bad)} resolved to ${resolved}`);
@@ -57,7 +57,7 @@ Deno.test("opacity: both config modals expose it and cycle through the same step
     seen.add(global.opacity);
   }
   assertEquals([...seen].sort((a, b) => b - a), [...EXOMUX_OPACITY_VALUES].sort((a, b) => b - a));
-  assertEquals(global.opacity, 1, "a full cycle returns to where it started");
+  assertEquals(global.opacity, 0.85, "a full cycle returns to where it started");
 
   let window = defaultExomuxWindowSettings();
   window = cycleExomuxWindowSetting(window, "opacity");
@@ -77,7 +77,7 @@ Deno.test("opacity: persisted values round-trip and reject junk", () => {
 
   // A value outside the offered steps is not a valid setting, so it falls back
   // rather than persisting something the modal could never show.
-  assertEquals(normalizeExomuxGlobalSettings({ opacity: 0.123 }).opacity, 1);
+  assertEquals(normalizeExomuxGlobalSettings({ opacity: 0.123 }).opacity, 0.85);
   assertEquals(normalizeExomuxWindowSettings({ opacity: "very" }).opacity, EXOMUX_OPACITY_INHERIT);
 });
 

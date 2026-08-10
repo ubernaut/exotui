@@ -34,6 +34,7 @@ import {
   createExomuxController,
   EXOMUX_NETWORK_WINDOW_ID,
   EXOMUX_SESSIONS_WINDOW_ID,
+  EXOMUX_SETTINGS_WINDOW_ID,
   EXOMUX_WARNING_TTL_MS,
   type ExomuxController,
 } from "../controller.ts";
@@ -201,6 +202,9 @@ Deno.test("Exomux mounted app renders styled terminal cells and routes ordered p
     initialSessions: [initial],
     defaultCommand: "/bin/test-shell",
   });
+  // These assertions snapshot exact cell colours, so pin the desktop opaque
+  // rather than inheriting the translucent factory default.
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 1 };
   const mount: ExomuxAppMountRef = {};
   const terminalOptions = createExomuxTerminalOptions(controller, mount);
   const { tuiOptions: _tuiOptions, ...headlessOptions } = terminalOptions;
@@ -997,6 +1001,9 @@ Deno.test("Exomux repaints Workbench light/dark themes and the six-family T2 the
   const initial = session("theme-render", "theme renderer", 0);
   const client = new FakeExomuxClient([initial]);
   const controller = await createExomuxController({ client, initialSessions: [initial] });
+  // These assertions snapshot exact cell colours, so pin the desktop opaque
+  // rather than inheriting the translucent factory default.
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 1 };
   const mount: ExomuxAppMountRef = {};
   const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
   const harness = await createTestTerminalApp({
@@ -1015,7 +1022,8 @@ Deno.test("Exomux repaints Workbench light/dark themes and the six-family T2 the
     // Pick a different theme straight off the select list.
     const themePick = EXOMUX_THEMES.findIndex((entry) => entry.id !== initialTheme);
     const themeLayout = exomuxGlobalConfigLayout(
-      mounted.windowProjection.peek().bounds,
+      mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SETTINGS_WINDOW_ID)!
+        .clientRect,
       Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === initialTheme)),
       0,
     );
@@ -1053,6 +1061,9 @@ Deno.test("Exomux mouse menus, modal buttons, floating chrome, shelf, and tiled 
   const initial = session("mouse-one", "mouse one", 0);
   const client = new FakeExomuxClient([initial]);
   const controller = await createExomuxController({ client, initialSessions: [initial] });
+  // These assertions snapshot exact cell colours, so pin the desktop opaque
+  // rather than inheriting the translucent factory default.
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 1 };
   const mount: ExomuxAppMountRef = {};
   const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
   const harness = await createTestTerminalApp({
@@ -1075,7 +1086,8 @@ Deno.test("Exomux mouse menus, modal buttons, floating chrome, shelf, and tiled 
     assertEquals(controller.globalConfigVisible.peek(), true);
     const backgroundPick = EXOMUX_BACKGROUND_IDS.findIndex((id) => id !== backgroundBefore);
     const backgroundLayout = exomuxGlobalConfigLayout(
-      mounted.windowProjection.peek().bounds,
+      mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SETTINGS_WINDOW_ID)!
+        .clientRect,
       0,
       Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(backgroundBefore)),
     );
@@ -1268,6 +1280,9 @@ Deno.test("Exomux terminal bar raises every open terminal, protects floating pai
   ];
   const client = new FakeExomuxClient(initialSessions);
   const controller = await createExomuxController({ client, initialSessions });
+  // These assertions snapshot exact cell colours, so pin the desktop opaque
+  // rather than inheriting the translucent factory default.
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 1 };
   const mount: ExomuxAppMountRef = {};
   const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
   const harness = await createTestTerminalApp({
@@ -2741,15 +2756,16 @@ Deno.test("Exomux global config modal picks theme and background from select lis
     assert(mounted);
     await mounted.whenIdle();
 
-    // Settings opens from the start menu.
+    // Settings opens from the start menu as a focused floating window.
     await clickStartMenuItem(harness, mounted, "config");
     assertEquals(controller.globalConfigVisible.peek(), true);
     assertEquals(controller.globalConfigPane.peek(), "theme");
+    assertEquals(controller.windowHost.controller.inspect().activeWindowId, EXOMUX_SETTINGS_WINDOW_ID);
 
-    const bounds = mounted.windowProjection.peek().bounds;
     const layoutFor = () =>
       exomuxGlobalConfigLayout(
-        bounds,
+        mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SETTINGS_WINDOW_ID)!
+          .clientRect,
         Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek())),
         Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek())),
       );
@@ -2822,7 +2838,7 @@ Deno.test("Exomux global settings normalize and reject unknown values", () => {
   assertEquals(normalizeExomuxGlobalSettings({ overgrowInactive: "yes" }), defaults);
   assertEquals(
     normalizeExomuxGlobalSettings({ overgrowInactive: false, overgrowFullMs: 30_000 }),
-    { overgrowInactive: false, overgrowFullMs: 30_000, borderStyle: "thin", opacity: 1 },
+    { overgrowInactive: false, overgrowFullMs: 30_000, borderStyle: "thin", opacity: 0.85 },
   );
   // Unlisted durations fall back rather than being trusted.
   assertEquals(normalizeExomuxGlobalSettings({ overgrowFullMs: 7 }).overgrowFullMs, defaults.overgrowFullMs);
@@ -3669,6 +3685,9 @@ Deno.test("Exomux paints the desktop background through a transparent terminal w
   const shell = session("shell-1", "shell", 1);
   const client = new FakeExomuxClient([shell]);
   const controller = await createExomuxController({ client, initialSessions: [shell] });
+  // These assertions snapshot exact cell colours, so pin the desktop opaque
+  // rather than inheriting the translucent factory default.
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 1 };
   const mount: ExomuxAppMountRef = {};
   const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
   const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 110, rows: 32 } });
@@ -3708,7 +3727,7 @@ Deno.test("Exomux paints the desktop background through a transparent terminal w
       return out;
     };
 
-    // Opaque is the shipped default: client cells are the window surface, bar
+    // Pinned opaque above: client cells are the window surface, bar
     // the cursor, which paints the accent colour wherever it happens to sit.
     const opaque = sample().filter(Boolean);
     assert(opaque.length > 0, "the terminal client area should be painted");
