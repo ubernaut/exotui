@@ -793,7 +793,11 @@ export class ExomuxButterchurnGpu {
     });
     this.#device.queue.writeTexture(
       { texture: gpu },
-      texture.data,
+      // Some Deno releases type this parameter as strictly ArrayBuffer-backed,
+      // which the field's plain Uint8Array annotation cannot prove. slice()
+      // re-establishes the backing in every TS lib variant, at a one-time copy
+      // of a noise texture during upload.
+      texture.data.slice(),
       { bytesPerRow: texture.size * 4, rowsPerImage: texture.size },
       [texture.size, texture.size, texture.depth],
     );
