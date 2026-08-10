@@ -140,7 +140,12 @@ Deno.test("Exomux preserves extended colors and remaps basic ANSI text for every
 });
 
 Deno.test("Exomux launcher defaults to durable client mode and parses explicit daemon paths", () => {
-  assertEquals(parseExomuxShowcaseArgs([]), { daemon: false, persistLayout: true });
+  assertEquals(parseExomuxShowcaseArgs([]), {
+    daemon: false,
+    persistLayout: true,
+    listSessions: false,
+    newSession: false,
+  });
   assertEquals(
     parseExomuxShowcaseArgs([
       "--daemon",
@@ -151,12 +156,19 @@ Deno.test("Exomux launcher defaults to durable client mode and parses explicit d
     {
       daemon: true,
       persistLayout: true,
+      listSessions: false,
+      newSession: false,
       stateDirectory: "/private/state",
       descriptorPath: "/private/state/host.json",
       layoutPath: "/private/state/layout.json",
     },
   );
-  assertEquals(parseExomuxShowcaseArgs(["--memory"]), { daemon: false, persistLayout: false });
+  assertEquals(parseExomuxShowcaseArgs(["--memory"]), {
+    daemon: false,
+    persistLayout: false,
+    listSessions: false,
+    newSession: false,
+  });
   assertThrows(() => parseExomuxShowcaseArgs(["--mystery"]), TypeError, "Unknown Exomux option");
 });
 

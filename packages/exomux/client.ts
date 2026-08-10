@@ -63,6 +63,25 @@ export interface ConnectExomuxWebSocketOptions {
   readonly createWebSocket?: (url: string) => ExomuxWebSocketLike;
 }
 
+/** How the bootstrap may resolve the recorded local host. */
+export type ExomuxConnectMode = "attach-or-launch" | "attach-only" | "launch-only";
+
+/** What the recorded pid turns out to be once the host stops answering. */
+export type ExomuxProcessProbeResult = "dead" | "foreign" | "daemon" | "unknown";
+
+/** Injectable pid inspection so bootstrap recovery is deterministic in tests. */
+export type ExomuxProcessProbe = (pid: number) => ExomuxProcessProbeResult | Promise<ExomuxProcessProbeResult>;
+
+/** Why a recorded descriptor had to be cleared before this connection. */
+export interface ExomuxDescriptorRecovery {
+  /** `stale-process`: the pid is dead or recycled. `unresponsive-host`: it looks like a daemon but never answered. */
+  readonly reason: "stale-process" | "unresponsive-host";
+  readonly pid: number;
+  readonly hostId: string;
+  /** Set when the unresponsive descriptor was preserved for inspection instead of removed. */
+  readonly quarantinedPath?: string;
+}
+
 /** Bounded client bootstrap options for reusing or launching the local host. */
 export interface ConnectExomuxLocalHostOptions {
   readonly stateDirectory?: string;
@@ -70,6 +89,8 @@ export interface ConnectExomuxLocalHostOptions {
   readonly mainModuleUrl?: URL;
   readonly timeoutMs?: number;
   readonly requestTimeoutMs?: number;
+  readonly mode?: ExomuxConnectMode;
+  readonly processProbe?: ExomuxProcessProbe;
   readonly createWebSocket?: (url: string) => ExomuxWebSocketLike;
   readonly spawnDaemon?: (options: {
     readonly descriptorPath: string;
@@ -82,6 +103,8 @@ export interface ConnectedExomuxLocalHost {
   readonly client: ExomuxWebSocketClient;
   readonly descriptor: ExomuxLocalHostDescriptor;
   readonly launched: boolean;
+  /** Present when a crashed or wedged predecessor's descriptor was cleared first. */
+  readonly recovery?: ExomuxDescriptorRecovery;
 }
 
 interface ExomuxStartupLock {
@@ -611,18 +634,44 @@ export async function connectOrLaunchExomuxLocalHost(
   const descriptorPath = options.descriptorPath ?? joinLocalPath(stateDirectory, "host.json");
   const lockPath = `${descriptorPath}.lock`;
   const timeoutMs = normalizeTimeout(options.timeoutMs, DEFAULT_CONNECT_TIMEOUT_MS);
-  const deadline = Date.now() + timeoutMs;
-  await ensurePrivateDirectory(stateDirectory);
+  const mode = options.mode ?? "attach-or-launch";
+  // Attaching must not leave state behind for sessions that never existed.
+  if (mode !== "attach-only") await ensurePrivateExomuxStateDirectory(stateDirectory);
 
-  const existing = await connectExistingDescriptorOrRetain(descriptorPath, options, deadline);
-  if (existing) return { ...existing, launched: false };
+  let deadline = Date.now() + timeoutMs;
+  let recovery: ExomuxDescriptorRecovery | undefined;
+  const acceptExisting = async (
+    connection: Omit<ConnectedExomuxLocalHost, "launched" | "recovery">,
+  ): Promise<ConnectedExomuxLocalHost> => {
+    if (mode === "launch-only") {
+      await connection.client.dispose();
+      throw new ExomuxClientError("session-exists", "An Exomux host is already running for this session.");
+    }
+    return { ...connection, launched: false, ...(recovery ? { recovery } : {}) };
+  };
+
+  const existing = await resolveExistingDescriptor(descriptorPath, options, deadline).catch((error: unknown) => {
+    // A session that never launched has no state directory at all; report it
+    // as absent instead of as an unsafe path.
+    if (
+      mode === "attach-only" && error instanceof ExomuxClientError && error.code === "unsafe-state-directory"
+    ) return {} as ExistingDescriptorResolution;
+    throw error;
+  });
+  recovery = existing.recovery;
+  if (existing.connection) return await acceptExisting(existing.connection);
+  if (mode === "attach-only") throw attachOnlyUnavailable(recovery);
+  // Recovering from a wedged host consumed the connect budget; the replacement
+  // launch gets a full window of its own so recovery cannot starve it.
+  if (recovery) deadline = Date.now() + timeoutMs;
 
   let lock: ExomuxStartupLock | undefined;
   while (!lock) {
     lock = await tryAcquireStartupLock(lockPath);
     if (lock) break;
-    const raced = await connectExistingDescriptorOrRetain(descriptorPath, options, deadline);
-    if (raced) return { ...raced, launched: false };
+    const raced = await resolveExistingDescriptor(descriptorPath, options, deadline);
+    recovery = raced.recovery ?? recovery;
+    if (raced.connection) return await acceptExisting(raced.connection);
     if (Date.now() >= deadline) {
       throw new ExomuxClientError("startup-timeout", "Timed out waiting for the local Exomux host.");
     }
@@ -631,8 +680,9 @@ export async function connectOrLaunchExomuxLocalHost(
   }
 
   try {
-    const raced = await connectExistingDescriptorOrRetain(descriptorPath, options, deadline);
-    if (raced) return { ...raced, launched: false };
+    const raced = await resolveExistingDescriptor(descriptorPath, options, deadline);
+    recovery = raced.recovery ?? recovery;
+    if (raced.connection) return await acceptExisting(raced.connection);
     const authToken = createExomuxAuthToken();
     const mainModuleUrl = options.mainModuleUrl ?? new URL("./main.ts", import.meta.url);
     if (options.spawnDaemon) {
@@ -642,7 +692,7 @@ export async function connectOrLaunchExomuxLocalHost(
     }
     while (Date.now() < deadline) {
       const launched = await tryConnectDescriptor(descriptorPath, options);
-      if (launched) return { ...launched, launched: true };
+      if (launched) return { ...launched, launched: true, ...(recovery ? { recovery } : {}) };
       await delay(STARTUP_POLL_MS);
     }
     throw new ExomuxClientError("startup-timeout", "The local Exomux host did not become ready.");
@@ -653,6 +703,23 @@ export async function connectOrLaunchExomuxLocalHost(
       await removeStartupLockIfOwned(lockPath, lock.token);
     }
   }
+}
+
+function attachOnlyUnavailable(recovery?: ExomuxDescriptorRecovery): ExomuxClientError {
+  if (recovery?.reason === "unresponsive-host") {
+    return new ExomuxClientError(
+      "existing-host-unreachable",
+      `The recorded Exomux host (pid ${recovery.pid}) did not respond; its descriptor was ` +
+        (recovery.quarantinedPath ? `quarantined at ${recovery.quarantinedPath}.` : "cleared."),
+    );
+  }
+  if (recovery) {
+    return new ExomuxClientError(
+      "stale-session-host",
+      `The recorded Exomux host (pid ${recovery.pid}) is gone; its stale descriptor was removed.`,
+    );
+  }
+  return new ExomuxClientError("no-session-host", "No Exomux host is recorded for this session.");
 }
 
 /** Reads and strictly validates a private local-host descriptor. */
@@ -687,7 +754,7 @@ export async function writeExomuxHostDescriptor(
 ): Promise<void> {
   const descriptor = normalizeExomuxHostDescriptor(descriptorValue);
   const parent = localDirname(path);
-  await ensurePrivateDirectory(parent);
+  await ensurePrivateExomuxStateDirectory(parent);
   const temporary = `${path}.tmp-${crypto.randomUUID()}`;
   let file: Deno.FsFile | undefined;
   try {
@@ -851,41 +918,91 @@ async function tryConnectDescriptor(
   }
 }
 
-async function connectExistingDescriptorOrRetain(
+interface ExistingDescriptorResolution {
+  readonly connection?: Omit<ConnectedExomuxLocalHost, "launched" | "recovery">;
+  readonly recovery?: ExomuxDescriptorRecovery;
+}
+
+/**
+ * Connects to the recorded host, or clears a descriptor that can no longer be
+ * served: a dead or recycled pid is removed immediately, and a pid that still
+ * looks like an Exomux daemon but never answers is quarantined once the
+ * deadline passes. A crashed predecessor can therefore never permanently block
+ * new launches — the old behavior of retaining the descriptor and failing did
+ * exactly that whenever a crash left a wedged host or its pid was recycled.
+ */
+async function resolveExistingDescriptor(
   path: string,
   options: ConnectExomuxLocalHostOptions,
   deadline: number,
-): Promise<Omit<ConnectedExomuxLocalHost, "launched"> | undefined> {
+): Promise<ExistingDescriptorResolution> {
   let descriptor = await readExomuxHostDescriptor(path);
-  if (!descriptor) return undefined;
+  if (!descriptor) return {};
+  const probe = options.processProbe ?? probeExomuxHostProcess;
   while (true) {
-    const connected = await tryConnectDescriptor(path, options);
-    if (connected) return connected;
+    const connection = await tryConnectDescriptor(path, options);
+    if (connection) return { connection };
     const current = await readExomuxHostDescriptor(path);
-    if (!current) return undefined;
+    if (!current) return {};
     descriptor = current;
-    if (!(await isPlausiblyLiveLocalProcess(descriptor.pid))) {
+    const process = await probe(descriptor.pid);
+    if (process === "dead" || process === "foreign") {
       await removeExomuxHostDescriptor(path, descriptor.hostId);
-      return undefined;
+      return { recovery: { reason: "stale-process", pid: descriptor.pid, hostId: descriptor.hostId } };
     }
     if (Date.now() >= deadline) {
-      throw new ExomuxClientError(
-        "existing-host-unreachable",
-        "The recorded Exomux host still appears alive but did not respond; its descriptor was retained.",
-      );
+      const quarantinedPath = await quarantineExomuxHostDescriptor(path, descriptor.hostId);
+      return {
+        recovery: {
+          reason: "unresponsive-host",
+          pid: descriptor.pid,
+          hostId: descriptor.hostId,
+          ...(quarantinedPath ? { quarantinedPath } : {}),
+        },
+      };
     }
     await delay(STARTUP_POLL_MS);
   }
 }
 
-async function isPlausiblyLiveLocalProcess(pid: number): Promise<boolean> {
-  if (Deno.build.os !== "linux") return true;
+/**
+ * Distinguishes a live Exomux daemon from a dead pid and from an unrelated
+ * process that merely recycled the recorded pid after a crash. Argv is the
+ * discriminator — the daemon always carries a literal `--daemon` flag — because
+ * a recycled pid is otherwise indistinguishable from a wedged host. A live pid
+ * whose argv is empty is a zombie: it cannot own a listener, so it is dead here.
+ */
+export async function probeExomuxHostProcess(pid: number): Promise<ExomuxProcessProbeResult> {
+  if (Deno.build.os !== "linux") return "unknown";
+  let cmdline: string;
   try {
-    const info = await Deno.stat(`/proc/${pid}`);
-    return info.isDirectory;
+    cmdline = await Deno.readTextFile(`/proc/${pid}/cmdline`);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
-    return true;
+    if (error instanceof Deno.errors.NotFound) return "dead";
+    return "unknown";
+  }
+  const argv = cmdline.split("\0").filter((argument) => argument.length > 0);
+  if (argv.length === 0) return "dead";
+  return argv.includes("--daemon") ? "daemon" : "foreign";
+}
+
+/**
+ * Preserves an unresponsive host's descriptor beside the live path — keeping
+ * its pid and token available for manual inspection or a `kill` — so that a
+ * replacement host can be launched. Returns the quarantine path, or undefined
+ * when the descriptor changed hands or could not be moved; launching proceeds
+ * either way because the daemon rewrites the live path atomically.
+ */
+export async function quarantineExomuxHostDescriptor(path: string, hostId: string): Promise<string | undefined> {
+  const descriptor = await readExomuxHostDescriptor(path).catch(() => undefined);
+  if (descriptor?.hostId !== hostId) return undefined;
+  const target = `${path}.unresponsive`;
+  try {
+    await removeRegularFile(target);
+    await Deno.rename(path, target);
+    return target;
+  } catch {
+    return undefined;
   }
 }
 
@@ -965,7 +1082,8 @@ function trustedSetsidPath(): string | undefined {
   return undefined;
 }
 
-async function ensurePrivateDirectory(path: string): Promise<void> {
+/** Creates or validates one 0700 state directory; sessions and the launcher share it. */
+export async function ensurePrivateExomuxStateDirectory(path: string): Promise<void> {
   let created = false;
   let info: Deno.FileInfo;
   try {
@@ -1049,7 +1167,8 @@ async function removeStaleStartupLock(path: string): Promise<void> {
     const modified = info.mtime?.getTime();
     if (modified === undefined || Date.now() - modified <= STARTUP_LOCK_STALE_MS) return;
     const owner = normalizeStartupLock(await Deno.readTextFile(path));
-    if (!owner || await isPlausiblyLiveLocalProcess(owner.pid)) return;
+    // Lock owners are launching clients, not daemons: only a dead pid is stale.
+    if (!owner || (await probeExomuxHostProcess(owner.pid)) !== "dead") return;
     await removeStartupLockIfOwned(path, owner.token);
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) throw error;

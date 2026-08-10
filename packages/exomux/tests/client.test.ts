@@ -12,7 +12,7 @@ import {
   readExomuxHostDescriptor,
   writeExomuxHostDescriptor,
 } from "../client.ts";
-import { serveExomuxHost } from "../host.ts";
+import { type ExomuxHostServer, serveExomuxHost } from "../host.ts";
 import {
   createExomuxAuthToken,
   encodeExomuxData,
@@ -436,38 +436,169 @@ Deno.test({
   },
 });
 
-Deno.test("Exomux bootstrap retains an unreachable descriptor for a plausibly live host", async () => {
-  const directory = await Deno.makeTempDir({ prefix: "exomux-live-generation-" });
-  const descriptorPath = `${directory}/host.json`;
-  const descriptor = {
+function unreachableDescriptor(hostId: string) {
+  return {
     schemaVersion: 1 as const,
-    hostId: "plausibly-live-generation",
+    hostId,
     url: "ws://127.0.0.1:9/exomux/v1",
     token: createExomuxAuthToken(),
     pid: Deno.pid,
-    startedAt: Date.now(),
+    startedAt: Date.now() - 60_000,
   };
-  let spawnCalls = 0;
+}
+
+/** A spawnDaemon seam that brings up a real in-process host and its descriptor. */
+function inProcessDaemonSpawner(state: { server?: ExomuxHostServer; spawnCalls: number }) {
+  return async (options: { descriptorPath: string; authToken: string }) => {
+    state.spawnCalls += 1;
+    state.server = serveExomuxHost({ authToken: options.authToken });
+    const address = await state.server.address;
+    await writeExomuxHostDescriptor(options.descriptorPath, {
+      schemaVersion: 1,
+      flowControlledReplay: true,
+      hostId: state.server.controller.id,
+      url: address.url,
+      token: options.authToken,
+      pid: Deno.pid,
+      startedAt: Date.now(),
+    });
+  };
+}
+
+Deno.test("Exomux bootstrap replaces a descriptor whose pid is no longer an Exomux daemon", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-stale-pid-" });
+  const descriptorPath = `${directory}/host.json`;
+  const state: { server?: ExomuxHostServer; spawnCalls: number } = { spawnCalls: 0 };
   try {
-    await writeExomuxHostDescriptor(descriptorPath, descriptor);
-    await assertRejects(
-      () =>
-        connectOrLaunchExomuxLocalHost({
-          stateDirectory: directory,
-          descriptorPath,
-          timeoutMs: 150,
-          requestTimeoutMs: 100,
-          spawnDaemon: () => {
-            spawnCalls += 1;
-          },
-        }),
-      Error,
-      "appears alive",
+    await writeExomuxHostDescriptor(descriptorPath, unreachableDescriptor("crashed-generation"));
+    const connection = await connectOrLaunchExomuxLocalHost({
+      stateDirectory: directory,
+      descriptorPath,
+      timeoutMs: 5_000,
+      requestTimeoutMs: 500,
+      // The crash left the recorded pid to be recycled by an unrelated process.
+      processProbe: () => "foreign",
+      spawnDaemon: inProcessDaemonSpawner(state),
+    });
+    try {
+      assertEquals(state.spawnCalls, 1);
+      assertEquals(connection.launched, true);
+      assertEquals(connection.recovery?.reason, "stale-process");
+      assertEquals(connection.recovery?.hostId, "crashed-generation");
+      assert(Number.isFinite(await connection.client.ping()));
+      assertEquals((await readExomuxHostDescriptor(descriptorPath))?.hostId, state.server?.controller.id);
+    } finally {
+      await connection.client.dispose();
+    }
+  } finally {
+    await state.server?.shutdown();
+    await Deno.remove(directory, { recursive: true }).catch(() => undefined);
+  }
+});
+
+Deno.test("Exomux bootstrap quarantines an unresponsive daemon descriptor and launches a fresh host", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-wedged-" });
+  const descriptorPath = `${directory}/host.json`;
+  const state: { server?: ExomuxHostServer; spawnCalls: number } = { spawnCalls: 0 };
+  try {
+    await writeExomuxHostDescriptor(descriptorPath, unreachableDescriptor("wedged-generation"));
+    const connection = await connectOrLaunchExomuxLocalHost({
+      stateDirectory: directory,
+      descriptorPath,
+      timeoutMs: 1_000,
+      requestTimeoutMs: 200,
+      // The pid still looks like an Exomux daemon, but it never answers.
+      processProbe: () => "daemon",
+      spawnDaemon: inProcessDaemonSpawner(state),
+    });
+    try {
+      assertEquals(state.spawnCalls, 1);
+      assertEquals(connection.launched, true);
+      assertEquals(connection.recovery?.reason, "unresponsive-host");
+      assertEquals(connection.recovery?.quarantinedPath, `${descriptorPath}.unresponsive`);
+      const quarantined = await readExomuxHostDescriptor(`${descriptorPath}.unresponsive`);
+      assertEquals(quarantined?.hostId, "wedged-generation");
+      assertEquals((await readExomuxHostDescriptor(descriptorPath))?.hostId, state.server?.controller.id);
+    } finally {
+      await connection.client.dispose();
+    }
+  } finally {
+    await state.server?.shutdown();
+    await Deno.remove(directory, { recursive: true }).catch(() => undefined);
+  }
+});
+
+Deno.test("Exomux attach-only bootstrap never launches and explains absent, stale, and wedged hosts", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-attach-only-" });
+  const descriptorPath = `${directory}/host.json`;
+  let spawnCalls = 0;
+  const bootstrap = (processProbe: () => "foreign" | "daemon") =>
+    connectOrLaunchExomuxLocalHost({
+      stateDirectory: directory,
+      descriptorPath,
+      mode: "attach-only",
+      timeoutMs: 300,
+      requestTimeoutMs: 100,
+      processProbe,
+      spawnDaemon: () => {
+        spawnCalls += 1;
+      },
+    });
+  try {
+    await assertExomuxClientError(bootstrap(() => "daemon"), "no-session-host", "No Exomux host is recorded");
+
+    await writeExomuxHostDescriptor(descriptorPath, unreachableDescriptor("stale-generation"));
+    await assertExomuxClientError(bootstrap(() => "foreign"), "stale-session-host", "stale descriptor was removed");
+    assertEquals(await readExomuxHostDescriptor(descriptorPath), undefined);
+
+    await writeExomuxHostDescriptor(descriptorPath, unreachableDescriptor("wedged-generation"));
+    await assertExomuxClientError(bootstrap(() => "daemon"), "existing-host-unreachable", "did not respond");
+    assertEquals(await readExomuxHostDescriptor(descriptorPath), undefined);
+    assertEquals(
+      (await readExomuxHostDescriptor(`${descriptorPath}.unresponsive`))?.hostId,
+      "wedged-generation",
     );
     assertEquals(spawnCalls, 0);
-    assertEquals(await readExomuxHostDescriptor(descriptorPath), descriptor);
   } finally {
-    await Deno.remove(directory, { recursive: true });
+    await Deno.remove(directory, { recursive: true }).catch(() => undefined);
+  }
+});
+
+Deno.test("Exomux launch-only bootstrap refuses a session whose host is already answering", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-launch-only-" });
+  const descriptorPath = `${directory}/host.json`;
+  const authToken = createExomuxAuthToken();
+  const server = serveExomuxHost({ authToken });
+  let spawnCalls = 0;
+  try {
+    const address = await server.address;
+    await writeExomuxHostDescriptor(descriptorPath, {
+      schemaVersion: 1,
+      flowControlledReplay: true,
+      hostId: server.controller.id,
+      url: address.url,
+      token: authToken,
+      pid: Deno.pid,
+      startedAt: Date.now(),
+    });
+    await assertExomuxClientError(
+      connectOrLaunchExomuxLocalHost({
+        stateDirectory: directory,
+        descriptorPath,
+        mode: "launch-only",
+        timeoutMs: 2_000,
+        requestTimeoutMs: 500,
+        spawnDaemon: () => {
+          spawnCalls += 1;
+        },
+      }),
+      "session-exists",
+      "already running",
+    );
+    assertEquals(spawnCalls, 0);
+  } finally {
+    await server.shutdown();
+    await Deno.remove(directory, { recursive: true }).catch(() => undefined);
   }
 });
 
