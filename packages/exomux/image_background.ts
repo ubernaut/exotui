@@ -5,13 +5,22 @@
 // The image is decoded once, box-filtered down to the cell grid with the
 // terminal's 2:1 cell aspect respected, and painted as `█` cells whose
 // foreground carries the colour. Aspect is preserved; the letterbox shows the
-// desktop theme. PNG only: it is the one common format decodable with nothing
-// but `DecompressionStream`, and a JPEG decoder is not worth vendoring for a
-// wallpaper. The file is picked in the background config modal's browser.
+// desktop theme. PNG decodes with nothing but `DecompressionStream`; JPEG goes
+// through the vendored `jpeg-js`. The file is picked in the config browser.
 
+import { decode as decodeJpeg } from "jpeg-js";
 import type { Rectangle } from "@ubernaut/deno-tui";
 import type { ExomuxBackgroundAdvanceOptions, ExomuxBackgroundCell, ExomuxBackgroundPoint } from "./background.ts";
 import type { ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
+
+/** Wallpaper file extensions the browser lists and the field decodes. */
+export const EXOMUX_IMAGE_EXTENSIONS: readonly string[] = Object.freeze([".png", ".jpg", ".jpeg"]);
+
+/** True when a filename is a wallpaper the image background can load. */
+export function isExomuxImageFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return EXOMUX_IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
 
 /** Decoded raster: RGBA bytes, row-major. */
 export interface ExomuxDecodedImage {
@@ -21,8 +30,31 @@ export interface ExomuxDecodedImage {
 }
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
 /** Refuse anything that would decode to more than this many pixels. */
 const MAX_PIXELS = 64 * 1024 * 1024;
+
+function hasSignature(bytes: Uint8Array, signature: readonly number[]): boolean {
+  if (bytes.length < signature.length) return false;
+  for (let index = 0; index < signature.length; index += 1) {
+    if (bytes[index] !== signature[index]) return false;
+  }
+  return true;
+}
+
+/** Decodes a JPEG to RGBA via the vendored decoder, with the same pixel cap. */
+export function decodeExomuxJpeg(bytes: Uint8Array): ExomuxDecodedImage {
+  const decoded = decodeJpeg(bytes, { useTArray: true, formatAsRGBA: true, maxResolutionInMP: MAX_PIXELS / 1e6 });
+  if (decoded.width * decoded.height > MAX_PIXELS) throw new Error("image too large");
+  return { width: decoded.width, height: decoded.height, pixels: new Uint8Array(decoded.data) };
+}
+
+/** Decodes a PNG or JPEG by content signature; the browser only offers those. */
+export async function decodeExomuxImage(bytes: Uint8Array): Promise<ExomuxDecodedImage> {
+  if (hasSignature(bytes, PNG_SIGNATURE)) return await decodeExomuxPng(bytes);
+  if (hasSignature(bytes, JPEG_SIGNATURE)) return decodeExomuxJpeg(bytes);
+  throw new Error("unsupported image format (PNG and JPEG only)");
+}
 
 /**
  * Decodes a PNG. Supports the common shapes — 8-bit depth in every colour
@@ -131,7 +163,7 @@ export async function decodeExomuxPng(bytes: Uint8Array): Promise<ExomuxDecodedI
 }
 
 export interface ExomuxImageFieldOptions {
-  /** Path of the PNG to show; nothing renders until one is set. */
+  /** Path of the image (PNG or JPEG) to show; nothing renders until set. */
   readonly path?: string;
   /** Test seam: bytes to decode instead of reading `path`. */
   readonly bytes?: Uint8Array;
@@ -160,7 +192,7 @@ export class ExomuxImageField {
   constructor(options: ExomuxImageFieldOptions = {}) {
     this.#path = options.path;
     if (options.bytes) {
-      this.#loading = decodeExomuxPng(options.bytes)
+      this.#loading = decodeExomuxImage(options.bytes)
         .then((image) => {
           this.#image = image;
         })
@@ -172,7 +204,7 @@ export class ExomuxImageField {
         });
     } else if (options.path) {
       this.#loading = Deno.readFile(options.path)
-        .then(decodeExomuxPng)
+        .then(decodeExomuxImage)
         .then((image) => {
           this.#image = image;
         })

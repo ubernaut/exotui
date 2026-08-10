@@ -10,6 +10,7 @@
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.6",
     "jsr:@std/path@^1.1.5": "1.1.6",
+    "npm:jpeg-js@0.4.4": "0.4.4",
     "npm:markdown-it@15.0.0": "15.0.0"
   },
   "jsr": {
@@ -62,6 +63,9 @@
     "entities@8.0.0": {
       "integrity": "sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA=="
     },
+    "jpeg-js@0.4.4": {
+      "integrity": "sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg=="
+    },
     "linkify-it@6.1.0": {
       "integrity": "sha512-wJ/TwpSDTLepCrQoYWYIExIKg5Zchex2Nn5yk2mFnB+6PtdkHtyLx742md9csRjjOnGkKIS/RrbY7l8D6gT9Vw==",
       "dependencies": [
@@ -99,6 +103,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@sigma/pty-ffi@0.42.0",
+      "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0"
     ],
     "links": {
