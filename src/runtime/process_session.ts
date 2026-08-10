@@ -50,7 +50,8 @@ export interface ProcessSessionControllerOptions extends ProcessSessionCommand {
   appendCommandLine?: boolean;
   now?: () => number;
   spawn?: ProcessSessionSpawner;
-  onOutputData?: (source: TerminalOutputSource, data: Uint8Array) => void;
+  /** Raw output consumer; a returned promise defers the next stream read (backpressure). */
+  onOutputData?: (source: TerminalOutputSource, data: Uint8Array) => void | Promise<void>;
   diagnostics?: DiagnosticsCollector;
 }
 
@@ -74,7 +75,7 @@ export class ProcessSessionController {
   readonly #appendCommandLine: boolean;
   readonly #now: () => number;
   readonly #spawn: ProcessSessionSpawner;
-  readonly #onOutputData?: (source: TerminalOutputSource, data: Uint8Array) => void;
+  readonly #onOutputData?: (source: TerminalOutputSource, data: Uint8Array) => void | Promise<void>;
   readonly #diagnostics?: DiagnosticsCollector;
   #child?: ProcessSessionChild;
   #runId = 0;
@@ -273,7 +274,7 @@ export class ProcessSessionController {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        this.#onOutputData?.(source, value);
+        const consumed = this.#onOutputData?.(source, value);
         const timestamp = this.#now();
         const truncated = lines.append(decoder.decode(value, { stream: true }), (line) => {
           if (runId !== this.#runId) return;
@@ -284,6 +285,9 @@ export class ProcessSessionController {
             `unterminated ${source} fragment truncated to ${MAX_PENDING_OUTPUT_LINE_LENGTH} characters; raw process data is unaffected`,
           );
         }
+        // Consumer backpressure: hold the next read until it is ready, letting
+        // the pipe fill and the child block instead of buffering unboundedly.
+        if (consumed) await consumed;
       }
       const timestamp = this.#now();
       lines.append(decoder.decode(), (line) => {

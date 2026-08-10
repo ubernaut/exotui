@@ -33,6 +33,16 @@ const WEBSOCKET_BACKPRESSURE_TIMEOUT_MS = 5_000;
 const SESSION_TITLE_REFRESH_MS = 100;
 /** Matches the responsive Workbench PTY cadence instead of Sigma PTY's 100 ms default. */
 export const EXOMUX_PTY_POLLING_INTERVAL_MS = 8;
+/** How long a saturated session's ingestion waits between drain re-checks. */
+const INGEST_DEFER_MS = 12;
+/** Saturated waits give up after this long so a fully stalled client set falls
+ * back to the slow-client quota instead of wedging ingestion forever. */
+const INGEST_SATURATED_LIMIT_MS = WEBSOCKET_BACKPRESSURE_TIMEOUT_MS;
+/** A large PTY batch yields to the event loop this often, so a flood can never
+ * starve delivery, handshakes, or timers into a mute daemon. */
+const INGEST_YIELD_BYTES = 256 * 1024;
+/** Window for the unattached-session drain budget. */
+const UNATTACHED_DRAIN_WINDOW_MS = 1_000;
 const DEFAULT_HOST_LIMITS: Readonly<ExomuxHostLimits> = Object.freeze({
   clients: 32,
   sessions: 32,
@@ -42,6 +52,7 @@ const DEFAULT_HOST_LIMITS: Readonly<ExomuxHostLimits> = Object.freeze({
   outboundBytes: 2 * 1024 * 1024,
   replayEntries: 2048,
   replayBytes: 2 * 1024 * 1024,
+  unattachedBytesPerSecond: 256 * 1024,
 });
 
 /** Bounded daemon-owned resource limits. */
@@ -54,6 +65,14 @@ export interface ExomuxHostLimits {
   outboundBytes: number;
   replayEntries: number;
   replayBytes: number;
+  /**
+   * Per-session PTY drain budget while no client is attached. A session nobody
+   * watches only feeds the replay ring, so reading it flat out buys nothing: a
+   * paused game spewing full-screen effects at 2-4 MiB/s used to keep the
+   * daemon at 100% CPU indefinitely. Past the budget the read loop defers and
+   * the child blocks on the kernel PTY buffer; attaching restores full speed.
+   */
+  unattachedBytesPerSecond: number;
 }
 
 /** Transport-independent peer used by ExomuxHostController. */
@@ -174,6 +193,9 @@ interface HostSession {
   /** Sticky DEC private modes, so a rotated replay cannot lose them. */
   modes: ExomuxTerminalModeTracker;
   clients: Set<HostConnection>;
+  /** Unattached drain budget accounting; see ExomuxHostLimits.unattachedBytesPerSecond. */
+  drainWindowStart: number;
+  drainWindowBytes: number;
   ready: boolean;
   terminating: boolean;
   terminated: boolean;
@@ -472,8 +494,18 @@ export class ExomuxHostController {
           rows: request.rows ?? 24,
           onData: (data) => {
             const chunks = splitTerminalData(data);
-            if (!sessionRef.current?.ready) pendingOutput.push(...chunks);
-            else for (const chunk of chunks) this.#appendOutput(sessionRef.current, chunk);
+            const session = sessionRef.current;
+            if (!session?.ready) {
+              pendingOutput.push(...chunks);
+              return;
+            }
+            // Returning a promise defers the backend's next read: flow control
+            // toward the source instead of unbounded ingestion.
+            if (chunks.length === 1) {
+              this.#appendOutput(session, chunks[0]!);
+              return this.#ingestionDeferral(session);
+            }
+            return this.#ingestChunkedBatch(session, chunks);
           },
         });
       } catch {
@@ -496,6 +528,8 @@ export class ExomuxHostController {
         replayBytes: 0,
         modes: new ExomuxTerminalModeTracker(),
         clients: new Set([connection]),
+        drainWindowStart: createdAt,
+        drainWindowBytes: 0,
         ready: false,
         terminating: false,
         terminated: false,
@@ -544,6 +578,9 @@ export class ExomuxHostController {
     }
     session.clients.add(connection);
     connection.attachments.add(session.id);
+    // A watcher arrived: leave the unattached drain budget behind immediately.
+    session.drainWindowStart = this.#now();
+    session.drainWindowBytes = 0;
     connection.commitReplay(
       {
         version: EXOMUX_PROTOCOL_VERSION,
@@ -558,8 +595,93 @@ export class ExomuxHostController {
     );
   }
 
+  /**
+   * A backend read can deliver far more than one protocol frame at once — an
+   * internally buffered PTY hands back everything a flooding child produced
+   * while the previous batch was processed. Ingest such batches incrementally:
+   * wait out client saturation between chunks so the outbound queue stays
+   * bounded, and yield to the event loop periodically so delivery, handshakes,
+   * and timers keep running however large the batch is.
+   */
+  async #ingestChunkedBatch(session: HostSession, chunks: readonly Uint8Array[]): Promise<void> {
+    let sinceYield = 0;
+    for (const chunk of chunks) {
+      // Termination must never wait behind a deferring backlog: the backend's
+      // dispose awaits this pump, so bail as soon as a kill begins.
+      if (session.terminated || session.terminating) return;
+      this.#appendOutput(session, chunk);
+      sinceYield += chunk.byteLength;
+      const deferral = this.#ingestionDeferral(session);
+      if (deferral) {
+        await deferral;
+        sinceYield = 0;
+      } else if (sinceYield >= INGEST_YIELD_BYTES) {
+        await delayMs(0);
+        sinceYield = 0;
+      }
+    }
+  }
+
+  /**
+   * Decides whether the session's PTY reads must pause. Unattached sessions
+   * only feed the replay ring, so they are held to a small drain budget; a
+   * session whose every live client sits above the outbound high-water mark
+   * waits until one of them drains — the source slows down instead of the
+   * fastest client being executed as `slow-client`. A client that stays
+   * saturated while another drains still meets the existing 1013 protection,
+   * and a fully stalled client set stops gating ingestion after a bounded wait
+   * so the same quota can judge it.
+   */
+  #ingestionDeferral(session: HostSession): Promise<void> | undefined {
+    if (session.terminated || session.terminating) return undefined;
+    if (this.#countAttached(session) === 0) {
+      const now = this.#now();
+      if (now - session.drainWindowStart >= UNATTACHED_DRAIN_WINDOW_MS) {
+        session.drainWindowStart = now;
+        session.drainWindowBytes = 0;
+      }
+      if (session.drainWindowBytes <= this.#limits.unattachedBytesPerSecond) return undefined;
+      const resumeIn = session.drainWindowStart + UNATTACHED_DRAIN_WINDOW_MS - now;
+      return this.#deferUnlessTerminating(session, Math.max(1, resumeIn));
+    }
+    if (this.#anyClientDraining(session)) return undefined;
+    return this.#awaitClientDrain(session);
+  }
+
+  /** Sleeps in short slices so a kill never waits out a long budget deferral. */
+  async #deferUnlessTerminating(session: HostSession, totalMs: number): Promise<void> {
+    for (let waited = 0; waited < totalMs; waited += INGEST_DEFER_MS) {
+      if (session.terminated || session.terminating) return;
+      await delayMs(Math.min(INGEST_DEFER_MS, totalMs - waited));
+    }
+  }
+
+  #countAttached(session: HostSession): number {
+    let attached = 0;
+    for (const client of session.clients) if (!client.closed) attached += 1;
+    return attached;
+  }
+
+  #anyClientDraining(session: HostSession): boolean {
+    const highWater = Math.max(1, Math.floor(this.#limits.outboundBytes / 2));
+    for (const client of session.clients) {
+      if (!client.closed && client.queuedOutboundBytes < highWater) return true;
+    }
+    return false;
+  }
+
+  async #awaitClientDrain(session: HostSession): Promise<void> {
+    const attempts = Math.max(1, Math.ceil(INGEST_SATURATED_LIMIT_MS / INGEST_DEFER_MS));
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if (session.terminated || session.terminating || this.#countAttached(session) === 0) return;
+      if (this.#anyClientDraining(session)) return;
+      await delayMs(INGEST_DEFER_MS);
+    }
+  }
+
   #appendOutput(session: HostSession, chunk: Uint8Array): void {
     if (session.terminated || chunk.byteLength === 0) return;
+    session.drainWindowBytes += chunk.byteLength;
     session.modes.write(chunk);
     const entry: ReplayEntry = {
       sequence: ++session.sequence,
@@ -739,6 +861,10 @@ class HostConnection implements ExomuxHostConnection {
   #outboundMessages = 0;
   #outboundBytes = 0;
   #sending = false;
+  /** Internal queue depth read by the controller's ingestion flow control. */
+  get queuedOutboundBytes(): number {
+    return this.#outboundBytes;
+  }
   #pendingInbound = 0;
   #pendingInboundBytes = 0;
   #inboundTail: Promise<void> = Promise.resolve();
@@ -1293,6 +1419,10 @@ async function waitForWebSocketCapacity(
   return !signal.aborted && socket.readyState === WebSocket.OPEN;
 }
 
+function delayMs(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 function delayUnlessAborted(milliseconds: number, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return Promise.resolve(false);
   return new Promise((resolve) => {
@@ -1390,6 +1520,12 @@ function normalizeHostLimits(options: Partial<ExomuxHostLimits> | undefined): Re
       DEFAULT_HOST_LIMITS.replayBytes,
       64 * 1024 * 1024,
       "replayBytes",
+    ),
+    unattachedBytesPerSecond: normalizePositiveLimit(
+      options?.unattachedBytesPerSecond,
+      DEFAULT_HOST_LIMITS.unattachedBytesPerSecond,
+      64 * 1024 * 1024,
+      "unattachedBytesPerSecond",
     ),
   });
 }

@@ -199,7 +199,9 @@ Deno.test("sigma pty terminal backend wraps output write resize and close lifecy
     args: ["-lc", "echo hi"],
     columns: 100.8,
     rows: 30.2,
-    onData: (data) => rawChunks.push(String(data)),
+    onData: (data) => {
+      rawChunks.push(String(data));
+    },
   });
   const pty = FakePty.instances[0]!;
 
@@ -250,7 +252,9 @@ Deno.test("sigma pty terminal backend bounds fullscreen output without dropping 
   let rawBytes = 0;
   const handle = backend.spawn({
     command: "asciichurn",
-    onData: (data) => rawBytes += String(data).length,
+    onData: (data) => {
+      rawBytes += String(data).length;
+    },
   });
   const pty = FakePty.instances[0]!;
   const chunk = "x".repeat(4 * 1024);
@@ -288,7 +292,9 @@ Deno.test("sigma pty terminal backend preserves UTF-8 split across raw byte read
   const raw: Uint8Array[] = [];
   const handle = backend.spawn({
     command: "blocks",
-    onData: (data) => raw.push(data instanceof Uint8Array ? data : new TextEncoder().encode(data)),
+    onData: (data) => {
+      raw.push(data instanceof Uint8Array ? data : new TextEncoder().encode(data));
+    },
   });
 
   const closed = await handle.closed;
@@ -473,3 +479,55 @@ function fakeClock(values: number[]): () => number {
   let index = 0;
   return () => values[Math.min(index++, values.length - 1)]!;
 }
+
+Deno.test("sigma pty terminal backend holds the poll loop while onData backpressure is pending", async () => {
+  const reads: Array<{ data: Uint8Array; done: boolean }> = [
+    { data: new TextEncoder().encode("first"), done: false },
+    { data: new TextEncoder().encode("second"), done: false },
+    { data: new Uint8Array(), done: true },
+  ];
+  let readCalls = 0;
+  class CountingBytePty implements SigmaPtyLike {
+    readonly readable = new ReadableStream<string>();
+    readonly exitCode = 0;
+    constructor(_command: string, _options: SigmaPtyCommandOptions = {}) {}
+    readBytes(): { data: Uint8Array; done: boolean } {
+      readCalls += 1;
+      return reads.shift() ?? { data: new Uint8Array(), done: false };
+    }
+    write(_data: string): void {}
+    resize(_size: SigmaPtySize): void {}
+    close(): void {}
+    setPollingInterval(_ms: number): void {}
+  }
+  const backend = createSigmaPtyTerminalBackendFromConstructor(CountingBytePty, {
+    id: "gated-byte-pty",
+    pollingIntervalMs: 1,
+    now: () => 100,
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const seen: string[] = [];
+  const handle = backend.spawn({
+    command: "flood",
+    onData: (data) => {
+      seen.push(new TextDecoder().decode(data as Uint8Array));
+      // Defer after the first chunk: the consumer is saturated.
+      if (seen.length === 1) return gate;
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assertEquals(seen, ["first"]);
+  const stalledReads = readCalls;
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assertEquals(readCalls, stalledReads, "the poll loop must not read while backpressure is pending");
+
+  release();
+  const closed = await handle.closed;
+  assertEquals(closed.status, "exited");
+  assertEquals(seen, ["first", "second"]);
+  await handle.dispose();
+});

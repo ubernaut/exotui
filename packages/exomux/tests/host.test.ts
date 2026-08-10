@@ -1132,8 +1132,10 @@ class FakeTerminalHandle implements TerminalSessionHandle {
     });
   }
 
-  emit(data: string | Uint8Array): void {
-    this.#onData?.(data, "stdout");
+  emit(data: string | Uint8Array): void | Promise<void> {
+    // Surfaces the consumer's backpressure deferral exactly as the PTY poll
+    // loop sees it, so ingestion flow control is assertable.
+    return this.#onData?.(data, "stdout");
   }
 
   write(data: string | Uint8Array): Promise<boolean> {
@@ -1290,4 +1292,92 @@ Deno.test("exomux drops sticky modes the child turned off before a client attach
   assertEquals(replayed.includes("\x1b[?1049h"), false, "a mode the child turned off must not come back");
   assertEquals(replayed.includes("\x1b[?1006h"), false);
   assertStringIncludes(replayed, "still at the shell");
+});
+
+Deno.test("exomux throttles an unattached flooding session and restores full speed on attach", async () => {
+  const backend = new FakeTerminalBackend();
+  let clock = 1_000;
+  let nextId = 0;
+  const host = new ExomuxHostController({
+    authToken: AUTH_TOKEN,
+    backend,
+    limits: { unattachedBytesPerSecond: 1_024 },
+    now: () => clock,
+    idFactory: () => `mux-${++nextId}`,
+  });
+  const ownerPeer = new FakePeer();
+  const owner = host.connect(ownerPeer);
+  await authenticate(owner);
+  await owner.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "flood" }));
+  await drain();
+  const spawned = ownerPeer.messages().find((message) => message.type === "spawned");
+  assert(spawned?.type === "spawned");
+  const handle = backend.handles[0]!;
+
+  // Attached to a draining client: even a large burst flows freely.
+  assertEquals(handle.emit("a".repeat(4_096)), undefined);
+  owner.disconnect();
+
+  // Roll into a fresh unattached window with a trivial chunk.
+  clock = 2_000;
+  assertEquals(handle.emit("b".repeat(8)), undefined);
+  // Blow the budget near the end of the window: reads defer to the window edge.
+  clock = 2_998;
+  const throttled = handle.emit("c".repeat(2_048));
+  assert(throttled instanceof Promise, "an over-budget unattached session must defer reads");
+  await throttled;
+  // A fresh window drains freely again.
+  clock = 3_000;
+  assertEquals(handle.emit("d".repeat(8)), undefined);
+  // Saturate once more, then let a watcher attach: full speed must return.
+  clock = 3_998;
+  const throttledAgain = handle.emit("e".repeat(2_048));
+  assert(throttledAgain instanceof Promise);
+  await throttledAgain;
+
+  const watcherPeer = new FakePeer();
+  const watcher = host.connect(watcherPeer);
+  await authenticate(watcher);
+  await watcher.receive(wire({
+    version: 1,
+    type: "attach",
+    requestId: 1,
+    sessionId: spawned.session.id,
+    afterSequence: 0,
+  }));
+  await drain();
+  assertEquals(handle.emit("f".repeat(4_096)), undefined, "attaching must restore full-speed ingestion");
+  watcher.disconnect();
+  await host.shutdown();
+});
+
+Deno.test("exomux defers ingestion while every attached client is saturated instead of executing them", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend, { outboundBytes: 4_096 });
+  const peer = new PausablePeer();
+  const connection = host.connect(peer);
+  await authenticate(connection);
+  await connection.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "flood" }));
+  await drain();
+  const handle = backend.handles[0]!;
+  peer.pause();
+
+  // The transport stalls, the queue grows; past the high-water mark the read
+  // loop defers instead of overflowing the queue into a slow-client close.
+  let deferral: void | Promise<void> = undefined;
+  for (let burst = 0; burst < 8 && !deferral; burst += 1) {
+    deferral = handle.emit("z".repeat(512));
+    await drain();
+  }
+  assert(deferral instanceof Promise, "saturated clients must defer PTY ingestion");
+  assertEquals(peer.closes, [], "a deferring session must not execute its client as slow-client");
+
+  // The deferral resolves once the client actually drains, not on a timer.
+  peer.resume();
+  await deferral;
+  await waitFor(() => connection.inspect().queuedOutboundBytes === 0);
+  assertEquals(handle.emit("ok"), undefined, "a drained client restores full-speed ingestion");
+  assertEquals(peer.closes, []);
+  connection.disconnect();
+  await host.shutdown();
 });

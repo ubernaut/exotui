@@ -287,7 +287,9 @@ Deno.test("ProcessSessionController streams stdout stderr and exit metadata", as
     env,
     now: () => 10,
     spawn: () => completedChild("alpha\n", "beta\n", { code: 0, success: true }),
-    onOutputData: (source, data) => raw.push(`${source}:${new TextDecoder().decode(data)}`),
+    onOutputData: (source, data) => {
+      raw.push(`${source}:${new TextDecoder().decode(data)}`);
+    },
   });
   args[0] = "--mutated";
   env.MODE = "mutated";
@@ -765,7 +767,9 @@ Deno.test("ProcessTerminalBackend supplies the ONLCR a pipe has no tty to provid
   });
   const handle = backend.spawn({
     command: "demo",
-    onData: (data) => chunks.push(typeof data === "string" ? data : decoder.decode(data)),
+    onData: (data) => {
+      chunks.push(typeof data === "string" ? data : decoder.decode(data));
+    },
   });
   await handle.closed;
 
@@ -795,7 +799,9 @@ Deno.test("ProcessTerminalBackend does not double a CRLF split across two reads"
   });
   const handle = backend.spawn({
     command: "demo",
-    onData: (data) => chunks.push(typeof data === "string" ? data : decoder.decode(data)),
+    onData: (data) => {
+      chunks.push(typeof data === "string" ? data : decoder.decode(data));
+    },
   });
   await handle.closed;
 

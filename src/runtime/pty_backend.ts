@@ -241,7 +241,7 @@ class SigmaPtySessionHandle implements TerminalSessionHandle {
   readonly closed: Promise<ProcessSessionInspection>;
   readonly #pty: SigmaPtyLike;
   readonly #now: () => number;
-  readonly #onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void;
+  readonly #onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void | Promise<void>;
   readonly #diagnostics?: DiagnosticsCollector;
   readonly #pollingIntervalMs: number;
   readonly #processIdentity?: LinuxProcessIdentity;
@@ -258,7 +258,7 @@ class SigmaPtySessionHandle implements TerminalSessionHandle {
     command: ProcessSessionCommand;
     pty: SigmaPtyLike;
     output?: TerminalOutputController;
-    onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void;
+    onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void | Promise<void>;
     columns?: number;
     rows?: number;
     pollingIntervalMs?: number;
@@ -352,7 +352,7 @@ class SigmaPtySessionHandle implements TerminalSessionHandle {
     const decoder = new TextDecoder();
     try {
       for await (const value of this.#readChunks()) {
-        this.#onData?.(value, "stdout");
+        const consumed = this.#onData?.(value, "stdout");
         const timestamp = this.#now();
         const text = typeof value === "string" ? value : decoder.decode(value, { stream: true });
         const truncated = lines.append(text, (text) => {
@@ -363,6 +363,10 @@ class SigmaPtySessionHandle implements TerminalSessionHandle {
             `unterminated output fragment truncated to ${MAX_PENDING_OUTPUT_LINE_LENGTH} characters; raw terminal data is unaffected`,
           );
         }
+        // Consumer backpressure: a deferred consumer pauses the poll loop, so
+        // the kernel PTY buffer fills and the child's writes block — the same
+        // flow control a real terminal applies to a program that outruns it.
+        if (consumed) await consumed;
       }
       const timestamp = this.#now();
       lines.append(decoder.decode(), (text) => this.output.append({ source: "stdout", text, timestamp }));

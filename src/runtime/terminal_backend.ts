@@ -17,7 +17,12 @@ export interface TerminalBackendSpawnOptions extends ProcessSessionCommand {
   columns?: number;
   rows?: number;
   output?: TerminalOutputController;
-  onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void;
+  /**
+   * Raw output consumer. Returning a promise applies backpressure: the backend
+   * defers its next read until the promise settles, so the kernel buffer fills
+   * and the child's writes block — exactly a real terminal under a slow reader.
+   */
+  onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void | Promise<void>;
 }
 
 /** Options used when reattaching to a backend-owned terminal session. */
@@ -25,7 +30,8 @@ export interface TerminalBackendAttachOptions {
   columns?: number;
   rows?: number;
   output?: TerminalOutputController;
-  onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void;
+  /** See {@linkcode TerminalBackendSpawnOptions.onData}: a returned promise defers the next read. */
+  onData?: (data: string | Uint8Array, source: TerminalOutputSource) => void | Promise<void>;
 }
 
 /** Serializable descriptor for a session retained by a backend outside the active window handle. */
