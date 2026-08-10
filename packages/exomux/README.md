@@ -31,6 +31,10 @@ detached host: its shells survive client exit and crash independently of every o
 | `-a <name>`       | Attach to that session only; never launches a host                                       |
 | `-n [name]`       | Create a new session (numeric names are generated when omitted); never reuses a live one |
 | `--list-sessions` | Print every session: state, uptime, terminal count, and foreground commands              |
+| `--reset-config`  | Reset saved settings to safe defaults and exit                                           |
+| `-h`, `--help`    | List every flag and prefix command                                                       |
+
+`-h`/`--help` prints the full list, and a launch that fails prints it too and suggests `--reset-config`.
 
 ```
 NAME  STATE       UP      TERMINALS  RUNNING
@@ -40,6 +44,14 @@ work  attachable  1d 2h   1          cargo
 
 The default session keeps its state where pre-session Exomux kept it, so an already-running host and its persisted
 layout carry across the upgrade unrenamed; named sessions live under `sessions/<name>/` beside it.
+
+## Settings and config
+
+Settings (theme, background, opacity, and every per-background knob) persist to `~/.config/exomux/exomux.json` —
+separate from the per-session layout state, so they survive reboots and host termination and are shared across every
+session. Choosing a background image copies it into `~/.config/exomux/images/`, so the wallpaper keeps working even if
+the original file is later moved or deleted. A background image can be a PNG or a JPEG. `--reset-config` restores safe
+defaults; `--config-dir=<path>` points at a different config directory.
 
 A crash cannot wedge launching. If a recorded host's pid died — or was recycled by an unrelated process — its descriptor
 is pruned and the session simply reports stopped; if the pid still looks like an Exomux daemon but never answers, the

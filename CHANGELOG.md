@@ -31,6 +31,14 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Exomux settings now persist to a durable config file at `~/.config/exomux/exomux.json` (`$XDG_CONFIG_HOME`/`%APPDATA%`
+  respected), separate from the per-session layout state, so the theme, background, and every settings knob survive
+  reboots and host termination and are shared across sessions. The chosen background image is copied beside it under
+  `images/`, so a wallpaper keeps working even if the original file is later moved or deleted. `exomux --reset-config`
+  restores safe defaults, `exomux -h`/`--help` lists every flag and prefix command, and a launch failure now prints that
+  help and suggests the reset. `packages/exomux/config.ts` carries the config surface.
+- The image background decodes JPEG (`.jpg`/`.jpeg`) as well as PNG, via the vendored `jpeg-js`; the config browser
+  lists both and dispatches by content signature.
 - `install-exomux.sh` compiles Exomux and installs it to `~/.local/bin/exomux` for the current user, so `exomux` runs
   from any directory; re-running it refreshes the installed binary.
 - Terminal backends now support consumer backpressure: `TerminalBackendSpawnOptions.onData` (and the pipe backend's
@@ -308,6 +316,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Transparent windows now show the desktop through them on the default background. The default is the metaball field,
+  which paints solid cells rather than a glyph grid, so it supplied no backdrop and a translucent window collapsed to a
+  flat theme colour. The metaball levels now feed the same backdrop the animated fields do, so what shows through a
+  window is exactly the glow it sits on.
+- The image (and any static) background no longer freezes the menu and window buttons. The retained desktop only
+  repainted when the background animation ticked, and several interaction states — the start menu, the settings window,
+  the quit and paste modals, the window-config selection, the network selection — were not among its render
+  dependencies, so once a static picture stopped animating those clicks produced no visible change. Every input-driven
+  view state now invalidates the desktop directly, independent of the background.
 - A flooding child can no longer wedge the Exomux daemon (plan/todo 028). A paused terminal game rendering full-screen
   TV static at 2–4 MiB/s used to overflow the per-client outbound queue — executing even a fast client as `slow-client`
   — and then pin the daemon at 100% CPU with unbounded memory growth once nobody was attached, leaving it too saturated
