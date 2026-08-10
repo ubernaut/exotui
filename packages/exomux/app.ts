@@ -86,7 +86,7 @@ import {
 } from "./background.ts";
 import { ExomuxBiomechField } from "./biomech_background.ts";
 import { EXOMUX_BUTTERCHURN_PRESETS, ExomuxButterchurnField } from "./butterchurn_background.ts";
-import { ExomuxImageField } from "./image_background.ts";
+import { ExomuxImageField, isExomuxImageFile } from "./image_background.ts";
 import { destroyExomuxGpuDevice } from "./gpu_device.ts";
 import { ExomuxCircuitField } from "./circuit_background.ts";
 import { ExomuxJungleField } from "./jungle_background.ts";
@@ -134,6 +134,8 @@ export interface ExomuxAppMount {
   handleScroll(event: MouseScrollEvent): Promise<boolean>;
   /** Returns the completed background-frame count for diagnostics and pilots. */
   metaballFrameRevision(): number;
+  /** Retained-desktop render key; changes exactly when the desktop must repaint. */
+  renderRevisionValue(): string;
   /** Window id → background reclaim ratio, for diagnostics and pilots. */
   overgrowthRatios(): ReadonlyMap<string, number>;
   whenIdle(): Promise<void>;
@@ -523,7 +525,7 @@ export function mountExomuxDesktop(
     releaseIdleBackgroundFields(id);
     return field;
   };
-  /** Applies one list-row pick: a preset, a directory to enter, or a PNG. */
+  /** Applies one list-row pick: a preset, a directory to enter, or an image. */
   const activateBackgroundConfigRow = (row?: { directory?: boolean; path?: string; presetIndex?: number }): void => {
     if (!row) return;
     if (row.presetIndex !== undefined) {
@@ -881,6 +883,18 @@ export function mountExomuxDesktop(
         selectedSessionIndex.value,
         controller.windowHost.viewRevision.value,
         controller.windowHost.commitRevision.value,
+        // Every input-driven modal and menu state, so the desktop repaints on
+        // interaction even when the background is static (a picture) and no
+        // longer forces a repaint every animation tick.
+        controller.startMenuVisible.value,
+        controller.globalConfigVisible.value,
+        controller.globalConfigPane.value,
+        controller.globalConfigOptionIndex.value,
+        controller.quitModalVisible.value,
+        controller.pendingScp.value !== undefined,
+        controller.configSessionId.value,
+        controller.configRowIndex.value,
+        controller.networkTree.selectedIndex.value,
         controller.backgroundConfigVisible.value,
         controller.backgroundConfigPane.value,
         controller.backgroundConfigOptionIndex.value,
@@ -2323,6 +2337,7 @@ export function mountExomuxDesktop(
     handlePointer: routeSemanticPointer,
     handleScroll: routeWindowScroll,
     metaballFrameRevision: () => metaballRevision.peek(),
+    renderRevisionValue: () => renderRevision.peek(),
     overgrowthRatios: () => overgrowthRatios,
     whenIdle: () => operationQueue.whenIdle(),
     dispose() {
@@ -2631,13 +2646,27 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   // One rasterization serves both the desktop backdrop and the overgrowth pass,
   // so reclaimed cells line up exactly with the background behind the window.
   const backgroundGrid = options.backgroundField?.rasterizeCells(body, theme);
-  // Transparent windows read the same grid the backdrop is painted from, so
+  // The default background is the metaball field, which paints solid cells
+  // rather than a glyph grid. Rasterize its levels once so a transparent window
+  // shows the same glow it sits on instead of a flat theme background.
+  const metaballLevels = backgroundGrid ? undefined : options.metaballs.rasterize(body, EXOMUX_METABALL_LEVELS);
+  const metaballPalette = metaballLevels ? exomuxMetaballPalette(theme) : undefined;
+  // Transparent windows read the same source the backdrop is painted from, so
   // what shows through a window is exactly what surrounds it.
-  const backdrop: ExomuxBackdrop = (column, row) =>
-    exomuxBackdropColor(backgroundGrid?.[row - body.row]?.[column - body.column], theme);
+  const backdrop: ExomuxBackdrop = (column, row) => {
+    if (backgroundGrid) {
+      return exomuxBackdropColor(backgroundGrid[row - body.row]?.[column - body.column], theme);
+    }
+    if (metaballLevels && metaballPalette) {
+      return exomuxMetaballBackdropColor(metaballLevels, metaballPalette, body, column, row, theme);
+    }
+    return theme.background;
+  };
   if (exomuxMetaballBackgroundVisible(projection, body)) {
     if (backgroundGrid) paintBackgroundGrid(painter, body, backgroundGrid, theme);
-    else paintMetaballBackground(painter, body, options.metaballs, theme);
+    else if (metaballLevels && metaballPalette) {
+      paintMetaballLevels(painter, body, metaballLevels, metaballPalette, theme);
+    }
   }
 
   for (const window of projection.tiledWindows) {
@@ -2785,24 +2814,48 @@ function paintBackgroundGrid(
   }
 }
 
-function paintMetaballBackground(
+/** The colour the metaball field paints at one cell, or undefined for bare desktop. */
+function exomuxMetaballCellColor(
+  levels: Uint8Array | readonly number[],
+  palette: readonly ExomuxRgb[],
+  bounds: Rectangle,
+  column: number,
+  row: number,
+): ExomuxRgb | undefined {
+  const localColumn = column - bounds.column;
+  const localRow = row - bounds.row;
+  if (localColumn < 0 || localRow < 0 || localColumn >= bounds.width || localRow >= bounds.height) return undefined;
+  const level = levels[localRow * bounds.width + localColumn] ?? 0;
+  if (level === 0) return undefined;
+  // recordMyScreen overlays horizontal scanlines. Quantizing alternate rows
+  // preserves that texture while bounding distinct ANSI styles.
+  const scanlineLevel = row % 2 === 0 ? level : Math.max(1, level - 1);
+  return palette[scanlineLevel];
+}
+
+/** Backdrop colour behind a transparent window over the metaball field. */
+function exomuxMetaballBackdropColor(
+  levels: Uint8Array | readonly number[],
+  palette: readonly ExomuxRgb[],
+  bounds: Rectangle,
+  column: number,
+  row: number,
+  theme: ExomuxThemeSpec,
+): ExomuxRgb {
+  return exomuxMetaballCellColor(levels, palette, bounds, column, row) ?? theme.background;
+}
+
+function paintMetaballLevels(
   painter: DesktopPainter,
   bounds: Rectangle,
-  metaballs: ExomuxMetaballField,
+  levels: Uint8Array | readonly number[],
+  palette: readonly ExomuxRgb[],
   theme: ExomuxThemeSpec,
 ): void {
-  const levels = metaballs.rasterize(bounds, EXOMUX_METABALL_LEVELS);
-  const palette = exomuxMetaballPalette(theme);
-  let offset = 0;
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     for (let column = bounds.column; column < bounds.column + bounds.width; column += 1) {
-      const level = levels[offset++] ?? 0;
-      if (level === 0) continue;
-      // recordMyScreen overlays horizontal scanlines. Quantizing alternate
-      // rows preserves that texture while bounding distinct ANSI styles.
-      const scanlineLevel = row % 2 === 0 ? level : Math.max(1, level - 1);
-      const color = palette[scanlineLevel] ?? theme.surface;
-      painter.cell(column, row, " ", { foreground: color, background: color });
+      const color = exomuxMetaballCellColor(levels, palette, bounds, column, row);
+      if (color) painter.cell(column, row, " ", { foreground: color, background: color });
     }
   }
 }
@@ -3438,7 +3491,7 @@ interface ExomuxBackgroundConfigListRow {
 /** Cache of the one directory the image browser is showing. */
 let browseCache: { path: string; rows: ExomuxBackgroundConfigListRow[] } | undefined;
 
-/** Rows for the image browser: parent, subdirectories, then PNG files. */
+/** Rows for the image browser: parent, subdirectories, then image files. */
 function exomuxBrowseRows(path: string): ExomuxBackgroundConfigListRow[] {
   if (browseCache?.path === path) return browseCache.rows;
   const rows: ExomuxBackgroundConfigListRow[] = [];
@@ -3451,7 +3504,7 @@ function exomuxBrowseRows(path: string): ExomuxBackgroundConfigListRow[] {
       if (entry.name.startsWith(".")) continue;
       const full = `${path.replace(/\/+$/, "")}/${entry.name}`;
       if (entry.isDirectory) directories.push({ label: `${entry.name}/`, directory: true, path: full });
-      else if (/\.png$/i.test(entry.name)) files.push({ label: entry.name, path: full });
+      else if (isExomuxImageFile(entry.name)) files.push({ label: entry.name, path: full });
     }
   } catch {
     rows.push({ label: "(unreadable directory)" });
@@ -3553,7 +3606,7 @@ function paintBackgroundConfigModal(
       exomuxBackgroundHasPresets(backgroundField) ? backgroundField.presetName : "…"
     }`
     : id === "image"
-    ? `Pick a PNG · ${controller.backgroundBrowsePath.peek() || "/"}`
+    ? `Pick an image · ${controller.backgroundBrowsePath.peek() || "/"}`
     : specs.length > 0
     ? "Settings"
     : "This background has nothing to configure.";
