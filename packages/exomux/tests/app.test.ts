@@ -3784,3 +3784,150 @@ Deno.test("Exomux paints the desktop background through a transparent terminal w
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux shows the metaball desktop through a transparent window on the default background", async () => {
+  const shell = session("shell-1", "shell", 1);
+  const client = new FakeExomuxClient([shell]);
+  const controller = await createExomuxController({ client, initialSessions: [shell] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 110, rows: 32 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    // The default background is the metaball field — no ExomuxAnimatedBackground.
+    assertEquals(controller.backgroundId.peek(), "metaballs");
+    while (controller.globalSettings.peek().opacity === 1) controller.cycleGlobalSetting("opacity");
+    harness.app.start();
+    await mounted.whenIdle();
+    await waitForCondition(() => mounted.metaballFrameRevision() > 2, 5_000);
+
+    const terminal = mounted.windowProjection.peek().windows.find((window) => window.id === exomuxWindowId("shell-1"));
+    assert(terminal);
+    const theme = controller.theme.peek();
+    const others = mounted.windowProjection.peek().windows.filter((window) => window.id !== terminal.id);
+    const covered = (column: number, row: number): boolean =>
+      others.some((window) =>
+        column >= window.rect.column && column < window.rect.column + window.rect.width &&
+        row >= window.rect.row && row < window.rect.row + window.rect.height
+      );
+    const sample = (): string[] => {
+      const out: string[] = [];
+      const { column: left, row: top, width, height } = terminal.clientRect;
+      for (let row = top + 1; row < top + height - 1; row += 1) {
+        for (let column = left + 1; column < left + width - 1; column += 1) {
+          if (covered(column, row)) continue;
+          const rgb = cellBackground(harness, column, row);
+          if (rgb) out.push(String(rgb));
+        }
+      }
+      return out;
+    };
+    // The metaball glow varies across the client area; a flat theme background
+    // (the pre-fix behaviour) would collapse to a single colour.
+    await waitForCondition(() => {
+      const colours = new Set(sample());
+      colours.delete(String([...theme.accent]));
+      return colours.size > 1;
+    }, 5_000);
+    const colours = new Set(sample());
+    colours.delete(String([...theme.accent]));
+    assert(colours.size > 1, `a transparent window must show the metaball desktop, saw ${colours.size} colours`);
+    assert(!(colours.size === 1 && colours.has(String([...theme.background]))), "not a flat theme background");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux repaints on menu interaction even when a static image background stops animating", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-image-repaint-" });
+  const imagePath = `${directory}/wallpaper.png`;
+  try {
+    await Deno.writeFile(imagePath, await tinyExomuxPng());
+    const shell = session("shell-1", "shell", 1);
+    const client = new FakeExomuxClient([shell]);
+    const controller = await createExomuxController({ client, initialSessions: [shell] });
+    const mount: ExomuxAppMountRef = {};
+    const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+    const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+    try {
+      const mounted = mount.current;
+      assert(mounted);
+      await mounted.whenIdle();
+      controller.setBackgroundImagePath(imagePath);
+      controller.setBackground("image");
+      harness.app.start();
+      await mounted.whenIdle();
+
+      // Let the static image settle: once it stops advancing, the background
+      // no longer forces repaints on its own.
+      const settled = mounted.metaballFrameRevision();
+      await waitForCondition(() => mounted.metaballFrameRevision() > settled, 3_000).catch(() => undefined);
+      const quiet = mounted.metaballFrameRevision();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      assertEquals(mounted.metaballFrameRevision(), quiet, "a loaded image must stop animating");
+
+      // Opening the start menu must still repaint the desktop.
+      const before = mounted.renderRevisionValue();
+      controller.openStartMenu();
+      await mounted.whenIdle();
+      assertNotEquals(
+        mounted.renderRevisionValue(),
+        before,
+        "menu state must invalidate the retained desktop under a static background",
+      );
+    } finally {
+      harness.destroy();
+      await controller.dispose();
+    }
+  } finally {
+    await Deno.remove(directory, { recursive: true }).catch(() => undefined);
+  }
+});
+
+async function tinyExomuxPng(): Promise<Uint8Array> {
+  const width = 4;
+  const height = 2;
+  const raw = new Uint8Array((width * 3 + 1) * height);
+  for (let row = 0; row < height; row += 1) {
+    const at = row * (width * 3 + 1);
+    raw[at] = 0;
+    for (let x = 0; x < width; x += 1) {
+      raw[at + 1 + x * 3] = row === 0 ? 255 : 0;
+      raw[at + 1 + x * 3 + 2] = row === 0 ? 0 : 255;
+    }
+  }
+  const stream = new Blob([raw as BlobPart]).stream().pipeThrough(new CompressionStream("deflate"));
+  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+  const chunk = (type: string, data: Uint8Array): Uint8Array => {
+    const out = new Uint8Array(12 + data.length);
+    new DataView(out.buffer).setUint32(0, data.length);
+    for (let i = 0; i < 4; i += 1) out[4 + i] = type.charCodeAt(i);
+    out.set(data, 8);
+    return out;
+  };
+  const ihdr = new Uint8Array(13);
+  const view = new DataView(ihdr.buffer);
+  view.setUint32(0, width);
+  view.setUint32(4, height);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const parts = [
+    new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", compressed),
+    chunk("IEND", new Uint8Array(0)),
+  ];
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const png = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    png.set(part, offset);
+    offset += part.length;
+  }
+  return png;
+}

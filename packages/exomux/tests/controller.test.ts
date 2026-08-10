@@ -145,6 +145,8 @@ Deno.test("Exomux launcher defaults to durable client mode and parses explicit d
     persistLayout: true,
     listSessions: false,
     newSession: false,
+    showHelp: false,
+    resetConfig: false,
   });
   assertEquals(
     parseExomuxShowcaseArgs([
@@ -158,6 +160,8 @@ Deno.test("Exomux launcher defaults to durable client mode and parses explicit d
       persistLayout: true,
       listSessions: false,
       newSession: false,
+      showHelp: false,
+      resetConfig: false,
       stateDirectory: "/private/state",
       descriptorPath: "/private/state/host.json",
       layoutPath: "/private/state/layout.json",
@@ -168,6 +172,8 @@ Deno.test("Exomux launcher defaults to durable client mode and parses explicit d
     persistLayout: false,
     listSessions: false,
     newSession: false,
+    showHelp: false,
+    resetConfig: false,
   });
   assertThrows(() => parseExomuxShowcaseArgs(["--mystery"]), TypeError, "Unknown Exomux option");
 });

@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "./deps.ts";
+import { assert, assertEquals, assertRejects } from "./deps.ts";
 import {
   cycleExomuxBackgroundSetting,
   defaultExomuxBackgroundSettings,
@@ -9,7 +9,14 @@ import {
   withExomuxBackgroundString,
 } from "../model.ts";
 import { exomuxBackgroundConfigLayout } from "../app.ts";
-import { decodeExomuxPng, ExomuxImageField } from "../image_background.ts";
+import {
+  decodeExomuxImage,
+  decodeExomuxJpeg,
+  decodeExomuxPng,
+  EXOMUX_IMAGE_EXTENSIONS,
+  ExomuxImageField,
+  isExomuxImageFile,
+} from "../image_background.ts";
 import { ExomuxButterchurnField } from "../butterchurn_background.ts";
 import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioSource } from "../audio.ts";
 
@@ -176,4 +183,35 @@ Deno.test("image background: garbage reports an error instead of throwing", asyn
     field.rasterizeCells({ column: 0, row: 0, width: 10, height: 4 }, undefined as never).flat().filter(Boolean).length,
     0,
   );
+});
+
+Deno.test("image background: decodes a JPEG and dispatches PNG/JPEG by signature", async () => {
+  assert(isExomuxImageFile("photo.JPG") && isExomuxImageFile("shot.jpeg") && isExomuxImageFile("art.png"));
+  assert(!isExomuxImageFile("notes.txt") && !isExomuxImageFile("clip.gif"));
+  assertEquals([...EXOMUX_IMAGE_EXTENSIONS], [".png", ".jpg", ".jpeg"]);
+
+  const jpeg = await Deno.readFile(new URL("./fixtures/wallpaper.jpg", import.meta.url));
+  assertEquals([jpeg[0], jpeg[1], jpeg[2]], [0xff, 0xd8, 0xff], "the fixture is a JPEG");
+  const direct = decodeExomuxJpeg(jpeg);
+  assertEquals([direct.width, direct.height], [8, 4]);
+  // The signature dispatcher routes JPEG here and PNG to the PNG path.
+  const dispatched = await decodeExomuxImage(jpeg);
+  assertEquals([dispatched.width, dispatched.height], [8, 4]);
+  await assertRejects(() => decodeExomuxImage(new Uint8Array([1, 2, 3, 4])), Error, "unsupported image format");
+
+  const field = new ExomuxImageField({ bytes: jpeg });
+  await field.ready;
+  assertEquals(field.error, undefined, "a valid JPEG must decode without error");
+  const bounds = { column: 0, row: 0, width: 40, height: 10 };
+  assert(field.advance({ bounds, now: 0 }), "the first frame paints");
+  let red = 0;
+  let blue = 0;
+  for (const row of field.rasterizeCells(bounds, undefined as never)) {
+    for (const cell of row) {
+      if (!cell) continue;
+      if (cell.foreground[0] > cell.foreground[2]) red += 1;
+      else if (cell.foreground[2] > cell.foreground[0]) blue += 1;
+    }
+  }
+  assert(red > 0 && blue > 0, "both colour bands of the JPEG should land on screen");
 });
