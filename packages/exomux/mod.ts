@@ -3,6 +3,7 @@
 /** Public surface for the persistent Exomux terminal-multiplexer showcase. */
 export * from "./app.ts";
 export * from "./client.ts";
+export * from "./config.ts";
 export * from "./controller.ts";
 export * from "./host.ts";
 export * from "./model.ts";

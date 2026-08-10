@@ -278,6 +278,14 @@ export interface ExomuxTerminalRuntime {
   requestedRows: number;
 }
 
+/** The durable preference subset shared across sessions via the config file. */
+export interface ExomuxPreferences {
+  readonly themeId: ExomuxThemeId;
+  readonly backgroundId: ExomuxBackgroundId;
+  readonly globalSettings: ExomuxGlobalSettings;
+  readonly backgroundSettings: ExomuxBackgroundSettingsMap;
+}
+
 /** Construction options after the detached client has connected. */
 export interface ExomuxControllerOptions {
   readonly client: ExomuxClientPort;
@@ -290,6 +298,10 @@ export interface ExomuxControllerOptions {
   readonly defaultCwd?: string;
   readonly now?: () => number;
   readonly persistenceDebounceMs?: number;
+  /** Durable preferences to seed theme, background, and settings from the config file. */
+  readonly initialPreferences?: ExomuxPreferences;
+  /** Called whenever a durable preference changes, for config-file persistence. */
+  readonly onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
   readonly tailnetPollIntervalMs?: number;
   /** Injectable local-file existence probe for paste-to-scp interception. */
@@ -415,10 +427,14 @@ export class ExomuxController {
   readonly #tailnetPollIntervalMs?: number;
   readonly #statFile: (path: string) => Promise<boolean>;
   readonly #scpCwdTimeoutMs: number;
+  readonly #initialPreferences?: ExomuxPreferences;
+  readonly #onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
   #scpCwdCapture?: Promise<string | undefined>;
 
   constructor(options: ExomuxControllerOptions) {
     this.client = options.client;
+    this.#initialPreferences = options.initialPreferences;
+    this.#onPreferencesChanged = options.onPreferencesChanged;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
     this.#defaultCwd = options.defaultCwd;
@@ -1602,6 +1618,15 @@ export class ExomuxController {
     this.windowSettings.value = restored.windowSettings;
     this.globalSettings.value = restored.globalSettings;
     this.backgroundSettings.value = restored.backgroundSettings;
+    // The durable config file is the source of truth for preferences shared
+    // across sessions, so it overrides the per-session layout snapshot.
+    const preferences = this.#initialPreferences;
+    if (preferences) {
+      this.themeId.value = preferences.themeId;
+      this.backgroundId.value = preferences.backgroundId;
+      this.globalSettings.value = preferences.globalSettings;
+      this.backgroundSettings.value = preferences.backgroundSettings;
+    }
     for (const [sessionId, settings] of Object.entries(restored.windowSettings)) {
       this.#applyWindowSettings(sessionId, settings);
     }
@@ -1871,6 +1896,12 @@ export class ExomuxController {
       backgroundId: this.backgroundId.peek(),
       sessionHosts,
       windowSettings,
+      globalSettings: this.globalSettings.peek(),
+      backgroundSettings: this.backgroundSettings.peek(),
+    });
+    this.#onPreferencesChanged?.({
+      themeId: this.themeId.peek(),
+      backgroundId: this.backgroundId.peek(),
       globalSettings: this.globalSettings.peek(),
       backgroundSettings: this.backgroundSettings.peek(),
     });

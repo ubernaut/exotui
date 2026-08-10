@@ -21,7 +21,17 @@ import {
   probeExomuxSessions,
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
-import { createExomuxController, type ExomuxController } from "./controller.ts";
+import { createExomuxController, type ExomuxController, type ExomuxPreferences } from "./controller.ts";
+import {
+  defaultExomuxConfigDirectory,
+  type ExomuxConfig,
+  exomuxConfigFilePath,
+  loadExomuxConfig,
+  persistExomuxBackgroundImage,
+  resetExomuxConfig,
+  writeExomuxConfig,
+} from "./config.ts";
+import { exomuxBackgroundSettingsFor, withExomuxBackgroundString } from "./model.ts";
 import { type ExomuxHostServer, serveExomuxHost } from "./host.ts";
 import { isExomuxAuthToken } from "./protocol.ts";
 
@@ -31,12 +41,40 @@ export interface ExomuxShowcaseLaunchOptions {
   readonly stateDirectory?: string;
   readonly descriptorPath?: string;
   readonly layoutPath?: string;
+  readonly configDirectory?: string;
   readonly persistLayout: boolean;
   readonly listSessions: boolean;
   readonly attachSession?: string;
   readonly newSession: boolean;
   readonly newSessionName?: string;
+  readonly showHelp: boolean;
+  readonly resetConfig: boolean;
 }
+
+/** Every flag and prefix command, printed by `-h`/`--help` and on launch failure. */
+export const EXOMUX_HELP_TEXT = `Exomux — a terminal multiplexer with a detachable host.
+
+Usage: exomux [options]
+
+Session options:
+  (none)               Attach to the single live session, or create "main"
+  -a, --attach <name>  Attach to a named session; never launches a host
+  -n, --new-session [name]
+                       Create a new session (numeric name generated if omitted)
+  --list-sessions      List every session with state, uptime, and terminals
+
+Config options:
+  --reset-config       Reset saved settings to safe defaults and exit
+  --config-dir=<path>  Use a config directory other than ~/.config/exomux
+
+Other options:
+  --memory             Do not persist this session's window layout
+  --persist            Persist the window layout (the default)
+  -h, --help           Show this help and exit
+
+Config and wallpapers live in ~/.config/exomux (exomux.json, images/).
+
+Inside the workbench, Ctrl-N is the prefix key; Ctrl-N ? lists every command.`;
 
 /** Parses Exomux options without performing filesystem or network I/O. */
 export function parseExomuxShowcaseArgs(args: readonly string[]): ExomuxShowcaseLaunchOptions {
@@ -49,9 +87,15 @@ export function parseExomuxShowcaseArgs(args: readonly string[]): ExomuxShowcase
   let attachSession: string | undefined;
   let newSession = false;
   let newSessionName: string | undefined;
+  let configDirectory: string | undefined;
+  let showHelp = false;
+  let resetConfig = false;
   for (let index = 0; index < args.length; index++) {
     const argument = args[index]!;
     if (argument === "--daemon") daemon = true;
+    else if (argument === "-h" || argument === "--help") showHelp = true;
+    else if (argument === "--reset-config") resetConfig = true;
+    else if (argument.startsWith("--config-dir=")) configDirectory = requiredOption(argument, "--config-dir=");
     else if (argument === "--memory") persistLayout = false;
     else if (argument === "--persist") persistLayout = true;
     else if (argument === "--list-sessions") listSessions = true;
@@ -84,9 +128,12 @@ export function parseExomuxShowcaseArgs(args: readonly string[]): ExomuxShowcase
     persistLayout,
     listSessions,
     newSession,
+    showHelp,
+    resetConfig,
     ...(stateDirectory ? { stateDirectory } : {}),
     ...(descriptorPath ? { descriptorPath } : {}),
     ...(layoutPath ? { layoutPath } : {}),
+    ...(configDirectory ? { configDirectory } : {}),
     ...(attachSession !== undefined ? { attachSession } : {}),
     ...(newSessionName !== undefined ? { newSessionName } : {}),
   });
@@ -105,11 +152,22 @@ function sessionNameValue(value: string | undefined, flag: string): string {
 
 /** Runs either the persistent local host or its detachable terminal workbench client. */
 export async function runExomuxShowcase(options: ExomuxShowcaseLaunchOptions): Promise<void> {
+  if (options.showHelp) {
+    console.log(EXOMUX_HELP_TEXT);
+    return;
+  }
+  const configDirectory = options.configDirectory ?? defaultExomuxConfigDirectory();
+  const configPath = exomuxConfigFilePath(configDirectory);
+  if (options.resetConfig) {
+    await resetExomuxConfig(configPath);
+    console.log(`Reset Exomux settings to defaults at ${configPath}`);
+    return;
+  }
   if (options.daemon) {
     await runExomuxDaemon(options);
     return;
   }
-  await runExomuxClient(options);
+  await runExomuxClient(options, configDirectory, configPath);
 }
 
 /** The session and bootstrap mode one client invocation resolved to. */
@@ -153,7 +211,11 @@ async function resolveExomuxLaunchTarget(
 }
 
 /** Starts the UI client; destroying it never shuts down the detached host. */
-export async function runExomuxClient(options: ExomuxShowcaseLaunchOptions): Promise<void> {
+export async function runExomuxClient(
+  options: ExomuxShowcaseLaunchOptions,
+  configDirectory: string = options.configDirectory ?? defaultExomuxConfigDirectory(),
+  configPath: string = exomuxConfigFilePath(configDirectory),
+): Promise<void> {
   const stateRoot = options.stateDirectory ?? defaultExomuxStateDirectory();
   if (options.listSessions) {
     console.log(formatExomuxSessionList(await probeExomuxSessions({ stateRoot })));
@@ -193,11 +255,15 @@ export async function runExomuxClient(options: ExomuxShowcaseLaunchOptions): Pro
     path: layoutPath,
     diagnostics,
   });
+  const config = await loadExomuxConfig(configPath);
+  const persistPreferences = createExomuxPreferenceWriter(configDirectory, configPath, config);
   const controller = await createExomuxController({
     client: connection.client,
     store: storage.store,
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
+    initialPreferences: exomuxConfigToPreferences(config),
+    onPreferencesChanged: persistPreferences,
   });
   let connectionStatus = connection.launched
     ? `Started session "${target.name}" · terminals survive UI exit · Ctrl-N ? commands`
@@ -211,6 +277,59 @@ export async function runExomuxClient(options: ExomuxShowcaseLaunchOptions): Pro
   const runtime = await createExomuxTerminalApp({ controller });
   bindAwaitedExomuxClientShutdown(runtime);
   runtime.start();
+}
+
+/** The preference subset the config file carries, drawn from a loaded config. */
+export function exomuxConfigToPreferences(config: ExomuxConfig): ExomuxPreferences {
+  return {
+    themeId: config.themeId,
+    backgroundId: config.backgroundId,
+    globalSettings: config.globalSettings,
+    backgroundSettings: config.backgroundSettings,
+  };
+}
+
+/**
+ * Builds the debounced preference sink handed to the controller. It copies a
+ * freshly chosen background image into the config directory (so the wallpaper
+ * survives the original moving) and writes the config file. Writes are
+ * coalesced and best-effort: a failed persist must never disturb the session.
+ */
+export function createExomuxPreferenceWriter(
+  configDirectory: string,
+  configPath: string,
+  initial: ExomuxConfig,
+): (preferences: ExomuxPreferences) => void {
+  let last = JSON.stringify(exomuxConfigToPreferences(initial));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let writing: Promise<void> = Promise.resolve();
+  const flush = (preferences: ExomuxPreferences) => {
+    writing = writing.then(async () => {
+      let backgroundSettings = preferences.backgroundSettings;
+      const imagePath = exomuxBackgroundSettingsFor(backgroundSettings, "image").path;
+      if (typeof imagePath === "string" && imagePath.length > 0) {
+        const stored = await persistExomuxBackgroundImage(configDirectory, imagePath);
+        if (stored !== imagePath) {
+          backgroundSettings = withExomuxBackgroundString(backgroundSettings, "image", "path", stored);
+        }
+      }
+      await writeExomuxConfig(configPath, {
+        schemaVersion: 1,
+        themeId: preferences.themeId,
+        backgroundId: preferences.backgroundId,
+        globalSettings: preferences.globalSettings,
+        backgroundSettings,
+      });
+    }).catch(() => undefined);
+  };
+  return (preferences) => {
+    const signature = JSON.stringify(preferences);
+    if (signature === last) return;
+    last = signature;
+    if (timer !== undefined) clearTimeout(timer);
+    timer = setTimeout(() => flush(preferences), 150);
+    Deno.unrefTimer?.(timer);
+  };
 }
 
 /** Launches the default floating shell only when the persistent host is empty. */
@@ -361,4 +480,27 @@ function joinPath(parent: string, child: string): string {
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child}`;
 }
 
-if (import.meta.main) await runExomuxShowcase(parseExomuxShowcaseArgs(Deno.args));
+/** Parses argv and runs Exomux, turning a launch failure into actionable help. */
+export async function runExomuxCli(argv: readonly string[]): Promise<number> {
+  let options: ExomuxShowcaseLaunchOptions;
+  try {
+    options = parseExomuxShowcaseArgs(argv);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    console.error(`\n${EXOMUX_HELP_TEXT}`);
+    return 2;
+  }
+  try {
+    await runExomuxShowcase(options);
+    return Deno.exitCode ?? 0;
+  } catch (error) {
+    // A launch that fell over is most often a wedged host or a bad config;
+    // show what the flags are and point at the reset that fixes the latter.
+    console.error(`Exomux failed to launch: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`\n${EXOMUX_HELP_TEXT}`);
+    console.error("\nIf this keeps happening, reset saved settings with: exomux --reset-config");
+    return 1;
+  }
+}
+
+if (import.meta.main) Deno.exit(await runExomuxCli(Deno.args));
