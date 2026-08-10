@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
-import MarkdownIt, { type Token } from "markdown-it";
+// markdown-it 15 exports the callable constructor as the default value and the
+// instance type as a named type export, so the two are imported separately.
+import MarkdownIt, { type MarkdownIt as MarkdownItParser, type Token } from "markdown-it";
 import { cropToWidth, getMultiCodePointCharacters, textWidth } from "../utils/strings.ts";
 
 /** Block kinds emitted by the renderer-neutral Markdown parser. */
@@ -102,7 +104,7 @@ interface ListItemState {
   emitted: boolean;
 }
 
-const parserCache = new Map<string, MarkdownIt>();
+const parserCache = new Map<string, MarkdownItParser>();
 const emptyMarks: readonly MarkdownInlineMark[] = [];
 
 /** Parses CommonMark plus tables and strikethrough into a renderer-neutral document. */
@@ -279,7 +281,7 @@ export function markdownRenderText(lines: readonly MarkdownRenderLine[]): string
   return lines.map((line) => line.text).join("\n");
 }
 
-function markdownParser(options: MarkdownParseOptions): MarkdownIt {
+function markdownParser(options: MarkdownParseOptions): MarkdownItParser {
   const normalized = {
     linkify: options.linkify ?? true,
     typographer: options.typographer ?? false,
@@ -321,7 +323,7 @@ function parseInlineTokens(tokens: readonly Token[]): MarkdownInlineSpan[] {
         break;
       case "link_open":
         marks.push("link");
-        links.push({ href: token.attrGet("href") ?? "", title: token.attrGet("title") ?? undefined });
+        links.push({ href: attributeText(token, "href") ?? "", title: attributeText(token, "title") });
         break;
       case "link_close":
         removeLast(marks, "link");
@@ -331,8 +333,8 @@ function parseInlineTokens(tokens: readonly Token[]): MarkdownInlineSpan[] {
         appendInline(spans, token.content, [...marks, "code"], links.at(-1));
         break;
       case "image": {
-        const href = token.attrGet("src") ?? "";
-        appendInline(spans, token.content || token.attrGet("alt") || "image", [...marks, "image"], { href });
+        const href = attributeText(token, "src") ?? "";
+        appendInline(spans, token.content || attributeText(token, "alt") || "image", [...marks, "image"], { href });
         break;
       }
       case "hardbreak":
@@ -724,8 +726,14 @@ function fitTableWidths(natural: readonly number[], availableWidth: number): num
   return widths;
 }
 
+/** markdown-it 15 types attribute values as `string | number`; render as text. */
+function attributeText(token: Token, name: string): string | undefined {
+  const value = token.attrGet(name);
+  return value == null ? undefined : String(value);
+}
+
 function tableAlignment(token: Token): MarkdownTableCell["align"] {
-  const style = token.attrGet("style") ?? "";
+  const style = attributeText(token, "style") ?? "";
   if (style.includes("center")) return "center";
   if (style.includes("right")) return "right";
   if (style.includes("left")) return "left";
@@ -733,7 +741,7 @@ function tableAlignment(token: Token): MarkdownTableCell["align"] {
 }
 
 function integerAttribute(token: Token, name: string, fallback: number): number {
-  const value = Number.parseInt(token.attrGet(name) ?? "", 10);
+  const value = Number.parseInt(attributeText(token, name) ?? "", 10);
   return Number.isFinite(value) ? value : fallback;
 }
 

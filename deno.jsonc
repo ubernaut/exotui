@@ -28,14 +28,14 @@
     // Mapped here so the version is pinned in one place and covered by deno.lock.
     "@sigma/pty-ffi": "jsr:@sigma/pty-ffi@0.42.0",
     "crayon": "https://deno.land/x/crayon@3.3.3/mod.ts",
-    "esbuild": "npm:esbuild@0.24.2",
+    "esbuild": "npm:esbuild@0.28.2",
     "jpeg-js": "npm:jpeg-js@0.4.4",
     "jsonc": "jsr:@std/jsonc@1.0.2",
-    "markdown-it": "npm:markdown-it@14.3.0",
+    "markdown-it": "npm:markdown-it@15.0.0",
     "pngjs": "npm:pngjs@7.0.0",
-    "three": "npm:three@0.183.2",
-    "three/tsl": "npm:three@0.183.2/tsl",
-    "three/webgpu": "npm:three@0.183.2/webgpu",
+    "three": "npm:three@0.185.1",
+    "three/tsl": "npm:three@0.185.1/tsl",
+    "three/webgpu": "npm:three@0.185.1/webgpu",
     "yoga-layout": "npm:yoga-layout@3.2.1"
   },
   "compilerOptions": {
