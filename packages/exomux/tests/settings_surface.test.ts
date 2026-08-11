@@ -42,6 +42,10 @@ function specs(): { theme: ExomuxPickerSpec; background: ExomuxPickerSpec } {
       items: ["one", "two", "three", "four", "five"],
       foreground: [220, 230, 255],
       background: [30, 40, 70],
+      selectedForeground: [10, 10, 20],
+      selectedBackground: [255, 105, 180],
+      scrollbarTrack: [40, 50, 80],
+      scrollbarThumb: [120, 130, 160],
     },
     background: {
       column: 18,
@@ -51,6 +55,10 @@ function specs(): { theme: ExomuxPickerSpec; background: ExomuxPickerSpec } {
       items: ["metaballs", "matrix", "fire", "ivy"],
       foreground: [220, 230, 255],
       background: [30, 40, 70],
+      selectedForeground: [10, 10, 20],
+      selectedBackground: [255, 105, 180],
+      scrollbarTrack: [40, 50, 80],
+      scrollbarThumb: [120, 130, 160],
     },
   };
 }

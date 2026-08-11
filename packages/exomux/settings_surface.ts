@@ -53,6 +53,10 @@ export interface ExomuxPickerSpec {
   readonly items: readonly string[];
   readonly foreground: ExomuxRgb;
   readonly background: ExomuxRgb;
+  readonly selectedForeground: ExomuxRgb;
+  readonly selectedBackground: ExomuxRgb;
+  readonly scrollbarTrack: ExomuxRgb;
+  readonly scrollbarThumb: ExomuxRgb;
 }
 
 function rectSignature(spec: ExomuxPickerSpec): string {
@@ -64,6 +68,10 @@ function rectSignature(spec: ExomuxPickerSpec): string {
     spec.items.length,
     spec.foreground.join(","),
     spec.background.join(","),
+    spec.selectedForeground.join(","),
+    spec.selectedBackground.join(","),
+    spec.scrollbarTrack.join(","),
+    spec.scrollbarThumb.join(","),
   ].join(":");
 }
 
@@ -241,6 +249,8 @@ export class ExomuxSettingsSurface {
         theme: pickerTheme(theme),
         items: [...theme.items],
         selectedIndex: this.#themeSelected,
+        selectedStyle: selectedStyleOf(theme),
+        scrollbar: scrollbarOf(theme),
       });
       this.#backgroundList = new List({
         parent: tui,
@@ -254,6 +264,8 @@ export class ExomuxSettingsSurface {
         theme: pickerTheme(background),
         items: [...background.items],
         selectedIndex: this.#backgroundSelected,
+        selectedStyle: selectedStyleOf(background),
+        scrollbar: scrollbarOf(background),
       });
       return [this.#themeList, this.#backgroundList] as Component[];
     });
@@ -278,7 +290,20 @@ export class ExomuxSettingsSurface {
   }
 }
 
-/** A List theme: the selected row carries the library's `>` marker over this base. */
+/** A List theme: unselected rows over this base. */
 function pickerTheme(spec: ExomuxPickerSpec): { base: Style } {
   return { base: createAnsiStyle({ foreground: spec.foreground, background: spec.background }) };
+}
+
+/** The highlight style for the selected row. */
+function selectedStyleOf(spec: ExomuxPickerSpec): Style {
+  return createAnsiStyle({ foreground: spec.selectedForeground, background: spec.selectedBackground, bold: true });
+}
+
+/** Solid-colour track and thumb styles for the picker's scrollbar. */
+function scrollbarOf(spec: ExomuxPickerSpec): { track: Style; thumb: Style } {
+  return {
+    track: createAnsiStyle({ foreground: spec.scrollbarTrack, background: spec.scrollbarTrack }),
+    thumb: createAnsiStyle({ foreground: spec.scrollbarThumb, background: spec.scrollbarThumb }),
+  };
 }

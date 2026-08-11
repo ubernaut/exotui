@@ -4069,6 +4069,10 @@ function paintGlobalSettingsWindow(
         items: EXOMUX_THEMES.map((entry) => entry.label),
         foreground: theme.text,
         background: theme.surfaceStrong,
+        selectedForeground: theme.background,
+        selectedBackground: theme.accent,
+        scrollbarTrack: theme.surface,
+        scrollbarThumb: theme.muted,
       },
       {
         column: layout.backgroundListRect.column - rect.column,
@@ -4078,6 +4082,10 @@ function paintGlobalSettingsWindow(
         items: EXOMUX_BACKGROUND_IDS.map((id) => `${id}${exomuxBackgroundOvergrows(id) ? " *" : ""}`),
         foreground: theme.text,
         background: theme.surfaceStrong,
+        selectedForeground: theme.background,
+        selectedBackground: theme.accent,
+        scrollbarTrack: theme.surface,
+        scrollbarThumb: theme.muted,
       },
     );
     if (settingsPickers.ready()) {
