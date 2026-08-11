@@ -20,6 +20,44 @@ function cell(canvas: Canvas, row: number, column: number): string {
   return typeof value === "string" ? value : "";
 }
 
+Deno.test("List clears trailing characters when a shorter row scrolls into place", async () => {
+  const sink = new MemoryCanvasSink();
+  const canvas = new Canvas({ sink, size: { columns: 20, rows: 5 } });
+  const tui = new Tui({ canvas });
+  const base = createAnsiStyle({ foreground: [200, 200, 200], background: [0, 0, 0] });
+  const selectedIndex = new Signal(0);
+  const list = new List({
+    parent: tui,
+    theme: { base },
+    rectangle: { column: 0, row: 0, width: 18, height: 3 },
+    zIndex: 1,
+    items: ["averylongitemname", "b", "c", "d", "e"],
+    selectedIndex,
+  });
+  try {
+    await render(canvas);
+    // Scroll so the long first row is replaced by a short one.
+    selectedIndex.value = 2;
+    await render(canvas);
+    const row0 = plainRow(canvas, 0, 18);
+    assert(row0.includes("b"), "the short item renders");
+    assert(!row0.includes("verylong"), `trailing characters of the old long row must be cleared, saw "${row0}"`);
+  } finally {
+    list.destroy();
+  }
+});
+
+/** Strips SGR from a run of cells on one canvas row. */
+const SGR = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
+function plainRow(canvas: Canvas, row: number, width: number): string {
+  let text = "";
+  for (let column = 0; column < width; column += 1) {
+    const value = canvas.frameBuffer[row]?.[column];
+    text += typeof value === "string" ? value.replace(SGR, "") : " ";
+  }
+  return text;
+}
+
 Deno.test("List highlights the selected row and draws a scaled scrollbar", async () => {
   const sink = new MemoryCanvasSink();
   const canvas = new Canvas({ sink, size: { columns: 14, rows: 6 } });

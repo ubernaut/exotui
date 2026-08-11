@@ -5,6 +5,7 @@ import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
 import { drawTextRows } from "./text_children.ts";
 import { Text } from "./text.ts";
+import { cropToWidth, textWidth } from "../utils/strings.ts";
 import { BoxObject } from "../canvas/box.ts";
 import type { TextRectangle } from "../canvas/text.ts";
 import type { Rectangle } from "../types.ts";
@@ -59,17 +60,35 @@ export function virtualRows<T>(
   return rows;
 }
 
-/** Public helper for visible List Rows. */
-export function visibleListRows(items: readonly string[], selectedIndex: number, height: number): string[] {
-  return visibleListRowsInto([], items, selectedIndex, height);
+/** Pads (and clips) a row to an exact display width so trailing cells are cleared. */
+export function padListRow(row: string, width: number): string {
+  if (width <= 0) return "";
+  const cropped = cropToWidth(row, width);
+  const pad = width - textWidth(cropped);
+  return pad > 0 ? cropped + " ".repeat(pad) : cropped;
 }
 
-/** Renders visible List Rows into a caller-owned buffer. */
+/** Public helper for visible List Rows. */
+export function visibleListRows(
+  items: readonly string[],
+  selectedIndex: number,
+  height: number,
+  width?: number,
+): string[] {
+  return visibleListRowsInto([], items, selectedIndex, height, width);
+}
+
+/**
+ * Renders visible List Rows into a caller-owned buffer. When `width` is given,
+ * each row is padded (and clipped) to that display width so a shorter row after
+ * a scroll fully overwrites a longer one — no stale trailing characters.
+ */
 export function visibleListRowsInto(
   target: string[],
   items: readonly string[],
   selectedIndex: number,
   height: number,
+  width?: number,
 ): string[] {
   const safeHeight = Math.max(0, height);
   const selected = clampSelectionIndex(items.length, selectedIndex);
@@ -78,7 +97,8 @@ export function visibleListRowsInto(
   target.length = count;
   for (let offset = 0; offset < count; offset += 1) {
     const index = window.start + offset;
-    target[offset] = `${index === selected ? ">" : " "} ${items[index]!}`;
+    const row = `${index === selected ? ">" : " "} ${items[index]!}`;
+    target[offset] = width === undefined ? row : padListRow(row, width);
   }
   return target;
 }
@@ -232,7 +252,15 @@ export class List extends Component {
     this.items = this.controller.items;
     this.selectedIndex = this.controller.selectedIndex;
     this.#rows = new Computed(() =>
-      visibleListRowsInto(this.#rowBuffer, this.items.value, this.selectedIndex.value, this.rectangle.value.height)
+      visibleListRowsInto(
+        this.#rowBuffer,
+        this.items.value,
+        this.selectedIndex.value,
+        this.rectangle.value.height,
+        // Pad rows to the full width so a shorter row fully overwrites a longer
+        // one on scroll; reserve the last column when a scrollbar is shown.
+        Math.max(0, this.rectangle.value.width - (this.#scrollbar ? 1 : 0)),
+      )
     );
 
     this.on("keyPress", (event) => {
@@ -274,7 +302,8 @@ export class List extends Component {
       const items = this.items.value;
       const index = clampSelectionIndex(items.length, this.selectedIndex.value);
       const item = items[index];
-      return item === undefined ? "" : `> ${item}`;
+      if (item === undefined) return "";
+      return padListRow(`> ${item}`, Math.max(0, this.rectangle.value.width - reserve));
     });
     const rectangle = new Computed<TextRectangle>(() => {
       const rect = this.rectangle.value;
