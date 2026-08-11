@@ -149,7 +149,13 @@ function patchMappedAtCreationBuffers(device: GPUDevice): GPUDevice {
       if (!shadow || uploaded) {
         return;
       }
-      device.queue.writeBuffer(buffer, 0, shadow);
+      // Upload through a typed-array *view*, never the bare ArrayBuffer: some
+      // WebGPU runtimes (seen on fallback/compat adapters) reject a raw
+      // ArrayBuffer here with "data must be an ArrayBuffer or an ArrayBufferView"
+      // and only accept a view. A view also degrades to a harmless empty upload
+      // if the shadow was detached. This path is hit whenever new
+      // mappedAtCreation buffers are made — e.g. when the ASCII scene resizes.
+      device.queue.writeBuffer(buffer, 0, new Uint8Array(shadow));
       shadow = undefined;
       uploaded = true;
     }) as GPUBuffer["unmap"];

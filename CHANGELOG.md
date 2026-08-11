@@ -388,6 +388,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Three ASCII renderer no longer goes offline ("ASCII RENDERER OFFLINE — data must be an ArrayBuffer or an
+  ArrayBufferView") the moment its scene resizes — e.g. when a control is focused or a window maximized. The WebGPU
+  compatibility shim's `mappedAtCreation` `unmap` uploaded the shadow buffer as a bare `ArrayBuffer`, which some
+  fallback/compat adapters reject in `writeBuffer`; it now uploads a `Uint8Array` view (also harmless if the buffer was
+  detached). New mappedAtCreation buffers are created on resize, so the throw only appeared once the render grid changed
+  size.
 - Clicking a settings `< value >` control now respects which arrow was pressed: the left half (`<`) steps the value back
   and the right half (`>`) steps it forward. Every option click stepped forward before, so the `<` was decoration. Both
   the main settings window and the background-config modal route the click through a shared

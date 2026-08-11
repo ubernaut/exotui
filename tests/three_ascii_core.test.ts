@@ -2810,6 +2810,54 @@ Deno.test("getCompatibleWebGPUDevice falls back when the primary adapter cannot 
   }
 });
 
+Deno.test("patched mappedAtCreation buffers upload a typed-array view on unmap, not a raw ArrayBuffer", async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  // Some fallback/compat adapters reject a raw ArrayBuffer in writeBuffer with
+  // "data must be an ArrayBuffer or an ArrayBufferView" — which surfaced as the
+  // ASCII renderer going offline the moment its scene resized (a control focus
+  // or window maximize) and new mappedAtCreation buffers were made.
+  const writes: unknown[] = [];
+  const device = {
+    queue: {
+      writeBuffer: (_buffer: unknown, _offset: number, data: unknown) => {
+        writes.push(data);
+      },
+    } as unknown as GPUQueue,
+    popErrorScope: () => Promise.resolve(null),
+    createShaderModule: (descriptor: unknown) => descriptor as GPUShaderModule,
+    createBuffer: (descriptor: GPUBufferDescriptor) =>
+      ({
+        descriptor,
+        mapAsync: () => Promise.resolve(),
+        getMappedRange: () => new ArrayBuffer(Number(descriptor.size) || 0),
+        unmap() {},
+        destroy() {},
+      }) as unknown as GPUBuffer,
+    destroy() {},
+  } as unknown as GPUDevice;
+  installCompatibleNavigatorGpu({
+    requestAdapter: () => Promise.resolve({ requestDevice: () => Promise.resolve(device) }),
+  });
+  resetCompatibleWebGPUDeviceCache();
+
+  try {
+    const patched = await getCompatibleWebGPUDevice();
+    const buffer = patched.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    new Float32Array(buffer.getMappedRange()).set([1, 2, 3, 4]);
+    buffer.unmap();
+    const uploaded = writes.at(-1);
+    assertEquals(ArrayBuffer.isView(uploaded), true, "unmap must upload a typed-array view, never a bare ArrayBuffer");
+    assertEquals((uploaded as Uint8Array).byteLength, 16);
+  } finally {
+    resetCompatibleWebGPUDeviceCache();
+    restoreCompatibleNavigator(originalNavigator);
+  }
+});
+
 const deferredReadbackLayout: ThreeAsciiReadbackLayout = {
   byteLength: 20,
   fillOffset: 0,
