@@ -2906,7 +2906,33 @@ function exomuxLuminance(color: ExomuxRgb): number {
   return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2];
 }
 
-/** Squared RGB distance; ordering is all the pair search needs. */
+/** HSV chroma (max−min): how vivid a colour is, 0 for any grey. */
+function exomuxChroma(color: ExomuxRgb): number {
+  return Math.max(color[0], color[1], color[2]) - Math.min(color[0], color[1], color[2]);
+}
+
+/** Hue angle in degrees, or undefined for a grey with no hue. */
+function exomuxHue(color: ExomuxRgb): number | undefined {
+  const [r, g, b] = color;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = max - min;
+  if (chroma === 0) return undefined;
+  let hue: number;
+  if (max === r) hue = ((g - b) / chroma) % 6;
+  else if (max === g) hue = (b - r) / chroma + 2;
+  else hue = (r - g) / chroma + 4;
+  hue *= 60;
+  return hue < 0 ? hue + 360 : hue;
+}
+
+/** Shortest angular distance between two hues, 0–180. */
+function exomuxHueDistance(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
+
+/** Squared RGB distance; the fallback when a theme has no vivid colours. */
 function exomuxColorDistanceSq(a: ExomuxRgb, b: ExomuxRgb): number {
   const dr = a[0] - b[0];
   const dg = a[1] - b[1];
@@ -2915,10 +2941,12 @@ function exomuxColorDistanceSq(a: ExomuxRgb, b: ExomuxRgb): number {
 }
 
 /**
- * The two most-contrasting theme colours, brighter one first. Metaball blobs
- * are shaded as a gradient between them from centre to edge, so the pair is
- * chosen for maximum separation rather than a fixed accent so every theme
- * reads with real contrast.
+ * The two most extreme theme colours — the vivid, high-contrast pair the
+ * metaballs shade between, brighter one first. Anchored on the theme's most
+ * saturated colour, then paired with the colour furthest from it in hue and
+ * still vivid, so T2 resolves to hot pink and blue rather than two near-greys
+ * a plain RGB-distance search would pick. Falls back to maximum RGB distance
+ * for a theme with no real hue.
  */
 export function exomuxMetaballGradientColors(theme: ExomuxThemeSpec): readonly [ExomuxRgb, ExomuxRgb] {
   const candidates: readonly ExomuxRgb[] = [
@@ -2927,20 +2955,46 @@ export function exomuxMetaballGradientColors(theme: ExomuxThemeSpec): readonly [
     theme.warning,
     theme.danger,
     theme.text,
+    theme.muted,
     theme.surfaceStrong,
+    theme.border,
   ];
-  let best: [ExomuxRgb, ExomuxRgb] = [theme.accent, theme.surfaceStrong];
-  let bestDistance = -1;
-  for (let i = 0; i < candidates.length; i += 1) {
-    for (let j = i + 1; j < candidates.length; j += 1) {
-      const distance = exomuxColorDistanceSq(candidates[i]!, candidates[j]!);
-      if (distance > bestDistance) {
-        bestDistance = distance;
-        best = [candidates[i]!, candidates[j]!];
+  // Anchor: the most vivid colour in the theme.
+  let anchor = candidates[0]!;
+  for (const color of candidates) {
+    if (exomuxChroma(color) > exomuxChroma(anchor)) anchor = color;
+  }
+  const anchorHue = exomuxHue(anchor);
+  if (anchorHue === undefined) {
+    // A greyscale theme: fall back to the widest plain RGB gap.
+    let best: [ExomuxRgb, ExomuxRgb] = [theme.text, theme.surfaceStrong];
+    let bestDistance = -1;
+    for (let i = 0; i < candidates.length; i += 1) {
+      for (let j = i + 1; j < candidates.length; j += 1) {
+        const distance = exomuxColorDistanceSq(candidates[i]!, candidates[j]!);
+        if (distance > bestDistance) {
+          bestDistance = distance;
+          best = [candidates[i]!, candidates[j]!];
+        }
       }
     }
+    return exomuxLuminance(best[0]) >= exomuxLuminance(best[1]) ? best : [best[1], best[0]];
   }
-  return exomuxLuminance(best[0]) >= exomuxLuminance(best[1]) ? best : [best[1], best[0]];
+  // Partner: furthest from the anchor in hue, weighted by its own vividness.
+  let partner = anchor;
+  let bestScore = -1;
+  for (const color of candidates) {
+    const hue = exomuxHue(color);
+    if (hue === undefined) continue;
+    const score = (exomuxHueDistance(anchorHue, hue) / 180) * exomuxChroma(color);
+    if (score > bestScore) {
+      bestScore = score;
+      partner = color;
+    }
+  }
+  // A theme with one lonely hue keeps a real gradient by using its ground.
+  if (partner === anchor) partner = theme.surfaceStrong;
+  return exomuxLuminance(anchor) >= exomuxLuminance(partner) ? [anchor, partner] : [partner, anchor];
 }
 
 function exomuxMetaballPalette(theme: ExomuxThemeSpec): readonly ExomuxRgb[] {

@@ -3997,5 +3997,16 @@ Deno.test("Exomux metaball gradient uses two high-contrast theme colours, no sca
     // Centre is the brighter end so blobs glow inward.
     const luma = (c: readonly number[]) => 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
     assert(luma(center) >= luma(edge), `theme ${theme.id} centre should be at least as bright as the edge`);
+    // The pair is vivid, not two near-greys: at least one end is saturated.
+    const chroma = (c: readonly number[]) => Math.max(c[0]!, c[1]!, c[2]!) - Math.min(c[0]!, c[1]!, c[2]!);
+    assert(
+      Math.max(chroma(center), chroma(edge)) > 60,
+      `theme ${theme.id} should pick a vivid colour, saw chroma ${chroma(center)}/${chroma(edge)}`,
+    );
   }
+
+  // T2's exemplar: hot pink centre, blue edge.
+  const [t2Center, t2Edge] = exomuxMetaballGradientColors(exomuxTheme("t2"));
+  assertEquals(t2Center, [255, 105, 180]);
+  assertEquals(t2Edge, [30, 58, 112]);
 });
