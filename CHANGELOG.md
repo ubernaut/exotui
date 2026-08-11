@@ -31,6 +31,8 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Right-clicking the Exomux desktop opens the menu under the cursor, clamped to stay on screen, instead of only from the
+  top-left start button. A terminal with mouse reporting on still owns its own right-click.
 - Exomux settings now persist to a durable config file at `~/.config/exomux/exomux.json` (`$XDG_CONFIG_HOME`/`%APPDATA%`
   respected), separate from the per-session layout state, so the theme, background, and every settings knob survive
   reboots and host termination and are shared across sessions. The chosen background image is copied beside it under
@@ -213,6 +215,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Changed
 
+- Exomux scrolls one row per wheel notch by default instead of three, which reads far better in menus like the theme
+  picker. Scroll speed is now a selectable desktop-wide setting and a per-window override (a window follows the desktop
+  speed unless pinned). Utility lists — the session manager, the network tree, the settings panes — move one selection
+  per notch regardless, the natural feel for a menu.
 - Exomux's global settings left their modal behind: they now live in an ordinary floating window — movable, resizable,
   always-on-top, born minimized — so the desktop stays fully interactive while it is open. Keyboard behavior follows
   window focus (arrows, Tab, Enter, and Escape drive the settings only while the window is active), wheel scrolling
@@ -316,6 +322,13 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux metaball background is a smooth gradient again, not scanline stripes. Each blob shades from its centre to
+  its edge between the two most-contrasting colours in the active theme, chosen per theme so every one reads with real
+  contrast, and the alternate-row quantization that produced horizontal banding is gone.
+- Transparent windows show the background flowing behind them over fluid fields like turbulence, instead of reading as
+  opaque. A fluid field treated every window rectangle as a solid obstacle, so there was no flow behind a window and its
+  translucent cells blended against a flat void that, in most themes, is nearly the window surface — so it looked opaque
+  however low the opacity was set. Transparent windows are no longer field obstacles; only opaque ones are.
 - The Exomux client no longer exits the instant it attaches. The new `-h`/`--help` and launch-failure handling wrapped
   the entrypoint in `Deno.exit(await runExomuxCli(...))`, but the interactive client returns as soon as its render loop
   is started and stays alive only through its own event listeners — so the forced exit killed the workbench the moment

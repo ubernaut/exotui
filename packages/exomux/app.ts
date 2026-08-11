@@ -53,6 +53,7 @@ import {
   type ExomuxBorderGlyphs,
   exomuxBorderGlyphs,
   exomuxResolvedOpacity,
+  exomuxResolvedScrollLines,
   type ExomuxRgb,
   exomuxSessionIdFromWindow,
   type ExomuxSessionSummary,
@@ -193,7 +194,6 @@ const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: st
   ]);
 const NETWORK_LIST_START = 1;
 const MAX_TOUCH_GESTURES = 8;
-const SCROLL_LINES_PER_NOTCH = 3;
 const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
 const MIN_CLASSIFIED_KEY_RESERVATION_BYTES = 64;
@@ -233,11 +233,20 @@ export interface ExomuxStartMenuLayout {
 }
 
 /** Lays out the start-menu dropdown hanging below the top-left button. */
-export function exomuxStartMenuLayout(bounds: Rectangle): ExomuxStartMenuLayout {
+export function exomuxStartMenuLayout(
+  bounds: Rectangle,
+  anchor?: { readonly column: number; readonly row: number },
+): ExomuxStartMenuLayout {
   const labelWidth = START_MENU_ITEMS.reduce((max, item) => Math.max(max, textWidth(item.label)), 0);
   const width = Math.min(Math.max(18, labelWidth + 4), Math.max(4, bounds.width));
   const height = Math.min(START_MENU_ITEMS.length + 2, Math.max(3, bounds.height - 1));
-  const panelRect: Rectangle = { column: bounds.column, row: bounds.row + 1, width, height };
+  // Docked under the start button by default; a right-click anchors it at the
+  // cursor, clamped so the whole panel stays on screen.
+  const column = anchor
+    ? Math.max(bounds.column, Math.min(anchor.column, bounds.column + bounds.width - width))
+    : bounds.column;
+  const row = anchor ? Math.max(bounds.row, Math.min(anchor.row, bounds.row + bounds.height - height)) : bounds.row + 1;
+  const panelRect: Rectangle = { column, row, width, height };
   const items = START_MENU_ITEMS.map((item, index) => ({
     id: item.id,
     label: item.label,
@@ -809,11 +818,14 @@ export function mountExomuxDesktop(
     // something to see once the overgrowth exposes the board underneath.
     const reclaiming = overgrowthEnabled();
     const solidObstacles = projection.windows.map((window) => window.rect);
-    const obstacles = reclaiming
-      ? projection.windows
-        .filter((window) => (overgrowthRatios.get(window.id) ?? 0) <= 0)
-        .map((window) => window.rect)
-      : solidObstacles;
+    // A transparent window must show the background flowing behind it, so it is
+    // not a field obstacle: a fluid field like turbulence otherwise treats the
+    // whole window rect as solid, leaving a flat void that reads as opaque
+    // however low the opacity is set.
+    const obstacles = projection.windows
+      .filter((window) => reclaiming ? (overgrowthRatios.get(window.id) ?? 0) <= 0 : true)
+      .filter((window) => exomuxWindowIsOpaque(controller, window.id))
+      .map((window) => window.rect);
     const frame = {
       bounds: bodyRect.peek(),
       obstacles,
@@ -887,6 +899,8 @@ export function mountExomuxDesktop(
         // interaction even when the background is static (a picture) and no
         // longer forces a repaint every animation tick.
         controller.startMenuVisible.value,
+        controller.startMenuAnchor.value?.column,
+        controller.startMenuAnchor.value?.row,
         controller.globalConfigVisible.value,
         controller.globalConfigPane.value,
         controller.globalConfigOptionIndex.value,
@@ -1140,7 +1154,9 @@ export function mountExomuxDesktop(
     if (windowId === EXOMUX_SESSIONS_WINDOW_ID) {
       const sessions = controller.sessions.peek();
       if (sessions.length === 0) return true;
-      selectedSessionIndex.value = clampIndex(selectedSessionIndex.peek() + Math.trunc(delta), sessions.length);
+      // Lists move one selection per notch regardless of scroll speed, which is
+      // the natural feel for a menu.
+      selectedSessionIndex.value = clampIndex(selectedSessionIndex.peek() + Math.sign(delta), sessions.length);
       return true;
     }
     if (windowId === EXOMUX_NETWORK_WINDOW_ID) {
@@ -1184,17 +1200,20 @@ export function mountExomuxDesktop(
     return window ? scrollClientWindow(window.id, delta) : false;
   };
 
-  /** Wheel notches scale by the target window's own `Wheel scroll` setting. */
+  /** Wheel notches scale by the target window's resolved scroll speed. */
   const wheelDeltaAt = (column: number, row: number, notches: number): number => {
+    const global = controller.globalSettings.peek();
     const window = clientWindowAt(windowProjection.peek(), column, row);
     const sessionId = window ? exomuxSessionIdFromWindow(window.id) : undefined;
-    const lines = sessionId ? controller.windowSettingsFor(sessionId).wheelLines : SCROLL_LINES_PER_NOTCH;
+    const lines = sessionId
+      ? exomuxResolvedScrollLines(global, controller.windowSettingsFor(sessionId))
+      : global.scrollLines;
     return notches * lines;
   };
 
   const performModalActivation = async (column: number, row: number): Promise<boolean> => {
     if (controller.startMenuVisible.peek()) {
-      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek());
+      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek(), controller.startMenuAnchor.peek());
       const item = layout.items.find((candidate) => contains(candidate.rect, column, row));
       if (item) {
         controller.closeStartMenu();
@@ -1324,6 +1343,20 @@ export function mountExomuxDesktop(
         if (command) await enqueue(() => performTerminalBarAction(command.item.action));
       }
       return true;
+    }
+
+    // Right-click opens the Exomux menu under the cursor. A terminal with mouse
+    // reporting on owns its own right-click, so the menu yields to it there.
+    if (event.button === 2 && !event.drag && !event.release && contains(bodyRect.peek(), event.x, event.y)) {
+      const overReportingTerminal = (() => {
+        const window = clientWindowAt(windowProjection.peek(), event.x, event.y);
+        const sessionId = window ? exomuxSessionIdFromWindow(window.id) : undefined;
+        return sessionId ? controller.windowSettingsFor(sessionId).mouseReporting : false;
+      })();
+      if (!overReportingTerminal) {
+        await enqueue(() => controller.openStartMenu({ column: event.x, row: event.y }));
+        return true;
+      }
     }
 
     // Geometry gestures are local and synchronous. Do not make title-bar
@@ -1494,7 +1527,7 @@ export function mountExomuxDesktop(
 
   const modalTouchTargetAt = (column: number, row: number): ExomuxTouchTarget | undefined => {
     if (controller.startMenuVisible.peek()) {
-      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek());
+      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek(), controller.startMenuAnchor.peek());
       const item = layout.items.find((candidate) => contains(candidate.rect, column, row));
       return item ? { kind: "start-item", id: item.id, hitRect: item.rect } : undefined;
     }
@@ -2555,6 +2588,17 @@ type ExomuxGround = (column: number, row: number) => ExomuxRgb;
  * unconditionally, so they stayed opaque at every opacity setting while the
  * terminals around them went see-through.
  */
+/** True when a window paints its own surface fully; only these block the field. */
+function exomuxWindowIsOpaque(controller: ExomuxController, windowId: string): boolean {
+  const global = controller.globalSettings.peek();
+  const sessionId = exomuxSessionIdFromWindow(windowId);
+  // Panels (sessions, network, settings) follow the desktop-wide opacity.
+  const resolved = sessionId
+    ? exomuxResolvedOpacity(global, controller.windowSettingsFor(sessionId))
+    : exomuxResolvedOpacity(global);
+  return resolved >= 1;
+}
+
 function exomuxWindowGround(theme: ExomuxThemeSpec, opacity: number, backdrop?: ExomuxBackdrop): ExomuxGround {
   if (!backdrop || opacity >= 1) return () => theme.surface;
   return (column, row) => mixExomuxRgb(backdrop(column, row), theme.surface, opacity);
@@ -2726,9 +2770,9 @@ function paintStartMenu(
   painter: DesktopPainter,
   bounds: Rectangle,
   theme: ExomuxThemeSpec,
-  _controller: ExomuxController,
+  controller: ExomuxController,
 ): void {
-  const { panelRect, items } = exomuxStartMenuLayout(bounds);
+  const { panelRect, items } = exomuxStartMenuLayout(bounds, controller.startMenuAnchor.peek());
   painter.fill(panelRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.borderBox(panelRect, exomuxBorderGlyphs("thin"), {
     foreground: theme.accent,
@@ -2827,10 +2871,7 @@ function exomuxMetaballCellColor(
   if (localColumn < 0 || localRow < 0 || localColumn >= bounds.width || localRow >= bounds.height) return undefined;
   const level = levels[localRow * bounds.width + localColumn] ?? 0;
   if (level === 0) return undefined;
-  // recordMyScreen overlays horizontal scanlines. Quantizing alternate rows
-  // preserves that texture while bounding distinct ANSI styles.
-  const scanlineLevel = row % 2 === 0 ? level : Math.max(1, level - 1);
-  return palette[scanlineLevel];
+  return palette[level];
 }
 
 /** Backdrop colour behind a transparent window over the metaball field. */
@@ -2860,14 +2901,57 @@ function paintMetaballLevels(
   }
 }
 
+/** Relative luminance of a colour, for contrast comparisons. */
+function exomuxLuminance(color: ExomuxRgb): number {
+  return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2];
+}
+
+/** Squared RGB distance; ordering is all the pair search needs. */
+function exomuxColorDistanceSq(a: ExomuxRgb, b: ExomuxRgb): number {
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  return dr * dr + dg * dg + db * db;
+}
+
+/**
+ * The two most-contrasting theme colours, brighter one first. Metaball blobs
+ * are shaded as a gradient between them from centre to edge, so the pair is
+ * chosen for maximum separation rather than a fixed accent so every theme
+ * reads with real contrast.
+ */
+export function exomuxMetaballGradientColors(theme: ExomuxThemeSpec): readonly [ExomuxRgb, ExomuxRgb] {
+  const candidates: readonly ExomuxRgb[] = [
+    theme.accent,
+    theme.success,
+    theme.warning,
+    theme.danger,
+    theme.text,
+    theme.surfaceStrong,
+  ];
+  let best: [ExomuxRgb, ExomuxRgb] = [theme.accent, theme.surfaceStrong];
+  let bestDistance = -1;
+  for (let i = 0; i < candidates.length; i += 1) {
+    for (let j = i + 1; j < candidates.length; j += 1) {
+      const distance = exomuxColorDistanceSq(candidates[i]!, candidates[j]!);
+      if (distance > bestDistance) {
+        bestDistance = distance;
+        best = [candidates[i]!, candidates[j]!];
+      }
+    }
+  }
+  return exomuxLuminance(best[0]) >= exomuxLuminance(best[1]) ? best : [best[1], best[0]];
+}
+
 function exomuxMetaballPalette(theme: ExomuxThemeSpec): readonly ExomuxRgb[] {
-  const glowTarget = mixExomuxRgb(theme.accent, theme.success, 0.35);
+  const [center, edge] = exomuxMetaballGradientColors(theme);
+  const top = EXOMUX_METABALL_LEVELS - 1;
   return Array.from({ length: EXOMUX_METABALL_LEVELS }, (_, level) => {
     if (level === 0) return theme.background;
-    const progress = level / (EXOMUX_METABALL_LEVELS - 1);
-    return progress <= 0.55
-      ? mixExomuxRgb(theme.background, theme.surface, progress / 0.55)
-      : mixExomuxRgb(theme.surface, glowTarget, ((progress - 0.55) / 0.45) * 0.78);
+    // Level 1 is the blob edge, the top level its centre: a smooth gradient
+    // between two high-contrast theme colours, with no scanline banding.
+    const progress = top <= 1 ? 1 : (level - 1) / (top - 1);
+    return mixExomuxRgb(edge, center, progress);
   });
 }
 

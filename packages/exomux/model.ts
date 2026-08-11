@@ -304,6 +304,18 @@ export interface ExomuxWindowSettings {
 /** Per-window opacity value meaning "use the desktop-wide setting". */
 export const EXOMUX_OPACITY_INHERIT = -1;
 
+/** Per-window `wheelLines` value meaning "use the desktop-wide scroll speed". */
+export const EXOMUX_SCROLL_INHERIT = 0;
+/** The selectable scroll speeds, shared by the global and per-window settings. */
+export const EXOMUX_SCROLL_VALUES: readonly number[] = Object.freeze([1, 2, 3, 5, 10]);
+
+/** Formats a scroll speed for a config row. */
+export function formatScrollLines(value: ExomuxSettingValue): string {
+  const lines = Number(value);
+  if (lines === EXOMUX_SCROLL_INHERIT) return "Desktop";
+  return `${lines} ${lines === 1 ? "line" : "lines"}`;
+}
+
 /** Opacity steps offered by both config modals, most opaque first. */
 export const EXOMUX_OPACITY_VALUES: readonly number[] = Object.freeze([1, 0.85, 0.7, 0.55, 0.4, 0.25]);
 
@@ -372,10 +384,10 @@ export const EXOMUX_WINDOW_SETTING_SPECS: readonly ExomuxWindowSettingSpec[] = O
   }),
   Object.freeze({
     id: "wheelLines" as const,
-    label: "Wheel scroll",
-    detail: "Rows moved per wheel notch.",
-    values: Object.freeze([1, 3, 5, 10]),
-    format: (value: ExomuxSettingValue) => `${value} ${value === 1 ? "line" : "lines"}`,
+    label: "Scroll speed",
+    detail: "Rows moved per wheel notch; Desktop follows the global scroll speed.",
+    values: Object.freeze([EXOMUX_SCROLL_INHERIT, ...EXOMUX_SCROLL_VALUES]),
+    format: formatScrollLines,
   }),
   Object.freeze({
     id: "dimInactive" as const,
@@ -406,7 +418,7 @@ export function defaultExomuxWindowSettings(): ExomuxWindowSettings {
     themed: true,
     scrollbackLimit: 2_000,
     mouseReporting: true,
-    wheelLines: 3,
+    wheelLines: EXOMUX_SCROLL_INHERIT,
     dimInactive: false,
     confirmClose: true,
     opacity: EXOMUX_OPACITY_INHERIT,
@@ -554,6 +566,18 @@ export interface ExomuxGlobalSettings {
    * override this.
    */
   readonly opacity: number;
+  /** Default rows moved per wheel notch; a window may override it. */
+  readonly scrollLines: number;
+}
+
+/**
+ * Resolves how many rows one wheel notch moves for a window: its own
+ * `wheelLines`, or the desktop-wide `scrollLines` when set to inherit.
+ */
+export function exomuxResolvedScrollLines(global: ExomuxGlobalSettings, window?: ExomuxWindowSettings): number {
+  const own = window?.wheelLines ?? EXOMUX_SCROLL_INHERIT;
+  const resolved = own === EXOMUX_SCROLL_INHERIT ? global.scrollLines : own;
+  return Number.isFinite(resolved) && resolved >= 1 ? Math.min(20, Math.floor(resolved)) : 1;
 }
 
 /** Identity of one configurable desktop-wide setting. */
@@ -592,6 +616,13 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     values: Object.freeze([...EXOMUX_OPACITY_VALUES]),
     format: formatOpacity,
   }),
+  Object.freeze({
+    id: "scrollLines" as const,
+    label: "Scroll speed",
+    detail: "Rows moved per wheel notch; a window can override it.",
+    values: Object.freeze([...EXOMUX_SCROLL_VALUES]),
+    format: formatScrollLines,
+  }),
 ]) as readonly ExomuxGlobalSettingSpec[];
 
 /** Factory defaults for desktop-wide settings. */
@@ -603,6 +634,8 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     // Slightly translucent out of the box: the live desktop showing through
     // terminal text is the look Exomux leads with.
     opacity: 0.85,
+    // One row per wheel notch by default; a precise, unhurried scroll.
+    scrollLines: 1,
   });
 }
 

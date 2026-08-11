@@ -366,6 +366,8 @@ export class ExomuxController {
   readonly quitModalVisible = new Signal(false);
   /** Whether the top-left start menu dropdown is open. */
   readonly startMenuVisible = new Signal(false);
+  /** Where the menu is anchored; undefined docks it under the start button. */
+  readonly startMenuAnchor = new Signal<{ readonly column: number; readonly row: number } | undefined>(undefined);
   readonly status = new Signal("Connecting to local Exomux host…");
   readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
   readonly savedHosts = new Signal<readonly string[]>([]);
@@ -523,10 +525,11 @@ export class ExomuxController {
     if (!this.#disposed) this.#persistActiveSession();
   }
 
-  /** Opens the top-left start menu dropdown. */
-  openStartMenu(): void {
+  /** Opens the menu, docked under the start button or anchored at a cursor. */
+  openStartMenu(anchor?: { readonly column: number; readonly row: number }): void {
     this.#assertActive();
     this.prefixPending.value = false;
+    this.startMenuAnchor.value = anchor;
     this.startMenuVisible.value = true;
   }
 
@@ -534,6 +537,7 @@ export class ExomuxController {
   closeStartMenu(): void {
     if (this.#disposed) return;
     this.startMenuVisible.value = false;
+    this.startMenuAnchor.value = undefined;
   }
 
   /** Toggles the start menu dropdown, returning its new visibility. */

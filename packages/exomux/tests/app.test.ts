@@ -22,6 +22,7 @@ import {
   exomuxGlobalConfigLayout,
   exomuxGlyphColumns,
   exomuxMetaballBackgroundVisible,
+  exomuxMetaballGradientColors,
   exomuxMetaballsMayAdvance,
   type ExomuxPointerInputSource,
   exomuxQuitLayout,
@@ -1455,16 +1456,17 @@ Deno.test("Exomux manager wheel selection never clicks through its fixed header"
     assertEquals(controller.windowHost.controller.inspect().activeWindowId, EXOMUX_SESSIONS_WINDOW_ID);
     assertEquals(mounted.selectedSessionIndex.peek(), 12);
 
+    // The manager list moves one selection per wheel notch, like any menu.
     assertEquals(
       (await harness.pilot.scroll(1, manager.clientRect.column + 2, manager.clientRect.row + 3)).handled,
       true,
     );
     await mounted.whenIdle();
-    assertEquals(mounted.selectedSessionIndex.peek(), 15);
+    assertEquals(mounted.selectedSessionIndex.peek(), 13);
     manager = mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
     assert(manager);
     const available = Math.max(0, manager.clientRect.height - 3);
-    const offset = Math.max(0, Math.min(15 - Math.floor(available / 2), sessions.length - available));
+    const offset = Math.max(0, Math.min(13 - Math.floor(available / 2), sessions.length - available));
     const targetIndex = offset + 1;
     const rowClick = await harness.pilot.click(manager.clientRect.column + 2, manager.clientRect.row + 4);
     assertEquals(rowClick.press.handled, true);
@@ -1927,7 +1929,8 @@ Deno.test("Exomux translates wheel into cursor keys for alternate-screen apps wi
     assertEquals((await harness.pilot.scroll(-1, wheelX, wheelY)).handled, true);
     await mounted.whenIdle();
     assertEquals(runtime.scrollback.inspect().mode, "live");
-    assertEquals(client.inputs, [{ sessionId: initial.id, data: "\x1b[A".repeat(3) }]);
+    // One row per wheel notch is the default scroll speed.
+    assertEquals(client.inputs, [{ sessionId: initial.id, data: "\x1b[A" }]);
 
     client.inputs.length = 0;
     client.emitOutput({ sessionId: initial.id, sequence: 2, data: "\x1b[?1h" });
@@ -1935,7 +1938,7 @@ Deno.test("Exomux translates wheel into cursor keys for alternate-screen apps wi
     assertEquals((await harness.pilot.scroll(1, wheelX, wheelY)).handled, true);
     await mounted.whenIdle();
     assertEquals(runtime.scrollback.inspect().mode, "live");
-    assertEquals(client.inputs, [{ sessionId: initial.id, data: "\x1bOB".repeat(3) }]);
+    assertEquals(client.inputs, [{ sessionId: initial.id, data: "\x1bOB" }]);
   } finally {
     harness.destroy();
     await controller.dispose();
@@ -2838,7 +2841,7 @@ Deno.test("Exomux global settings normalize and reject unknown values", () => {
   assertEquals(normalizeExomuxGlobalSettings({ overgrowInactive: "yes" }), defaults);
   assertEquals(
     normalizeExomuxGlobalSettings({ overgrowInactive: false, overgrowFullMs: 30_000 }),
-    { overgrowInactive: false, overgrowFullMs: 30_000, borderStyle: "thin", opacity: 0.85 },
+    { overgrowInactive: false, overgrowFullMs: 30_000, borderStyle: "thin", opacity: 0.85, scrollLines: 1 },
   );
   // Unlisted durations fall back rather than being trusted.
   assertEquals(normalizeExomuxGlobalSettings({ overgrowFullMs: 7 }).overgrowFullMs, defaults.overgrowFullMs);
@@ -3931,3 +3934,68 @@ async function tinyExomuxPng(): Promise<Uint8Array> {
   }
   return png;
 }
+
+Deno.test("Exomux right-clicks the desktop to open the menu at the cursor", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    // A clear patch of desktop, away from the always-on-top panels: the
+    // bottom-right corner, which no window covers with zero terminals open.
+    const body = mounted.bodyRect.peek();
+    const x = body.column + body.width - 6;
+    const y = body.row + body.height - 4;
+    const covered = mounted.windowProjection.peek().windows.some((window) =>
+      window.state !== "minimized" && window.state !== "closed" &&
+      x >= window.rect.column && x < window.rect.column + window.rect.width &&
+      y >= window.rect.row && y < window.rect.row + window.rect.height
+    );
+    assert(!covered, "the test targets bare desktop");
+    assertEquals(controller.startMenuVisible.peek(), false);
+    assertEquals(
+      (await harness.app.mouse.dispatch(createTestMousePress({ x, y, button: 2 }))).handled,
+      true,
+    );
+    await mounted.whenIdle();
+    assertEquals(controller.startMenuVisible.peek(), true, "right-click opens the menu");
+
+    // The menu is anchored under the cursor, not docked at the top-left.
+    const layout = exomuxStartMenuLayout(harness.app.tui.rectangle.peek(), controller.startMenuAnchor.peek());
+    assert(layout.panelRect.column > body.column, "the menu is anchored near the cursor, not the left edge");
+    assert(layout.panelRect.row > body.row + 1, "the menu drops at the cursor row, not under the start button");
+    // It stays fully on screen even anchored near the edge.
+    assert(layout.panelRect.column + layout.panelRect.width <= body.column + body.width);
+    assert(layout.panelRect.row + layout.panelRect.height <= body.row + body.height);
+
+    // A left-click elsewhere dismisses it, clearing the anchor.
+    assertEquals(
+      (await harness.app.mouse.dispatch(createTestMousePress({ x: body.column + 1, y: body.row + 1 }))).handled,
+      true,
+    );
+    await mounted.whenIdle();
+    assertEquals(controller.startMenuVisible.peek(), false);
+    assertEquals(controller.startMenuAnchor.peek(), undefined);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux metaball gradient uses two high-contrast theme colours, no scanline banding", () => {
+  for (const theme of EXOMUX_THEMES) {
+    const spec = exomuxTheme(theme.id);
+    const [center, edge] = exomuxMetaballGradientColors(spec);
+    // The two ends are genuinely distinct — a real gradient, not one flat colour.
+    const distance = Math.abs(center[0] - edge[0]) + Math.abs(center[1] - edge[1]) + Math.abs(center[2] - edge[2]);
+    assert(distance > 30, `theme ${theme.id} gradient endpoints should contrast, saw distance ${distance}`);
+    // Centre is the brighter end so blobs glow inward.
+    const luma = (c: readonly number[]) => 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+    assert(luma(center) >= luma(edge), `theme ${theme.id} centre should be at least as bright as the edge`);
+  }
+});
