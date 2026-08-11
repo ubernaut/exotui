@@ -31,6 +31,16 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- `List` is now mouse-interactive. It handles `mousePress` (select — and, unless a drag, activate — the row under the
+  pointer, resolved through its current scroll window) and `mouseScroll` (move one row per notch), and overrides
+  `interact()` so it is a proper interactable focus target like `Slider` and `Button`; `ListController` gains
+  `indexAtRow()` and `handleScroll()` for the window math. It was keyboard-only before.
+- The Exomux settings window's theme and background selectors are real exotui `List` components, not hand-drawn rows.
+  They are mounted on an off-screen `ExomuxWidgetSurface`, bound two-way to the controller's selection, and composited
+  into the window; a click on a picker is forwarded straight into the `List` as a real `MousePressEvent`, which selects
+  the row and applies it through the binding, while keyboard and wheel flow through the existing routing and reflect
+  back into the list. Until a snapshot is ready the painter falls back to the hand-drawn rows, so a picker is never
+  blank. `packages/exomux/settings_surface.ts` carries the picker host and its `ExomuxPickerBindings` seam.
 - The Exomux settings window's action buttons ("Background config" and "Close") are real exotui `Button` components, not
   hand-drawn glyph runs. A new `ExomuxWidgetSurface` hosts a headless `Tui` over a `MemoryCanvasSink`, so library
   components render off-screen into an in-memory cell grid that the desktop composites into the window exactly as it
