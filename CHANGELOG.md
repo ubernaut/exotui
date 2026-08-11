@@ -46,6 +46,10 @@ quickly, but the affected entrypoint or module family should be named here.
   `markerFor(index, selected)` chooses each row's one-character leading marker, so a caller can mark a second state — a
   current/active item distinct from the cursor — reactively. All three are additive — off by default, no change to
   `drawTextRows` or other consumers.
+- Exomux has an optional block mouse cursor (a new "Block mouse cursor" setting, off by default): a themed block drawn
+  at the mouse cell. While on, Exomux enables any-motion mouse tracking (mode 1003) so it follows free movement, and —
+  since no TUI app can hide the terminal's own pointer — under Ghostty it writes a managed `cursor.conf` with
+  `mouse-hide-while-typing = true` (with its include) to cut the double-cursor. It restores mouse tracking on teardown.
 - The Exomux settings option rows are real exotui controls: a `CheckBox` for the boolean (overgrow inactive) and a
   `Cycler` for each discrete-value setting (opacity, scroll speed, overgrow time, border style), composited over the
   value column. They display the live value while the existing option routing drives changes; the dynamic Ghostty shader
