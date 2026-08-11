@@ -80,6 +80,7 @@ import {
 import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
 import { ExomuxSessionNameField } from "./session_name_field.ts";
+import { ExomuxBackgroundList } from "./background_list.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
@@ -773,6 +774,14 @@ export function mountExomuxDesktop(
       },
     ),
   );
+  // The background-config modal reuses the same real controls: a List for its
+  // preset/image pane, Cyclers/CheckBoxes for its options, a Button to close.
+  const bumpSettingsWidgets = () => {
+    settingsWidgetRevision.value += 1;
+  };
+  const backgroundList = own(new ExomuxBackgroundList(bumpSettingsWidgets));
+  const backgroundOptionControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
+  const backgroundButtons = own(new ExomuxSettingsWidgets(bumpSettingsWidgets));
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -1024,6 +1033,9 @@ export function mountExomuxDesktop(
         settingsPickers,
         settingsOptions,
         sessionNameField,
+        backgroundList,
+        backgroundOptionControls,
+        backgroundButtons,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -2663,6 +2675,12 @@ interface RenderExomuxDesktopOptions {
   settingsOptions?: ExomuxSettingsOptions;
   /** Hosts the session-name editor as a real composited Input while renaming. */
   sessionNameField?: ExomuxSessionNameField;
+  /** Hosts the background-config modal's list pane as a real composited List. */
+  backgroundList?: ExomuxBackgroundList;
+  /** Hosts the background-config modal's option controls as real Cyclers/CheckBoxes. */
+  backgroundOptionControls?: ExomuxSettingsOptions;
+  /** Hosts the background-config modal's Close button as a real Button. */
+  backgroundButtons?: ExomuxSettingsWidgets;
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2909,7 +2927,11 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   const configSessionId = controller.configSessionId.peek();
   if (configSessionId) paintWindowConfigModal(painter, projection, theme, controller, configSessionId);
   if (controller.backgroundConfigVisible.peek()) {
-    paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField);
+    paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField, {
+      list: options.backgroundList,
+      options: options.backgroundOptionControls,
+      buttons: options.backgroundButtons,
+    });
   }
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) paintKillConfirmation(painter, projection, controller, pendingKillSessionId);
@@ -3853,6 +3875,8 @@ export interface ExomuxBackgroundConfigLayout {
   readonly rect: Rectangle;
   /** Visible list rows, paired with the list index each row shows. */
   readonly listRows: readonly { readonly rect: Rectangle; readonly index: number }[];
+  /** The whole list-pane region (the composited List widget occupies this). */
+  readonly listRect: Rectangle;
   /** One hit row per setting spec of the active background. */
   readonly optionRows: readonly Rectangle[];
   readonly closeRect: Rectangle;
@@ -3888,6 +3912,7 @@ export function exomuxBackgroundConfigLayout(
   return {
     rect,
     listRows,
+    listRect: { column: rect.column + 2, row: listTop, width: Math.max(1, rect.width - 4), height: visibleRows },
     optionRows,
     closeRect: {
       column: Math.max(rect.column + 1, rect.column + rect.width - 10),
@@ -3898,12 +3923,19 @@ export function exomuxBackgroundConfigLayout(
   };
 }
 
+interface ExomuxBackgroundConfigHosts {
+  readonly list?: ExomuxBackgroundList;
+  readonly options?: ExomuxSettingsOptions;
+  readonly buttons?: ExomuxSettingsWidgets;
+}
+
 function paintBackgroundConfigModal(
   painter: DesktopPainter,
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
   controller: ExomuxController,
   backgroundField: ExomuxAnimatedBackground | undefined,
+  hosts?: ExomuxBackgroundConfigHosts,
 ): void {
   const id = controller.backgroundId.peek();
   const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
@@ -3954,13 +3986,63 @@ function paintBackgroundConfigModal(
       },
     );
   }
+  // The hand-drawn rows above are the fallback; the real exotui List (a `·`
+  // marking the active preset, `>` the cursor) is composited over the pane.
+  if (hosts?.list && listRows.length > 0) {
+    hosts.list.sync({
+      width: layout.listRect.width,
+      height: layout.listRect.height,
+      items: list.map((row) => (row.directory ? `${row.label}/` : row.label)),
+      selectedIndex: listIndex,
+      activeIndex: list.findIndex((row) => row.presetIndex !== undefined && row.presetIndex === activePreset),
+      foreground: theme.text,
+      background: theme.surfaceStrong,
+      selectedForeground: theme.background,
+      selectedBackground: theme.accent,
+      scrollbarTrack: theme.surface,
+      scrollbarThumb: theme.muted,
+    });
+    if (hosts.list.ready()) {
+      for (let row = 0; row < layout.listRect.height; row += 1) {
+        for (let column = 0; column < layout.listRect.width; column += 1) {
+          const cell = hosts.list.cellAt(row, column);
+          if (cell !== undefined) painter.rawCell(layout.listRect.column + column, layout.listRect.row + row, cell);
+        }
+      }
+    }
+  }
+
+  // Each background setting is rendered by a real Cycler/CheckBox composited over
+  // the value column, matching the settings window; the existing routing drives it.
+  const controlWidth = Math.min(16, Math.max(6, (optionRows[0]?.width ?? 16) - 4));
+  const controlSpecs: ExomuxOptionControlSpec[] = specs.map((spec, index) => {
+    const focused = pane === "options" && index === optionIndex;
+    const foreground = focused ? theme.background : theme.accent;
+    const background = focused ? theme.accent : theme.surfaceStrong;
+    if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
+      return { kind: "checkbox", key: spec.id, width: 3, foreground, background, checked: Boolean(values[spec.id]) };
+    }
+    return {
+      kind: "cycler",
+      key: spec.id,
+      width: controlWidth,
+      foreground,
+      background,
+      options: spec.values.map((value) => spec.format(value)),
+      activeIndex: Math.max(0, spec.values.findIndex((value) => value === values[spec.id])),
+    };
+  });
+  const controlCells = hosts?.options?.cellsFor(controlSpecs) ?? [];
 
   for (let index = 0; index < optionRows.length; index += 1) {
     const rowRect = optionRows[index]!;
     const spec = specs[index]!;
     const focused = pane === "options" && index === optionIndex;
+    const cells = controlCells[index];
+    const width = controlSpecs[index]!.width;
+    const controlColumn = rowRect.column + Math.max(0, rowRect.width - width);
     const value = spec.format(values[spec.id]!);
-    const valueColumn = rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
+    const valueColumn = cells ? controlColumn : rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
     painter.fill(rowRect, " ", {
       foreground: focused ? theme.background : theme.text,
       background: focused ? theme.accent : theme.surfaceStrong,
@@ -3976,18 +4058,34 @@ function paintBackgroundConfigModal(
         bold: focused,
       },
     );
-    painter.write(valueColumn, rowRect.row, value, {
-      foreground: focused ? theme.background : theme.accent,
-      background: focused ? theme.accent : theme.surfaceStrong,
+    if (cells) {
+      for (let column = 0; column < Math.min(width, cells.width); column += 1) {
+        const cell = cells.cells[column];
+        if (cell !== undefined) painter.rawCell(controlColumn + column, rowRect.row, cell);
+      }
+    } else {
+      painter.write(valueColumn, rowRect.row, value, {
+        foreground: focused ? theme.background : theme.accent,
+        background: focused ? theme.accent : theme.surfaceStrong,
+        bold: true,
+      });
+    }
+  }
+
+  // Close as a real composited Button, with the hand-drawn fallback until ready.
+  const closeCells = hosts?.buttons?.cellsFor(
+    [{ key: "close", label: "Close", width: closeRect.width, foreground: theme.background, background: theme.accent }],
+    "close",
+  );
+  if (closeCells) {
+    blitSettingsButtonCells(painter, closeRect, closeCells);
+  } else {
+    painter.write(closeRect.column, closeRect.row, "[ Close ]", {
+      foreground: theme.background,
+      background: theme.accent,
       bold: true,
     });
   }
-
-  painter.write(closeRect.column, closeRect.row, "[ Close ]", {
-    foreground: theme.background,
-    background: theme.accent,
-    bold: true,
-  });
 }
 
 /** Composites one real button's styled cells into its window rect. */
