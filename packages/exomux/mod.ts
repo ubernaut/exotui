@@ -11,3 +11,4 @@ export * from "./model.ts";
 export * from "./protocol.ts";
 export * from "./sessions.ts";
 export * from "./tailnet.ts";
+export * from "./widget_surface.ts";
