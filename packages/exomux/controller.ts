@@ -298,6 +298,19 @@ export interface ExomuxRenameResult {
   readonly error?: string;
 }
 
+/** How one shader settings row renders as a real exotui control. */
+export type ExomuxShaderRowControl =
+  | { readonly kind: "checkbox"; readonly checked: boolean }
+  | { readonly kind: "cycler"; readonly options: readonly string[]; readonly activeIndex: number };
+
+/** One shader settings row: its id, label, formatted value, and its control. */
+export interface ExomuxShaderOptionRow {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly control: ExomuxShaderRowControl;
+}
+
 /** The durable preference subset shared across sessions via the config file. */
 export interface ExomuxPreferences {
   readonly themeId: ExomuxThemeId;
@@ -593,25 +606,39 @@ export class ExomuxController {
   }
 
   /** The shader settings rows shown in the settings window under Ghostty. */
-  shaderOptionRows(): readonly { readonly id: string; readonly label: string; readonly value: string }[] {
+  shaderOptionRows(): readonly ExomuxShaderOptionRow[] {
     if (!this.ghosttyDetected.peek()) return [];
     const config = this.shaderConfig.peek();
-    const rows: { id: string; label: string; value: string }[] = [];
+    const rows: ExomuxShaderOptionRow[] = [];
     // Each effect has its own on/off row, so more than one can run at once;
-    // an enabled effect's parameters follow it, indented.
+    // an enabled effect's parameters follow it, indented. Each row also carries
+    // how it renders as a real control — a CheckBox toggle or a `< value >`
+    // Cycler over the parameter's steps.
     for (const effect of EXOMUX_SHADER_EFFECTS) {
       const effectConfig = config.effects[effect];
+      const enabled = effectConfig?.enabled ?? false;
       rows.push({
         id: `shader-toggle:${effect}`,
         label: effect === "scanline" ? "CRT scanlines" : "CRT pincushion",
-        value: effectConfig?.enabled ? "On" : "Off",
+        value: enabled ? "On" : "Off",
+        control: { kind: "checkbox", checked: enabled },
       });
-      if (!effectConfig?.enabled) continue;
+      if (!enabled) continue;
       for (const param of EXOMUX_SHADER_PARAMS[effect]) {
+        const value = exomuxShaderParamValue(config, effect, param);
+        const options: string[] = [];
+        let activeIndex = 0;
+        const steps = Math.max(1, Math.round((param.max - param.min) / param.step));
+        for (let step = 0; step <= steps; step += 1) {
+          const stepped = clampExomuxShaderParam(param, param.min + step * param.step);
+          options.push(`${Math.round(stepped * 100)}%`);
+          if (Math.abs(stepped - value) < param.step / 2) activeIndex = step;
+        }
         rows.push({
           id: `shader-param:${effect}:${param.id}`,
           label: `  ${param.label}`,
-          value: `${Math.round(exomuxShaderParamValue(config, effect, param) * 100)}%`,
+          value: `${Math.round(value * 100)}%`,
+          control: { kind: "cycler", options, activeIndex },
         });
       }
     }

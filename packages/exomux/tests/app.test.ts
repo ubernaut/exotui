@@ -4102,17 +4102,25 @@ Deno.test("Exomux shows CRT shader settings only under Ghostty and cycles them",
     assert(mounted);
     await mounted.whenIdle();
     assert(controller.ghosttyDetected.peek());
-    // Each effect has its own on/off row; both off by default.
+    // Each effect has its own on/off row; both off by default, rendered as a
+    // CheckBox control.
     let rows = controller.shaderOptionRows();
     assertEquals(rows.length, 2);
     assertEquals(rows[0]!.value, "Off");
+    assertEquals(rows[0]!.control.kind, "checkbox");
     assertEquals(rows[1]!.value, "Off");
 
-    // Toggle scanlines on: it reveals its parameter rows.
+    // Toggle scanlines on: it reveals its parameter rows as `< value >` Cyclers.
     controller.cycleShaderRow("shader-toggle:scanline", 1);
     assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, true);
     rows = controller.shaderOptionRows();
     assert(rows.length > 2, "scanline exposes its intensity parameters");
+    const paramRow = rows.find((row) => row.id.startsWith("shader-param:scanline:"))!;
+    assertEquals(paramRow.control.kind, "cycler");
+    if (paramRow.control.kind === "cycler") {
+      assert(paramRow.control.options.includes(paramRow.value), "the cycler's options include the current value");
+      assertEquals(paramRow.control.options[paramRow.control.activeIndex], paramRow.value);
+    }
     assertEquals(applied.at(-1), "scanline");
 
     // Nudge a parameter and confirm it changed and re-applied.

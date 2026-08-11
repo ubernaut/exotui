@@ -4253,31 +4253,64 @@ function paintGlobalSettingsWindow(
 
   // The options pane lists the global settings followed by the shader rows
   // (only present under Ghostty), all navigated by one option index.
+  const shaderRows = controller.shaderOptionRows();
   const optionEntries: { label: string; value: string }[] = [
     ...EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => ({ label: spec.label, value: spec.format(settings[spec.id]) })),
-    ...controller.shaderOptionRows().map((row) => ({ label: row.label, value: row.value })),
+    ...shaderRows.map((row) => ({ label: row.label, value: row.value })),
   ];
-  // Each global setting is rendered by a real exotui control — a CheckBox for
-  // the boolean, a Cycler for the discrete-value settings — showing the live
-  // value. The shader rows (dynamic, Ghostty-only) stay hand-drawn. The existing
-  // option routing drives the changes; these controls reflect them.
+  // Every option — the global settings and the Ghostty shader rows alike — is
+  // rendered by a real exotui control composited over the value column: a
+  // CheckBox for booleans/toggles, a `< value >` Cycler for discrete-value
+  // settings and shader parameters. The existing option routing drives the
+  // changes; adjusting a shader control cycles it, which rewrites Ghostty's
+  // shader config.
   const globalCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
-  const controlSpecs: ExomuxOptionControlSpec[] = EXOMUX_GLOBAL_SETTING_SPECS.map((spec, index) => {
-    const rowRect = optionRows[index];
+  const cyclerWidth = Math.min(16, Math.max(6, (optionRows[0]?.width ?? 16) - 4));
+  const controlSpecs: ExomuxOptionControlSpec[] = optionEntries.map((_entry, index) => {
     const focused = pane === "options" && index === optionIndex;
     const foreground = focused ? theme.background : theme.accent;
     const background = focused ? theme.accent : theme.surfaceStrong;
-    if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
-      return { kind: "checkbox", key: spec.id, width: 3, foreground, background, checked: Boolean(settings[spec.id]) };
+    if (index < globalCount) {
+      const spec = EXOMUX_GLOBAL_SETTING_SPECS[index]!;
+      if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
+        return {
+          kind: "checkbox",
+          key: spec.id,
+          width: 3,
+          foreground,
+          background,
+          checked: Boolean(settings[spec.id]),
+        };
+      }
+      return {
+        kind: "cycler",
+        key: spec.id,
+        width: cyclerWidth,
+        foreground,
+        background,
+        options: spec.values.map((value) => spec.format(value)),
+        activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
+      };
+    }
+    const shaderRow = shaderRows[index - globalCount]!;
+    if (shaderRow.control.kind === "checkbox") {
+      return {
+        kind: "checkbox",
+        key: shaderRow.id,
+        width: 3,
+        foreground,
+        background,
+        checked: shaderRow.control.checked,
+      };
     }
     return {
       kind: "cycler",
-      key: spec.id,
-      width: Math.min(16, Math.max(6, (rowRect?.width ?? 16) - 4)),
+      key: shaderRow.id,
+      width: cyclerWidth,
       foreground,
       background,
-      options: spec.values.map((value) => spec.format(value)),
-      activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
+      options: [...shaderRow.control.options],
+      activeIndex: shaderRow.control.activeIndex,
     };
   });
   const controlCells = settingsOptions?.cellsFor(controlSpecs) ?? [];
@@ -4287,8 +4320,8 @@ function paintGlobalSettingsWindow(
     const entry = optionEntries[index];
     if (!entry) continue;
     const focused = pane === "options" && index === optionIndex;
-    const cells = index < globalCount ? controlCells[index] : undefined;
-    const controlWidth = index < globalCount ? controlSpecs[index]!.width : 0;
+    const cells = controlCells[index];
+    const controlWidth = controlSpecs[index]?.width ?? 0;
     const controlColumn = rowRect.column + Math.max(0, rowRect.width - controlWidth);
     const valueColumn = cells
       ? controlColumn
