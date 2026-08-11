@@ -10,5 +10,6 @@ export * from "./host.ts";
 export * from "./model.ts";
 export * from "./protocol.ts";
 export * from "./sessions.ts";
+export * from "./settings_surface.ts";
 export * from "./tailnet.ts";
 export * from "./widget_surface.ts";

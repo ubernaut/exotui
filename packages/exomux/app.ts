@@ -77,6 +77,7 @@ import {
   type ExomuxSettingsButtonSpec,
   ExomuxSettingsWidgets,
 } from "./settings_widgets.ts";
+import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
@@ -724,6 +725,33 @@ export function mountExomuxDesktop(
       settingsWidgetRevision.value += 1;
     }),
   );
+  // The theme and background selectors are real exotui List widgets, bound
+  // two-way to the controller's selection and composited into the window.
+  const settingsPickers = own(
+    new ExomuxSettingsSurface(() => {
+      settingsWidgetRevision.value += 1;
+    }),
+  );
+  settingsPickers.bind({
+    themeIndex: () => Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek())),
+    setThemeIndex: (index) => {
+      const entry = EXOMUX_THEMES[index];
+      if (entry) controller.setTheme(entry.id);
+    },
+    onThemeIndexChanged: (listener) => {
+      controller.themeId.subscribe(listener);
+      return () => controller.themeId.unsubscribe(listener);
+    },
+    backgroundIndex: () => Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek())),
+    setBackgroundIndex: (index) => {
+      const id = EXOMUX_BACKGROUND_IDS[index];
+      if (id) controller.setBackground(id);
+    },
+    onBackgroundIndexChanged: (listener) => {
+      controller.backgroundId.subscribe(listener);
+      return () => controller.backgroundId.unsubscribe(listener);
+    },
+  });
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -972,6 +1000,7 @@ export function mountExomuxDesktop(
         shelf: shelfBounds.peek(),
         metaballs,
         settingsWidgets,
+        settingsPickers,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -1148,16 +1177,17 @@ export function mountExomuxDesktop(
       controller.closeGlobalConfig(bodyRect.peek());
       return true;
     }
-    for (const entry of layout.themeRows) {
-      if (!contains(entry.rect, column, row)) continue;
+    // The theme/background selectors are real exotui List widgets: forward the
+    // click straight into the List (client-relative), which selects the row and
+    // applies it to the controller through the surface's two-way binding.
+    if (contains(layout.themeListRect, column, row)) {
       controller.globalConfigPane.value = "theme";
-      controller.setTheme(EXOMUX_THEMES[entry.index]!.id);
+      settingsPickers.handlePointer("theme", column - clientRect.column, row - clientRect.row);
       return true;
     }
-    for (const entry of layout.backgroundRows) {
-      if (!contains(entry.rect, column, row)) continue;
+    if (contains(layout.backgroundListRect, column, row)) {
       controller.globalConfigPane.value = "background";
-      controller.setBackground(EXOMUX_BACKGROUND_IDS[entry.index]!);
+      settingsPickers.handlePointer("background", column - clientRect.column, row - clientRect.row);
       return true;
     }
     for (let index = 0; index < layout.optionRows.length; index += 1) {
@@ -2573,6 +2603,8 @@ interface RenderExomuxDesktopOptions {
   overgrowth?: ExomuxOvergrowthPass;
   /** Hosts the settings window's action buttons as real composited widgets. */
   settingsWidgets?: ExomuxSettingsWidgets;
+  /** Hosts the settings window's theme/background selectors as real composited Lists. */
+  settingsPickers?: ExomuxSettingsSurface;
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2756,7 +2788,15 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
 
   for (const window of projection.tiledWindows) {
-    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop, options.settingsWidgets);
+    paintWindow(
+      painter,
+      window,
+      controller,
+      options.selectedSessionIndex,
+      backdrop,
+      options.settingsWidgets,
+      options.settingsPickers,
+    );
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
   for (const separator of projection.separators) {
@@ -2767,7 +2807,15 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     );
   }
   for (const window of projection.floatingWindows) {
-    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop, options.settingsWidgets);
+    paintWindow(
+      painter,
+      window,
+      controller,
+      options.selectedSessionIndex,
+      backdrop,
+      options.settingsWidgets,
+      options.settingsPickers,
+    );
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
@@ -3067,6 +3115,7 @@ function paintWindow(
   selectedSessionIndex: number,
   backdrop?: ExomuxBackdrop,
   settingsWidgets?: ExomuxSettingsWidgets,
+  settingsPickers?: ExomuxSettingsSurface,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3132,7 +3181,7 @@ function paintWindow(
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
-    paintGlobalSettingsWindow(painter, window.clientRect, controller, settingsWidgets);
+    paintGlobalSettingsWindow(painter, window.clientRect, controller, settingsWidgets, settingsPickers);
     return;
   }
   if (runtime && sessionId) {
@@ -3579,6 +3628,10 @@ export interface ExomuxGlobalConfigLayout {
   readonly themeRows: readonly { readonly rect: Rectangle; readonly index: number }[];
   /** Visible background rows, paired with the background index each row shows. */
   readonly backgroundRows: readonly { readonly rect: Rectangle; readonly index: number }[];
+  /** The whole theme-picker region (the composited theme List occupies this). */
+  readonly themeListRect: Rectangle;
+  /** The whole background-picker region (the composited background List occupies this). */
+  readonly backgroundListRect: Rectangle;
   /** One hit row per entry in EXOMUX_GLOBAL_SETTING_SPECS, in declaration order. */
   readonly optionRows: readonly Rectangle[];
   readonly closeRect: Rectangle;
@@ -3655,6 +3708,13 @@ export function exomuxGlobalConfigLayout(
     rect,
     themeRows,
     backgroundRows,
+    themeListRect: { column: rect.column + 1, row: listTop, width: columnWidth, height: visibleRows },
+    backgroundListRect: {
+      column: rect.column + 2 + columnWidth,
+      row: listTop,
+      width: columnWidth,
+      height: visibleRows,
+    },
     optionRows,
     closeRect,
     sessionNameRect,
@@ -3869,11 +3929,28 @@ function blitSettingsButtonCells(painter: DesktopPainter, rect: Rectangle, snaps
   }
 }
 
+/** Composites a picker List's rendered region (in client-relative cells) into its window rect. */
+function blitPickerRegion(
+  painter: DesktopPainter,
+  region: Rectangle,
+  clientRect: Rectangle,
+  surface: ExomuxSettingsSurface,
+): void {
+  for (let row = 0; row < region.height; row += 1) {
+    for (let column = 0; column < region.width; column += 1) {
+      const cell = surface.cellAt(region.row - clientRect.row + row, region.column - clientRect.column + column);
+      if (cell === undefined) continue;
+      painter.rawCell(region.column + column, region.row + row, cell);
+    }
+  }
+}
+
 function paintGlobalSettingsWindow(
   painter: DesktopPainter,
   rect: Rectangle,
   controller: ExomuxController,
   settingsWidgets?: ExomuxSettingsWidgets,
+  settingsPickers?: ExomuxSettingsSurface,
 ): void {
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
@@ -3937,6 +4014,35 @@ function paintGlobalSettingsWindow(
     const id = EXOMUX_BACKGROUND_IDS[row.index]!;
     const grows = exomuxBackgroundOvergrows(id) ? " *" : "";
     paintRow(row.rect, `${id}${grows}`, row.index === backgroundIndex, pane === "background");
+  }
+
+  // The theme and background rows above are the hand-drawn fallback; the real
+  // exotui List widgets are composited over the same regions once they render.
+  if (settingsPickers) {
+    settingsPickers.sync(
+      {
+        column: layout.themeListRect.column - rect.column,
+        row: layout.themeListRect.row - rect.row,
+        width: layout.themeListRect.width,
+        height: layout.themeListRect.height,
+        items: EXOMUX_THEMES.map((entry) => entry.label),
+        foreground: theme.text,
+        background: theme.surfaceStrong,
+      },
+      {
+        column: layout.backgroundListRect.column - rect.column,
+        row: layout.backgroundListRect.row - rect.row,
+        width: layout.backgroundListRect.width,
+        height: layout.backgroundListRect.height,
+        items: EXOMUX_BACKGROUND_IDS.map((id) => `${id}${exomuxBackgroundOvergrows(id) ? " *" : ""}`),
+        foreground: theme.text,
+        background: theme.surfaceStrong,
+      },
+    );
+    if (settingsPickers.ready()) {
+      blitPickerRegion(painter, layout.themeListRect, rect, settingsPickers);
+      blitPickerRegion(painter, layout.backgroundListRect, rect, settingsPickers);
+    }
   }
 
   // The options pane lists the global settings followed by the shader rows
