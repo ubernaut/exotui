@@ -40,7 +40,12 @@ import {
   writeExomuxConfig,
 } from "./config.ts";
 import { exomuxBackgroundSettingsFor, withExomuxBackgroundString } from "./model.ts";
-import { applyExomuxShaders, type ExomuxShaderConfig, isRunningInGhostty } from "./ghostty.ts";
+import {
+  applyExomuxShaders,
+  ensureExomuxGhosttyInclude,
+  type ExomuxShaderConfig,
+  isRunningInGhostty,
+} from "./ghostty.ts";
 import { type ExomuxHostServer, serveExomuxHost } from "./host.ts";
 import { isExomuxAuthToken } from "./protocol.ts";
 
@@ -275,7 +280,11 @@ export async function runExomuxClient(
   const applyShaders = ghostty
     ? (shaders: ExomuxShaderConfig) => {
       configWriter.writeShaders(shaders);
-      void applyExomuxShaders(configDirectory, shaders).catch(() => undefined);
+      void applyExomuxShaders(configDirectory, shaders)
+        // Make enabling a shader take effect without a manual edit: add the
+        // managed include to the user's Ghostty config (idempotent, best-effort).
+        .then((result) => ensureExomuxGhosttyInclude(result.configPath))
+        .catch(() => undefined);
     }
     : undefined;
   // Only a session discovered through the state root (not an explicit

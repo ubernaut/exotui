@@ -5,8 +5,10 @@ import {
   applyExomuxShaders,
   clampExomuxShaderParam,
   defaultExomuxShaderConfig,
+  ensureExomuxGhosttyInclude,
   EXOMUX_SHADER_PARAMS,
   exomuxGhosttyConfigPath,
+  exomuxGhosttyUserConfigPath,
   exomuxShaderDirectory,
   generateExomuxShader,
   isRunningInGhostty,
@@ -64,6 +66,52 @@ Deno.test("Generated shaders are valid Shadertoy GLSL with baked-in parameters",
   const pin = generateExomuxShader("pincushion", { magnitude: 0.4 });
   assertStringIncludes(pin, "float magnitude = 0.4;");
   assertStringIncludes(pin, "texture(iChannel0, warped)");
+});
+
+Deno.test("Ghostty user config path follows XDG and platform conventions", () => {
+  const env = (map: Record<string, string>) => (key: string) => map[key];
+  assertEquals(
+    exomuxGhosttyUserConfigPath(env({ XDG_CONFIG_HOME: "/x/cfg" }), "linux"),
+    "/x/cfg/ghostty/config",
+  );
+  assertEquals(
+    exomuxGhosttyUserConfigPath(env({ HOME: "/home/cos" }), "linux"),
+    "/home/cos/.config/ghostty/config",
+  );
+  assertStringIncludes(
+    exomuxGhosttyUserConfigPath(env({ HOME: "/Users/cos" }), "darwin")!,
+    "Library/Application Support/com.mitchellh.ghostty/config",
+  );
+});
+
+Deno.test("Ensuring the Ghostty include adds it once and preserves existing config", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "exomux-ghostty-" });
+  try {
+    const userConfig = `${dir}/config`;
+    const managed = `${dir}/shaders/ghostty.conf`;
+    await Deno.writeTextFile(userConfig, "theme = catppuccin\nfont-size = 13");
+
+    assertEquals(await ensureExomuxGhosttyInclude(managed, userConfig), true);
+    const first = await Deno.readTextFile(userConfig);
+    assertStringIncludes(first, "theme = catppuccin"); // existing content preserved
+    assertStringIncludes(first, `config-file = ${managed}`);
+
+    // Idempotent: a second call does not add the include again.
+    assertEquals(await ensureExomuxGhosttyInclude(managed, userConfig), true);
+    const second = await Deno.readTextFile(userConfig);
+    assertEquals(second.match(/config-file = /g)?.length, 1);
+
+    // Creates the config (and its directory) when none exists.
+    const fresh = `${dir}/nested/ghostty/config`;
+    assertEquals(await ensureExomuxGhosttyInclude(managed, fresh), true);
+    assertStringIncludes(await Deno.readTextFile(fresh), `config-file = ${managed}`);
+
+    // An unwritable location is a no-op, not a throw (a file blocks the parent dir).
+    await Deno.writeTextFile(`${dir}/blocker`, "");
+    assertEquals(await ensureExomuxGhosttyInclude(managed, `${dir}/blocker/ghostty/config`), false);
+  } finally {
+    await Deno.remove(dir, { recursive: true }).catch(() => undefined);
+  }
 });
 
 Deno.test("Applying shaders writes GLSL and chains every enabled effect in the config", async () => {

@@ -254,3 +254,51 @@ function joinPath(parent: string, child: string): string {
   const separator = Deno.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
+
+/** The user's own Ghostty config path, where the managed include belongs. */
+export function exomuxGhosttyUserConfigPath(
+  env: (key: string) => string | undefined = Deno.env.get,
+  os: string = Deno.build.os,
+): string | undefined {
+  const home = env("HOME");
+  if (os === "darwin") {
+    return home ? joinPath(home, "Library/Application Support/com.mitchellh.ghostty/config") : undefined;
+  }
+  const xdg = env("XDG_CONFIG_HOME");
+  if (xdg) return joinPath(xdg, "ghostty/config");
+  return home ? joinPath(home, ".config/ghostty/config") : undefined;
+}
+
+/**
+ * Ensures the user's Ghostty config `config-file`-includes Exomux's managed
+ * shader config, so enabling a shader takes effect on Ghostty's next reload
+ * without a manual edit. Idempotent — the include is added once and existing
+ * content is never rewritten — and best-effort: returns false (never throws) if
+ * the config location is unknown or unwritable. Reversible: the user can delete
+ * the one commented line it adds.
+ */
+export async function ensureExomuxGhosttyInclude(
+  managedConfigPath: string,
+  userConfigPath: string | undefined = exomuxGhosttyUserConfigPath(),
+): Promise<boolean> {
+  if (!userConfigPath) return false;
+  let existing = "";
+  try {
+    existing = await Deno.readTextFile(userConfigPath);
+  } catch {
+    // No user config yet; we will create one holding just the include.
+  }
+  if (existing.includes(managedConfigPath)) return true;
+  try {
+    const parent = userConfigPath.replace(/[\\/][^\\/]*$/, "");
+    if (parent && parent !== userConfigPath) await Deno.mkdir(parent, { recursive: true });
+    const prefix = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+    await Deno.writeTextFile(
+      userConfigPath,
+      `${existing}${prefix}\n# Added by Exomux so its interface shaders load; safe to remove.\nconfig-file = ${managedConfigPath}\n`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
