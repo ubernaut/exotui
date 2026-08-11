@@ -23,6 +23,45 @@ function readEnv(key: string): string | undefined {
   }
 }
 
+function fileExists(path: string): boolean {
+  try {
+    return Deno.statSync(path).isFile;
+  } catch {
+    return false;
+  }
+}
+
+/** True when a `ghostty` executable is on PATH — i.e. installed on the system. */
+export function isGhosttyInstalled(
+  env: (key: string) => string | undefined = readEnv,
+  os: string = Deno.build.os,
+  exists: (path: string) => boolean = fileExists,
+): boolean {
+  const pathVar = env("PATH");
+  if (!pathVar) return false;
+  const listSeparator = os === "windows" ? ";" : ":";
+  const dirSeparator = os === "windows" ? "\\" : "/";
+  const names = os === "windows" ? ["ghostty.exe", "ghostty.com", "ghostty"] : ["ghostty"];
+  for (const dir of pathVar.split(listSeparator)) {
+    if (!dir) continue;
+    const base = dir.replace(/[\\/]+$/, "");
+    for (const name of names) {
+      if (exists(`${base}${dirSeparator}${name}`)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when Ghostty is relevant to this system: Exomux is running inside it, or a
+ * `ghostty` binary is installed. Either way the interface shaders are offered and
+ * the settings drive Ghostty's shader config — the installer keys off the same
+ * "installed" signal, so the settings and the installer stay consistent.
+ */
+export function isGhosttyAvailable(env: (key: string) => string | undefined = readEnv): boolean {
+  return isRunningInGhostty(env) || isGhosttyInstalled(env);
+}
+
 /** The CRT shaders Exomux ships, in menu order. */
 export const EXOMUX_SHADER_EFFECTS = ["scanline", "pincushion"] as const;
 export type ExomuxShaderEffect = (typeof EXOMUX_SHADER_EFFECTS)[number];

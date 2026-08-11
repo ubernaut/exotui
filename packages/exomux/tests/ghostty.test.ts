@@ -11,6 +11,8 @@ import {
   exomuxGhosttyUserConfigPath,
   exomuxShaderDirectory,
   generateExomuxShader,
+  isGhosttyAvailable,
+  isGhosttyInstalled,
   isRunningInGhostty,
   normalizeExomuxShaderConfig,
 } from "../ghostty.ts";
@@ -21,6 +23,23 @@ Deno.test("Ghostty detection reads the environment gracefully", () => {
   assert(isRunningInGhostty((key) => key === "TERM_PROGRAM" ? "Ghostty" : undefined), "case-insensitive");
   assert(isRunningInGhostty((key) => key === "GHOSTTY_RESOURCES_DIR" ? "/opt/ghostty" : undefined));
   assert(!isRunningInGhostty((key) => key === "TERM_PROGRAM" ? "xterm" : undefined));
+});
+
+Deno.test("Ghostty is detected as installed on PATH, and availability combines both signals", () => {
+  const env = (map: Record<string, string>) => (key: string) => map[key];
+  const has = (paths: string[]) => (path: string) => paths.includes(path);
+
+  // Found on a PATH directory (Linux).
+  assert(isGhosttyInstalled(env({ PATH: "/usr/bin:/opt/ghostty/bin" }), "linux", has(["/opt/ghostty/bin/ghostty"])));
+  // Not on any PATH directory.
+  assert(!isGhosttyInstalled(env({ PATH: "/usr/bin:/bin" }), "linux", has(["/usr/bin/other"])));
+  // No PATH at all.
+  assert(!isGhosttyInstalled(env({}), "linux", () => true));
+  // Windows looks for the .exe.
+  assert(isGhosttyInstalled(env({ PATH: "C:\\tools" }), "windows", has(["C:\\tools\\ghostty.exe"])));
+
+  // Available when running inside Ghostty even if the binary probe would fail.
+  assert(isGhosttyAvailable((key) => (key === "TERM_PROGRAM" ? "ghostty" : undefined)));
 });
 
 Deno.test("Shader config normalizes junk, clamps parameters, and migrates the old shape", () => {

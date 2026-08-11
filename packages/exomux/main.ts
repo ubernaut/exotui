@@ -44,7 +44,7 @@ import {
   applyExomuxShaders,
   ensureExomuxGhosttyInclude,
   type ExomuxShaderConfig,
-  isRunningInGhostty,
+  isGhosttyAvailable,
 } from "./ghostty.ts";
 import { type ExomuxHostServer, serveExomuxHost } from "./host.ts";
 import { isExomuxAuthToken } from "./protocol.ts";
@@ -274,7 +274,10 @@ export async function runExomuxClient(
   const retargetableStore = new ExomuxRetargetableStore(storage.store);
   const config = await loadExomuxConfig(configPath);
   const configWriter = createExomuxConfigWriter(configDirectory, configPath, config);
-  const ghostty = isRunningInGhostty();
+  // Offer (and drive) the interface shaders whenever Ghostty is available —
+  // running inside it, or just installed — so the settings manage the same
+  // Ghostty shader config the installer sets up, even from another terminal.
+  const ghostty = isGhosttyAvailable();
   // Applying shaders writes the GLSL and a managed Ghostty config; Ghostty
   // picks it up on its next config reload, which cannot be forced from here.
   const applyShaders = ghostty
