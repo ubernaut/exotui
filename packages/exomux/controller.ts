@@ -662,6 +662,12 @@ export class ExomuxController {
     this.sessionNameDraft.value = (draft + filtered).slice(0, 64);
   }
 
+  /** Sets the rename draft to `text`, applying the same filtering and limit. */
+  setSessionRenameDraft(text: string): void {
+    if (this.sessionNameDraft.peek() === undefined) return;
+    this.sessionNameDraft.value = text.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 64);
+  }
+
   /** Removes the last character of the rename draft. */
   backspaceSessionRename(): void {
     const draft = this.sessionNameDraft.peek();

@@ -79,6 +79,7 @@ import {
 } from "./settings_widgets.ts";
 import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
+import { ExomuxSessionNameField } from "./session_name_field.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
@@ -759,6 +760,19 @@ export function mountExomuxDesktop(
       settingsWidgetRevision.value += 1;
     }),
   );
+  // The session-name field is a real exotui Input while a rename is edited; it
+  // pushes the draft to the controller and Enter routes through to commit.
+  const sessionNameField = own(
+    new ExomuxSessionNameField(
+      () => {
+        settingsWidgetRevision.value += 1;
+      },
+      (text) => controller.setSessionRenameDraft(text),
+      () => {
+        void controller.commitSessionRename().then(() => syncWindows());
+      },
+    ),
+  );
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -1009,6 +1023,7 @@ export function mountExomuxDesktop(
         settingsWidgets,
         settingsPickers,
         settingsOptions,
+        sessionNameField,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -2111,13 +2126,20 @@ export function mountExomuxDesktop(
       controller.globalConfigVisible.peek() &&
       controller.windowHost.controller.inspect().activeWindowId === EXOMUX_SETTINGS_WINDOW_ID
     ) {
-      // Editing the session name captures typing until Enter or Escape.
+      // Editing the session name captures typing until Enter or Escape. Escape
+      // cancels; everything else — typing, backspace, cursor keys, and Enter,
+      // which submits and commits — is handled natively by the composited Input.
       if (controller.sessionNameDraft.peek() !== undefined) {
-        if (event.key === "escape") controller.cancelSessionRename();
-        else if (event.key === "return") await controller.commitSessionRename().then(() => syncWindows());
-        else if (event.key === "backspace") controller.backspaceSessionRename();
-        else if (!event.ctrl && !event.meta && event.key.length === 1) {
-          controller.appendSessionRenameChar(event.shift ? event.key.toUpperCase() : event.key);
+        if (event.key === "escape") {
+          controller.cancelSessionRename();
+        } else {
+          const shifted = !event.ctrl && !event.meta && event.shift && event.key.length === 1;
+          sessionNameField.handleKey({
+            key: shifted ? event.key.toUpperCase() : event.key,
+            ctrl: event.ctrl,
+            meta: event.meta,
+            shift: event.shift,
+          });
         }
         return;
       }
@@ -2636,6 +2658,8 @@ interface RenderExomuxDesktopOptions {
   settingsPickers?: ExomuxSettingsSurface;
   /** Hosts the settings window's option controls as real composited Cyclers/CheckBoxes. */
   settingsOptions?: ExomuxSettingsOptions;
+  /** Hosts the session-name editor as a real composited Input while renaming. */
+  sessionNameField?: ExomuxSessionNameField;
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2828,6 +2852,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.settingsWidgets,
       options.settingsPickers,
       options.settingsOptions,
+      options.sessionNameField,
     );
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
@@ -2848,6 +2873,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.settingsWidgets,
       options.settingsPickers,
       options.settingsOptions,
+      options.sessionNameField,
     );
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
@@ -3149,6 +3175,7 @@ function paintWindow(
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
+  sessionNameField?: ExomuxSessionNameField,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3221,6 +3248,7 @@ function paintWindow(
       settingsWidgets,
       settingsPickers,
       settingsOptions,
+      sessionNameField,
     );
     return;
   }
@@ -3992,6 +4020,7 @@ function paintGlobalSettingsWindow(
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
+  sessionNameField?: ExomuxSessionNameField,
 ): void {
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
@@ -4005,24 +4034,51 @@ function paintGlobalSettingsWindow(
   // Editable session name across the top of the window.
   const draft = controller.sessionNameDraft.peek();
   const editing = draft !== undefined;
-  const nameValue = editing ? `${draft}▏` : controller.sessionName.peek();
   const nameLabel = controller.canRenameSession
     ? (editing ? "Session ↵ save · Esc cancel: " : "Session (click to rename): ")
     : "Session: ";
-  painter.fill(layout.sessionNameRect, " ", {
+  const nameRect = layout.sessionNameRect;
+  painter.fill(nameRect, " ", {
     foreground: editing ? theme.background : theme.muted,
     background: editing ? theme.accent : theme.surfaceStrong,
   });
-  painter.write(
-    layout.sessionNameRect.column,
-    layout.sessionNameRect.row,
-    fitText(`${nameLabel}${nameValue}`, layout.sessionNameRect.width),
-    {
-      foreground: editing ? theme.background : theme.accent,
-      background: editing ? theme.accent : theme.surfaceStrong,
-      bold: editing,
-    },
-  );
+  const labelWidth = Math.min(nameRect.width, textWidth(nameLabel));
+  painter.write(nameRect.column, nameRect.row, fitText(nameLabel, labelWidth), {
+    foreground: editing ? theme.background : theme.accent,
+    background: editing ? theme.accent : theme.surfaceStrong,
+    bold: editing,
+  });
+  // The value after the label is a real exotui Input while editing (composited
+  // over the region), falling back to a hand-drawn draft until it renders; when
+  // not editing it is the plain current name.
+  const valueColumn = nameRect.column + labelWidth;
+  const valueWidth = Math.max(0, nameRect.width - labelWidth);
+  sessionNameField?.sync(editing, draft ?? "", {
+    column: 0,
+    row: 0,
+    width: Math.max(1, valueWidth),
+    foreground: theme.background,
+    background: theme.accent,
+    cursorForeground: theme.accent,
+    cursorBackground: theme.background,
+  });
+  if (editing && sessionNameField?.ready()) {
+    for (let column = 0; column < valueWidth; column += 1) {
+      const cell = sessionNameField.cellAt(0, column);
+      if (cell !== undefined) painter.rawCell(valueColumn + column, nameRect.row, cell);
+    }
+  } else {
+    painter.write(
+      valueColumn,
+      nameRect.row,
+      fitText(editing ? `${draft}▏` : controller.sessionName.peek(), valueWidth),
+      {
+        foreground: editing ? theme.background : theme.accent,
+        background: editing ? theme.accent : theme.surfaceStrong,
+        bold: editing,
+      },
+    );
+  }
 
   const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 3) / 2));
   const headerRow = rect.row + 1;

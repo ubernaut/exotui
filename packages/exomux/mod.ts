@@ -9,6 +9,7 @@ export * from "./ghostty.ts";
 export * from "./host.ts";
 export * from "./model.ts";
 export * from "./protocol.ts";
+export * from "./session_name_field.ts";
 export * from "./sessions.ts";
 export * from "./settings_options.ts";
 export * from "./settings_surface.ts";
