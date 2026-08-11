@@ -1318,7 +1318,7 @@ export function mountExomuxDesktop(
       if (!contains(layout.optionRows[index]!, column, row)) continue;
       controller.globalConfigPane.value = "options";
       controller.globalConfigOptionIndex.value = index;
-      controller.cycleSettingsOption(index, 1);
+      controller.cycleSettingsOption(index, exomuxOptionCycleDirection(layout.optionRows[index]!, column));
       return true;
     }
     return contains(clientRect, column, row);
@@ -1475,7 +1475,10 @@ export function mountExomuxDesktop(
       if (optionAt >= 0 && specs[optionAt]) {
         controller.backgroundConfigPane.value = "options";
         controller.backgroundConfigOptionIndex.value = optionAt;
-        controller.cycleBackgroundSetting(specs[optionAt]!.id, 1);
+        controller.cycleBackgroundSetting(
+          specs[optionAt]!.id,
+          exomuxOptionCycleDirection(layout.optionRows[optionAt]!, column),
+        );
       }
       return true;
     }
@@ -3885,6 +3888,19 @@ function selectListStart(selected: number, total: number, visible: number): numb
 
 function clampNumber(value: number, low: number, high: number): number {
   return Math.max(low, Math.min(high, value));
+}
+
+/**
+ * Cycle direction for a click on a `< value >` option row. The control is
+ * right-aligned in the row; a click on its left half (the `<`) steps the value
+ * back, the right half (the `>`) forward — matching the `Cycler` widget, so the
+ * arrows are not just decoration. Booleans render a checkbox and toggle either
+ * way, so the direction is harmless there.
+ */
+export function exomuxOptionCycleDirection(rowRect: Rectangle, column: number): -1 | 1 {
+  const controlWidth = Math.min(16, Math.max(6, rowRect.width - 4));
+  const controlColumn = rowRect.column + Math.max(0, rowRect.width - controlWidth);
+  return column < controlColumn + Math.max(1, Math.floor(controlWidth / 2)) ? -1 : 1;
 }
 
 /** Layout for the global config modal; exported for deterministic pointer tests. */

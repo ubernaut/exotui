@@ -24,6 +24,7 @@ import {
   exomuxMetaballBackgroundVisible,
   exomuxMetaballGradientColors,
   exomuxMetaballsMayAdvance,
+  exomuxOptionCycleDirection,
   type ExomuxPointerInputSource,
   exomuxQuitLayout,
   exomuxScpLayout,
@@ -412,6 +413,20 @@ Deno.test("A single title-bar click focuses the window without maximizing it", a
     harness.destroy();
     await controller.dispose();
   }
+});
+
+Deno.test("Option-row clicks step back on the left half and forward on the right", () => {
+  // width 30 -> controlWidth 16, right-aligned at column 18, midpoint at 26.
+  const row = { column: 4, row: 5, width: 30, height: 1 };
+  assertEquals(exomuxOptionCycleDirection(row, 4), -1); // label side steps back
+  assertEquals(exomuxOptionCycleDirection(row, 18), -1); // the `<` at the control's left edge
+  assertEquals(exomuxOptionCycleDirection(row, 25), -1); // still the left half
+  assertEquals(exomuxOptionCycleDirection(row, 26), 1); // right of the midpoint
+  assertEquals(exomuxOptionCycleDirection(row, 33), 1); // the `>` at the control's right edge
+  // A narrow row still splits sanely (controlWidth floored at 6).
+  const narrow = { column: 0, row: 0, width: 8, height: 1 };
+  assertEquals(exomuxOptionCycleDirection(narrow, 2), -1);
+  assertEquals(exomuxOptionCycleDirection(narrow, 7), 1);
 });
 
 Deno.test("Any-motion hover events are inert to the window host, so buttons keep working", async () => {
@@ -3000,6 +3015,22 @@ Deno.test("Exomux global config modal picks theme and background from select lis
     assertEquals((await harness.pilot.click(optionRow.column + 2, optionRow.row)).press.handled, true);
     await mounted.whenIdle();
     assertNotEquals(controller.globalSettings.peek().overgrowFullMs, timeBefore);
+
+    // The arrows are not decoration: the `<` on the left steps the value back and
+    // the `>` on the right steps it forward, so a left click then a right click
+    // returns to where it started (before, a click stepped forward either side).
+    const anchor = controller.globalSettings.peek().overgrowFullMs;
+    await harness.pilot.click(optionRow.column + 1, optionRow.row);
+    await mounted.whenIdle();
+    const afterLeft = controller.globalSettings.peek().overgrowFullMs;
+    assertNotEquals(afterLeft, anchor, "a left-half click changed the value");
+    await harness.pilot.click(optionRow.column + optionRow.width - 1, optionRow.row);
+    await mounted.whenIdle();
+    assertEquals(
+      controller.globalSettings.peek().overgrowFullMs,
+      anchor,
+      "left then right returns to the starting value",
+    );
 
     // Settings persist with the workspace.
     const persisted = normalizeExomuxWorkspaceState(controller.kernel.appState.peek());

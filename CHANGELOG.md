@@ -388,6 +388,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Clicking a settings `< value >` control now respects which arrow was pressed: the left half (`<`) steps the value back
+  and the right half (`>`) steps it forward. Every option click stepped forward before, so the `<` was decoration. Both
+  the main settings window and the background-config modal route the click through a shared
+  `exomuxOptionCycleDirection(rowRect, column)` that splits the right-aligned control at its midpoint.
 - Exomux no longer strands remembered floating windows offscreen when it launches or is resized into a different-sized
   terminal. Floating windows are now refit to the current view at launch (not only on a later resize): a window too big
   for the view, or with most of its body off it, is shrunk to fit and re-centered — cascaded so several never land on
