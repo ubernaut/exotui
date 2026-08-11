@@ -47,9 +47,14 @@ quickly, but the affected entrypoint or module family should be named here.
   current/active item distinct from the cursor — reactively. All three are additive — off by default, no change to
   `drawTextRows` or other consumers.
 - Exomux has an optional block mouse cursor (a new "Block mouse cursor" setting, off by default): a themed block drawn
-  at the mouse cell. While on, Exomux enables any-motion mouse tracking (mode 1003) so it follows free movement, and —
-  since no TUI app can hide the terminal's own pointer — under Ghostty it writes a managed `cursor.conf` with
+  at the mouse cell. While on, Exomux enables any-motion mouse tracking (mode 1003) so it follows free movement — and
+  keeps it re-asserted on a light keepalive so the library's own `ENABLE_MOUSE` (which only asks for button-event
+  tracking and fires from `Tui.run()` after the desktop mounts) can never leave the cursor stuck updating on click
+  alone. Since no TUI app can hide the terminal's own pointer, under Ghostty it also writes a managed `cursor.conf` with
   `mouse-hide-while-typing = true` (with its include) to cut the double-cursor. It restores mouse tracking on teardown.
+- Double-clicking a window's title bar toggles maximize/restore, matching the desktop convention. The click lands on the
+  bare title row (off the window's controls), and the first press still focuses; a quick second one on the same title
+  bar runs `toggle-maximize` before the host can treat it as a move.
 - The Exomux settings option rows are real exotui controls: a `CheckBox` for the boolean (overgrow inactive) and a
   `Cycler` for each discrete-value setting (opacity, scroll speed, overgrow time, border style), composited over the
   value column. They display the live value while the existing option routing drives changes; the dynamic Ghostty shader

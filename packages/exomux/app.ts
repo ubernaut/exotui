@@ -202,6 +202,10 @@ const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: st
     { id: "quit", label: "Quit", danger: true },
   ]);
 const NETWORK_LIST_START = 1;
+/** How often the block cursor re-asserts any-motion tracking so it can't be downgraded. */
+const EXOMUX_ANY_MOTION_KEEPALIVE_MS = 1000;
+/** Two title-bar clicks within this window count as a double-click (maximize/restore). */
+const EXOMUX_DOUBLE_CLICK_MS = 400;
 const MAX_TOUCH_GESTURES = 8;
 const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
@@ -577,8 +581,13 @@ export function mountExomuxDesktop(
     if (mousePointer.peek() !== undefined) mousePointer.value = undefined;
   };
   // The block cursor needs free-motion mouse events, which require any-motion
-  // tracking (mode 1003). Enable it only while the cursor is on, and always turn
-  // it back off on teardown so the terminal is left the way we found it.
+  // tracking (mode 1003). The library only ever enables button-event tracking
+  // (mode 1002) and (re)asserts it from `Tui.run()` — which fires *after* this
+  // desktop mounts — so a one-shot 1003 is fragile: that later ENABLE_MOUSE, and
+  // any future re-emit, silently downgrades us back to click-only motion. Keep
+  // 1003 re-asserted on a light keepalive while the cursor is on so it always
+  // wins, and always turn it back off on teardown so the terminal is left the
+  // way we found it.
   const anyMotionEncoder = new TextEncoder();
   const writeAnyMotionTracking = (enabled: boolean): void => {
     try {
@@ -587,18 +596,37 @@ export function mountExomuxDesktop(
       // No writable terminal (headless/tests) — nothing to toggle.
     }
   };
-  let appliedBlockCursor = controller.globalSettings.peek().blockCursor;
-  if (appliedBlockCursor) writeAnyMotionTracking(true);
+  let anyMotionKeepalive: ReturnType<typeof setInterval> | undefined;
+  const stopAnyMotionKeepalive = (): void => {
+    if (anyMotionKeepalive === undefined) return;
+    clearInterval(anyMotionKeepalive);
+    anyMotionKeepalive = undefined;
+  };
+  let appliedBlockCursor = false;
   const applyBlockCursorMode = (): void => {
     const enabled = controller.globalSettings.peek().blockCursor;
     if (enabled === appliedBlockCursor) return;
     appliedBlockCursor = enabled;
     writeAnyMotionTracking(enabled);
-    if (!enabled) backgroundClearPointer();
+    if (enabled) {
+      // Re-assert so a later ENABLE_MOUSE can never leave the cursor stuck at
+      // click-only motion; a plain mode set is invisible and idempotent.
+      stopAnyMotionKeepalive();
+      anyMotionKeepalive = setInterval(() => writeAnyMotionTracking(true), EXOMUX_ANY_MOTION_KEEPALIVE_MS);
+    } else {
+      stopAnyMotionKeepalive();
+      backgroundClearPointer();
+    }
   };
+  applyBlockCursorMode();
   controller.globalSettings.subscribe(applyBlockCursorMode);
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyBlockCursorMode));
-  own({ dispose: () => writeAnyMotionTracking(false) });
+  own({
+    dispose: () => {
+      stopAnyMotionKeepalive();
+      writeAnyMotionTracking(false);
+    },
+  });
   // Preset stepping is requested on the controller, which does not own the
   // fields, so the delta is applied here to whichever background is on screen.
   let appliedPresetStep = controller.backgroundPresetStep.peek();
@@ -1466,6 +1494,9 @@ export function mountExomuxDesktop(
     }).then(() => handled);
   };
 
+  // Tracks the previous title-bar press so a quick second one reads as a
+  // double-click. Cleared once a double-click fires so a triple starts fresh.
+  let lastTitleBarClick: { readonly windowId: string; readonly at: number } | undefined;
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
     backgroundSetPointer({ column: event.x, row: event.y });
     if (modalOpen()) {
@@ -1521,6 +1552,26 @@ export function mountExomuxDesktop(
           controller.openWindowConfig(configSessionId);
         });
         return true;
+      }
+    }
+    // Double-clicking a window's title bar toggles maximize/restore, the way a
+    // desktop does. The first click still focuses (and begins a no-op move
+    // gesture); the second, if quick and on the same title bar, is caught here
+    // before the host can treat it as a move.
+    if (!event.drag && !event.release && event.button === 0) {
+      const titleBarWindowId = titleBarWindowAt(projectionBefore, event.x, event.y);
+      if (titleBarWindowId) {
+        const now = performance.now();
+        const doubleClicked = lastTitleBarClick?.windowId === titleBarWindowId &&
+          now - lastTitleBarClick.at <= EXOMUX_DOUBLE_CLICK_MS;
+        lastTitleBarClick = doubleClicked ? undefined : { windowId: titleBarWindowId, at: now };
+        if (doubleClicked) {
+          await enqueue(() => {
+            cancelActiveWindowGesture(undefined, event);
+            return runWindowCommand({ kind: "toggle-maximize", id: titleBarWindowId }, false);
+          });
+          return true;
+        }
       }
     }
     const clientWindow = clientWindowAt(projectionBefore, event.x, event.y);
@@ -5086,6 +5137,31 @@ function configControlSessionAt(
       }
     }
     return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Returns the window whose title bar covers one cell, when any. The title bar is
+ * the window's top row off its client area and off its titlebar controls, so a
+ * double-click there can toggle maximize without stealing a button's own click.
+ */
+function titleBarWindowAt(
+  projection: WorkbenchWindowHostProjection,
+  column: number,
+  row: number,
+): string | undefined {
+  const windows = [...projection.tiledWindows, ...projection.floatingWindows];
+  for (let index = windows.length - 1; index >= 0; index -= 1) {
+    const window = windows[index]!;
+    if (!contains(window.rect, column, row)) continue;
+    // The topmost window owns the cell: only its own title row counts, never its
+    // client area or a titlebar control (those carry their own actions).
+    if (row !== window.rect.row || contains(window.clientRect, column, row)) return undefined;
+    for (const control of window.controls) {
+      if (contains(control.hitRect, column, row)) return undefined;
+    }
+    return window.id;
   }
   return undefined;
 }

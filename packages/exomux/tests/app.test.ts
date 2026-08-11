@@ -317,6 +317,98 @@ Deno.test("Exomux mounted app renders styled terminal cells and routes ordered p
   }
 });
 
+Deno.test("Double-clicking a window title bar toggles maximize and restore", async () => {
+  const first = session("dbl-1", "primary", 0);
+  const client = new FakeExomuxClient([first]);
+  const controller = await createExomuxController({ client, initialSessions: [first] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: exomuxWindowId(first.id),
+      placement: "floating",
+      rect: { column: 4, row: 5, width: 34, height: 14 },
+    }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+
+    const windowId = exomuxWindowId(first.id);
+    const terminal = mounted.windowProjection.peek().floatingWindows.find((window) => window.id === windowId);
+    assert(terminal);
+    // A bare title-bar cell — off the window's controls, on its top row.
+    const x = terminal.titleBarRect.column + 2;
+    const y = terminal.titleBarRect.row;
+    assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, undefined);
+
+    // Two quick clicks on the same title bar maximize the window.
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y, release: true, button: undefined }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y }));
+    await mounted.whenIdle();
+    assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, windowId);
+
+    // Double-clicking the title bar again restores it.
+    const maximized = mounted.windowProjection.peek().windows.find((window) => window.id === windowId);
+    assert(maximized);
+    const restoreX = maximized.titleBarRect.column + 2;
+    const restoreY = maximized.titleBarRect.row;
+    await harness.app.mouse.dispatch(createTestMousePress({ x: restoreX, y: restoreY }));
+    await harness.app.mouse.dispatch(
+      createTestMousePress({ x: restoreX, y: restoreY, release: true, button: undefined }),
+    );
+    await harness.app.mouse.dispatch(createTestMousePress({ x: restoreX, y: restoreY }));
+    await mounted.whenIdle();
+    assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, undefined);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("A single title-bar click focuses the window without maximizing it", async () => {
+  const first = session("single-1", "primary", 0);
+  const client = new FakeExomuxClient([first]);
+  const controller = await createExomuxController({ client, initialSessions: [first] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: exomuxWindowId(first.id),
+      placement: "floating",
+      rect: { column: 4, row: 5, width: 34, height: 14 },
+    }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+
+    const windowId = exomuxWindowId(first.id);
+    const terminal = mounted.windowProjection.peek().floatingWindows.find((window) => window.id === windowId);
+    assert(terminal);
+    const x = terminal.titleBarRect.column + 2;
+    const y = terminal.titleBarRect.row;
+
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y, release: true, button: undefined }));
+    await mounted.whenIdle();
+    // One click never maximizes; it only focuses (and begins a no-op move).
+    assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, undefined);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux forwards negotiated nested mouse and touch input to the captured terminal", async () => {
   const first = session("mouse-a", "mouse A", 0);
   const second = session("mouse-b", "mouse B", 0);
