@@ -4089,7 +4089,8 @@ Deno.test("Exomux shows CRT shader settings only under Ghostty and cycles them",
     initialSessions: [],
     ghosttyDetected: true,
     onShadersChanged: (config) => {
-      applied.push(`${config.enabled ? config.effect : "off"}`);
+      const on = (["scanline", "pincushion"] as const).filter((effect) => config.effects[effect].enabled);
+      applied.push(on.length ? on.join("+") : "off");
     },
   });
   const mount: ExomuxAppMountRef = {};
@@ -4101,29 +4102,34 @@ Deno.test("Exomux shows CRT shader settings only under Ghostty and cycles them",
     assert(mounted);
     await mounted.whenIdle();
     assert(controller.ghosttyDetected.peek());
-    // The shader row appears in the options list; off by default.
+    // Each effect has its own on/off row; both off by default.
     let rows = controller.shaderOptionRows();
-    assertEquals(rows.length, 1);
+    assertEquals(rows.length, 2);
     assertEquals(rows[0]!.value, "Off");
+    assertEquals(rows[1]!.value, "Off");
 
-    // Cycle the shader effect on: Off -> Scanlines reveals its parameter rows.
-    controller.cycleShaderRow("shader-effect", 1);
-    assertEquals(controller.shaderConfig.peek().enabled, true);
-    assertEquals(controller.shaderConfig.peek().effect, "scanline");
+    // Toggle scanlines on: it reveals its parameter rows.
+    controller.cycleShaderRow("shader-toggle:scanline", 1);
+    assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, true);
     rows = controller.shaderOptionRows();
-    assert(rows.length > 1, "scanline exposes its intensity parameters");
+    assert(rows.length > 2, "scanline exposes its intensity parameters");
     assertEquals(applied.at(-1), "scanline");
 
     // Nudge a parameter and confirm it changed and re-applied.
-    const before = controller.shaderConfig.peek().params.scanlineIntensity;
-    controller.cycleShaderRow("shader-param:scanlineIntensity", 1);
-    assert(controller.shaderConfig.peek().params.scanlineIntensity !== before);
+    const before = controller.shaderConfig.peek().effects.scanline.params.scanlineIntensity;
+    controller.cycleShaderRow("shader-param:scanline:scanlineIntensity", 1);
+    assert(controller.shaderConfig.peek().effects.scanline.params.scanlineIntensity !== before);
 
-    // On to pincushion, then back to off.
-    controller.cycleShaderRow("shader-effect", 1);
-    assertEquals(controller.shaderConfig.peek().effect, "pincushion");
-    controller.cycleShaderRow("shader-effect", 1);
-    assertEquals(controller.shaderConfig.peek().enabled, false);
+    // Enable pincushion too — more than one shader runs at once.
+    controller.cycleShaderRow("shader-toggle:pincushion", 1);
+    assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, true);
+    assertEquals(controller.shaderConfig.peek().effects.pincushion.enabled, true);
+    assertEquals(applied.at(-1), "scanline+pincushion");
+
+    // Toggle scanlines back off; pincushion stays on.
+    controller.cycleShaderRow("shader-toggle:scanline", 1);
+    assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, false);
+    assertEquals(controller.shaderConfig.peek().effects.pincushion.enabled, true);
   } finally {
     harness.destroy();
     await controller.dispose();
@@ -4136,9 +4142,9 @@ Deno.test("Exomux hides CRT shader settings when not in Ghostty", async () => {
   try {
     assert(!controller.ghosttyDetected.peek());
     assertEquals(controller.shaderOptionRows().length, 0);
-    // Cycling is inert without Ghostty.
-    controller.cycleShaderRow("shader-effect", 1);
-    assertEquals(controller.shaderConfig.peek().enabled, false);
+    // Toggling is inert without Ghostty.
+    controller.cycleShaderRow("shader-toggle:scanline", 1);
+    assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, false);
   } finally {
     await controller.dispose();
   }

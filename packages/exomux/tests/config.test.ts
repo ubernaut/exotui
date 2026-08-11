@@ -116,15 +116,20 @@ Deno.test("Exomux preference writer persists changes and copies the wallpaper", 
     assertEquals(reloaded.backgroundSettings.image?.path, `${exomuxConfigImagesDirectory(directory)}/original.png`);
 
     // A shader write merges without wiping the preferences just written.
-    writer.writeShaders({ enabled: true, effect: "pincushion", params: { magnitude: 0.4 } });
+    writer.writeShaders({
+      effects: {
+        scanline: { enabled: false, params: {} },
+        pincushion: { enabled: true, params: { magnitude: 0.4 } },
+      },
+    });
     for (let attempt = 0; attempt < 40; attempt += 1) {
       const c = await loadExomuxConfig(path);
-      if (c.shaders.enabled) break;
+      if (c.shaders.effects.pincushion.enabled) break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const merged = await loadExomuxConfig(path);
-    assertEquals(merged.shaders.enabled, true);
-    assertEquals(merged.shaders.effect, "pincushion");
+    assertEquals(merged.shaders.effects.pincushion.enabled, true);
+    assertEquals(merged.shaders.effects.pincushion.params.magnitude, 0.4);
     assertEquals(merged.themeId, "amber", "the shader write must not wipe preferences");
   } finally {
     await Deno.remove(directory, { recursive: true }).catch(() => undefined);

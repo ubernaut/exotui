@@ -32,9 +32,10 @@ import {
   defaultExomuxShaderConfig,
   EXOMUX_SHADER_EFFECTS,
   EXOMUX_SHADER_PARAMS,
+  exomuxEnabledShaderEffects,
   type ExomuxShaderConfig,
-  exomuxShaderDefaults,
   type ExomuxShaderEffect,
+  type ExomuxShaderEffectConfig,
   exomuxShaderParamValue,
 } from "./ghostty.ts";
 import {
@@ -595,56 +596,73 @@ export class ExomuxController {
   shaderOptionRows(): readonly { readonly id: string; readonly label: string; readonly value: string }[] {
     if (!this.ghosttyDetected.peek()) return [];
     const config = this.shaderConfig.peek();
-    const rows: { id: string; label: string; value: string }[] = [{
-      id: "shader-effect",
-      label: "CRT shader",
-      value: config.enabled ? (config.effect === "scanline" ? "Scanlines" : "Pincushion") : "Off",
-    }];
-    if (config.enabled) {
-      for (const param of EXOMUX_SHADER_PARAMS[config.effect]) {
+    const rows: { id: string; label: string; value: string }[] = [];
+    // Each effect has its own on/off row, so more than one can run at once;
+    // an enabled effect's parameters follow it, indented.
+    for (const effect of EXOMUX_SHADER_EFFECTS) {
+      const effectConfig = config.effects[effect];
+      rows.push({
+        id: `shader-toggle:${effect}`,
+        label: effect === "scanline" ? "CRT scanlines" : "CRT pincushion",
+        value: effectConfig?.enabled ? "On" : "Off",
+      });
+      if (!effectConfig?.enabled) continue;
+      for (const param of EXOMUX_SHADER_PARAMS[effect]) {
         rows.push({
-          id: `shader-param:${param.id}`,
+          id: `shader-param:${effect}:${param.id}`,
           label: `  ${param.label}`,
-          value: `${Math.round(exomuxShaderParamValue(config, param) * 100)}%`,
+          value: `${Math.round(exomuxShaderParamValue(config, effect, param) * 100)}%`,
         });
       }
     }
     return rows;
   }
 
-  /** Applies one settings-row action: cycle the effect, or nudge a parameter. */
+  /** Applies one settings-row action: toggle an effect, or nudge a parameter. */
   cycleShaderRow(id: string, direction: number): void {
     if (this.#disposed || !this.ghosttyDetected.peek()) return;
     const config = this.shaderConfig.peek();
-    if (id === "shader-effect") {
-      // Off → Scanlines → Pincushion → Off, walked in either direction.
-      const order: (ExomuxShaderEffect | "off")[] = ["off", ...EXOMUX_SHADER_EFFECTS];
-      const current = config.enabled ? config.effect : "off";
-      const next = order[(order.indexOf(current) + direction + order.length) % order.length]!;
-      this.#setShaderConfig(
-        next === "off" ? { ...config, enabled: false } : {
-          enabled: true,
-          effect: next,
-          params: config.effect === next ? config.params : exomuxShaderDefaults(next),
-        },
-      );
+    if (id.startsWith("shader-toggle:")) {
+      const effect = id.slice("shader-toggle:".length) as ExomuxShaderEffect;
+      const current = config.effects[effect];
+      if (!current) return;
+      this.#setShaderConfig(this.#withEffect(config, effect, { ...current, enabled: !current.enabled }));
       return;
     }
     if (id.startsWith("shader-param:")) {
-      const paramId = id.slice("shader-param:".length);
-      const param = EXOMUX_SHADER_PARAMS[config.effect].find((entry) => entry.id === paramId);
-      if (!param) return;
-      const nextValue = clampExomuxShaderParam(param, exomuxShaderParamValue(config, param) + direction * param.step);
-      this.#setShaderConfig({ ...config, params: { ...config.params, [paramId]: nextValue } });
+      const rest = id.slice("shader-param:".length);
+      const separator = rest.indexOf(":");
+      if (separator < 0) return;
+      const effect = rest.slice(0, separator) as ExomuxShaderEffect;
+      const paramId = rest.slice(separator + 1);
+      const current = config.effects[effect];
+      const param = current && EXOMUX_SHADER_PARAMS[effect]?.find((entry) => entry.id === paramId);
+      if (!current || !param) return;
+      const nextValue = clampExomuxShaderParam(
+        param,
+        exomuxShaderParamValue(config, effect, param) + direction * param.step,
+      );
+      this.#setShaderConfig(
+        this.#withEffect(config, effect, { ...current, params: { ...current.params, [paramId]: nextValue } }),
+      );
     }
+  }
+
+  #withEffect(
+    config: ExomuxShaderConfig,
+    effect: ExomuxShaderEffect,
+    next: ExomuxShaderEffectConfig,
+  ): ExomuxShaderConfig {
+    return { effects: { ...config.effects, [effect]: next } };
   }
 
   #setShaderConfig(config: ExomuxShaderConfig): void {
     this.shaderConfig.value = config;
     this.#onShadersChanged?.(config);
-    this.status.value = config.enabled
-      ? `CRT shader: ${config.effect}. Reload Ghostty's config to apply (or restart Ghostty).`
-      : "CRT shader off. Reload Ghostty's config to apply.";
+    const enabled = exomuxEnabledShaderEffects(config);
+    this.status.value = enabled.length > 0
+      ? `CRT shaders: ${enabled.join(", ")}. Reload Ghostty's config to apply (or restart Ghostty).`
+      : "CRT shaders off. Reload Ghostty's config to apply.";
   }
 
   /** Begins editing the session name, seeding the draft with the current name. */
