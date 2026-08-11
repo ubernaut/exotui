@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "./deps.ts";
 import {
+  applyExomuxCursorConfig,
   applyExomuxShaders,
   clampExomuxShaderParam,
   defaultExomuxShaderConfig,
@@ -85,6 +86,18 @@ Deno.test("Generated shaders are valid Shadertoy GLSL with baked-in parameters",
   const pin = generateExomuxShader("pincushion", { magnitude: 0.4 });
   assertStringIncludes(pin, "float magnitude = 0.4;");
   assertStringIncludes(pin, "texture(iChannel0, warped)");
+});
+
+Deno.test("Cursor config toggles mouse-hide-while-typing for the block cursor", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "exomux-cursor-" });
+  try {
+    const on = await applyExomuxCursorConfig(dir, true);
+    assertStringIncludes(await Deno.readTextFile(on), "mouse-hide-while-typing = true");
+    const off = await applyExomuxCursorConfig(dir, false);
+    assert(!(await Deno.readTextFile(off)).includes("mouse-hide-while-typing = true"));
+  } finally {
+    await Deno.remove(dir, { recursive: true }).catch(() => undefined);
+  }
 });
 
 Deno.test("Ghostty user config path follows XDG and platform conventions", () => {

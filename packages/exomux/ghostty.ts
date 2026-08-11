@@ -300,6 +300,27 @@ function joinPath(parent: string, child: string): string {
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
 
+/**
+ * Writes a managed Ghostty config that hides the terminal's own pointer while
+ * typing (or clears it when off), so the block cursor pairs with a hidden OS
+ * pointer. Returns the config path; wiring the include is the caller's job.
+ */
+export async function applyExomuxCursorConfig(
+  configDirectory: string,
+  hideWhileTyping: boolean,
+): Promise<string> {
+  const directory = exomuxShaderDirectory(configDirectory);
+  await Deno.mkdir(directory, { recursive: true });
+  const path = joinPath(directory, "cursor.conf");
+  await Deno.writeTextFile(
+    path,
+    hideWhileTyping
+      ? "# Managed by Exomux for the block cursor.\nmouse-hide-while-typing = true\n"
+      : "# Managed by Exomux — block cursor off.\n",
+  );
+  return path;
+}
+
 /** The user's own Ghostty config path, where the managed include belongs. */
 export function exomuxGhosttyUserConfigPath(
   env: (key: string) => string | undefined = Deno.env.get,

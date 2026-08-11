@@ -41,6 +41,7 @@ import {
 } from "./config.ts";
 import { exomuxBackgroundSettingsFor, withExomuxBackgroundString } from "./model.ts";
 import {
+  applyExomuxCursorConfig,
   applyExomuxShaders,
   ensureExomuxGhosttyInclude,
   type ExomuxShaderConfig,
@@ -313,6 +314,20 @@ export async function runExomuxClient(
     ...(applyShaders ? { onShadersChanged: applyShaders } : {}),
     ...(renameSession ? { onRenameSession: renameSession } : {}),
   });
+  // When the block cursor is enabled under Ghostty, hide Ghostty's own pointer
+  // while typing to cut the double-cursor — a managed config with its include.
+  if (ghostty) {
+    let lastBlockCursor: boolean | undefined;
+    const applyCursorConfig = (hideWhileTyping: boolean): void => {
+      if (hideWhileTyping === lastBlockCursor) return;
+      lastBlockCursor = hideWhileTyping;
+      void applyExomuxCursorConfig(configDirectory, hideWhileTyping)
+        .then((path) => ensureExomuxGhosttyInclude(path))
+        .catch(() => undefined);
+    };
+    applyCursorConfig(controller.globalSettings.peek().blockCursor);
+    controller.globalSettings.subscribe(() => applyCursorConfig(controller.globalSettings.peek().blockCursor));
+  }
   let connectionStatus = connection.launched
     ? `Started session "${target.name}" · terminals survive UI exit · Ctrl-N ? commands`
     : `Attached to session "${target.name}" · Ctrl-N ? commands`;
