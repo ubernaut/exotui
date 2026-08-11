@@ -1214,6 +1214,24 @@ export function mountExomuxDesktop(
     await syncWindows();
   };
 
+  // A single physical wheel notch fans out into several scroll events: the
+  // input reader emits a `mouseScroll` and the app layer a derived `pointerInput`
+  // wheel for the same motion, and high-resolution wheels send several per notch.
+  // For the menu-like list windows, that made one notch jump many rows. Collapse
+  // a tight same-direction burst into one move: a new move only counts once the
+  // gap since the last one exceeds the burst window (or the direction flips).
+  let lastListScroll: { windowId: string; direction: number; time: number } | undefined;
+  const LIST_SCROLL_BURST_MS = 40;
+  const listScrollStep = (windowId: string, delta: number): number => {
+    const direction = Math.sign(delta);
+    const now = Date.now();
+    const previous = lastListScroll;
+    lastListScroll = { windowId, direction, time: now };
+    const fresh = !previous || previous.windowId !== windowId || previous.direction !== direction ||
+      now - previous.time > LIST_SCROLL_BURST_MS;
+    return fresh ? direction : 0;
+  };
+
   const scrollClientWindow = (windowId: string, delta: number): boolean => {
     if (!Number.isFinite(delta) || delta === 0 || modalOpen()) return modalOpen();
     if (windowId === EXOMUX_SESSIONS_WINDOW_ID) {
@@ -1221,15 +1239,18 @@ export function mountExomuxDesktop(
       if (sessions.length === 0) return true;
       // Lists move one selection per notch regardless of scroll speed, which is
       // the natural feel for a menu.
-      selectedSessionIndex.value = clampIndex(selectedSessionIndex.peek() + Math.sign(delta), sessions.length);
+      selectedSessionIndex.value = clampIndex(
+        selectedSessionIndex.peek() + listScrollStep(windowId, delta),
+        sessions.length,
+      );
       return true;
     }
     if (windowId === EXOMUX_NETWORK_WINDOW_ID) {
-      controller.networkTree.move(Math.sign(delta));
+      controller.networkTree.move(listScrollStep(windowId, delta));
       return true;
     }
     if (windowId === EXOMUX_SETTINGS_WINDOW_ID) {
-      controller.moveGlobalConfigSelection(Math.sign(delta));
+      controller.moveGlobalConfigSelection(listScrollStep(windowId, delta));
       return true;
     }
     const sessionId = exomuxSessionIdFromWindow(windowId);
@@ -2793,7 +2814,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   if (exomuxMetaballBackgroundVisible(projection, body)) {
     if (backgroundGrid) paintBackgroundGrid(painter, body, backgroundGrid, theme);
     else if (metaballLevels && metaballPalette) {
-      paintMetaballLevels(painter, body, metaballLevels, metaballPalette, theme);
+      paintMetaballLevels(painter, body, metaballLevels, metaballPalette);
     }
   }
 
@@ -2993,7 +3014,6 @@ function paintMetaballLevels(
   bounds: Rectangle,
   levels: Uint8Array | readonly number[],
   palette: readonly ExomuxRgb[],
-  theme: ExomuxThemeSpec,
 ): void {
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     for (let column = bounds.column; column < bounds.column + bounds.width; column += 1) {
