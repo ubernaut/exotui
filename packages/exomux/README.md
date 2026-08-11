@@ -62,11 +62,13 @@ scrolling a picker drives the real `List`; typing edits the real `Input`); the o
 while the window's routing cycles it. (Making `List` mouse-interactive plus its highlight/scrollbar, and adding
 `Cycler`, are companion changes in the core library.)
 
-Inside Ghostty, the settings window gains a CRT shader section: pulsating/flickering scanlines and pincushion
-distortion, each with its own on/off toggle and adjustable intensity — enable both to stack them. Turning one on
-generates a GLSL file per enabled effect, chains them in a managed Ghostty config under `~/.config/exomux/shaders/`, and
-adds that include to your Ghostty config automatically (one commented, reversible line). Reload Ghostty (or restart it)
-to apply. If a shader still doesn't show, your GPU may not support Ghostty custom shaders.
+When Ghostty is available — running inside it, or just installed — the settings window gains a CRT shader section, so it
+manages the same Ghostty shader config the installer sets up even from another terminal. Each effect has a `CheckBox`
+on/off toggle and its parameters are `< value >` `Cycler` controls; scanlines and pincushion can stack. Adjusting a
+control regenerates a GLSL file per enabled effect, chains them in a managed Ghostty config under
+`~/.config/exomux/shaders/`, and adds that include to your Ghostty config automatically (one commented, reversible
+line). Reload Ghostty (or restart it) to apply. If a shader still doesn't show, your GPU may not support Ghostty custom
+shaders. `install-exomux.sh` offers to enable a default shader when it detects Ghostty.
 
 A crash cannot wedge launching. If a recorded host's pid died — or was recycled by an unrelated process — its descriptor
 is pruned and the session simply reports stopped; if the pid still looks like an Exomux daemon but never answers, the
