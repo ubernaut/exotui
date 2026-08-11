@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assertEquals } from "./deps.ts";
-import { List, ListController } from "../src/components/list.ts";
+import { List, ListController, visibleListRows } from "../src/components/list.ts";
 import { Tui } from "../src/tui.ts";
 import { Canvas } from "../src/canvas/canvas.ts";
 import { MemoryCanvasSink } from "../src/canvas/sink.ts";
@@ -25,6 +25,19 @@ Deno.test("ListController resolves the item under a visible row and scrolls by n
   controller.handleScroll(0);
   assertEquals(controller.selectedIndex.peek(), 0);
   controller.dispose();
+});
+
+Deno.test("visibleListRows marks a secondary state with a custom marker", () => {
+  const rows = visibleListRows(
+    ["a", "b", "c"],
+    0,
+    3,
+    undefined,
+    (index, selected) => selected ? ">" : index === 2 ? "·" : " ",
+  );
+  assertEquals(rows[0], "> a"); // selected
+  assertEquals(rows[1], "  b"); // neither
+  assertEquals(rows[2], "· c"); // current
 });
 
 Deno.test("List selects and activates the clicked row and moves on wheel", () => {

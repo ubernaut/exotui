@@ -30,6 +30,12 @@ export interface ListOptions extends ComponentOptions, ListControllerOptions {
    * thumb's size scales with the visible/total ratio and tracks the scroll window.
    */
   scrollbar?: ListScrollbar;
+  /**
+   * Chooses each row's one-character leading marker (default `>` for the selected
+   * row, space otherwise). Use it to mark a secondary state — a current/active
+   * item distinct from the selection. Read a Signal inside it to stay reactive.
+   */
+  markerFor?: ListRowMarker;
 }
 
 /** Public interface describing a virtual Row. */
@@ -68,20 +74,28 @@ export function padListRow(row: string, width: number): string {
   return pad > 0 ? cropped + " ".repeat(pad) : cropped;
 }
 
+/** Resolves the one-character leading marker for a row. */
+export type ListRowMarker = (index: number, selected: boolean) => string;
+
+const defaultRowMarker: ListRowMarker = (_index, selected) => selected ? ">" : " ";
+
 /** Public helper for visible List Rows. */
 export function visibleListRows(
   items: readonly string[],
   selectedIndex: number,
   height: number,
   width?: number,
+  markerFor: ListRowMarker = defaultRowMarker,
 ): string[] {
-  return visibleListRowsInto([], items, selectedIndex, height, width);
+  return visibleListRowsInto([], items, selectedIndex, height, width, markerFor);
 }
 
 /**
  * Renders visible List Rows into a caller-owned buffer. When `width` is given,
  * each row is padded (and clipped) to that display width so a shorter row after
  * a scroll fully overwrites a longer one — no stale trailing characters.
+ * `markerFor` chooses each row's one-character leading marker (default `>` for
+ * the selected row, space otherwise), for secondary states like a current item.
  */
 export function visibleListRowsInto(
   target: string[],
@@ -89,6 +103,7 @@ export function visibleListRowsInto(
   selectedIndex: number,
   height: number,
   width?: number,
+  markerFor: ListRowMarker = defaultRowMarker,
 ): string[] {
   const safeHeight = Math.max(0, height);
   const selected = clampSelectionIndex(items.length, selectedIndex);
@@ -97,7 +112,7 @@ export function visibleListRowsInto(
   target.length = count;
   for (let offset = 0; offset < count; offset += 1) {
     const index = window.start + offset;
-    const row = `${index === selected ? ">" : " "} ${items[index]!}`;
+    const row = `${markerFor(index, index === selected)} ${items[index]!}`;
     target[offset] = width === undefined ? row : padListRow(row, width);
   }
   return target;
@@ -237,6 +252,7 @@ export class List extends Component {
   readonly #rowBuffer: string[] = [];
   readonly #selectedStyle?: Style;
   readonly #scrollbar?: ListScrollbar;
+  readonly #markerFor: ListRowMarker;
 
   constructor(options: ListOptions) {
     super(options);
@@ -249,6 +265,7 @@ export class List extends Component {
       });
     this.#selectedStyle = options.selectedStyle;
     this.#scrollbar = options.scrollbar;
+    this.#markerFor = options.markerFor ?? defaultRowMarker;
     this.items = this.controller.items;
     this.selectedIndex = this.controller.selectedIndex;
     this.#rows = new Computed(() =>
@@ -260,6 +277,7 @@ export class List extends Component {
         // Pad rows to the full width so a shorter row fully overwrites a longer
         // one on scroll; reserve the last column when a scrollbar is shown.
         Math.max(0, this.rectangle.value.width - (this.#scrollbar ? 1 : 0)),
+        this.#markerFor,
       )
     );
 
@@ -303,7 +321,7 @@ export class List extends Component {
       const index = clampSelectionIndex(items.length, this.selectedIndex.value);
       const item = items[index];
       if (item === undefined) return "";
-      return padListRow(`> ${item}`, Math.max(0, this.rectangle.value.width - reserve));
+      return padListRow(`${this.#markerFor(index, true)} ${item}`, Math.max(0, this.rectangle.value.width - reserve));
     });
     const rectangle = new Computed<TextRectangle>(() => {
       const rect = this.rectangle.value;
