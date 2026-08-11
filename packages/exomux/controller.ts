@@ -33,6 +33,7 @@ import {
   EXOMUX_SHADER_EFFECTS,
   EXOMUX_SHADER_PARAMS,
   exomuxEnabledShaderEffects,
+  exomuxFormatShaderValue,
   type ExomuxShaderConfig,
   type ExomuxShaderEffect,
   type ExomuxShaderEffectConfig,
@@ -631,13 +632,13 @@ export class ExomuxController {
         const steps = Math.max(1, Math.round((param.max - param.min) / param.step));
         for (let step = 0; step <= steps; step += 1) {
           const stepped = clampExomuxShaderParam(param, param.min + step * param.step);
-          options.push(`${Math.round(stepped * 100)}%`);
+          options.push(exomuxFormatShaderValue(stepped));
           if (Math.abs(stepped - value) < param.step / 2) activeIndex = step;
         }
         rows.push({
           id: `shader-param:${effect}:${param.id}`,
           label: `  ${param.label}`,
-          value: `${Math.round(value * 100)}%`,
+          value: exomuxFormatShaderValue(value),
           control: { kind: "cycler", options, activeIndex },
         });
       }

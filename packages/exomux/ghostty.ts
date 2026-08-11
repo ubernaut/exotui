@@ -79,12 +79,13 @@ export interface ExomuxShaderParam {
 /** The tunable parameters of each shader effect. */
 export const EXOMUX_SHADER_PARAMS: Readonly<Record<ExomuxShaderEffect, readonly ExomuxShaderParam[]>> = Object.freeze({
   scanline: Object.freeze([
-    { id: "scanlineIntensity", label: "Scanline depth", min: 0, max: 1, step: 0.05, default: 0.3 },
-    { id: "flickerIntensity", label: "Flicker", min: 0, max: 1, step: 0.05, default: 0.15 },
-    { id: "pulseIntensity", label: "Pulse", min: 0, max: 1, step: 0.05, default: 0.2 },
+    { id: "scanlineIntensity", label: "Scanline depth", min: 0, max: 1, step: 0.05, default: 0.25 },
+    { id: "flickerIntensity", label: "Flicker", min: 0, max: 1, step: 0.05, default: 0.05 },
+    { id: "pulseIntensity", label: "Pulse", min: 0, max: 1, step: 0.05, default: 0.05 },
   ]),
   pincushion: Object.freeze([
-    { id: "magnitude", label: "Distortion", min: 0, max: 1, step: 0.05, default: 0.25 },
+    // Finer 2.5% steps, since a subtle barrel curve is the useful range.
+    { id: "magnitude", label: "Distortion", min: 0, max: 1, step: 0.025, default: 0.025 },
   ]),
 });
 
@@ -166,6 +167,11 @@ export function normalizeExomuxShaderConfig(value: unknown): ExomuxShaderConfig 
     });
   }
   return Object.freeze({ effects: Object.freeze(effects) });
+}
+
+/** Formats a shader parameter (0–1) as a percentage, keeping a needed decimal (e.g. 2.5%). */
+export function exomuxFormatShaderValue(value: number): string {
+  return `${+(value * 100).toFixed(1)}%`;
 }
 
 /** Resolves one parameter's current value for an effect, falling back to its default. */
