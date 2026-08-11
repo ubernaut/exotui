@@ -1297,17 +1297,20 @@ export class ExomuxController {
     const viewport = normalizeReflowBounds(bounds);
     if (!viewport) return false;
     let changed = false;
+    // Cascade successive rescued windows so several never land on one another.
+    let cascadeIndex = 0;
     for (const window of this.windowHost.controller.inspect().windows) {
       if (window.placement !== "floating" || window.state === "minimized" || window.state === "maximized") continue;
       const rect = window.floatingRect;
       if (!rect) continue;
-      const fitted = fitFloatingRect(rect, viewport);
-      if (
-        fitted.column === rect.column && fitted.row === rect.row &&
-        fitted.width === rect.width && fitted.height === rect.height
-      ) {
-        continue;
-      }
+      if (floatingRectFitsIn(rect, viewport)) continue;
+      // A window too big for the view, or with most of its body off it, is
+      // re-centered (and cascaded); one that is only slightly off is nudged
+      // back on so a small resize does not yank it to the middle.
+      const tooBig = rect.width > viewport.width || rect.height > viewport.height;
+      const fitted = tooBig || floatingVisibleFraction(rect, viewport) < EXOMUX_REFLOW_CENTER_THRESHOLD
+        ? centerFloatingRect(rect, viewport, cascadeIndex++)
+        : nudgeFloatingRectIntoView(rect, viewport);
       this.windowHost.execute({ kind: "set-placement", id: window.id, placement: "floating", rect: fitted }, viewport);
       changed = true;
     }
@@ -2343,26 +2346,67 @@ function finiteTime(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
-/** Minimum floating window footprint kept usable when refitting to a small parent. */
-const EXOMUX_MIN_FLOATING_WIDTH = 12;
-const EXOMUX_MIN_FLOATING_HEIGHT = 3;
+/** Below this visible fraction a stranded floating window is re-centered rather than nudged. */
+const EXOMUX_REFLOW_CENTER_THRESHOLD = 0.6;
+/** Cell offset between successive re-centered windows, and how many before the cascade wraps. */
+const EXOMUX_REFLOW_CASCADE_STEP = 2;
+const EXOMUX_REFLOW_CASCADE_SPAN = 6;
 
-/** Shrinks and nudges one floating rect so it sits wholly inside the viewport. */
-function fitFloatingRect(rect: Rectangle, bounds: Rectangle): Rectangle {
-  // Never grow a window that already fits; only shrink one too big for the parent.
-  const width = Math.max(
-    1,
-    Math.min(rect.width, Math.max(EXOMUX_MIN_FLOATING_WIDTH, Math.min(rect.width, bounds.width))),
+/** Fraction of one floating window's area that is presently inside the viewport. */
+function floatingVisibleFraction(rect: Rectangle, bounds: Rectangle): number {
+  const area = Math.max(1, rect.width * rect.height);
+  const overlapWidth = Math.max(
+    0,
+    Math.min(rect.column + rect.width, bounds.column + bounds.width) - Math.max(rect.column, bounds.column),
   );
-  const height = Math.max(
-    1,
-    Math.min(rect.height, Math.max(EXOMUX_MIN_FLOATING_HEIGHT, Math.min(rect.height, bounds.height))),
+  const overlapHeight = Math.max(
+    0,
+    Math.min(rect.row + rect.height, bounds.row + bounds.height) - Math.max(rect.row, bounds.row),
   );
-  const cappedWidth = Math.min(width, bounds.width);
-  const cappedHeight = Math.min(height, bounds.height);
-  const column = clampValue(rect.column, bounds.column, bounds.column + bounds.width - cappedWidth);
-  const row = clampValue(rect.row, bounds.row, bounds.row + bounds.height - cappedHeight);
-  return { column, row, width: cappedWidth, height: cappedHeight };
+  return (overlapWidth * overlapHeight) / area;
+}
+
+/** True when a floating rect already sits wholly inside the viewport at its current size. */
+function floatingRectFitsIn(rect: Rectangle, bounds: Rectangle): boolean {
+  return (
+    rect.width <= bounds.width && rect.height <= bounds.height &&
+    rect.column >= bounds.column && rect.row >= bounds.row &&
+    rect.column + rect.width <= bounds.column + bounds.width &&
+    rect.row + rect.height <= bounds.row + bounds.height
+  );
+}
+
+/** Shrinks a floating rect to fit and nudges it fully on-screen, keeping its position otherwise. */
+function nudgeFloatingRectIntoView(rect: Rectangle, bounds: Rectangle): Rectangle {
+  const width = Math.max(1, Math.min(rect.width, bounds.width));
+  const height = Math.max(1, Math.min(rect.height, bounds.height));
+  return {
+    column: clampValue(rect.column, bounds.column, bounds.column + bounds.width - width),
+    row: clampValue(rect.row, bounds.row, bounds.row + bounds.height - height),
+    width,
+    height,
+  };
+}
+
+/** Shrinks a floating rect to fit and centers it in the viewport, offset by a cascade index. */
+function centerFloatingRect(rect: Rectangle, bounds: Rectangle, cascadeIndex: number): Rectangle {
+  const width = Math.max(1, Math.min(rect.width, bounds.width));
+  const height = Math.max(1, Math.min(rect.height, bounds.height));
+  const cascade = (cascadeIndex % EXOMUX_REFLOW_CASCADE_SPAN) * EXOMUX_REFLOW_CASCADE_STEP;
+  return {
+    column: clampValue(
+      bounds.column + Math.floor((bounds.width - width) / 2) + cascade,
+      bounds.column,
+      bounds.column + bounds.width - width,
+    ),
+    row: clampValue(
+      bounds.row + Math.floor((bounds.height - height) / 2) + Math.trunc(cascade / 2),
+      bounds.row,
+      bounds.row + bounds.height - height,
+    ),
+    width,
+    height,
+  };
 }
 
 /** Clamps a value into an inclusive range, tolerating an inverted range. */

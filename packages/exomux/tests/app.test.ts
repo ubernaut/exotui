@@ -3709,6 +3709,45 @@ Deno.test("Exomux pulls floating windows back on screen when the desktop shrinks
   }
 });
 
+Deno.test("Exomux fits a restored offscreen floating window at launch, before any resize", async () => {
+  const initial = session("launch-shell", "launch shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const windowId = exomuxWindowId("launch-shell");
+  // Simulate a layout persisted from a large terminal: park the window far off a
+  // small screen before the desktop ever mounts.
+  controller.windowHost.execute(
+    {
+      kind: "set-placement",
+      id: windowId,
+      placement: "floating",
+      rect: { column: 130, row: 40, width: 36, height: 12 },
+    },
+    { column: 0, row: 1, width: 200, height: 60 },
+  );
+
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  // Launch small. The mount must fit the window without waiting for a resize.
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 80, rows: 24 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    const bounds = mounted.bodyRect.peek();
+    const rect = controller.windowHost.controller.inspect().windows
+      .find((window) => window.id === windowId)!.floatingRect!;
+    assert(rect.column >= bounds.column, "left edge on screen at launch");
+    assert(rect.row >= bounds.row, "top edge on screen at launch");
+    assert(rect.column + rect.width <= bounds.column + bounds.width, "right edge on screen at launch");
+    assert(rect.row + rect.height <= bounds.row + bounds.height, "bottom edge on screen at launch");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux modal layouts stay within a cramped desktop", () => {
   const within = (rect: Rectangle, bounds: Rectangle, label: string) => {
     assert(rect.column >= bounds.column, `${label}: left edge off screen`);

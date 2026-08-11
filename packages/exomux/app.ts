@@ -2617,6 +2617,10 @@ export function mountExomuxDesktop(
   controller.sessions.subscribe((sessions) => {
     selectedSessionIndex.value = clampIndex(selectedSessionIndex.peek(), sessions.length);
   }, subscriptions.signal);
+  // Fit any restored floating windows to the current view at launch: a layout
+  // persisted from a larger terminal must never come back partly offscreen.
+  // `bodyRect.subscribe` only fires on a later resize, so the first fit is here.
+  if (controller.reflowFloatingWindows(bodyRect.peek())) void syncWindows();
   scheduleGeometry();
 
   return {

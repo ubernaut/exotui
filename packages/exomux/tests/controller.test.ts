@@ -886,6 +886,66 @@ Deno.test("Exomux refits floating windows that a smaller desktop would strand of
   }
 });
 
+Deno.test("Exomux reflow re-centers a badly stranded window and cascades several", async () => {
+  const host = new FakeExomuxHost();
+  const controller = await createExomuxController({ client: host.client() });
+  try {
+    const big = { column: 0, row: 1, width: 200, height: 60 };
+    const ids: string[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const session = await controller.spawn({ bounds: big, title: `far-${index}` });
+      assert(session);
+      const id = exomuxWindowId(session.id);
+      // Park each one entirely off a smaller desktop, all in the same spot.
+      controller.windowHost.execute(
+        { kind: "set-placement", id, placement: "floating", rect: { column: 180, row: 52, width: 30, height: 10 } },
+        big,
+      );
+      ids.push(id);
+    }
+    const rectOf = (id: string) =>
+      controller.windowHost.controller.inspect().windows.find((window) => window.id === id)!.floatingRect!;
+
+    const small = { column: 0, row: 1, width: 80, height: 24 };
+    assertEquals(controller.reflowFloatingWindows(small), true);
+    const rects = ids.map(rectOf);
+    for (const rect of rects) {
+      assert(rect.column >= small.column, "left edge on screen");
+      assert(rect.row >= small.row, "top edge on screen");
+      assert(rect.column + rect.width <= small.column + small.width, "right edge on screen");
+      assert(rect.row + rect.height <= small.row + small.height, "bottom edge on screen");
+    }
+    // The first stranded window is centered horizontally, not clamped to an edge.
+    assertEquals(rects[0]!.column, small.column + Math.floor((small.width - 30) / 2));
+    // Several rescued at once cascade rather than stacking on one column.
+    assert(new Set(rects.map((rect) => rect.column)).size > 1, "cascaded windows must not share one column");
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux reflow nudges a slightly-off window instead of re-centering it", async () => {
+  const host = new FakeExomuxHost();
+  const controller = await createExomuxController({ client: host.client() });
+  try {
+    const bounds = { column: 0, row: 1, width: 80, height: 24 };
+    const session = await controller.spawn({ bounds, title: "edge" });
+    assert(session);
+    const id = exomuxWindowId(session.id);
+    // Mostly on screen, hanging a few columns off the right edge.
+    controller.windowHost.execute(
+      { kind: "set-placement", id, placement: "floating", rect: { column: 60, row: 6, width: 30, height: 10 } },
+      bounds,
+    );
+    assertEquals(controller.reflowFloatingWindows(bounds), true);
+    const rect = controller.windowHost.controller.inspect().windows.find((window) => window.id === id)!.floatingRect!;
+    // Nudged just far enough to sit fully on screen — not yanked to the middle.
+    assertEquals(rect, { column: 50, row: 6, width: 30, height: 10 });
+  } finally {
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux reflow leaves tiled and maximized windows to the layout", async () => {
   const host = new FakeExomuxHost();
   const controller = await createExomuxController({ client: host.client() });

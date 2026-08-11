@@ -388,6 +388,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Exomux no longer strands remembered floating windows offscreen when it launches or is resized into a different-sized
+  terminal. Floating windows are now refit to the current view at launch (not only on a later resize): a window too big
+  for the view, or with most of its body off it, is shrunk to fit and re-centered — cascaded so several never land on
+  one another — while a window only slightly off is nudged just far enough to sit fully on screen.
+  `reflowFloatingWindows` gained the center/cascade/nudge policy and mount now runs an initial fit.
 - Exomux window titlebar buttons (minimize/maximize/close) work again while the block mouse cursor is on. Its any-motion
   tracking (mode 1003) streams pure hover motion — a drag with no held button, which button-event tracking never emitted
   — and `routeWindowPointer` fed those into the window-host interaction router, leaving a phantom interaction "active"
