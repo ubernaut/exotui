@@ -31,10 +31,19 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- New `Cycler` component: a compact value picker that shows one value flanked by `<` / `>` affordances and steps through
+  a fixed set of options (left half / left-arrow / wheel-up step back, right half / right-arrow / wheel-down step
+  forward), wrapping by default. It fills the gap between `Stepper` (a multi-step wizard indicator) and a settings row
+  that cycles a single choice. `CyclerController` holds `options`/`activeIndex`/`wrap` with `move`/`setActive`/`handle*`
+  helpers; `renderCycler` composes and clips the `< value >` row.
 - `List` is now mouse-interactive. It handles `mousePress` (select — and, unless a drag, activate — the row under the
   pointer, resolved through its current scroll window) and `mouseScroll` (move one row per notch), and overrides
   `interact()` so it is a proper interactable focus target like `Slider` and `Button`; `ListController` gains
   `indexAtRow()` and `handleScroll()` for the window math. It was keyboard-only before.
+- The Exomux settings option rows are real exotui controls: a `CheckBox` for the boolean (overgrow inactive) and a
+  `Cycler` for each discrete-value setting (opacity, scroll speed, overgrow time, border style), composited over the
+  value column. They display the live value while the existing option routing drives changes; the dynamic Ghostty shader
+  rows stay hand-drawn. `packages/exomux/settings_options.ts` carries the option-control host.
 - The Exomux settings window's theme and background selectors are real exotui `List` components, not hand-drawn rows.
   They are mounted on an off-screen `ExomuxWidgetSurface`, bound two-way to the controller's selection, and composited
   into the window; a click on a picker is forwarded straight into the `List` as a real `MousePressEvent`, which selects
