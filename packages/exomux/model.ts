@@ -568,6 +568,12 @@ export interface ExomuxGlobalSettings {
   readonly opacity: number;
   /** Default rows moved per wheel notch; a window may override it. */
   readonly scrollLines: number;
+  /**
+   * Draw a themed block cursor at the mouse position. It follows the mouse via
+   * any-motion tracking and coexists with the terminal's own pointer, so it pairs
+   * with a terminal that can hide that pointer (e.g. Ghostty's mouse-hide-while-typing).
+   */
+  readonly blockCursor: boolean;
 }
 
 /**
@@ -623,6 +629,13 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     values: Object.freeze([...EXOMUX_SCROLL_VALUES]),
     format: formatScrollLines,
   }),
+  Object.freeze({
+    id: "blockCursor" as const,
+    label: "Block mouse cursor",
+    detail: "Draw a block at the mouse; pairs with a terminal that hides its own pointer.",
+    values: Object.freeze([true, false]),
+    format: onOff,
+  }),
 ]) as readonly ExomuxGlobalSettingSpec[];
 
 /** Factory defaults for desktop-wide settings. */
@@ -636,6 +649,8 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     opacity: 0.85,
     // One row per wheel notch by default; a precise, unhurried scroll.
     scrollLines: 1,
+    // Off by default: it coexists with the terminal's own pointer.
+    blockCursor: false,
   });
 }
 

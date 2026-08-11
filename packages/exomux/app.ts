@@ -562,14 +562,43 @@ export function mountExomuxDesktop(
     }
     if (row.path) controller.setBackgroundImagePath(row.path);
   };
+  // The last known mouse cell, for the optional block cursor. It updates on any
+  // pointer event, including free motion once any-motion tracking is enabled.
+  const mousePointer = own(new Signal<{ readonly column: number; readonly row: number } | undefined>(undefined));
   const backgroundSetPointer = (point: { column: number; row: number }): void => {
     metaballs.setPointer(point);
     activeBackgroundField()?.setPointer(point);
+    const previous = mousePointer.peek();
+    if (!previous || previous.column !== point.column || previous.row !== point.row) mousePointer.value = point;
   };
   const backgroundClearPointer = (): void => {
     metaballs.clearPointer();
     activeBackgroundField()?.clearPointer();
+    if (mousePointer.peek() !== undefined) mousePointer.value = undefined;
   };
+  // The block cursor needs free-motion mouse events, which require any-motion
+  // tracking (mode 1003). Enable it only while the cursor is on, and always turn
+  // it back off on teardown so the terminal is left the way we found it.
+  const anyMotionEncoder = new TextEncoder();
+  const writeAnyMotionTracking = (enabled: boolean): void => {
+    try {
+      Deno.stdout.writeSync(anyMotionEncoder.encode(enabled ? "\x1b[?1003h" : "\x1b[?1003l"));
+    } catch {
+      // No writable terminal (headless/tests) — nothing to toggle.
+    }
+  };
+  let appliedBlockCursor = controller.globalSettings.peek().blockCursor;
+  if (appliedBlockCursor) writeAnyMotionTracking(true);
+  const applyBlockCursorMode = (): void => {
+    const enabled = controller.globalSettings.peek().blockCursor;
+    if (enabled === appliedBlockCursor) return;
+    appliedBlockCursor = enabled;
+    writeAnyMotionTracking(enabled);
+    if (!enabled) backgroundClearPointer();
+  };
+  controller.globalSettings.subscribe(applyBlockCursorMode);
+  unsubscribers.push(() => controller.globalSettings.unsubscribe(applyBlockCursorMode));
+  own({ dispose: () => writeAnyMotionTracking(false) });
   // Preset stepping is requested on the controller, which does not own the
   // fields, so the delta is applied here to whichever background is on screen.
   let appliedPresetStep = controller.backgroundPresetStep.peek();
@@ -992,6 +1021,10 @@ export function mountExomuxDesktop(
         terminalRenderRevision.value,
         settingsWidgetRevision.value,
         metaballRevision.value,
+        // The block cursor follows the mouse, so its position must invalidate the
+        // frame. It only changes on free motion when the cursor is enabled.
+        mousePointer.value?.column,
+        mousePointer.value?.row,
         // Settings reach the painter directly — border glyphs, window opacity —
         // so a change to either has to invalidate the frame. Without this the
         // desktop only repaints because the status line happens to change too.
@@ -1036,6 +1069,7 @@ export function mountExomuxDesktop(
         backgroundList,
         backgroundOptionControls,
         backgroundButtons,
+        blockCursor: controller.globalSettings.peek().blockCursor ? mousePointer.peek() : undefined,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -2681,6 +2715,8 @@ interface RenderExomuxDesktopOptions {
   backgroundOptionControls?: ExomuxSettingsOptions;
   /** Hosts the background-config modal's Close button as a real Button. */
   backgroundButtons?: ExomuxSettingsWidgets;
+  /** When the block cursor is enabled, the mouse cell to draw it at. */
+  blockCursor?: { readonly column: number; readonly row: number };
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2935,6 +2971,17 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) paintKillConfirmation(painter, projection, controller, pendingKillSessionId);
+
+  // The optional block cursor sits on top of everything, at the mouse cell.
+  if (options.blockCursor) {
+    const { column, row } = options.blockCursor;
+    if (
+      column >= bounds.column && column < bounds.column + bounds.width && row >= bounds.row &&
+      row < bounds.row + bounds.height
+    ) {
+      painter.cell(column, row, "█", { foreground: theme.accent, background: theme.background });
+    }
+  }
 
   return painter.rows;
 }
