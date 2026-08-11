@@ -78,6 +78,7 @@ import {
   ExomuxSettingsWidgets,
 } from "./settings_widgets.ts";
 import { ExomuxSettingsSurface } from "./settings_surface.ts";
+import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
@@ -752,6 +753,12 @@ export function mountExomuxDesktop(
       return () => controller.backgroundId.unsubscribe(listener);
     },
   });
+  // The option rows render their live values with real Cycler/CheckBox widgets.
+  const settingsOptions = own(
+    new ExomuxSettingsOptions(() => {
+      settingsWidgetRevision.value += 1;
+    }),
+  );
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -1001,6 +1008,7 @@ export function mountExomuxDesktop(
         metaballs,
         settingsWidgets,
         settingsPickers,
+        settingsOptions,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -2605,6 +2613,8 @@ interface RenderExomuxDesktopOptions {
   settingsWidgets?: ExomuxSettingsWidgets;
   /** Hosts the settings window's theme/background selectors as real composited Lists. */
   settingsPickers?: ExomuxSettingsSurface;
+  /** Hosts the settings window's option controls as real composited Cyclers/CheckBoxes. */
+  settingsOptions?: ExomuxSettingsOptions;
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2796,6 +2806,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       backdrop,
       options.settingsWidgets,
       options.settingsPickers,
+      options.settingsOptions,
     );
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
@@ -2815,6 +2826,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       backdrop,
       options.settingsWidgets,
       options.settingsPickers,
+      options.settingsOptions,
     );
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
@@ -3116,6 +3128,7 @@ function paintWindow(
   backdrop?: ExomuxBackdrop,
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
+  settingsOptions?: ExomuxSettingsOptions,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3181,7 +3194,14 @@ function paintWindow(
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
-    paintGlobalSettingsWindow(painter, window.clientRect, controller, settingsWidgets, settingsPickers);
+    paintGlobalSettingsWindow(
+      painter,
+      window.clientRect,
+      controller,
+      settingsWidgets,
+      settingsPickers,
+      settingsOptions,
+    );
     return;
   }
   if (runtime && sessionId) {
@@ -3951,6 +3971,7 @@ function paintGlobalSettingsWindow(
   controller: ExomuxController,
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
+  settingsOptions?: ExomuxSettingsOptions,
 ): void {
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
@@ -4051,14 +4072,43 @@ function paintGlobalSettingsWindow(
     ...EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => ({ label: spec.label, value: spec.format(settings[spec.id]) })),
     ...controller.shaderOptionRows().map((row) => ({ label: row.label, value: row.value })),
   ];
+  // Each global setting is rendered by a real exotui control — a CheckBox for
+  // the boolean, a Cycler for the discrete-value settings — showing the live
+  // value. The shader rows (dynamic, Ghostty-only) stay hand-drawn. The existing
+  // option routing drives the changes; these controls reflect them.
+  const globalCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
+  const controlSpecs: ExomuxOptionControlSpec[] = EXOMUX_GLOBAL_SETTING_SPECS.map((spec, index) => {
+    const rowRect = optionRows[index];
+    const focused = pane === "options" && index === optionIndex;
+    const foreground = focused ? theme.background : theme.accent;
+    const background = focused ? theme.accent : theme.surfaceStrong;
+    if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
+      return { kind: "checkbox", key: spec.id, width: 3, foreground, background, checked: Boolean(settings[spec.id]) };
+    }
+    return {
+      kind: "cycler",
+      key: spec.id,
+      width: Math.min(16, Math.max(6, (rowRect?.width ?? 16) - 4)),
+      foreground,
+      background,
+      options: spec.values.map((value) => spec.format(value)),
+      activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
+    };
+  });
+  const controlCells = settingsOptions?.cellsFor(controlSpecs) ?? [];
+
   for (let index = 0; index < optionRows.length; index += 1) {
     const rowRect = optionRows[index]!;
     const entry = optionEntries[index];
     if (!entry) continue;
     const focused = pane === "options" && index === optionIndex;
-    const value = entry.value;
+    const cells = index < globalCount ? controlCells[index] : undefined;
+    const controlWidth = index < globalCount ? controlSpecs[index]!.width : 0;
+    const controlColumn = rowRect.column + Math.max(0, rowRect.width - controlWidth);
+    const valueColumn = cells
+      ? controlColumn
+      : rowRect.column + Math.max(0, rowRect.width - textWidth(entry.value) - 1);
 
-    const valueColumn = rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
     painter.fill(rowRect, " ", {
       foreground: focused ? theme.background : theme.text,
       background: focused ? theme.accent : theme.surfaceStrong,
@@ -4074,11 +4124,18 @@ function paintGlobalSettingsWindow(
         bold: focused,
       },
     );
-    painter.write(valueColumn, rowRect.row, value, {
-      foreground: focused ? theme.background : theme.accent,
-      background: focused ? theme.accent : theme.surfaceStrong,
-      bold: true,
-    });
+    if (cells) {
+      for (let column = 0; column < Math.min(controlWidth, cells.width); column += 1) {
+        const cell = cells.cells[column];
+        if (cell !== undefined) painter.rawCell(controlColumn + column, rowRect.row, cell);
+      }
+    } else {
+      painter.write(valueColumn, rowRect.row, entry.value, {
+        foreground: focused ? theme.background : theme.accent,
+        background: focused ? theme.accent : theme.surfaceStrong,
+        bold: true,
+      });
+    }
   }
 
   painter.write(
