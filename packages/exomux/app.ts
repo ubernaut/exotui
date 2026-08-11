@@ -73,6 +73,11 @@ import {
 import { ExomuxOperationQueue } from "./operation_queue.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
+  type ExomuxSettingsButtonCells,
+  type ExomuxSettingsButtonSpec,
+  ExomuxSettingsWidgets,
+} from "./settings_widgets.ts";
+import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
 } from "./terminal_mouse.ts";
@@ -710,6 +715,15 @@ export function mountExomuxDesktop(
   // signal so every attached/spawned terminal can invalidate the retained
   // desktop immediately.
   const terminalRenderRevision = own(new Signal(0));
+  // Real exotui buttons for the settings window render off-screen and are
+  // composited into the desktop. Their draws are async, so a completed render
+  // bumps this revision to schedule the repaint that blits the fresh cells.
+  const settingsWidgetRevision = own(new Signal(0));
+  const settingsWidgets = own(
+    new ExomuxSettingsWidgets(() => {
+      settingsWidgetRevision.value += 1;
+    }),
+  );
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -918,6 +932,7 @@ export function mountExomuxDesktop(
         controller.backgroundBrowsePath.value,
         controller.backgroundSettingsRevision.value,
         terminalRenderRevision.value,
+        settingsWidgetRevision.value,
         metaballRevision.value,
         // Settings reach the painter directly — border glyphs, window opacity —
         // so a change to either has to invalidate the frame. Without this the
@@ -956,6 +971,7 @@ export function mountExomuxDesktop(
         selectedSessionIndex: selectedSessionIndex.peek(),
         shelf: shelfBounds.peek(),
         metaballs,
+        settingsWidgets,
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -2555,6 +2571,8 @@ interface RenderExomuxDesktopOptions {
   metaballs: ExomuxMetaballField;
   backgroundField?: ExomuxAnimatedBackground;
   overgrowth?: ExomuxOvergrowthPass;
+  /** Hosts the settings window's action buttons as real composited widgets. */
+  settingsWidgets?: ExomuxSettingsWidgets;
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -2738,7 +2756,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
 
   for (const window of projection.tiledWindows) {
-    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop);
+    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop, options.settingsWidgets);
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
   for (const separator of projection.separators) {
@@ -2749,7 +2767,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     );
   }
   for (const window of projection.floatingWindows) {
-    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop);
+    paintWindow(painter, window, controller, options.selectedSessionIndex, backdrop, options.settingsWidgets);
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
@@ -3048,6 +3066,7 @@ function paintWindow(
   controller: ExomuxController,
   selectedSessionIndex: number,
   backdrop?: ExomuxBackdrop,
+  settingsWidgets?: ExomuxSettingsWidgets,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3113,7 +3132,7 @@ function paintWindow(
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
-    paintGlobalSettingsWindow(painter, window.clientRect, controller);
+    paintGlobalSettingsWindow(painter, window.clientRect, controller, settingsWidgets);
     return;
   }
   if (runtime && sessionId) {
@@ -3840,10 +3859,21 @@ function paintBackgroundConfigModal(
   });
 }
 
+/** Composites one real button's styled cells into its window rect. */
+function blitSettingsButtonCells(painter: DesktopPainter, rect: Rectangle, snapshot: ExomuxSettingsButtonCells): void {
+  const width = Math.min(rect.width, snapshot.width);
+  for (let index = 0; index < width; index += 1) {
+    const cell = snapshot.cells[index];
+    if (cell === undefined) continue;
+    painter.rawCell(rect.column + index, rect.row, cell);
+  }
+}
+
 function paintGlobalSettingsWindow(
   painter: DesktopPainter,
   rect: Rectangle,
   controller: ExomuxController,
+  settingsWidgets?: ExomuxSettingsWidgets,
 ): void {
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
@@ -3957,17 +3987,46 @@ function paintGlobalSettingsWindow(
   // The background-config button is the doorway to a whole second settings
   // surface, so it wears the theme's warning hue — derived from the theme but
   // deliberately not the accent everything else uses and never the desktop
-  // background — to stay visible at a glance.
-  painter.write(layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
-    foreground: theme.background,
-    background: theme.warning,
-    bold: true,
-  });
-  painter.write(closeRect.column, closeRect.row, "[ Close ]", {
-    foreground: theme.background,
-    background: theme.accent,
-    bold: true,
-  });
+  // background — to stay visible at a glance. Both action buttons are real
+  // exotui `Button` widgets rendered off-screen and composited in; until a
+  // matching snapshot is ready they fall back to hand-drawn labels so a button
+  // is never blank.
+  const buttonSpecs: readonly ExomuxSettingsButtonSpec[] = [
+    {
+      key: "background",
+      label: "Background config",
+      width: layout.backgroundConfigRect.width,
+      foreground: theme.background,
+      background: theme.warning,
+    },
+    {
+      key: "close",
+      label: "Close",
+      width: closeRect.width,
+      foreground: theme.background,
+      background: theme.accent,
+    },
+  ];
+  const backgroundCells = settingsWidgets?.cellsFor(buttonSpecs, "background");
+  if (backgroundCells) {
+    blitSettingsButtonCells(painter, layout.backgroundConfigRect, backgroundCells);
+  } else {
+    painter.write(layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
+      foreground: theme.background,
+      background: theme.warning,
+      bold: true,
+    });
+  }
+  const closeCells = settingsWidgets?.cellsFor(buttonSpecs, "close");
+  if (closeCells) {
+    blitSettingsButtonCells(painter, closeRect, closeCells);
+  } else {
+    painter.write(closeRect.column, closeRect.row, "[ Close ]", {
+      foreground: theme.background,
+      background: theme.accent,
+      bold: true,
+    });
+  }
 }
 
 /** Layout for the per-window config modal; exported for deterministic pointer tests. */
@@ -4197,6 +4256,9 @@ interface PaintedStyle {
  */
 const EXOMUX_WIDE_GLYPH_FOLLOWER = "";
 
+/** Decodes the occasional pre-encoded cell handed back by a composited widget. */
+const exomuxCellDecoder = new TextDecoder();
+
 /**
  * Terminal columns one glyph occupies. The desktop is modelled one column per
  * cell, so a double-width glyph that is not accounted for shifts every later
@@ -4294,6 +4356,20 @@ class DesktopPainter {
       this.cell(cursor, row, char, style);
       cursor += exomuxGlyphColumns(char);
     }
+  }
+
+  /**
+   * Blits an already-styled cell verbatim. Composited widget surfaces hand back
+   * fully-styled cells (their own SGR-wrapped glyph), so they bypass the style
+   * pipeline `cell()` runs and land straight in the grid.
+   */
+  rawCell(column: number, row: number, cell: string | Uint8Array): void {
+    const localColumn = Math.floor(column - this.bounds.column);
+    const localRow = Math.floor(row - this.bounds.row);
+    if (localRow < 0 || localRow >= this.rows.length || localColumn < 0 || localColumn >= this.bounds.width) return;
+    const target = this.rows[localRow]!;
+    this.#retireWideGlyphAt(target, localColumn);
+    target[localColumn] = typeof cell === "string" ? cell : exomuxCellDecoder.decode(cell);
   }
 
   /** Blanks whichever half of a straddling double-width glyph touches `column`. */
