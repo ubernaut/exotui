@@ -4,10 +4,31 @@ import { clampSelectionIndex, selectionWindow } from "../selection.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
 import { drawTextRows } from "./text_children.ts";
+import { Text } from "./text.ts";
+import { BoxObject } from "../canvas/box.ts";
+import type { TextRectangle } from "../canvas/text.ts";
+import type { Rectangle } from "../types.ts";
+import type { Style } from "../theme.ts";
+
+/** Styles for a List scrollbar's track and thumb. */
+export interface ListScrollbar {
+  track: Style;
+  thumb: Style;
+}
 
 /** Options for configuring list. */
 export interface ListOptions extends ComponentOptions, ListControllerOptions {
   controller?: ListController;
+  /**
+   * Style for the selected row. When set, the selection is drawn as a full-width
+   * highlight (over the base rows) rather than only marked with `>`.
+   */
+  selectedStyle?: Style;
+  /**
+   * When set, a one-column scrollbar is drawn down the List's right edge; the
+   * thumb's size scales with the visible/total ratio and tracks the scroll window.
+   */
+  scrollbar?: ListScrollbar;
 }
 
 /** Public interface describing a virtual Row. */
@@ -188,11 +209,14 @@ export class ListController {
 
 /** Public class implementing a list. */
 export class List extends Component {
+  declare drawnObjects: { scrollbarTrack?: BoxObject; scrollbarThumb?: BoxObject };
   items: Signal<string[]>;
   selectedIndex: Signal<number>;
   readonly controller: ListController;
   readonly #rows: Computed<string[]>;
   readonly #rowBuffer: string[] = [];
+  readonly #selectedStyle?: Style;
+  readonly #scrollbar?: ListScrollbar;
 
   constructor(options: ListOptions) {
     super(options);
@@ -203,6 +227,8 @@ export class List extends Component {
         selectedIndex: options.selectedIndex,
         onSelect: options.onSelect,
       });
+    this.#selectedStyle = options.selectedStyle;
+    this.#scrollbar = options.scrollbar;
     this.items = this.controller.items;
     this.selectedIndex = this.controller.selectedIndex;
     this.#rows = new Computed(() =>
@@ -237,5 +263,74 @@ export class List extends Component {
   override draw(): void {
     super.draw();
     drawTextRows(this, this.#rows);
+    if (this.#selectedStyle) this.#drawSelectionHighlight(this.#selectedStyle);
+    if (this.#scrollbar) this.#drawScrollbar(this.#scrollbar);
+  }
+
+  /** Full-width highlight drawn over the selected row, above the base rows. */
+  #drawSelectionHighlight(style: Style): void {
+    const reserve = this.#scrollbar ? 1 : 0;
+    const label = new Computed(() => {
+      const items = this.items.value;
+      const index = clampSelectionIndex(items.length, this.selectedIndex.value);
+      const item = items[index];
+      return item === undefined ? "" : `> ${item}`;
+    });
+    const rectangle = new Computed<TextRectangle>(() => {
+      const rect = this.rectangle.value;
+      const items = this.items.value;
+      const index = clampSelectionIndex(items.length, this.selectedIndex.value);
+      const window = selectionWindow(items.length, index, Math.max(0, Math.floor(rect.height)));
+      return { column: rect.column, row: rect.row + (index - window.start), width: Math.max(0, rect.width - reserve) };
+    });
+    const highlight = new Text({
+      parent: this,
+      theme: { base: style },
+      zIndex: new Computed(() => this.zIndex.value + 1),
+      text: label,
+      overwriteWidth: true,
+      rectangle,
+      visible: new Computed(() => this.visible.value && this.items.value.length > 0),
+    });
+    highlight.subComponentOf = this;
+    this.subComponents.selection = highlight;
+  }
+
+  /** One-column scrollbar down the right edge, thumb scaled to the visible ratio. */
+  #drawScrollbar(scrollbar: ListScrollbar): void {
+    const track = new BoxObject({
+      view: this.view,
+      canvas: this.tui.canvas,
+      zIndex: new Computed(() => this.zIndex.value + 1),
+      style: scrollbar.track,
+      rectangle: new Computed<Rectangle>(() => {
+        const rect = this.rectangle.value;
+        return { column: rect.column + rect.width - 1, row: rect.row, width: 1, height: Math.max(0, rect.height) };
+      }),
+    });
+    this.drawnObjects.scrollbarTrack = track;
+    track.draw();
+
+    const thumb = new BoxObject({
+      view: this.view,
+      canvas: this.tui.canvas,
+      zIndex: new Computed(() => this.zIndex.value + 2),
+      style: scrollbar.thumb,
+      rectangle: new Computed<Rectangle>(() => {
+        const rect = this.rectangle.value;
+        const column = rect.column + rect.width - 1;
+        const total = this.items.value.length;
+        const height = Math.max(1, Math.floor(rect.height));
+        if (total <= height) return { column, row: rect.row, width: 1, height };
+        const index = clampSelectionIndex(total, this.selectedIndex.value);
+        const window = selectionWindow(total, index, height);
+        const thumbSize = Math.max(1, Math.min(height, Math.round((height * height) / total)));
+        const maxStart = height - thumbSize;
+        const thumbStart = Math.min(maxStart, Math.round((maxStart * window.start) / Math.max(1, total - height)));
+        return { column, row: rect.row + thumbStart, width: 1, height: thumbSize };
+      }),
+    });
+    this.drawnObjects.scrollbarThumb = thumb;
+    thumb.draw();
   }
 }
