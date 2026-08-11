@@ -1229,22 +1229,25 @@ export function mountExomuxDesktop(
     await syncWindows();
   };
 
-  // A single physical wheel notch fans out into several scroll events: the
-  // input reader emits a `mouseScroll` and the app layer a derived `pointerInput`
-  // wheel for the same motion, and high-resolution wheels send several per notch.
-  // For the menu-like list windows, that made one notch jump many rows. Collapse
-  // a tight same-direction burst into one move: a new move only counts once the
-  // gap since the last one exceeds the burst window (or the direction flips).
-  let lastListScroll: { windowId: string; direction: number; time: number } | undefined;
-  const LIST_SCROLL_BURST_MS = 40;
+  // A single physical wheel notch (and a trackpad swipe) fans out into many
+  // scroll events: the input reader emits a `mouseScroll` and the app layer a
+  // derived `pointerInput` wheel for the same motion, and high-resolution wheels
+  // and trackpads send a burst per gesture. For the menu-like list windows that
+  // made one gesture jump many rows. Throttle the selection to at most one move
+  // per window: the clock advances only on an actual move (not on every event),
+  // so a burst collapses to one step while a direction flip moves immediately and
+  // steady scrolling still advances at the throttle rate rather than sticking.
+  let lastListMove: { windowId: string; direction: number; time: number } | undefined;
+  const LIST_SCROLL_THROTTLE_MS = 70;
   const listScrollStep = (windowId: string, delta: number): number => {
     const direction = Math.sign(delta);
     const now = Date.now();
-    const previous = lastListScroll;
-    lastListScroll = { windowId, direction, time: now };
-    const fresh = !previous || previous.windowId !== windowId || previous.direction !== direction ||
-      now - previous.time > LIST_SCROLL_BURST_MS;
-    return fresh ? direction : 0;
+    const previous = lastListMove;
+    const throttled = previous !== undefined && previous.windowId === windowId &&
+      previous.direction === direction && now - previous.time < LIST_SCROLL_THROTTLE_MS;
+    if (throttled) return 0;
+    lastListMove = { windowId, direction, time: now };
+    return direction;
   };
 
   const scrollClientWindow = (windowId: string, delta: number): boolean => {
