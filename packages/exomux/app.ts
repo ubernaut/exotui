@@ -211,13 +211,29 @@ const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
 const MIN_CLASSIFIED_KEY_RESERVATION_BYTES = 64;
 
-/** Keeps animation behind explicit input and control work without treating child output as interaction. */
+/**
+ * Longest the background may stall behind sustained input before it advances
+ * anyway. The recency check alone never clears while a key repeats or a paste
+ * streams, which froze a lively field (butterchurn at 60 Hz) solid for as long
+ * as the user kept typing; this caps the stall so it keeps moving at a few fps.
+ */
+const EXOMUX_MAX_BACKGROUND_STALL_MS = 200;
+
+/**
+ * Keeps animation behind explicit input and control work without treating child
+ * output as interaction. `msSinceLastAdvance` is how long the field has actually
+ * been frozen: past the stall cap it advances even mid-input, so sustained typing
+ * slows the background to a few fps instead of pausing it until the user stops.
+ */
 export function exomuxMetaballsMayAdvance(
   now: number,
   lastInputActivityAt: number,
   hasPendingBarrier: boolean,
+  msSinceLastAdvance = 0,
 ): boolean {
-  return !hasPendingBarrier && now - lastInputActivityAt >= EXOMUX_METABALL_FRAME_INTERVAL_MS;
+  if (hasPendingBarrier) return false;
+  if (now - lastInputActivityAt >= EXOMUX_METABALL_FRAME_INTERVAL_MS) return true;
+  return msSinceLastAdvance >= EXOMUX_MAX_BACKGROUND_STALL_MS;
 }
 
 type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit";
@@ -669,6 +685,9 @@ export function mountExomuxDesktop(
   };
 
   let lastInputActivityAt = performance.now();
+  // When the background sim last actually advanced, so a sustained-input stall
+  // can be capped instead of freezing the field until the user stops.
+  let lastBackgroundAdvanceAt = performance.now();
   const bodyRect = own(
     new Computed<Rectangle>(() => ({
       column: 0,
@@ -939,7 +958,15 @@ export function mountExomuxDesktop(
       if (syncOvergrowth(projection, undefined, now)) metaballRevision.value += 1;
       return;
     }
-    if (!exomuxMetaballsMayAdvance(now, lastInputActivityAt, operationQueue.hasPendingBarrier())) return;
+    if (
+      !exomuxMetaballsMayAdvance(
+        now,
+        lastInputActivityAt,
+        operationQueue.hasPendingBarrier(),
+        now - lastBackgroundAdvanceAt,
+      )
+    ) return;
+    lastBackgroundAdvanceAt = now;
     const activeWindowId = controller.windowHost.controller.inspect().activeWindowId;
     const activeRect = projection.windows.find((window) => window.id === activeWindowId)?.rect;
     // A window the background has begun reclaiming is no longer an obstacle to

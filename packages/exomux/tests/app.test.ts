@@ -139,6 +139,11 @@ Deno.test("Exomux metaballs keep moving during sustained visible terminal output
   assertEquals(exomuxMetaballsMayAdvance(124, 0, false), false);
   assertEquals(exomuxMetaballsMayAdvance(125, 0, false), true);
   assertEquals(exomuxMetaballsMayAdvance(1_000, 0, true), false);
+  // Sustained input never clears the recency check, but a long enough stall
+  // advances anyway so a lively background (butterchurn) does not freeze solid.
+  assertEquals(exomuxMetaballsMayAdvance(10, 0, false, 199), false); // within the stall cap
+  assertEquals(exomuxMetaballsMayAdvance(10, 0, false, 200), true); // stall cap forces an advance
+  assertEquals(exomuxMetaballsMayAdvance(10, 0, true, 5_000), false); // a pending barrier still blocks
 
   const initial = session("asciichurn-output", "asciichurn", 0);
   const client = new FakeExomuxClient([initial]);

@@ -388,6 +388,13 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux animated background no longer freezes solid while you type. It is deliberately held behind explicit input
+  (so keystrokes never wait on a background frame), but the recency check never cleared under a held key or a streaming
+  paste, so a lively 60 Hz field — butterchurn especially — stopped dead for as long as the input kept coming and only
+  "came through" in the gaps. A stall cap (`EXOMUX_MAX_BACKGROUND_STALL_MS`) now advances the sim anyway once it has
+  been frozen past ~200 ms, so sustained typing slows the background to a few fps instead of pausing it, and it snaps
+  back to full rate the moment you stop. `exomuxMetaballsMayAdvance` takes the time-since-last-advance as a fourth
+  argument.
 - Exomux list windows (the settings pickers, the sessions manager, and the network tree) move one row per wheel notch
   again. A single physical notch fans out into several scroll events — the input reader emits a `mouseScroll` and the
   app layer a derived `pointerInput` wheel for the same motion, and high-resolution wheels emit several per notch — so a
