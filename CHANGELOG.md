@@ -64,10 +64,12 @@ quickly, but the affected entrypoint or module family should be named here.
   `widget_surface.ts` and `settings_widgets.ts` carry the compositing surface and the button host.
 - Exomux detects when it is running inside Ghostty and, only then, offers GLSL interface shaders in the settings window.
   Two CRT effects ship: pulsating/flickering scanlines (with scanline-depth, flicker, and pulse controls) and pincushion
-  distortion (with a magnitude control). Selecting and tuning a shader generates the GLSL and a managed Ghostty config
-  include under `~/.config/exomux/shaders/`; Ghostty applies it on its next config reload (which Exomux cannot force, so
-  the status line says to reload). `packages/exomux/ghostty.ts` carries the detection, shader generation, and config
-  surface.
+  distortion (with a magnitude control), and **more than one can run at once** — each effect has its own on/off row and
+  parameters, and every enabled effect is generated to its own GLSL file and chained with a repeated `custom-shader`
+  entry. Enabling a shader also **auto-installs the managed include** into the user's Ghostty config (idempotent,
+  XDG/macOS-aware, reversible), so it takes effect on Ghostty's next reload without a manual edit — previously the
+  one-time include had to be added by hand, which is why an enabled shader could appear to do nothing.
+  `packages/exomux/` `ghostty.ts` carries the detection, shader generation, and config surface.
 - The Exomux settings session-name field is a real exotui `Input` while a rename is edited: it owns the text and cursor
   natively (typing, backspace, cursor keys, and Enter to submit), composited over the field, and pushes the draft to the
   controller (a new `setSessionRenameDraft` re-applies the name filter and length cap). Escape still cancels and Enter

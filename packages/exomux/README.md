@@ -63,10 +63,10 @@ while the window's routing cycles it. (Making `List` mouse-interactive plus its 
 `Cycler`, are companion changes in the core library.)
 
 Inside Ghostty, the settings window gains a CRT shader section: pulsating/flickering scanlines and pincushion
-distortion, each with adjustable intensity. Turning one on generates GLSL and a managed Ghostty config include under
-`~/.config/exomux/shaders/`; Ghostty applies it on its next config reload. Add
-`config-file = ~/.config/exomux/shaders/ghostty.conf` to your Ghostty config once, and reload Ghostty (or restart it)
-after changing a shader.
+distortion, each with its own on/off toggle and adjustable intensity — enable both to stack them. Turning one on
+generates a GLSL file per enabled effect, chains them in a managed Ghostty config under `~/.config/exomux/shaders/`, and
+adds that include to your Ghostty config automatically (one commented, reversible line). Reload Ghostty (or restart it)
+to apply. If a shader still doesn't show, your GPU may not support Ghostty custom shaders.
 
 A crash cannot wedge launching. If a recorded host's pid died — or was recycled by an unrelated process — its descriptor
 is pruned and the session simply reports stopped; if the pid still looks like an Exomux daemon but never answers, the
