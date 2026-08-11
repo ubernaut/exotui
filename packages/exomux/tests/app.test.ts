@@ -414,6 +414,91 @@ Deno.test("A single title-bar click focuses the window without maximizing it", a
   }
 });
 
+Deno.test("Any-motion hover events are inert to the window host, so buttons keep working", async () => {
+  const first = session("hover-1", "primary", 0);
+  const client = new FakeExomuxClient([first]);
+  const controller = await createExomuxController({ client, initialSessions: [first] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: exomuxWindowId(first.id),
+      placement: "floating",
+      rect: { column: 4, row: 5, width: 34, height: 14 },
+    }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+
+    const windowId = exomuxWindowId(first.id);
+    const inspect = () => controller.windowHost.controller.inspect();
+    const currentWindow = () => mounted.windowProjection.peek().windows.find((window) => window.id === windowId)!;
+    const titleBar = currentWindow().titleBarRect;
+    const rectBefore = { ...currentWindow().rect };
+
+    // The block cursor enables any-motion tracking, which streams pure hover
+    // motion (a drag with no held button, reported with button code 3). Such a
+    // hover must not start a window interaction — otherwise the next real click
+    // is swallowed by the phantom gesture.
+    for (let step = 0; step < 4; step += 1) {
+      await harness.app.mouse.dispatch(
+        createTestMousePress({ x: titleBar.column + 2 + step, y: titleBar.row, drag: true, button: 3 as never }),
+      );
+    }
+    await mounted.whenIdle();
+    assertEquals(currentWindow().rect, rectBefore, "a bare hover must not move the window");
+
+    // A real click on the maximize button still fires right after the hovers.
+    const maximize = currentWindow().controls.find((control) =>
+      control.command?.kind === "maximize" || control.command?.kind === "toggle-maximize"
+    )!;
+    const buttonX = maximize.hitRect.column + Math.floor(maximize.hitRect.width / 2);
+    const buttonY = maximize.hitRect.row;
+    await harness.app.mouse.dispatch(createTestMousePress({ x: buttonX, y: buttonY }));
+    await harness.app.mouse.dispatch(
+      createTestMousePress({ x: buttonX, y: buttonY, release: true, button: undefined }),
+    );
+    await mounted.whenIdle();
+    assertEquals(inspect().maximizedWindowId, windowId, "the button must still act after hover motion");
+
+    // A genuine held-button drag (button 0) must still move the window.
+    controller.windowHost.execute({ kind: "restore", id: windowId }, mounted.bodyRect.peek());
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: windowId,
+      placement: "floating",
+      rect: { column: 4, row: 5, width: 34, height: 14 },
+    }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const dragBar = currentWindow().titleBarRect;
+    const dragOrigin = { ...currentWindow().rect };
+    await harness.app.mouse.dispatch(createTestMousePress({ x: dragBar.column + 2, y: dragBar.row }));
+    await harness.app.mouse.dispatch(
+      createTestMousePress({
+        x: dragBar.column + 6,
+        y: dragBar.row + 3,
+        drag: true,
+        button: 0,
+        movementX: 4,
+        movementY: 3,
+      }),
+    );
+    await harness.app.mouse.dispatch(
+      createTestMousePress({ x: dragBar.column + 6, y: dragBar.row + 3, release: true, button: undefined }),
+    );
+    await mounted.whenIdle();
+    assertNotEquals(currentWindow().rect, dragOrigin, "a held-button drag must still move the window");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux forwards negotiated nested mouse and touch input to the captured terminal", async () => {
   const first = session("mouse-a", "mouse A", 0);
   const second = session("mouse-b", "mouse B", 0);

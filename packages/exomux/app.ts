@@ -1570,6 +1570,20 @@ export function mountExomuxDesktop(
     // Geometry gestures are local and synchronous. Do not make title-bar
     // motion wait behind PTY ACKs; child bytes retain their own ordered lane.
     const projectionBefore = windowProjection.peek();
+    // Any-motion tracking (which the block cursor turns on) streams pure
+    // hover-motion — a drag with no held button — that never existed under
+    // button-event tracking. It must not enter the window-host interaction
+    // router: a hover there leaves an interaction "active", and the very next
+    // real click on a titlebar button is then routed into that gesture and
+    // swallowed instead of run. The pointer is already updated above (for the
+    // block cursor and the background); a held-button drag still forwards to a
+    // captured terminal, but a bare hover goes no further.
+    const heldButton = event.button === 0 || event.button === 1 || event.button === 2;
+    if (event.drag && !event.release && !heldButton) {
+      const packet = terminalMouse.routeLegacyPress(event, projectionBefore);
+      if (packet) void enqueueRaw(packet.bytes, packet.sessionId);
+      return true;
+    }
     // The `config` titlebar button carries no built-in window command, so claim
     // its press here before the host treats the title bar as a move gesture.
     if (!event.drag && !event.release && event.button === 0) {

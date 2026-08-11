@@ -388,6 +388,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Exomux window titlebar buttons (minimize/maximize/close) work again while the block mouse cursor is on. Its any-motion
+  tracking (mode 1003) streams pure hover motion — a drag with no held button, which button-event tracking never emitted
+  — and `routeWindowPointer` fed those into the window-host interaction router, leaving a phantom interaction "active"
+  so the next real click was swallowed by the gesture instead of running the button. Bare hover motion is now
+  short-circuited (it only updates the cursor position and forwards to a captured terminal); held-button drags still
+  move and resize windows, and clicks still activate controls.
 - The Exomux animated background no longer freezes solid while you type. It is deliberately held behind explicit input
   (so keystrokes never wait on a background frame), but the recency check never cleared under a held key or a streaming
   paste, so a lively 60 Hz field — butterchurn especially — stopped dead for as long as the input kept coming and only
