@@ -1114,7 +1114,12 @@ export function mountExomuxDesktop(
     if (!clientRect || !controller.globalConfigVisible.peek()) return false;
     const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-    const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
+    const layout = exomuxGlobalConfigLayout(
+      clientRect,
+      themeIndex,
+      backgroundIndex,
+      controller.shaderOptionRows().length,
+    );
     if (contains(layout.sessionNameRect, column, row)) {
       controller.beginSessionRename();
       return true;
@@ -1143,7 +1148,7 @@ export function mountExomuxDesktop(
       if (!contains(layout.optionRows[index]!, column, row)) continue;
       controller.globalConfigPane.value = "options";
       controller.globalConfigOptionIndex.value = index;
-      controller.cycleGlobalSetting(EXOMUX_GLOBAL_SETTING_SPECS[index]!.id, 1);
+      controller.cycleSettingsOption(index, 1);
       return true;
     }
     return contains(clientRect, column, row);
@@ -2043,8 +2048,9 @@ export function mountExomuxDesktop(
       }
       // A normal window only owns the keyboard while focused; an unfocused
       // settings window lets these keys reach the active terminal instead.
-      const optionId = EXOMUX_GLOBAL_SETTING_SPECS[controller.globalConfigOptionIndex.peek()]?.id;
-      const inOptions = controller.globalConfigPane.peek() === "options";
+      const optionIndex = controller.globalConfigOptionIndex.peek();
+      const inOptions = controller.globalConfigPane.peek() === "options" &&
+        optionIndex < controller.settingsOptionCount();
       if (event.key === "escape" || event.key.toLowerCase() === "q") {
         controller.closeGlobalConfig(bodyRect.peek());
       } else if (event.key === "tab") {
@@ -2054,13 +2060,13 @@ export function mountExomuxDesktop(
       } else if (event.key === "down") {
         controller.moveGlobalConfigSelection(1);
       } else if (event.key === "left") {
-        if (inOptions && optionId) controller.cycleGlobalSetting(optionId, -1);
+        if (inOptions) controller.cycleSettingsOption(optionIndex, -1);
         else controller.moveGlobalConfigPane(-1);
       } else if (event.key === "right") {
-        if (inOptions && optionId) controller.cycleGlobalSetting(optionId, 1);
+        if (inOptions) controller.cycleSettingsOption(optionIndex, 1);
         else controller.moveGlobalConfigPane(1);
-      } else if ((event.key === "return" || event.key === "space") && inOptions && optionId) {
-        controller.cycleGlobalSetting(optionId, 1);
+      } else if ((event.key === "return" || event.key === "space") && inOptions) {
+        controller.cycleSettingsOption(optionIndex, 1);
       } else if (event.key.toLowerCase() === "b") {
         controller.openBackgroundConfig();
       }
@@ -3583,8 +3589,9 @@ export function exomuxGlobalConfigLayout(
   rect: Rectangle,
   themeIndex: number,
   backgroundIndex: number,
+  extraOptionCount = 0,
 ): ExomuxGlobalConfigLayout {
-  const optionCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
+  const optionCount = EXOMUX_GLOBAL_SETTING_SPECS.length + Math.max(0, extraOptionCount);
   // Session name + headers + lists + options + button row.
   const sessionNameRect: Rectangle = {
     column: rect.column + 1,
@@ -3841,7 +3848,7 @@ function paintGlobalSettingsWindow(
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
   const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-  const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex);
+  const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex, controller.shaderOptionRows().length);
   const { themeRows, backgroundRows, optionRows, closeRect } = layout;
   const pane = controller.globalConfigPane.peek();
   const settings = controller.globalSettings.peek();
@@ -3902,11 +3909,18 @@ function paintGlobalSettingsWindow(
     paintRow(row.rect, `${id}${grows}`, row.index === backgroundIndex, pane === "background");
   }
 
+  // The options pane lists the global settings followed by the shader rows
+  // (only present under Ghostty), all navigated by one option index.
+  const optionEntries: { label: string; value: string }[] = [
+    ...EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => ({ label: spec.label, value: spec.format(settings[spec.id]) })),
+    ...controller.shaderOptionRows().map((row) => ({ label: row.label, value: row.value })),
+  ];
   for (let index = 0; index < optionRows.length; index += 1) {
     const rowRect = optionRows[index]!;
-    const spec = EXOMUX_GLOBAL_SETTING_SPECS[index]!;
+    const entry = optionEntries[index];
+    if (!entry) continue;
     const focused = pane === "options" && index === optionIndex;
-    const value = spec.format(settings[spec.id]);
+    const value = entry.value;
 
     const valueColumn = rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
     painter.fill(rowRect, " ", {
@@ -3917,7 +3931,7 @@ function paintGlobalSettingsWindow(
     painter.write(
       rowRect.column,
       rowRect.row,
-      fitText(`${focused ? ">" : " "} ${spec.label}`, Math.max(0, valueColumn - rowRect.column - 1)),
+      fitText(`${focused ? ">" : " "} ${entry.label}`, Math.max(0, valueColumn - rowRect.column - 1)),
       {
         foreground: focused ? theme.background : theme.text,
         background: focused ? theme.accent : theme.surfaceStrong,

@@ -4080,3 +4080,66 @@ Deno.test("Exomux session rename is unavailable without a rename hook", async ()
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux shows CRT shader settings only under Ghostty and cycles them", async () => {
+  const applied: string[] = [];
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    ghosttyDetected: true,
+    onShadersChanged: (config) => {
+      applied.push(`${config.enabled ? config.effect : "off"}`);
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 34 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    assert(controller.ghosttyDetected.peek());
+    // The shader row appears in the options list; off by default.
+    let rows = controller.shaderOptionRows();
+    assertEquals(rows.length, 1);
+    assertEquals(rows[0]!.value, "Off");
+
+    // Cycle the shader effect on: Off -> Scanlines reveals its parameter rows.
+    controller.cycleShaderRow("shader-effect", 1);
+    assertEquals(controller.shaderConfig.peek().enabled, true);
+    assertEquals(controller.shaderConfig.peek().effect, "scanline");
+    rows = controller.shaderOptionRows();
+    assert(rows.length > 1, "scanline exposes its intensity parameters");
+    assertEquals(applied.at(-1), "scanline");
+
+    // Nudge a parameter and confirm it changed and re-applied.
+    const before = controller.shaderConfig.peek().params.scanlineIntensity;
+    controller.cycleShaderRow("shader-param:scanlineIntensity", 1);
+    assert(controller.shaderConfig.peek().params.scanlineIntensity !== before);
+
+    // On to pincushion, then back to off.
+    controller.cycleShaderRow("shader-effect", 1);
+    assertEquals(controller.shaderConfig.peek().effect, "pincushion");
+    controller.cycleShaderRow("shader-effect", 1);
+    assertEquals(controller.shaderConfig.peek().enabled, false);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux hides CRT shader settings when not in Ghostty", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [] });
+  try {
+    assert(!controller.ghosttyDetected.peek());
+    assertEquals(controller.shaderOptionRows().length, 0);
+    // Cycling is inert without Ghostty.
+    controller.cycleShaderRow("shader-effect", 1);
+    assertEquals(controller.shaderConfig.peek().enabled, false);
+  } finally {
+    await controller.dispose();
+  }
+});

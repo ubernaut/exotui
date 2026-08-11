@@ -18,6 +18,7 @@ import {
   normalizeExomuxBackgroundSettings,
   normalizeExomuxGlobalSettings,
 } from "./model.ts";
+import { type ExomuxShaderConfig, normalizeExomuxShaderConfig } from "./ghostty.ts";
 
 /** Current on-disk config schema. */
 export const EXOMUX_CONFIG_SCHEMA_VERSION = 1 as const;
@@ -29,6 +30,8 @@ export interface ExomuxConfig {
   readonly backgroundId: ExomuxBackgroundId;
   readonly globalSettings: ExomuxGlobalSettings;
   readonly backgroundSettings: ExomuxBackgroundSettingsMap;
+  /** GLSL interface shaders (applied only inside Ghostty). */
+  readonly shaders: ExomuxShaderConfig;
 }
 
 /** Safe factory defaults, also the target of `--reset-config`. */
@@ -45,6 +48,7 @@ export function normalizeExomuxConfig(value: unknown): ExomuxConfig {
     backgroundId: exomuxBackgroundId(record.backgroundId),
     globalSettings: normalizeExomuxGlobalSettings(record.globalSettings),
     backgroundSettings: normalizeExomuxBackgroundSettings(record.backgroundSettings),
+    shaders: normalizeExomuxShaderConfig(record.shaders),
   });
 }
 

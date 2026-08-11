@@ -31,6 +31,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Exomux detects when it is running inside Ghostty and, only then, offers GLSL interface shaders in the settings window.
+  Two CRT effects ship: pulsating/flickering scanlines (with scanline-depth, flicker, and pulse controls) and pincushion
+  distortion (with a magnitude control). Selecting and tuning a shader generates the GLSL and a managed Ghostty config
+  include under `~/.config/exomux/shaders/`; Ghostty applies it on its next config reload (which Exomux cannot force, so
+  the status line says to reload). `packages/exomux/ghostty.ts` carries the detection, shader generation, and config
+  surface.
 - The current Exomux session can be renamed from the settings window — a true rename of both the attach key and the
   on-disk state. Click the session name at the top of the settings window, type a new one, and press Enter: the daemon
   relocates its private descriptor to the renamed session's directory (a new `rename` protocol message, confined to the

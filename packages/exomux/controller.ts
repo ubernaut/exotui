@@ -28,6 +28,16 @@ import {
   type TailnetStatusSource,
 } from "./tailnet.ts";
 import {
+  clampExomuxShaderParam,
+  defaultExomuxShaderConfig,
+  EXOMUX_SHADER_EFFECTS,
+  EXOMUX_SHADER_PARAMS,
+  type ExomuxShaderConfig,
+  exomuxShaderDefaults,
+  type ExomuxShaderEffect,
+  exomuxShaderParamValue,
+} from "./ghostty.ts";
+import {
   cycleExomuxBackgroundSetting,
   cycleExomuxGlobalSetting,
   cycleExomuxWindowSetting,
@@ -313,6 +323,12 @@ export interface ExomuxControllerOptions {
   readonly onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
   /** The tmux-style name of the session this client attached to. */
   readonly initialSessionName?: string;
+  /** True when running inside Ghostty; unlocks the GLSL shader settings. */
+  readonly ghosttyDetected?: boolean;
+  /** Initial shader configuration from the config file. */
+  readonly initialShaders?: ExomuxShaderConfig;
+  /** Called when the shader configuration changes, to apply it to disk. */
+  readonly onShadersChanged?: (config: ExomuxShaderConfig) => void;
   /** Performs a live session rename; returns the accepted name or an error. */
   readonly onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
@@ -387,6 +403,10 @@ export class ExomuxController {
   readonly sessionRenaming = new Signal(false);
   /** The in-progress rename draft, or undefined when not editing the name. */
   readonly sessionNameDraft = new Signal<string | undefined>(undefined);
+  /** True when running inside Ghostty, where GLSL interface shaders are offered. */
+  readonly ghosttyDetected = new Signal(false);
+  /** The current GLSL shader configuration, applied when inside Ghostty. */
+  readonly shaderConfig = new Signal<ExomuxShaderConfig>(defaultExomuxShaderConfig());
   readonly status = new Signal("Connecting to local Exomux host…");
   readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
   readonly savedHosts = new Signal<readonly string[]>([]);
@@ -451,6 +471,7 @@ export class ExomuxController {
   readonly #initialPreferences?: ExomuxPreferences;
   readonly #onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
   readonly #onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
+  readonly #onShadersChanged?: (config: ExomuxShaderConfig) => void;
   #scpCwdCapture?: Promise<string | undefined>;
 
   constructor(options: ExomuxControllerOptions) {
@@ -458,7 +479,10 @@ export class ExomuxController {
     this.#initialPreferences = options.initialPreferences;
     this.#onPreferencesChanged = options.onPreferencesChanged;
     this.#onRenameSession = options.onRenameSession;
+    this.#onShadersChanged = options.onShadersChanged;
     if (options.initialSessionName) this.sessionName.value = options.initialSessionName;
+    if (options.ghosttyDetected) this.ghosttyDetected.value = true;
+    if (options.initialShaders) this.shaderConfig.value = options.initialShaders;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
     this.#defaultCwd = options.defaultCwd;
@@ -565,6 +589,62 @@ export class ExomuxController {
   /** True when the session can be renamed (discovered through the state root). */
   get canRenameSession(): boolean {
     return this.#onRenameSession !== undefined;
+  }
+
+  /** The shader settings rows shown in the settings window under Ghostty. */
+  shaderOptionRows(): readonly { readonly id: string; readonly label: string; readonly value: string }[] {
+    if (!this.ghosttyDetected.peek()) return [];
+    const config = this.shaderConfig.peek();
+    const rows: { id: string; label: string; value: string }[] = [{
+      id: "shader-effect",
+      label: "CRT shader",
+      value: config.enabled ? (config.effect === "scanline" ? "Scanlines" : "Pincushion") : "Off",
+    }];
+    if (config.enabled) {
+      for (const param of EXOMUX_SHADER_PARAMS[config.effect]) {
+        rows.push({
+          id: `shader-param:${param.id}`,
+          label: `  ${param.label}`,
+          value: `${Math.round(exomuxShaderParamValue(config, param) * 100)}%`,
+        });
+      }
+    }
+    return rows;
+  }
+
+  /** Applies one settings-row action: cycle the effect, or nudge a parameter. */
+  cycleShaderRow(id: string, direction: number): void {
+    if (this.#disposed || !this.ghosttyDetected.peek()) return;
+    const config = this.shaderConfig.peek();
+    if (id === "shader-effect") {
+      // Off → Scanlines → Pincushion → Off, walked in either direction.
+      const order: (ExomuxShaderEffect | "off")[] = ["off", ...EXOMUX_SHADER_EFFECTS];
+      const current = config.enabled ? config.effect : "off";
+      const next = order[(order.indexOf(current) + direction + order.length) % order.length]!;
+      this.#setShaderConfig(
+        next === "off" ? { ...config, enabled: false } : {
+          enabled: true,
+          effect: next,
+          params: config.effect === next ? config.params : exomuxShaderDefaults(next),
+        },
+      );
+      return;
+    }
+    if (id.startsWith("shader-param:")) {
+      const paramId = id.slice("shader-param:".length);
+      const param = EXOMUX_SHADER_PARAMS[config.effect].find((entry) => entry.id === paramId);
+      if (!param) return;
+      const nextValue = clampExomuxShaderParam(param, exomuxShaderParamValue(config, param) + direction * param.step);
+      this.#setShaderConfig({ ...config, params: { ...config.params, [paramId]: nextValue } });
+    }
+  }
+
+  #setShaderConfig(config: ExomuxShaderConfig): void {
+    this.shaderConfig.value = config;
+    this.#onShadersChanged?.(config);
+    this.status.value = config.enabled
+      ? `CRT shader: ${config.effect}. Reload Ghostty's config to apply (or restart Ghostty).`
+      : "CRT shader off. Reload Ghostty's config to apply.";
   }
 
   /** Begins editing the session name, seeding the draft with the current name. */
@@ -805,11 +885,27 @@ export class ExomuxController {
         this.cycleBackground(step > 0 ? 1 : -1);
         return;
       case "options": {
-        const count = EXOMUX_GLOBAL_SETTING_SPECS.length;
+        const count = this.settingsOptionCount();
         this.globalConfigOptionIndex.value = (this.globalConfigOptionIndex.peek() + step + count) % count;
         return;
       }
     }
+  }
+
+  /** Total settings-pane option rows: the global specs plus any shader rows. */
+  settingsOptionCount(): number {
+    return EXOMUX_GLOBAL_SETTING_SPECS.length + this.shaderOptionRows().length;
+  }
+
+  /** Cycles the option at a combined index — a global spec or a shader row. */
+  cycleSettingsOption(index: number, direction: number): void {
+    const specs = EXOMUX_GLOBAL_SETTING_SPECS;
+    if (index < specs.length) {
+      this.cycleGlobalSetting(specs[index]!.id, direction);
+      return;
+    }
+    const shaderRow = this.shaderOptionRows()[index - specs.length];
+    if (shaderRow) this.cycleShaderRow(shaderRow.id, direction);
   }
 
   /** Cycles one desktop-wide setting and persists it. */

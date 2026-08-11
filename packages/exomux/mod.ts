@@ -5,6 +5,7 @@ export * from "./app.ts";
 export * from "./client.ts";
 export * from "./config.ts";
 export * from "./controller.ts";
+export * from "./ghostty.ts";
 export * from "./host.ts";
 export * from "./model.ts";
 export * from "./protocol.ts";

@@ -13,7 +13,7 @@ import {
   writeExomuxConfig,
 } from "../config.ts";
 import {
-  createExomuxPreferenceWriter,
+  createExomuxConfigWriter,
   EXOMUX_HELP_TEXT,
   exomuxConfigToPreferences,
   parseExomuxShowcaseArgs,
@@ -54,6 +54,7 @@ Deno.test("Exomux config round-trips through the filesystem and reset restores d
       backgroundId: "image",
       globalSettings: { ...defaultExomuxConfig().globalSettings, opacity: 0.55 },
       backgroundSettings: withExomuxBackgroundString({}, "image", "path", "/wall.png"),
+      shaders: defaultExomuxConfig().shaders,
     };
     await writeExomuxConfig(path, config);
     const reloaded = await loadExomuxConfig(path);
@@ -95,9 +96,9 @@ Deno.test("Exomux preference writer persists changes and copies the wallpaper", 
   try {
     const source = `${directory}/original.png`;
     await Deno.writeFile(source, new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 1, 1, 1]));
-    const write = createExomuxPreferenceWriter(directory, path, defaultExomuxConfig());
+    const writer = createExomuxConfigWriter(directory, path, defaultExomuxConfig());
 
-    write({
+    writer.writePreferences({
       themeId: "amber",
       backgroundId: "image",
       globalSettings: { ...defaultExomuxConfig().globalSettings, opacity: 0.7 },
@@ -113,6 +114,18 @@ Deno.test("Exomux preference writer persists changes and copies the wallpaper", 
     assertEquals(reloaded.globalSettings.opacity, 0.7);
     // The stored path points at the copied wallpaper, not the original.
     assertEquals(reloaded.backgroundSettings.image?.path, `${exomuxConfigImagesDirectory(directory)}/original.png`);
+
+    // A shader write merges without wiping the preferences just written.
+    writer.writeShaders({ enabled: true, effect: "pincushion", params: { magnitude: 0.4 } });
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const c = await loadExomuxConfig(path);
+      if (c.shaders.enabled) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const merged = await loadExomuxConfig(path);
+    assertEquals(merged.shaders.enabled, true);
+    assertEquals(merged.shaders.effect, "pincushion");
+    assertEquals(merged.themeId, "amber", "the shader write must not wipe preferences");
   } finally {
     await Deno.remove(directory, { recursive: true }).catch(() => undefined);
   }

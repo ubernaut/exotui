@@ -40,6 +40,7 @@ import {
   writeExomuxConfig,
 } from "./config.ts";
 import { exomuxBackgroundSettingsFor, withExomuxBackgroundString } from "./model.ts";
+import { applyExomuxShaders, type ExomuxShaderConfig, isRunningInGhostty } from "./ghostty.ts";
 import { type ExomuxHostServer, serveExomuxHost } from "./host.ts";
 import { isExomuxAuthToken } from "./protocol.ts";
 
@@ -267,7 +268,16 @@ export async function runExomuxClient(
   // renamed session's directory without rebuilding the controller.
   const retargetableStore = new ExomuxRetargetableStore(storage.store);
   const config = await loadExomuxConfig(configPath);
-  const persistPreferences = createExomuxPreferenceWriter(configDirectory, configPath, config);
+  const configWriter = createExomuxConfigWriter(configDirectory, configPath, config);
+  const ghostty = isRunningInGhostty();
+  // Applying shaders writes the GLSL and a managed Ghostty config; Ghostty
+  // picks it up on its next config reload, which cannot be forced from here.
+  const applyShaders = ghostty
+    ? (shaders: ExomuxShaderConfig) => {
+      configWriter.writeShaders(shaders);
+      void applyExomuxShaders(configDirectory, shaders).catch(() => undefined);
+    }
+    : undefined;
   // Only a session discovered through the state root (not an explicit
   // --descriptor) can be renamed, since rename moves its directory.
   const renameSession = options.descriptorPath ? undefined : createExomuxSessionRenamer({
@@ -284,8 +294,11 @@ export async function runExomuxClient(
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
     initialPreferences: exomuxConfigToPreferences(config),
-    onPreferencesChanged: persistPreferences,
+    onPreferencesChanged: (preferences) => configWriter.writePreferences(preferences),
     initialSessionName: target.name,
+    ghosttyDetected: ghostty,
+    initialShaders: config.shaders,
+    ...(applyShaders ? { onShadersChanged: applyShaders } : {}),
     ...(renameSession ? { onRenameSession: renameSession } : {}),
   });
   let connectionStatus = connection.launched
@@ -432,40 +445,69 @@ export function exomuxConfigToPreferences(config: ExomuxConfig): ExomuxPreferenc
  * survives the original moving) and writes the config file. Writes are
  * coalesced and best-effort: a failed persist must never disturb the session.
  */
-export function createExomuxPreferenceWriter(
+/** Persists config changes: preferences (theme/bg/settings) and shaders alike. */
+export interface ExomuxConfigWriter {
+  writePreferences(preferences: ExomuxPreferences): void;
+  writeShaders(shaders: ExomuxShaderConfig): void;
+}
+
+/**
+ * A single debounced, serialized writer over the whole config file. Preference
+ * and shader updates each merge into one retained config so neither wipes the
+ * other, and a chosen wallpaper is copied into the config directory before it
+ * is recorded.
+ */
+export function createExomuxConfigWriter(
   configDirectory: string,
   configPath: string,
   initial: ExomuxConfig,
-): (preferences: ExomuxPreferences) => void {
-  let last = JSON.stringify(exomuxConfigToPreferences(initial));
+): ExomuxConfigWriter {
+  let current: ExomuxConfig = initial;
+  let last = JSON.stringify(initial);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let writing: Promise<void> = Promise.resolve();
-  const flush = (preferences: ExomuxPreferences) => {
-    writing = writing.then(async () => {
+  const schedule = () => {
+    const signature = JSON.stringify(current);
+    if (signature === last) return;
+    last = signature;
+    const snapshot = current;
+    if (timer !== undefined) clearTimeout(timer);
+    timer = setTimeout(() => {
+      writing = writing.then(() => writeExomuxConfig(configPath, snapshot)).catch(() => undefined);
+    }, 150);
+    Deno.unrefTimer?.(timer);
+  };
+  return {
+    writePreferences(preferences: ExomuxPreferences): void {
       let backgroundSettings = preferences.backgroundSettings;
+      // Copy a freshly chosen wallpaper synchronously enough that the recorded
+      // path points at the durable copy on the next write.
       const imagePath = exomuxBackgroundSettingsFor(backgroundSettings, "image").path;
       if (typeof imagePath === "string" && imagePath.length > 0) {
-        const stored = await persistExomuxBackgroundImage(configDirectory, imagePath);
-        if (stored !== imagePath) {
-          backgroundSettings = withExomuxBackgroundString(backgroundSettings, "image", "path", stored);
-        }
+        writing = writing.then(async () => {
+          const stored = await persistExomuxBackgroundImage(configDirectory, imagePath);
+          if (stored !== imagePath) {
+            current = {
+              ...current,
+              backgroundSettings: withExomuxBackgroundString(current.backgroundSettings, "image", "path", stored),
+            };
+            await writeExomuxConfig(configPath, current);
+          }
+        }).catch(() => undefined);
       }
-      await writeExomuxConfig(configPath, {
-        schemaVersion: 1,
+      current = {
+        ...current,
         themeId: preferences.themeId,
         backgroundId: preferences.backgroundId,
         globalSettings: preferences.globalSettings,
         backgroundSettings,
-      });
-    }).catch(() => undefined);
-  };
-  return (preferences) => {
-    const signature = JSON.stringify(preferences);
-    if (signature === last) return;
-    last = signature;
-    if (timer !== undefined) clearTimeout(timer);
-    timer = setTimeout(() => flush(preferences), 150);
-    Deno.unrefTimer?.(timer);
+      };
+      schedule();
+    },
+    writeShaders(shaders: ExomuxShaderConfig): void {
+      current = { ...current, shaders };
+      schedule();
+    },
   };
 }
 

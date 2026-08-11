@@ -51,7 +51,14 @@ Settings (theme, background, opacity, and every per-background knob) persist to 
 separate from the per-session layout state, so they survive reboots and host termination and are shared across every
 session. Choosing a background image copies it into `~/.config/exomux/images/`, so the wallpaper keeps working even if
 the original file is later moved or deleted. A background image can be a PNG or a JPEG. `--reset-config` restores safe
-defaults; `--config-dir=<path>` points at a different config directory.
+defaults; `--config-dir=<path>` points at a different config directory. Click the session name at the top of the
+settings window to rename the session — its attach key and on-disk state move together, live.
+
+Inside Ghostty, the settings window gains a CRT shader section: pulsating/flickering scanlines and pincushion
+distortion, each with adjustable intensity. Turning one on generates GLSL and a managed Ghostty config include under
+`~/.config/exomux/shaders/`; Ghostty applies it on its next config reload. Add
+`config-file = ~/.config/exomux/shaders/ghostty.conf` to your Ghostty config once, and reload Ghostty (or restart it)
+after changing a shader.
 
 A crash cannot wedge launching. If a recorded host's pid died — or was recycled by an unrelated process — its descriptor
 is pruned and the session simply reports stopped; if the pid still looks like an Exomux daemon but never answers, the
