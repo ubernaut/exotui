@@ -316,6 +316,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux client no longer exits the instant it attaches. The new `-h`/`--help` and launch-failure handling wrapped
+  the entrypoint in `Deno.exit(await runExomuxCli(...))`, but the interactive client returns as soon as its render loop
+  is started and stays alive only through its own event listeners — so the forced exit killed the workbench the moment
+  it attached to a session, which looked like being unable to attach at all. The entrypoint now force-exits only on a
+  nonzero result; a successful launch settles naturally and keeps running. A PTY-driven regression asserts an attached
+  client is still alive seconds later.
 - Transparent windows now show the desktop through them on the default background. The default is the metaball field,
   which paints solid cells rather than a glyph grid, so it supplied no backdrop and a translucent window collapsed to a
   flat theme colour. The metaball levels now feed the same backdrop the animated fields do, so what shows through a

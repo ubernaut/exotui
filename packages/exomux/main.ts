@@ -503,4 +503,12 @@ export async function runExomuxCli(argv: readonly string[]): Promise<number> {
   }
 }
 
-if (import.meta.main) Deno.exit(await runExomuxCli(Deno.args));
+if (import.meta.main) {
+  const code = await runExomuxCli(Deno.args);
+  // Never force-exit on success: the interactive client returns as soon as its
+  // render loop is started and stays alive through its own event listeners, so
+  // a `Deno.exit(0)` here would kill the workbench the instant it attached.
+  // Terminating commands (help, reset, list) leave no pending work and exit on
+  // their own. Only a nonzero code needs an explicit exit.
+  if (code !== 0) Deno.exit(code);
+}
