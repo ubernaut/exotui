@@ -138,6 +138,19 @@ export class ListController {
     return item;
   }
 
+  /** The item index shown at a visible row `offset` for the current scroll window. */
+  indexAtRow(offset: number, height: number): number {
+    const length = this.items.peek().length;
+    const window = selectionWindow(length, this.selectedIndex.peek(), Math.max(0, Math.floor(height)));
+    return clampSelectionIndex(length, window.start + Math.max(0, Math.floor(offset)));
+  }
+
+  /** Moves the selection one row per wheel notch (positive scroll moves down). */
+  handleScroll(scroll: number): string | undefined {
+    if (!scroll) return undefined;
+    return this.move(scroll > 0 ? 1 : -1);
+  }
+
   handleKeyPress(
     { key, ctrl, meta, shift }: { key: string; ctrl?: boolean; meta?: boolean; shift?: boolean },
     height = 1,
@@ -199,8 +212,26 @@ export class List extends Component {
     this.on("keyPress", (event) => {
       this.controller.handleKeyPress(event, this.rectangle.peek().height);
     });
+    // Clicking a visible row selects (and, unless it is a drag, activates) it;
+    // the wheel moves the selection a row at a time. A List renders a scrolling
+    // window, so the item under the pointer is resolved through that window.
+    this.on("mousePress", ({ y, drag, ctrl, meta, shift }) => {
+      if (ctrl || meta || shift) return;
+      const rectangle = this.rectangle.peek();
+      this.controller.setSelectedIndex(this.controller.indexAtRow(y - rectangle.row, rectangle.height));
+      if (!drag) this.controller.selectActive();
+    });
+    this.on("mouseScroll", ({ scroll }) => {
+      this.controller.handleScroll(scroll);
+    });
     this.on("destroy", () => this.#rows.dispose());
     if (ownsController) this.on("destroy", () => this.controller.dispose());
+  }
+
+  /** A List is an interactable focus target: clicking or arrowing to it focuses it. */
+  override interact(method: "keyboard" | "mouse"): void {
+    super.interact(method);
+    this.state.value = this.nextInteractionState(method);
   }
 
   override draw(): void {
