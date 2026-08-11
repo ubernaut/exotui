@@ -4010,3 +4010,73 @@ Deno.test("Exomux metaball gradient uses two high-contrast theme colours, no sca
   assertEquals(t2Center, [255, 105, 180]);
   assertEquals(t2Edge, [30, 58, 112]);
 });
+
+Deno.test("Exomux renames the session from the settings window field", async () => {
+  const renames: string[] = [];
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    initialSessionName: "main",
+    onRenameSession: (name: string) => {
+      renames.push(name);
+      return Promise.resolve({ ok: true, name });
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    assertEquals(controller.sessionName.peek(), "main");
+    assert(controller.canRenameSession);
+
+    await clickStartMenuItem(harness, mounted, "config");
+    assertEquals(controller.globalConfigVisible.peek(), true);
+    const clientRect = mounted.windowProjection.peek().windows.find(
+      (window) => window.id === EXOMUX_SETTINGS_WINDOW_ID,
+    )!.clientRect;
+    const layout = exomuxGlobalConfigLayout(clientRect, 0, 0);
+
+    // Click the session-name field to begin editing.
+    assertEquals(
+      (await harness.pilot.click(layout.sessionNameRect.column + 1, layout.sessionNameRect.row)).press.handled,
+      true,
+    );
+    await mounted.whenIdle();
+    assertEquals(controller.sessionNameDraft.peek(), "main");
+
+    // Clear the seeded "main" and type a new name, then commit with Enter.
+    const typeChar = (char: string) => harness.pilot.press(char as Key, { buffer: new TextEncoder().encode(char) });
+    for (let i = 0; i < "main".length; i += 1) await harness.pilot.press("backspace");
+    for (const char of "work") await typeChar(char);
+    await mounted.whenIdle();
+    assertEquals(controller.sessionNameDraft.peek(), "work");
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+
+    assertEquals(renames, ["work"]);
+    assertEquals(controller.sessionName.peek(), "work");
+    assertEquals(controller.sessionNameDraft.peek(), undefined);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux session rename is unavailable without a rename hook", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [] });
+  try {
+    assert(!controller.canRenameSession);
+    controller.beginSessionRename();
+    assertEquals(controller.sessionNameDraft.peek(), undefined, "editing does not start without a rename hook");
+    const result = await controller.renameSession("work");
+    assertEquals(result.ok, false);
+  } finally {
+    await controller.dispose();
+  }
+});

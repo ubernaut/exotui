@@ -1381,3 +1381,74 @@ Deno.test("exomux defers ingestion while every attached client is saturated inst
   connection.disconnect();
   await host.shutdown();
 });
+
+Deno.test("exomux host relocates its descriptor on rename and acknowledges", async () => {
+  const backend = new FakeTerminalBackend();
+  const relocations: string[] = [];
+  const host = new ExomuxHostController({
+    authToken: AUTH_TOKEN,
+    backend,
+    relocateDescriptor: (path) => {
+      relocations.push(path);
+      return true;
+    },
+    now: () => 1000,
+    idFactory: (() => {
+      let n = 0;
+      return () => `mux-${++n}`;
+    })(),
+  });
+  const peer = new FakePeer();
+  const connection = host.connect(peer);
+  await authenticate(connection);
+  await connection.receive(wire({
+    version: 1,
+    type: "rename",
+    requestId: 7,
+    descriptorPath: "/state/sessions/work/host.json",
+  }));
+  await drain();
+  const ack = peer.messages().find((message) => message.type === "ack");
+  assert(ack?.type === "ack");
+  assertEquals(ack.operation, "rename");
+  assertEquals(relocations, ["/state/sessions/work/host.json"]);
+  await host.shutdown();
+});
+
+Deno.test("exomux host reports a rename failure when relocation is refused", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = new ExomuxHostController({
+    authToken: AUTH_TOKEN,
+    backend,
+    relocateDescriptor: () => false,
+    now: () => 1000,
+    idFactory: (() => {
+      let n = 0;
+      return () => `mux-${++n}`;
+    })(),
+  });
+  const peer = new FakePeer();
+  const connection = host.connect(peer);
+  await authenticate(connection);
+  await connection.receive(wire({ version: 1, type: "rename", requestId: 3, descriptorPath: "/state/host.json" }));
+  await drain();
+  const error = peer.messages().find((message) => message.type === "error");
+  assert(error?.type === "error");
+  assertEquals(error.code, "rename-failed");
+  await host.shutdown();
+});
+
+// An in-process host with no relocator (tests, embedded hosts) still acks a
+// rename as a no-op, since the client owns the filesystem side of the move.
+Deno.test("exomux host acknowledges rename as a no-op without a relocator", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+  const peer = new FakePeer();
+  const connection = host.connect(peer);
+  await authenticate(connection);
+  await connection.receive(wire({ version: 1, type: "rename", requestId: 1, descriptorPath: "/anywhere/host.json" }));
+  await drain();
+  const ack = peer.messages().find((message) => message.type === "ack");
+  assert(ack?.type === "ack" && ack.operation === "rename");
+  await host.shutdown();
+});

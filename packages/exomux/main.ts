@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { DiagnosticsCollector } from "@ubernaut/deno-tui";
+import { type AsyncStore, DiagnosticsCollector } from "@ubernaut/deno-tui";
 import { createShowcaseTerminalStore } from "@showcase/kit";
 import { createExomuxTerminalApp, type ExomuxTerminalAppRuntime } from "./app.ts";
 import {
@@ -8,6 +8,7 @@ import {
   defaultExomuxStateDirectory,
   ExomuxClientError,
   type ExomuxConnectMode,
+  type ExomuxLocalHostDescriptor,
   removeExomuxHostDescriptor,
   writeExomuxHostDescriptor,
 } from "./client.ts";
@@ -18,10 +19,17 @@ import {
   type ExomuxSessionPaths,
   formatExomuxSessionList,
   generateExomuxSessionName,
+  isExomuxDescriptorRelocation,
+  isExomuxSessionName,
   probeExomuxSessions,
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
-import { createExomuxController, type ExomuxController, type ExomuxPreferences } from "./controller.ts";
+import {
+  createExomuxController,
+  type ExomuxController,
+  type ExomuxPreferences,
+  type ExomuxRenameResult,
+} from "./controller.ts";
 import {
   defaultExomuxConfigDirectory,
   type ExomuxConfig,
@@ -255,15 +263,30 @@ export async function runExomuxClient(
     path: layoutPath,
     diagnostics,
   });
+  // A retargetable proxy lets a live rename re-point layout persistence at the
+  // renamed session's directory without rebuilding the controller.
+  const retargetableStore = new ExomuxRetargetableStore(storage.store);
   const config = await loadExomuxConfig(configPath);
   const persistPreferences = createExomuxPreferenceWriter(configDirectory, configPath, config);
+  // Only a session discovered through the state root (not an explicit
+  // --descriptor) can be renamed, since rename moves its directory.
+  const renameSession = options.descriptorPath ? undefined : createExomuxSessionRenamer({
+    stateRoot,
+    current: target,
+    client: connection.client,
+    store: retargetableStore,
+    persistLayout: options.persistLayout,
+    diagnostics,
+  });
   const controller = await createExomuxController({
     client: connection.client,
-    store: storage.store,
+    store: retargetableStore,
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
     initialPreferences: exomuxConfigToPreferences(config),
     onPreferencesChanged: persistPreferences,
+    initialSessionName: target.name,
+    ...(renameSession ? { onRenameSession: renameSession } : {}),
   });
   let connectionStatus = connection.launched
     ? `Started session "${target.name}" · terminals survive UI exit · Ctrl-N ? commands`
@@ -277,6 +300,120 @@ export async function runExomuxClient(
   const runtime = await createExomuxTerminalApp({ controller });
   bindAwaitedExomuxClientShutdown(runtime);
   runtime.start();
+}
+
+/** An AsyncStore proxy whose backing store can be swapped on a live rename. */
+export class ExomuxRetargetableStore implements AsyncStore<unknown> {
+  #inner: AsyncStore<unknown>;
+  constructor(inner: AsyncStore<unknown>) {
+    this.#inner = inner;
+  }
+  get(key: string): Promise<unknown> {
+    return this.#inner.get(key);
+  }
+  set(key: string, value: unknown): Promise<void> {
+    return this.#inner.set(key, value);
+  }
+  delete(key: string): Promise<void> {
+    return this.#inner.delete(key);
+  }
+  retarget(inner: AsyncStore<unknown>): void {
+    this.#inner = inner;
+  }
+}
+
+interface ExomuxSessionRenamerOptions {
+  readonly stateRoot: string;
+  readonly current: ExomuxSessionPaths;
+  readonly client: { renameDescriptor(descriptorPath: string): Promise<boolean> };
+  readonly store: ExomuxRetargetableStore;
+  readonly persistLayout: boolean;
+  readonly diagnostics?: DiagnosticsCollector;
+}
+
+/**
+ * Builds the live-rename hook for one session. It validates the new name, asks
+ * the daemon to relocate its descriptor, moves the layout state, re-points the
+ * layout store, and reports the new attach key. Ordering matters: the store is
+ * re-pointed before the old files are removed so no late write recreates the
+ * old session directory.
+ */
+export function createExomuxSessionRenamer(
+  options: ExomuxSessionRenamerOptions,
+): (newName: string) => Promise<ExomuxRenameResult> {
+  let current = options.current;
+  return async (newName: string): Promise<ExomuxRenameResult> => {
+    if (!isExomuxSessionName(newName)) {
+      return { ok: false, error: "Names use letters, digits, dots, dashes, or underscores (64 max)." };
+    }
+    if (newName === current.name) return { ok: true, name: newName };
+    const next = resolveExomuxSessionPaths(options.stateRoot, newName);
+    // Refuse to clobber an existing session's state.
+    if (await exomuxPathExists(next.descriptorPath) || await exomuxPathExists(next.layoutPath)) {
+      return { ok: false, error: `A session named "${newName}" already exists.` };
+    }
+    try {
+      await ensureExomuxSessionDirectories(options.stateRoot, newName);
+      const relocated = await options.client.renameDescriptor(next.descriptorPath);
+      if (!relocated) return { ok: false, error: "The host refused to relocate its descriptor." };
+      if (options.persistLayout) {
+        await exomuxMoveFileIfPresent(current.layoutPath, next.layoutPath);
+        options.store.retarget(
+          (await createShowcaseTerminalStore({
+            enabled: true,
+            path: next.layoutPath,
+            diagnostics: options.diagnostics,
+          }))
+            .store,
+        );
+        await exomuxMoveFileIfPresent(`${current.layoutPath}.bak`, `${next.layoutPath}.bak`);
+      }
+      await exomuxRemoveIfPresent(`${current.descriptorPath}.unresponsive`);
+      // The default session leaves its now-empty root files behind; a named
+      // session's old directory can be removed once emptied.
+      await exomuxRemoveEmptyNamedSessionDir(options.stateRoot, current.name);
+      current = next;
+      return { ok: true, name: newName };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  };
+}
+
+async function exomuxPathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.lstat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
+async function exomuxMoveFileIfPresent(from: string, to: string): Promise<void> {
+  if (!(await exomuxPathExists(from))) return;
+  await Deno.rename(from, to).catch(async () => {
+    // Cross-device or racing rename: fall back to copy + remove.
+    await Deno.copyFile(from, to);
+    await Deno.remove(from).catch(() => undefined);
+  });
+}
+
+async function exomuxRemoveIfPresent(path: string): Promise<void> {
+  await Deno.remove(path).catch((error) => {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  });
+}
+
+async function exomuxRemoveEmptyNamedSessionDir(stateRoot: string, name: string): Promise<void> {
+  if (name === EXOMUX_DEFAULT_SESSION_NAME) return;
+  const dir = resolveExomuxSessionPaths(stateRoot, name).stateDirectory;
+  try {
+    for await (const _entry of Deno.readDir(dir)) return; // not empty
+    await Deno.remove(dir);
+  } catch {
+    // The directory is gone or unreadable; nothing to clean.
+  }
 }
 
 /** The preference subset the config file carries, drawn from a loaded config. */
@@ -351,7 +488,7 @@ export async function launchInitialExomuxTerminalIfEmpty(
 /** Runs the retaining host until an authenticated shutdown or process signal. */
 export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Promise<void> {
   const stateDirectory = options.stateDirectory ?? defaultExomuxStateDirectory();
-  const descriptorPath = options.descriptorPath ?? joinPath(stateDirectory, "host.json");
+  let descriptorPath = options.descriptorPath ?? joinPath(stateDirectory, "host.json");
   let authToken: string | undefined;
   try {
     authToken = Deno.env.get("EXOMUX_TOKEN");
@@ -361,9 +498,26 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
   }
   if (!isExomuxAuthToken(authToken)) throw new TypeError("Exomux daemon requires a valid private startup token.");
 
-  const server = serveExomuxHost({ authToken });
+  // Rewrites the descriptor at a new path on rename: only within the same state
+  // root, and the daemon then cleans up the new path — not the old — at exit.
+  let descriptor: ExomuxLocalHostDescriptor | undefined;
+  const relocateDescriptor = async (newDescriptorPath: string): Promise<boolean> => {
+    if (!descriptor || !isExomuxDescriptorRelocation(descriptorPath, newDescriptorPath)) return false;
+    try {
+      await writeExomuxHostDescriptor(newDescriptorPath, descriptor);
+      if (newDescriptorPath !== descriptorPath) {
+        await removeExomuxHostDescriptor(descriptorPath, descriptor.hostId);
+      }
+      descriptorPath = newDescriptorPath;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const server = serveExomuxHost({ authToken, relocateDescriptor });
   const address = await server.address;
-  await writeExomuxHostDescriptor(descriptorPath, {
+  descriptor = {
     schemaVersion: 1,
     flowControlledReplay: true,
     hostId: server.controller.id,
@@ -371,7 +525,8 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     token: authToken,
     pid: Deno.pid,
     startedAt: Date.now(),
-  });
+  };
+  await writeExomuxHostDescriptor(descriptorPath, descriptor);
   const fatalHandler = createExomuxDaemonFatalHandler(
     server,
     () => removeExomuxHostDescriptor(descriptorPath, server.controller.id),

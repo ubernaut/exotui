@@ -901,6 +901,8 @@ export function mountExomuxDesktop(
         controller.startMenuVisible.value,
         controller.startMenuAnchor.value?.column,
         controller.startMenuAnchor.value?.row,
+        controller.sessionName.value,
+        controller.sessionNameDraft.value,
         controller.globalConfigVisible.value,
         controller.globalConfigPane.value,
         controller.globalConfigOptionIndex.value,
@@ -1113,6 +1115,10 @@ export function mountExomuxDesktop(
     const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
     const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
+    if (contains(layout.sessionNameRect, column, row)) {
+      controller.beginSessionRename();
+      return true;
+    }
     if (contains(layout.backgroundConfigRect, column, row)) {
       controller.openBackgroundConfig();
       return true;
@@ -2025,6 +2031,16 @@ export function mountExomuxDesktop(
       controller.globalConfigVisible.peek() &&
       controller.windowHost.controller.inspect().activeWindowId === EXOMUX_SETTINGS_WINDOW_ID
     ) {
+      // Editing the session name captures typing until Enter or Escape.
+      if (controller.sessionNameDraft.peek() !== undefined) {
+        if (event.key === "escape") controller.cancelSessionRename();
+        else if (event.key === "return") await controller.commitSessionRename().then(() => syncWindows());
+        else if (event.key === "backspace") controller.backspaceSessionRename();
+        else if (!event.ctrl && !event.meta && event.key.length === 1) {
+          controller.appendSessionRenameChar(event.shift ? event.key.toUpperCase() : event.key);
+        }
+        return;
+      }
       // A normal window only owns the keyboard while focused; an unfocused
       // settings window lets these keys reach the active terminal instead.
       const optionId = EXOMUX_GLOBAL_SETTING_SPECS[controller.globalConfigOptionIndex.peek()]?.id;
@@ -2511,6 +2527,8 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
       event.key === "pagedown" || event.key === "home" || event.key === "end" || event.key.toLowerCase() === "r";
   }
   if (activeWindowId === EXOMUX_SETTINGS_WINDOW_ID) {
+    // While editing the session name the field captures every printable key.
+    if (controller.sessionNameDraft.peek() !== undefined) return true;
     return event.key === "up" || event.key === "down" || event.key === "left" || event.key === "right" ||
       event.key === "return" || event.key === "space" || event.key === "tab" || event.key === "escape" ||
       event.key.toLowerCase() === "q" || event.key.toLowerCase() === "b";
@@ -3541,6 +3559,8 @@ export interface ExomuxGlobalConfigLayout {
   readonly closeRect: Rectangle;
   /** Opens the background config modal for the selected background. */
   readonly backgroundConfigRect: Rectangle;
+  /** The editable session-name field at the top of the window. */
+  readonly sessionNameRect: Rectangle;
 }
 
 /** Scrolls a select list so the selected row stays visible. */
@@ -3565,9 +3585,15 @@ export function exomuxGlobalConfigLayout(
   backgroundIndex: number,
 ): ExomuxGlobalConfigLayout {
   const optionCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
-  // Headers + lists + options + button row.
-  const listTop = rect.row + 1;
-  const visibleRows = Math.max(1, rect.height - optionCount - 3);
+  // Session name + headers + lists + options + button row.
+  const sessionNameRect: Rectangle = {
+    column: rect.column + 1,
+    row: rect.row,
+    width: Math.max(0, rect.width - 2),
+    height: 1,
+  };
+  const listTop = rect.row + 2;
+  const visibleRows = Math.max(1, rect.height - optionCount - 4);
   const columnWidth = Math.max(8, Math.floor((rect.width - 3) / 2));
   const themeStart = selectListStart(themeIndex, EXOMUX_THEMES.length, visibleRows);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, visibleRows);
@@ -3605,6 +3631,7 @@ export function exomuxGlobalConfigLayout(
     backgroundRows,
     optionRows,
     closeRect,
+    sessionNameRect,
     backgroundConfigRect: {
       column: Math.max(rect.column, closeRect.column - 23),
       row: closeRect.row,
@@ -3820,8 +3847,30 @@ function paintGlobalSettingsWindow(
   const settings = controller.globalSettings.peek();
   const optionIndex = controller.globalConfigOptionIndex.peek();
 
+  // Editable session name across the top of the window.
+  const draft = controller.sessionNameDraft.peek();
+  const editing = draft !== undefined;
+  const nameValue = editing ? `${draft}▏` : controller.sessionName.peek();
+  const nameLabel = controller.canRenameSession
+    ? (editing ? "Session ↵ save · Esc cancel: " : "Session (click to rename): ")
+    : "Session: ";
+  painter.fill(layout.sessionNameRect, " ", {
+    foreground: editing ? theme.background : theme.muted,
+    background: editing ? theme.accent : theme.surfaceStrong,
+  });
+  painter.write(
+    layout.sessionNameRect.column,
+    layout.sessionNameRect.row,
+    fitText(`${nameLabel}${nameValue}`, layout.sessionNameRect.width),
+    {
+      foreground: editing ? theme.background : theme.accent,
+      background: editing ? theme.accent : theme.surfaceStrong,
+      bold: editing,
+    },
+  );
+
   const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 3) / 2));
-  const headerRow = rect.row;
+  const headerRow = rect.row + 1;
   const header = (column: number, text: string, focused: boolean) => {
     painter.write(column, headerRow, fitText(text, columnWidth), {
       foreground: focused ? theme.accent : theme.muted,

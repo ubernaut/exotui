@@ -399,6 +399,13 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     return true;
   }
 
+  /** Asks the daemon to relocate its descriptor to a new path (session rename). */
+  async renameDescriptor(descriptorPath: string): Promise<boolean> {
+    const response = await this.#request({ version: 1, type: "rename", descriptorPath }, ["ack"]);
+    assertAck(response, "rename");
+    return true;
+  }
+
   dispose(): Promise<void> {
     if (this.#disposed) return Promise.resolve();
     this.#disposed = true;

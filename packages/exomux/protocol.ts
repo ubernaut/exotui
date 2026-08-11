@@ -39,7 +39,8 @@ export type ExomuxRequestOperation =
   | "resize"
   | "kill"
   | "ping"
-  | "shutdown";
+  | "shutdown"
+  | "rename";
 
 export interface ExomuxAuthRequest {
   version: typeof EXOMUX_PROTOCOL_VERSION;
@@ -113,6 +114,15 @@ export interface ExomuxShutdownRequest {
   requestId: number;
 }
 
+/** Relocates the daemon's private descriptor file so a renamed session is discoverable. */
+export interface ExomuxRenameRequest {
+  version: typeof EXOMUX_PROTOCOL_VERSION;
+  type: "rename";
+  requestId: number;
+  /** Absolute path the daemon should rewrite its host descriptor to. */
+  descriptorPath: string;
+}
+
 export type ExomuxClientRequest =
   | ExomuxListRequest
   | ExomuxSpawnRequest
@@ -121,7 +131,8 @@ export type ExomuxClientRequest =
   | ExomuxInputRequest
   | ExomuxResizeRequest
   | ExomuxPingRequest
-  | ExomuxShutdownRequest;
+  | ExomuxShutdownRequest
+  | ExomuxRenameRequest;
 
 export type ExomuxClientMessage = ExomuxAuthRequest | ExomuxClientRequest;
 
@@ -175,7 +186,7 @@ export interface ExomuxAcknowledgedMessage {
   version: typeof EXOMUX_PROTOCOL_VERSION;
   type: "ack";
   requestId: number;
-  operation: "detach" | "input" | "resize" | "kill" | "shutdown";
+  operation: "detach" | "input" | "resize" | "kill" | "shutdown" | "rename";
   sessionId?: string;
 }
 
@@ -237,6 +248,7 @@ const ACK_OPERATIONS = new Set<ExomuxAcknowledgedMessage["operation"]>([
   "resize",
   "kill",
   "shutdown",
+  "rename",
 ]);
 
 /** Generates a token with 256 bits of entropy. The returned string is 64 lower-case hexadecimal characters. */
@@ -320,6 +332,7 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
     "sessionId",
     "afterSequence",
     "data",
+    "descriptorPath",
   ]);
   protocolVersion(root.version);
   const type = stringValue(root.type, "type", 16);
@@ -420,6 +433,14 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
         columns,
         rows,
       };
+    }
+    case "rename": {
+      exact(root, ["version", "type", "requestId", "descriptorPath"]);
+      const descriptorPath = stringValue(root.descriptorPath, "descriptorPath", EXOMUX_PROTOCOL_LIMITS.cwdBytes, false);
+      if (descriptorPath.includes("\0")) {
+        fail("invalid-descriptor-path", "Descriptor path contains a forbidden NUL byte.");
+      }
+      return { version: 1, type, requestId: requestId(root.requestId), descriptorPath };
     }
     default:
       fail("unknown-message", "Unknown Exomux client message type.");

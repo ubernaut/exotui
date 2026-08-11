@@ -915,3 +915,90 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1_000): Promise<voi
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
 }
+
+Deno.test({
+  name: "Exomux renames a live session's descriptor, layout, and attach key end to end",
+  ignore: Deno.build.os !== "linux",
+  async fn() {
+    const { createExomuxSessionRenamer, ExomuxRetargetableStore } = await import("../main.ts");
+    const { resolveExomuxSessionPaths } = await import("../sessions.ts");
+    const { createShowcaseTerminalStore } = await import("@showcase/kit");
+
+    const stateRoot = await Deno.makeTempDir({ prefix: "exomux-rename-" });
+    await Deno.chmod(stateRoot, 0o700);
+    const mainPaths = resolveExomuxSessionPaths(stateRoot, "main");
+    let connection: Awaited<ReturnType<typeof connectOrLaunchExomuxLocalHost>> | undefined;
+    try {
+      connection = await connectOrLaunchExomuxLocalHost({
+        stateDirectory: stateRoot,
+        descriptorPath: mainPaths.descriptorPath,
+        timeoutMs: 10_000,
+        requestTimeoutMs: 3_000,
+      });
+      assertEquals(connection.launched, true);
+      const originalHostId = connection.descriptor.hostId;
+      // Seed a layout the rename must carry over.
+      await Deno.writeTextFile(mainPaths.layoutPath, JSON.stringify({ marker: "keep-me" }));
+
+      const store = new ExomuxRetargetableStore(
+        (await createShowcaseTerminalStore({ enabled: true, path: mainPaths.layoutPath })).store,
+      );
+      const rename = createExomuxSessionRenamer({
+        stateRoot,
+        current: mainPaths,
+        client: connection.client,
+        store,
+        persistLayout: true,
+      });
+
+      const result = await rename("work");
+      assertEquals(result.ok, true);
+      assertEquals(result.name, "work");
+
+      const work = resolveExomuxSessionPaths(stateRoot, "work");
+      // The descriptor moved to the new session directory, same host generation.
+      const moved = await readExomuxHostDescriptor(work.descriptorPath);
+      assertEquals(moved?.hostId, originalHostId);
+      // The old default-session descriptor is gone; -a main would find nothing.
+      assertEquals(await readExomuxHostDescriptor(mainPaths.descriptorPath), undefined);
+      // The layout carried over.
+      assertEquals(JSON.parse(await Deno.readTextFile(work.layoutPath)).marker, "keep-me");
+
+      // Attaching under the new name reaches the same live daemon.
+      const reattached = await connectExomuxWebSocket({
+        url: moved!.url,
+        authToken: moved!.token,
+        requestTimeoutMs: 2_000,
+        flowControlledReplay: moved!.flowControlledReplay === true,
+      });
+      try {
+        assert(Number.isFinite(await reattached.ping()));
+        assertEquals(reattached.hostId, originalHostId);
+        await reattached.shutdownHost();
+      } finally {
+        await reattached.dispose();
+      }
+    } finally {
+      await connection?.client.dispose();
+      try {
+        const descriptor = await readExomuxHostDescriptor(resolveExomuxSessionPaths(stateRoot, "work").descriptorPath);
+        if (descriptor) {
+          const cleanup = await connectExomuxWebSocket({
+            url: descriptor.url,
+            authToken: descriptor.token,
+            requestTimeoutMs: 1_000,
+            flowControlledReplay: descriptor.flowControlledReplay === true,
+          });
+          try {
+            await cleanup.shutdownHost();
+          } finally {
+            await cleanup.dispose();
+          }
+        }
+      } catch {
+        // The daemon was already shut down above.
+      }
+      await Deno.remove(stateRoot, { recursive: true }).catch(() => undefined);
+    }
+  },
+});

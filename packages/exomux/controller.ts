@@ -278,6 +278,15 @@ export interface ExomuxTerminalRuntime {
   requestedRows: number;
 }
 
+/** Outcome of a session rename attempt. */
+export interface ExomuxRenameResult {
+  readonly ok: boolean;
+  /** The accepted session name on success. */
+  readonly name?: string;
+  /** A human-readable reason on failure. */
+  readonly error?: string;
+}
+
 /** The durable preference subset shared across sessions via the config file. */
 export interface ExomuxPreferences {
   readonly themeId: ExomuxThemeId;
@@ -302,6 +311,10 @@ export interface ExomuxControllerOptions {
   readonly initialPreferences?: ExomuxPreferences;
   /** Called whenever a durable preference changes, for config-file persistence. */
   readonly onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
+  /** The tmux-style name of the session this client attached to. */
+  readonly initialSessionName?: string;
+  /** Performs a live session rename; returns the accepted name or an error. */
+  readonly onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
   readonly tailnetPollIntervalMs?: number;
   /** Injectable local-file existence probe for paste-to-scp interception. */
@@ -368,6 +381,12 @@ export class ExomuxController {
   readonly startMenuVisible = new Signal(false);
   /** Where the menu is anchored; undefined docks it under the start button. */
   readonly startMenuAnchor = new Signal<{ readonly column: number; readonly row: number } | undefined>(undefined);
+  /** The tmux-style name of the attached session, editable from settings. */
+  readonly sessionName = new Signal<string>("main");
+  /** True while a rename is in flight, to gate concurrent attempts. */
+  readonly sessionRenaming = new Signal(false);
+  /** The in-progress rename draft, or undefined when not editing the name. */
+  readonly sessionNameDraft = new Signal<string | undefined>(undefined);
   readonly status = new Signal("Connecting to local Exomux host…");
   readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
   readonly savedHosts = new Signal<readonly string[]>([]);
@@ -431,12 +450,15 @@ export class ExomuxController {
   readonly #scpCwdTimeoutMs: number;
   readonly #initialPreferences?: ExomuxPreferences;
   readonly #onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
+  readonly #onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
   #scpCwdCapture?: Promise<string | undefined>;
 
   constructor(options: ExomuxControllerOptions) {
     this.client = options.client;
     this.#initialPreferences = options.initialPreferences;
     this.#onPreferencesChanged = options.onPreferencesChanged;
+    this.#onRenameSession = options.onRenameSession;
+    if (options.initialSessionName) this.sessionName.value = options.initialSessionName;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
     this.#defaultCwd = options.defaultCwd;
@@ -538,6 +560,81 @@ export class ExomuxController {
     if (this.#disposed) return;
     this.startMenuVisible.value = false;
     this.startMenuAnchor.value = undefined;
+  }
+
+  /** True when the session can be renamed (discovered through the state root). */
+  get canRenameSession(): boolean {
+    return this.#onRenameSession !== undefined;
+  }
+
+  /** Begins editing the session name, seeding the draft with the current name. */
+  beginSessionRename(): void {
+    if (this.#disposed || !this.#onRenameSession || this.sessionRenaming.peek()) return;
+    this.sessionNameDraft.value = this.sessionName.peek();
+  }
+
+  /** Appends printable characters to the rename draft, within the name limit. */
+  appendSessionRenameChar(text: string): void {
+    const draft = this.sessionNameDraft.peek();
+    if (draft === undefined) return;
+    const filtered = text.replace(/[^A-Za-z0-9._-]/g, "");
+    if (!filtered) return;
+    this.sessionNameDraft.value = (draft + filtered).slice(0, 64);
+  }
+
+  /** Removes the last character of the rename draft. */
+  backspaceSessionRename(): void {
+    const draft = this.sessionNameDraft.peek();
+    if (draft === undefined) return;
+    this.sessionNameDraft.value = draft.slice(0, -1);
+  }
+
+  /** Abandons the rename draft without applying it. */
+  cancelSessionRename(): void {
+    this.sessionNameDraft.value = undefined;
+  }
+
+  /** Applies the rename draft, then clears it whatever the outcome. */
+  async commitSessionRename(): Promise<ExomuxRenameResult> {
+    const draft = this.sessionNameDraft.peek();
+    if (draft === undefined) return { ok: false, error: "No rename in progress." };
+    this.sessionNameDraft.value = undefined;
+    return await this.renameSession(draft);
+  }
+
+  /**
+   * Renames the attached session — its attach key and on-disk state — through
+   * the injected rename hook. Serialized against itself, a no-op when the name
+   * is unchanged, and reports the outcome on the status line.
+   */
+  async renameSession(newName: string): Promise<ExomuxRenameResult> {
+    this.#assertActive();
+    const trimmed = newName.trim();
+    if (trimmed === this.sessionName.peek()) return { ok: true, name: trimmed };
+    if (!this.#onRenameSession) {
+      const error = "Renaming is unavailable for this session.";
+      this.status.value = error;
+      return { ok: false, error };
+    }
+    if (this.sessionRenaming.peek()) return { ok: false, error: "A rename is already in progress." };
+    this.sessionRenaming.value = true;
+    this.status.value = `Renaming session to "${trimmed}"…`;
+    try {
+      const result = await this.#onRenameSession(trimmed);
+      if (result.ok && result.name) {
+        this.sessionName.value = result.name;
+        this.status.value = `Session renamed to "${result.name}". Attach with: exomux -a ${result.name}`;
+      } else {
+        this.status.value = `Rename failed: ${result.error ?? "unknown error"}`;
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.status.value = `Rename failed: ${message}`;
+      return { ok: false, error: message };
+    } finally {
+      this.sessionRenaming.value = false;
+    }
   }
 
   /** Toggles the start menu dropdown, returning its new visibility. */

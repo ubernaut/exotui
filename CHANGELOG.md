@@ -31,6 +31,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- The current Exomux session can be renamed from the settings window — a true rename of both the attach key and the
+  on-disk state. Click the session name at the top of the settings window, type a new one, and press Enter: the daemon
+  relocates its private descriptor to the renamed session's directory (a new `rename` protocol message, confined to the
+  same state root), the window layout moves with it and the live layout store re-points, and the old name is freed. The
+  session keeps running throughout; afterwards `exomux -a <newname>` attaches and the old name no longer resolves.
 - Right-clicking the Exomux desktop opens the menu under the cursor, clamped to stay on screen, instead of only from the
   top-left start button. A terminal with mouse reporting on still owns its own right-click.
 - Exomux settings now persist to a durable config file at `~/.config/exomux/exomux.json` (`$XDG_CONFIG_HOME`/`%APPDATA%`

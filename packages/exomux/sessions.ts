@@ -255,3 +255,39 @@ function joinPath(parent: string, child: string): string {
   const separator = Deno.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
+
+function pathDirname(path: string): string {
+  const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return index <= 0 ? "." : path.slice(0, index);
+}
+
+function pathBasename(path: string): string {
+  const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return index < 0 ? path : path.slice(index + 1);
+}
+
+/**
+ * The state root a session's `host.json` descriptor lives under, or undefined
+ * if the path is not a recognized session descriptor. The default session's
+ * descriptor sits in the root itself; a named session's sits under
+ * `<root>/sessions/<name>/`.
+ */
+export function exomuxSessionStateRoot(descriptorPath: string): string | undefined {
+  if (pathBasename(descriptorPath) !== "host.json") return undefined;
+  const dir = pathDirname(descriptorPath);
+  const parent = pathDirname(dir);
+  if (pathBasename(parent) === "sessions") return pathDirname(parent);
+  return dir;
+}
+
+/**
+ * Whether a daemon at `currentPath` may relocate its descriptor to `newPath`:
+ * both must be session descriptors under the same state root, with no path
+ * traversal — the guard the daemon applies to a client's rename request.
+ */
+export function isExomuxDescriptorRelocation(currentPath: string, newPath: string): boolean {
+  if (newPath.includes("\0") || newPath.split(/[\\/]+/).includes("..")) return false;
+  const root = exomuxSessionStateRoot(currentPath);
+  const newRoot = exomuxSessionStateRoot(newPath);
+  return root !== undefined && root === newRoot;
+}

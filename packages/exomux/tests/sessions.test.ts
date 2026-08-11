@@ -7,9 +7,11 @@ import {
   ensureExomuxSessionDirectories,
   EXOMUX_DEFAULT_SESSION_NAME,
   type ExomuxSessionProbe,
+  exomuxSessionStateRoot,
   formatExomuxSessionList,
   formatExomuxUptime,
   generateExomuxSessionName,
+  isExomuxDescriptorRelocation,
   isExomuxSessionName,
   probeExomuxSessions,
   resolveExomuxSessionPaths,
@@ -246,4 +248,22 @@ Deno.test("Exomux probing a recycled-pid session reports stopped instead of fail
   } finally {
     await Deno.remove(stateRoot, { recursive: true }).catch(() => undefined);
   }
+});
+
+Deno.test("Exomux descriptor relocation is confined to the same state root", () => {
+  const root = "/state";
+  const main = `${root}/host.json`;
+  const work = `${root}/sessions/work/host.json`;
+  assertEquals(exomuxSessionStateRoot(main), root);
+  assertEquals(exomuxSessionStateRoot(work), root);
+  assertEquals(exomuxSessionStateRoot("/state/sessions/work/layout.json"), undefined);
+
+  // Same root, either direction: allowed.
+  assert(isExomuxDescriptorRelocation(main, work));
+  assert(isExomuxDescriptorRelocation(work, main));
+  assert(isExomuxDescriptorRelocation(work, `${root}/sessions/other/host.json`));
+  // Different roots or traversal: refused.
+  assert(!isExomuxDescriptorRelocation(main, "/elsewhere/host.json"));
+  assert(!isExomuxDescriptorRelocation(main, `${root}/../evil/host.json`));
+  assert(!isExomuxDescriptorRelocation(main, `${root}/sessions/work/notdescriptor`));
 });

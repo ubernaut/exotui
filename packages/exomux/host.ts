@@ -119,6 +119,13 @@ export interface ExomuxHostControllerOptions {
   idFactory?: () => string;
   now?: () => number;
   limits?: Partial<ExomuxHostLimits>;
+  /**
+   * Relocates the daemon's private descriptor to a new path when a session is
+   * renamed. Returns true on success. Absent when the host was not launched by
+   * a descriptor-owning daemon (tests, in-process hosts), where rename is a
+   * no-op the client handles entirely on its side.
+   */
+  relocateDescriptor?: (descriptorPath: string) => boolean | Promise<boolean>;
 }
 
 export interface ServeExomuxHostOptions extends ExomuxHostControllerOptions {
@@ -239,6 +246,7 @@ export class ExomuxHostController {
   readonly #idFactory: () => string;
   readonly #now: () => number;
   readonly #limits: Readonly<ExomuxHostLimits>;
+  readonly #relocateDescriptor?: (descriptorPath: string) => boolean | Promise<boolean>;
   readonly #connections = new Map<string, HostConnection>();
   readonly #sessions = new Map<string, HostSession>();
   readonly #shutdownListeners = new Set<() => void>();
@@ -257,6 +265,7 @@ export class ExomuxHostController {
     this.id = normalizeGeneratedId(options.hostId ?? this.#idFactory(), "host");
     this.#now = options.now ?? (() => Date.now());
     this.#limits = normalizeHostLimits(options.limits);
+    this.#relocateDescriptor = options.relocateDescriptor;
     // An injected backend or factory is taken at its word — only the default
     // path can report a PTY rejection, because only it attempts the load.
     const backend = options.backend;
@@ -467,6 +476,17 @@ export class ExomuxHostController {
           await connection.deliver(ack(request.requestId, "shutdown"));
         });
         return;
+      case "rename": {
+        // Relocating the descriptor is a daemon-owned filesystem move; an
+        // in-process host without a relocator (tests) acknowledges as a no-op,
+        // since the client handles the rest of the rename on its side.
+        if (this.#relocateDescriptor) {
+          const relocated = await this.#relocateDescriptor(request.descriptorPath);
+          if (!relocated) throw hostError("rename-failed", "Host could not relocate its descriptor.");
+        }
+        connection.enqueue(ack(request.requestId, "rename"));
+        return;
+      }
     }
   }
 
