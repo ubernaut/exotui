@@ -40,6 +40,10 @@ quickly, but the affected entrypoint or module family should be named here.
   pointer, resolved through its current scroll window) and `mouseScroll` (move one row per notch), and overrides
   `interact()` so it is a proper interactable focus target like `Slider` and `Button`; `ListController` gains
   `indexAtRow()` and `handleScroll()` for the window math. It was keyboard-only before.
+- `List` gains two opt-in decorations. `selectedStyle` draws the selected row as a full-width highlight (a `Text`
+  overlaid above the base rows) rather than only the `>` marker. `scrollbar` (`{ track, thumb }` styles) draws a
+  one-column bar down the right edge whose thumb size scales with the visible/total ratio and whose position tracks the
+  scroll window. Both are additive — off by default, no change to `drawTextRows` or other consumers.
 - The Exomux settings option rows are real exotui controls: a `CheckBox` for the boolean (overgrow inactive) and a
   `Cycler` for each discrete-value setting (opacity, scroll speed, overgrow time, border style), composited over the
   value column. They display the live value while the existing option routing drives changes; the dynamic Ghostty shader
@@ -64,6 +68,10 @@ quickly, but the affected entrypoint or module family should be named here.
   include under `~/.config/exomux/shaders/`; Ghostty applies it on its next config reload (which Exomux cannot force, so
   the status line says to reload). `packages/exomux/ghostty.ts` carries the detection, shader generation, and config
   surface.
+- The Exomux settings session-name field is a real exotui `Input` while a rename is edited: it owns the text and cursor
+  natively (typing, backspace, cursor keys, and Enter to submit), composited over the field, and pushes the draft to the
+  controller (a new `setSessionRenameDraft` re-applies the name filter and length cap). Escape still cancels and Enter
+  still routes to the existing live-rename commit. `packages/exomux/session_name_field.ts` carries the editor host.
 - The current Exomux session can be renamed from the settings window — a true rename of both the attach key and the
   on-disk state. Click the session name at the top of the settings window, type a new one, and press Enter: the daemon
   relocates its private descriptor to the renamed session's directory (a new `rename` protocol message, confined to the
@@ -360,6 +368,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Exomux list windows (the settings pickers, the sessions manager, and the network tree) move one row per wheel notch
+  again. A single physical notch fans out into several scroll events — the input reader emits a `mouseScroll` and the
+  app layer a derived `pointerInput` wheel for the same motion, and high-resolution wheels emit several per notch — so a
+  notch jumped many rows at once. Those windows now collapse a tight same-direction burst into a single move; terminal
+  scrollback is unaffected and still honors the scroll-speed setting.
 - The Exomux metaball background is a smooth gradient again, not scanline stripes. Each blob shades from its centre to
   its edge between the two most vivid, highest-contrast colours in the active theme — anchored on the most-saturated hue
   and partnered with the colour furthest from it in hue weighted by its own saturation, so a theme like `t2` renders

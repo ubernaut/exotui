@@ -52,13 +52,15 @@ separate from the per-session layout state, so they survive reboots and host ter
 session. Choosing a background image copies it into `~/.config/exomux/images/`, so the wallpaper keeps working even if
 the original file is later moved or deleted. A background image can be a PNG or a JPEG. `--reset-config` restores safe
 defaults; `--config-dir=<path>` points at a different config directory. Click the session name at the top of the
-settings window to rename the session — its attach key and on-disk state move together, live. The settings window is
-built from real exotui components: the theme and background selectors are `List` widgets, each option row is a
-`CheckBox` (the boolean) or a `Cycler` (the `< value >` picker, a new library component), and the action buttons are
-`Button` widgets — all rendered off-screen (`widget_surface.ts`, `settings_surface.ts`, `settings_options.ts`) and
-composited into the window like any terminal's screen grid. The pickers are bound two-way and driven natively (clicking,
-arrowing, or scrolling a picker drives the real `List`); the option controls display the live value while the window's
-routing cycles it. (Making `List` mouse-interactive and adding `Cycler` are companion changes in the core library.)
+settings window to rename the session. The settings window is built from real exotui components: the theme and
+background selectors are `List` widgets (with a highlighted selected row and a content-scaled scrollbar), each option
+row is a `CheckBox` (the boolean) or a `Cycler` (the `< value >` picker, a new library component), the session name is
+an `Input` while it is being edited, and the action buttons are `Button` widgets — all rendered off-screen
+(`widget_surface.ts`, `settings_surface.ts`, `settings_options.ts`, `session_name_field.ts`) and composited into the
+window like any terminal's screen grid. The pickers and the name field are driven natively (clicking, arrowing, or
+scrolling a picker drives the real `List`; typing edits the real `Input`); the option controls display the live value
+while the window's routing cycles it. (Making `List` mouse-interactive plus its highlight/scrollbar, and adding
+`Cycler`, are companion changes in the core library.)
 
 Inside Ghostty, the settings window gains a CRT shader section: pulsating/flickering scanlines and pincushion
 distortion, each with adjustable intensity. Turning one on generates GLSL and a managed Ghostty config include under
