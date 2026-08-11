@@ -40,14 +40,20 @@ quickly, but the affected entrypoint or module family should be named here.
   pointer, resolved through its current scroll window) and `mouseScroll` (move one row per notch), and overrides
   `interact()` so it is a proper interactable focus target like `Slider` and `Button`; `ListController` gains
   `indexAtRow()` and `handleScroll()` for the window math. It was keyboard-only before.
-- `List` gains two opt-in decorations. `selectedStyle` draws the selected row as a full-width highlight (a `Text`
-  overlaid above the base rows) rather than only the `>` marker. `scrollbar` (`{ track, thumb }` styles) draws a
-  one-column bar down the right edge whose thumb size scales with the visible/total ratio and whose position tracks the
-  scroll window. Both are additive — off by default, no change to `drawTextRows` or other consumers.
+- `List` gains three opt-in extras. `selectedStyle` draws the selected row as a full-width highlight (a `Text` overlaid
+  above the base rows) rather than only the `>` marker. `scrollbar` (`{ track, thumb }` styles) draws a one-column bar
+  down the right edge whose thumb size scales with the visible/total ratio and whose position tracks the scroll window.
+  `markerFor(index, selected)` chooses each row's one-character leading marker, so a caller can mark a second state — a
+  current/active item distinct from the cursor — reactively. All three are additive — off by default, no change to
+  `drawTextRows` or other consumers.
 - The Exomux settings option rows are real exotui controls: a `CheckBox` for the boolean (overgrow inactive) and a
   `Cycler` for each discrete-value setting (opacity, scroll speed, overgrow time, border style), composited over the
   value column. They display the live value while the existing option routing drives changes; the dynamic Ghostty shader
   rows stay hand-drawn. `packages/exomux/settings_options.ts` carries the option-control host.
+- The Exomux background-config modal is built from the same real controls: its preset/image pane is a real `List` (with
+  a `·` marking the active preset, the selected-row highlight, and a content scrollbar), each background setting is a
+  `Cycler` or `CheckBox`, and Close is a `Button` — all composited over the modal, driven by its existing routing.
+  `packages/exomux/background_list.ts` carries the list-pane host.
 - The Exomux settings window's theme and background selectors are real exotui `List` components, not hand-drawn rows.
   They are mounted on an off-screen `ExomuxWidgetSurface`, bound two-way to the controller's selection, and composited
   into the window; a click on a picker is forwarded straight into the `List` as a real `MousePressEvent`, which selects

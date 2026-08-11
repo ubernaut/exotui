@@ -198,8 +198,10 @@ deno task exomux:audit
 
 ## Background settings
 
-`b` inside the global settings modal (or its `[ b Background config ]` button) opens a per-background config modal. Only
-backgrounds with genuinely tunable behaviour get knobs — every row is wired to a real constructor option, and a
+`b` inside the global settings modal (or its `[ b Background config ]` button) opens a per-background config modal. It
+is built from the same real exotui controls as the settings window: the preset/image pane is a `List` (a `·` marks the
+active preset, `>` the cursor, with a scrollbar), each setting is a `Cycler` or `CheckBox`, and Close is a `Button`.
+Only backgrounds with genuinely tunable behaviour get knobs — every row is wired to a real constructor option, and a
 background with nothing to tune says so instead of showing decorations. Matrix, rainy windows, circuit, biomech, ivy and
 jungle expose their density; fire its intensity.
 
