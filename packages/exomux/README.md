@@ -52,7 +52,9 @@ separate from the per-session layout state, so they survive reboots and host ter
 session. Choosing a background image copies it into `~/.config/exomux/images/`, so the wallpaper keeps working even if
 the original file is later moved or deleted. A background image can be a PNG or a JPEG. `--reset-config` restores safe
 defaults; `--config-dir=<path>` points at a different config directory. Click the session name at the top of the
-settings window to rename the session — its attach key and on-disk state move together, live.
+settings window to rename the session — its attach key and on-disk state move together, live. The settings window's
+action buttons are real exotui `Button` components: they render off-screen (`widget_surface.ts`) and are composited into
+the window like any terminal's screen grid, rather than being hand-drawn glyphs pretending to be buttons.
 
 Inside Ghostty, the settings window gains a CRT shader section: pulsating/flickering scanlines and pincushion
 distortion, each with adjustable intensity. Turning one on generates GLSL and a managed Ghostty config include under

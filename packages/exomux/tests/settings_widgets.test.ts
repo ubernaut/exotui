@@ -8,9 +8,10 @@ import {
 } from "../settings_widgets.ts";
 
 /** Strips SGR sequences so a row's plain glyphs can be inspected. */
+const SGR_PATTERN = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
 function plainRow(cells: readonly (string | Uint8Array | undefined)[]): string {
   return cells
-    .map((cell) => (typeof cell === "string" ? cell.replace(/\x1b\[[0-9;]*m/g, "") : ""))
+    .map((cell) => (typeof cell === "string" ? cell.replace(SGR_PATTERN, "") : ""))
     .join("");
 }
 

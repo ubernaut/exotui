@@ -31,6 +31,14 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- The Exomux settings window's action buttons ("Background config" and "Close") are real exotui `Button` components, not
+  hand-drawn glyph runs. A new `ExomuxWidgetSurface` hosts a headless `Tui` over a `MemoryCanvasSink`, so library
+  components render off-screen into an in-memory cell grid that the desktop composites into the window exactly as it
+  composites any terminal's screen grid. Because component draws defer to microtasks while the desktop paints
+  synchronously, `ExomuxSettingsWidgets` captures the buttons' styled cells into a snapshot the painter blits through a
+  new `DesktopPainter.rawCell()`; a completed render schedules the repaint that shows it, and until a matching snapshot
+  exists the painter falls back to the previous hand-drawn labels so a button is never blank. `packages/exomux/`
+  `widget_surface.ts` and `settings_widgets.ts` carry the compositing surface and the button host.
 - Exomux detects when it is running inside Ghostty and, only then, offers GLSL interface shaders in the settings window.
   Two CRT effects ship: pulsating/flickering scanlines (with scanline-depth, flicker, and pulse controls) and pincushion
   distortion (with a magnitude control). Selecting and tuning a shader generates the GLSL and a managed Ghostty config
@@ -334,8 +342,10 @@ quickly, but the affected entrypoint or module family should be named here.
 ### Fixed
 
 - The Exomux metaball background is a smooth gradient again, not scanline stripes. Each blob shades from its centre to
-  its edge between the two most-contrasting colours in the active theme, chosen per theme so every one reads with real
-  contrast, and the alternate-row quantization that produced horizontal banding is gone.
+  its edge between the two most vivid, highest-contrast colours in the active theme — anchored on the most-saturated hue
+  and partnered with the colour furthest from it in hue weighted by its own saturation, so a theme like `t2` renders
+  pink and blue blobs rather than muted surface tones — and the alternate-row quantization that produced horizontal
+  banding is gone.
 - Transparent windows show the background flowing behind them over fluid fields like turbulence, instead of reading as
   opaque. A fluid field treated every window rectangle as a solid obstacle, so there was no flow behind a window and its
   translucent cells blended against a flat void that, in most themes, is nearly the window surface — so it looked opaque
