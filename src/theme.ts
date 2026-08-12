@@ -79,6 +79,20 @@ export function replaceEmptyStyle(style: Style, replacement: Style): Style {
   return replaceEmptyStyleInternal(style, replacement);
 }
 
+const FOCUS_CUE_OPEN = "\x1b[7m";
+const FOCUS_CUE_CLOSE = "\x1b[27m";
+
+/**
+ * Wraps a style with reverse video, the conventional terminal focus cue. Used as
+ * the default focused/active look for a component whose theme does not otherwise
+ * distinguish focus, so which control is focused is always visible. Reverse
+ * video is additive — it keeps the base colors and just swaps them — and reads
+ * clearly whether or not the base sets a background.
+ */
+export function withFocusCue(base: Style): Style {
+  return (value) => `${FOCUS_CUE_OPEN}${base(value)}${FOCUS_CUE_CLOSE}`;
+}
+
 function createAnsiStyleInternal(spec: AnsiStyleSpec): Style {
   const codes = ansiStyleCodes(spec);
   if (codes.length === 0) return emptyStyleInternal;
@@ -146,7 +160,10 @@ export function createAnsiThemeTokens(specs: AnsiThemeTokenSpecs): Partial<Theme
 function hierarchizeThemeCore(input: Partial<Theme> = {}): Theme {
   input.base ??= emptyStyleInternal;
   input.disabled ??= input.base;
-  input.focused ??= input.base;
+  // With no focused look of its own, a control defaults to a reverse-video focus
+  // cue over its base so which control has focus is always visible. Passing
+  // `focused` explicitly — even equal to `base` — opts out of the cue.
+  input.focused ??= withFocusCue(input.base);
   input.active ??= input.focused;
 
   const output = input as Theme & Record<string, Theme>;

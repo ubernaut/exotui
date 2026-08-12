@@ -31,6 +31,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Focused controls are now visible by default. A theme that does not give a control a `focused` (or `active`) look of
+  its own defaults it to a reverse-video cue over the base, so the keyboard-focused widget always stands out —
+  `hierarchizeTheme` derives it via the new exported `withFocusCue(base)`. Passing `focused` explicitly (even equal to
+  `base`) still opts out, so existing themed apps are unchanged.
 - New `Cycler` component: a compact value picker that shows one value flanked by `<` / `>` affordances and steps through
   a fixed set of options (left half / left-arrow / wheel-up step back, right half / right-arrow / wheel-down step
   forward), wrapping by default. It fills the gap between `Stepper` (a multi-step wizard indicator) and a settings row

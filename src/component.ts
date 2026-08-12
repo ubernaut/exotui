@@ -101,6 +101,8 @@ export class Component extends EventEmitter<
     });
 
     this.state = new Signal<ComponentState>("base");
+    // hierarchizeTheme defaults an unspecified `focused`/`active` look to a
+    // reverse-video focus cue, so a focused control is always visible.
     this.theme = hierarchizeTheme(options.theme);
     this.style = new Computed(() => {
       const state = this.state.value;
