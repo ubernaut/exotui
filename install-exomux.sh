@@ -6,8 +6,88 @@ set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bin_dir="${EXOMUX_BIN_DIR:-$HOME/.local/bin}"
 
+# Exomux builds with Deno 2 (lockfile v5, `deno compile`, `--unstable-webgpu`).
+required_deno="2.1.0"
+
+# Version string from `deno --version` (first line: "deno X.Y.Z (...)").
+deno_current_version() {
+  deno --version 2>/dev/null | head -n1 | awk '{print $2}'
+}
+
+# True when $1 (found) is >= $2 (required), comparing dotted version numbers.
+version_ge() {
+  [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]
+}
+
+# Runs Deno's official installer into the user's home dir (no sudo, ~/.deno).
+install_deno_userspace() {
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "error: 'curl' is needed to fetch Deno automatically. Install Deno yourself: https://deno.com" >&2
+    exit 1
+  fi
+  echo "Fetching Deno's official install script (installs into your home directory, no sudo)..."
+  # Piped stdin is non-interactive, so the installer just installs + prints PATH hints.
+  if ! curl -fsSL https://deno.land/install.sh | sh; then
+    echo "error: automatic Deno install failed. Install it yourself: https://deno.com" >&2
+    exit 1
+  fi
+  export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
+  export PATH="$DENO_INSTALL/bin:$PATH"
+  echo "Deno installed to $DENO_INSTALL/bin."
+  echo "note: add it to your shell profile so future sessions find it:"
+  echo "  export PATH=\"$DENO_INSTALL/bin:\$PATH\""
+}
+
+# Missing or too-old Deno: offer a userspace auto-install or point at the manual route.
+ensure_deno() {
+  local reason="$1" # "missing" or the too-old version string
+  if [ "$reason" = "missing" ]; then
+    echo "Deno is not installed. Exomux needs Deno $required_deno or newer to build."
+  else
+    echo "Deno $reason is installed, but Exomux needs $required_deno or newer."
+  fi
+  if [ ! -t 0 ]; then
+    echo "This is a non-interactive shell, so nothing was installed." >&2
+    echo "Install Deno (https://deno.com) — e.g. 'curl -fsSL https://deno.land/install.sh | sh' — then re-run this script." >&2
+    exit 1
+  fi
+  printf "Let this script install the latest Deno into your home directory, or install it yourself? [I]nstall / [s]elf / [c]ancel: "
+  local answer=""
+  read -r answer || true
+  case "$answer" in
+    "" | [iI] | [iI][nN][sS][tT][aA][lL][lL])
+      install_deno_userspace
+      ;;
+    [sS] | [sS][eE][lL][fF])
+      echo "Install Deno yourself (https://deno.com), then re-run this script."
+      exit 0
+      ;;
+    *)
+      echo "Cancelled."
+      exit 1
+      ;;
+  esac
+}
+
+if command -v deno >/dev/null 2>&1; then
+  current_deno="$(deno_current_version)"
+  if [ -n "$current_deno" ] && version_ge "$current_deno" "$required_deno"; then
+    echo "Deno $current_deno found (>= $required_deno required)."
+  else
+    ensure_deno "${current_deno:-unknown}"
+  fi
+else
+  ensure_deno "missing"
+fi
+
+# After an auto-install, confirm Deno is now usable at the required version.
 if ! command -v deno >/dev/null 2>&1; then
-  echo "error: deno is required to build Exomux (https://deno.com)" >&2
+  echo "error: deno is still not on PATH after setup; aborting." >&2
+  exit 1
+fi
+current_deno="$(deno_current_version)"
+if [ -n "$current_deno" ] && ! version_ge "$current_deno" "$required_deno"; then
+  echo "error: deno $current_deno is still older than the required $required_deno; aborting." >&2
   exit 1
 fi
 
