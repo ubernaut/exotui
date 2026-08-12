@@ -1400,9 +1400,32 @@ export function mountExomuxDesktop(
     return true;
   };
 
+  // Scrolls whichever settings list sits under the pointer (theme or background)
+  // by its viewport, without changing any selection. Over the rest of the
+  // settings window the wheel is consumed so it never cycles the active pane.
+  const scrollSettingsListAt = (column: number, row: number, delta: number): boolean => {
+    const clientRect = windowProjection.peek().windows.find(
+      (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
+    )?.clientRect;
+    if (!clientRect || !controller.globalConfigVisible.peek()) return true;
+    const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
+    const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
+    const layout = exomuxGlobalConfigLayout(
+      clientRect,
+      themeIndex,
+      backgroundIndex,
+      controller.shaderOptionRows().length,
+    );
+    if (contains(layout.themeListRect, column, row)) settingsPickers.handleScroll("theme", delta);
+    else if (contains(layout.backgroundListRect, column, row)) settingsPickers.handleScroll("background", delta);
+    return true;
+  };
+
   const scrollWindowAt = (column: number, row: number, delta: number): boolean => {
     const window = clientWindowAt(windowProjection.peek(), column, row);
-    return window ? scrollClientWindow(window.id, delta) : false;
+    if (!window) return false;
+    if (window.id === EXOMUX_SETTINGS_WINDOW_ID) return scrollSettingsListAt(column, row, delta);
+    return scrollClientWindow(window.id, delta);
   };
 
   /** Wheel notches scale by the target window's resolved scroll speed. */

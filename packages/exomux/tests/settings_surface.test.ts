@@ -93,9 +93,10 @@ Deno.test("settings surface pickers route clicks, wheel, and keys into the bound
     assertEquals(theme.peek(), 2);
     assertEquals(themeSets.at(-1), 2);
 
-    // The wheel moves the theme selection one row per notch.
+    // The wheel scrolls the viewport, never the selection (these lists fit, so
+    // it is simply a no-op here — it must not change the theme).
     surface.handleScroll("theme", 1);
-    assertEquals(theme.peek(), 3);
+    assertEquals(theme.peek(), 2, "scrolling a picker must not change its selection");
 
     // Arrow keys move the background selection.
     surface.handleKey("background", { key: "down" });

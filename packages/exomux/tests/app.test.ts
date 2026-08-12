@@ -12,7 +12,7 @@ import {
 const START_BUTTON_WIDTH = 14;
 import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
 import { stripAnsi } from "@ubernaut/deno-tui/testing";
-import { createTestKeyPress, createTestMousePress } from "@ubernaut/deno-tui/testing";
+import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/deno-tui/testing";
 import { decodeBuffer } from "@ubernaut/deno-tui";
 import type { Key, MouseScrollEvent } from "@ubernaut/deno-tui";
 import {
@@ -3041,6 +3041,46 @@ Deno.test("Exomux global config modal picks theme and background from select lis
     await harness.pilot.press("escape");
     await mounted.whenIdle();
     assertEquals(controller.globalConfigVisible.peek(), false);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Scrolling a settings list routes to the list under the pointer, never the theme", async () => {
+  const initial = session("scroll-settings", "shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 110, rows: 34 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    await clickStartMenuItem(harness, mounted, "config");
+    assertEquals(controller.globalConfigVisible.peek(), true);
+    // The active pane is "theme"; before, a wheel anywhere in settings cycled it.
+    assertEquals(controller.globalConfigPane.peek(), "theme");
+
+    const backgroundListRect = exomuxGlobalConfigLayout(
+      mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SETTINGS_WINDOW_ID)!.clientRect,
+      Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek())),
+      Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek())),
+    ).backgroundListRect;
+
+    const themeBefore = controller.themeId.peek();
+    const backgroundBefore = controller.backgroundId.peek();
+    // Scroll with the pointer over the background list: it must touch neither the
+    // theme (the reported bug) nor any selection.
+    await mounted.handleScroll(createTestMouseScroll(1, {
+      x: backgroundListRect.column + Math.floor(backgroundListRect.width / 2),
+      y: backgroundListRect.row + Math.floor(backgroundListRect.height / 2),
+    }));
+    await mounted.whenIdle();
+    assertEquals(controller.themeId.peek(), themeBefore, "scrolling the background list must not change the theme");
+    assertEquals(controller.backgroundId.peek(), backgroundBefore, "scrolling must not change the selection");
   } finally {
     harness.destroy();
     await controller.dispose();

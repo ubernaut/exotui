@@ -392,6 +392,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- In the Exomux settings window the wheel now scrolls the theme/background list **under the pointer** by its viewport,
+  and never changes a selection. Previously a wheel notch anywhere in the window cycled the _active_ pane's selection,
+  so scrolling over the background list changed the theme. Settings scroll is routed by pointer position
+  (`scrollSettingsListAt`), the pickers scroll their viewport instead of cycling, and the wheel over the options/chrome
+  is consumed rather than cycling a value.
 - The `List` wheel now scrolls the viewport through the items **without changing the selection**, so a long list can be
   browsed while a selection is kept; an arrow key re-anchors the viewport on the selection, and the selected-row
   highlight hides while it is scrolled out of view. `ListController` gains a `scrollTop` signal (`-1` follows the
