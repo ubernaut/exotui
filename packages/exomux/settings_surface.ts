@@ -18,7 +18,7 @@
 // the caller falls back to its own hand-drawn rows, so a picker is never blank.
 
 import { type Component, createAnsiStyle, List, Signal, type Style } from "@ubernaut/deno-tui";
-import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/deno-tui/testing";
+import { createTestKeyPress, createTestMousePress } from "@ubernaut/deno-tui/testing";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 
@@ -172,11 +172,15 @@ export class ExomuxSettingsSurface {
     this.#scheduleRender();
   }
 
-  /** Routes a wheel notch (positive = down) to the given picker. */
+  /**
+   * Routes a wheel notch (positive = down) to the given picker. These are
+   * compact selectors whose items all fit, so the wheel cycles the selection
+   * like a dropdown rather than scrolling a viewport (which would be a no-op).
+   */
   handleScroll(pane: ExomuxPickerPane, delta: number): void {
     if (!delta) return;
     const list = pane === "theme" ? this.#themeList : this.#backgroundList;
-    list?.emit("mouseScroll", createTestMouseScroll(delta > 0 ? 1 : -1));
+    list?.controller.move(delta > 0 ? 1 : -1);
     this.#markDirty();
     this.#scheduleRender();
   }

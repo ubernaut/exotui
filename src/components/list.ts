@@ -66,6 +66,13 @@ export function virtualRows<T>(
   return rows;
 }
 
+/** Window for an explicit scroll top, clamped so it never runs past the list. */
+export function listWindowFromTop(length: number, top: number, capacity: number): { start: number; end: number } {
+  const height = Math.max(0, Math.floor(capacity));
+  const start = Math.max(0, Math.min(Math.floor(top), Math.max(0, length - height)));
+  return { start, end: Math.min(length, start + height) };
+}
+
 /** Pads (and clips) a row to an exact display width so trailing cells are cleared. */
 export function padListRow(row: string, width: number): string {
   if (width <= 0) return "";
@@ -86,8 +93,9 @@ export function visibleListRows(
   height: number,
   width?: number,
   markerFor: ListRowMarker = defaultRowMarker,
+  windowStart?: number,
 ): string[] {
-  return visibleListRowsInto([], items, selectedIndex, height, width, markerFor);
+  return visibleListRowsInto([], items, selectedIndex, height, width, markerFor, windowStart);
 }
 
 /**
@@ -104,10 +112,15 @@ export function visibleListRowsInto(
   height: number,
   width?: number,
   markerFor: ListRowMarker = defaultRowMarker,
+  windowStart?: number,
 ): string[] {
   const safeHeight = Math.max(0, height);
   const selected = clampSelectionIndex(items.length, selectedIndex);
-  const window = selectionWindow(items.length, selected, safeHeight);
+  // `windowStart` scrolls the viewport independently of the selection; without
+  // it the window follows the selection as before.
+  const window = windowStart === undefined
+    ? selectionWindow(items.length, selected, safeHeight)
+    : listWindowFromTop(items.length, windowStart, safeHeight);
   const count = Math.max(0, window.end - window.start);
   target.length = count;
   for (let offset = 0; offset < count; offset += 1) {
@@ -139,11 +152,19 @@ export interface ListInspection {
 export class ListController {
   readonly items: Signal<string[]>;
   readonly selectedIndex: Signal<number>;
+  /**
+   * Explicit viewport top for wheel scrolling; `-1` means the viewport follows
+   * the selection (the default). Once the wheel moves it, the viewport scrolls
+   * independently of the selection until the selection is arrowed off-screen.
+   */
+  readonly scrollTop: Signal<number>;
   readonly #ownsItems: boolean;
   readonly #ownsSelectedIndex: boolean;
   readonly #onSelect?: (item: string, index: number) => void | Promise<void>;
   readonly #syncSelection = () => {
     this.selectedIndex.value = clampSelectionIndex(this.items.peek().length, this.selectedIndex.peek());
+    // A changed list re-follows the selection rather than keeping a stale offset.
+    this.scrollTop.value = -1;
   };
 
   constructor(options: ListControllerOptions) {
@@ -151,9 +172,36 @@ export class ListController {
     this.#ownsSelectedIndex = !(options.selectedIndex instanceof Signal);
     this.items = signalify(options.items, { deepObserve: true });
     this.selectedIndex = signalify(options.selectedIndex ?? 0);
+    this.scrollTop = new Signal(-1);
     this.#onSelect = options.onSelect;
     this.items.subscribe(this.#syncSelection);
     this.#syncSelection();
+  }
+
+  /**
+   * Top visible item index for a viewport height: follows the selection unless
+   * scrolled. Reads the signals through `.value` so a Computed that renders a
+   * window re-runs when the selection, the scroll offset, or the items change.
+   */
+  windowStart(height: number): number {
+    const length = this.items.value.length;
+    const safeHeight = Math.max(0, Math.floor(height));
+    const top = this.scrollTop.value;
+    if (top < 0) return selectionWindow(length, this.selectedIndex.value, safeHeight).start;
+    return listWindowFromTop(length, top, safeHeight).start;
+  }
+
+  /** Nudges an explicit viewport just far enough to keep the selection in view. */
+  ensureSelectionVisible(height: number): void {
+    const top = this.scrollTop.peek();
+    if (top < 0) return; // following the selection already keeps it visible
+    const safeHeight = Math.max(1, Math.floor(height));
+    const length = this.items.peek().length;
+    const selected = clampSelectionIndex(length, this.selectedIndex.peek());
+    const start = listWindowFromTop(length, top, safeHeight).start;
+    if (selected < start) this.scrollTop.value = selected;
+    else if (selected >= start + safeHeight) this.scrollTop.value = selected - safeHeight + 1;
+    else if (start !== top) this.scrollTop.value = start;
   }
 
   rows(height: number): string[] {
@@ -197,14 +245,21 @@ export class ListController {
   /** The item index shown at a visible row `offset` for the current scroll window. */
   indexAtRow(offset: number, height: number): number {
     const length = this.items.peek().length;
-    const window = selectionWindow(length, this.selectedIndex.peek(), Math.max(0, Math.floor(height)));
-    return clampSelectionIndex(length, window.start + Math.max(0, Math.floor(offset)));
+    return clampSelectionIndex(length, this.windowStart(height) + Math.max(0, Math.floor(offset)));
   }
 
-  /** Moves the selection one row per wheel notch (positive scroll moves down). */
-  handleScroll(scroll: number): string | undefined {
-    if (!scroll) return undefined;
-    return this.move(scroll > 0 ? 1 : -1);
+  /**
+   * Scrolls the viewport one row per wheel notch (positive scroll moves down)
+   * without changing the selection, so a list can be browsed while a selection
+   * is kept. The next arrow key re-anchors the viewport on the selection.
+   */
+  handleScroll(scroll: number, height = 1): void {
+    if (!scroll) return;
+    const length = this.items.peek().length;
+    const safeHeight = Math.max(1, Math.floor(height));
+    const maxTop = Math.max(0, length - safeHeight);
+    const next = this.windowStart(safeHeight) + (scroll > 0 ? 1 : -1);
+    this.scrollTop.value = Math.max(0, Math.min(next, maxTop));
   }
 
   handleKeyPress(
@@ -219,18 +274,22 @@ export class ListController {
     else if (key === "home") this.first();
     else if (key === "end") this.last();
     else if (key === "return" || key === "space") return this.selectActive();
+    else return undefined;
+    // Arrowing the selection brings it back into view when the wheel scrolled away.
+    this.ensureSelectionVisible(height);
     return undefined;
   }
 
   inspect(height: number = this.items.peek().length): ListInspection {
     const items = [...this.items.peek()];
     const selectedIndex = clampSelectionIndex(items.length, this.selectedIndex.peek());
+    const safeHeight = Math.max(0, Math.floor(height));
     return {
       items,
       itemCount: items.length,
       selectedIndex,
       selected: items[selectedIndex],
-      window: selectionWindow(items.length, selectedIndex, Math.max(0, Math.floor(height))),
+      window: listWindowFromTop(items.length, this.windowStart(safeHeight), safeHeight),
       empty: items.length === 0,
     };
   }
@@ -239,6 +298,7 @@ export class ListController {
     this.items.unsubscribe(this.#syncSelection);
     if (this.#ownsItems) this.items.dispose();
     if (this.#ownsSelectedIndex) this.selectedIndex.dispose();
+    this.scrollTop.dispose();
   }
 }
 
@@ -278,6 +338,7 @@ export class List extends Component {
         // one on scroll; reserve the last column when a scrollbar is shown.
         Math.max(0, this.rectangle.value.width - (this.#scrollbar ? 1 : 0)),
         this.#markerFor,
+        this.controller.windowStart(this.rectangle.value.height),
       )
     );
 
@@ -294,7 +355,7 @@ export class List extends Component {
       if (!drag) this.controller.selectActive();
     });
     this.on("mouseScroll", ({ scroll }) => {
-      this.controller.handleScroll(scroll);
+      this.controller.handleScroll(scroll, this.rectangle.peek().height);
     });
     this.on("destroy", () => this.#rows.dispose());
     if (ownsController) this.on("destroy", () => this.controller.dispose());
@@ -327,8 +388,8 @@ export class List extends Component {
       const rect = this.rectangle.value;
       const items = this.items.value;
       const index = clampSelectionIndex(items.length, this.selectedIndex.value);
-      const window = selectionWindow(items.length, index, Math.max(0, Math.floor(rect.height)));
-      return { column: rect.column, row: rect.row + (index - window.start), width: Math.max(0, rect.width - reserve) };
+      const start = this.controller.windowStart(rect.height);
+      return { column: rect.column, row: rect.row + (index - start), width: Math.max(0, rect.width - reserve) };
     });
     const highlight = new Text({
       parent: this,
@@ -337,7 +398,15 @@ export class List extends Component {
       text: label,
       overwriteWidth: true,
       rectangle,
-      visible: new Computed(() => this.visible.value && this.items.value.length > 0),
+      // Hide the selected-row highlight when the wheel has scrolled it off view.
+      visible: new Computed(() => {
+        const items = this.items.value;
+        if (!this.visible.value || items.length === 0) return false;
+        const rect = this.rectangle.value;
+        const index = clampSelectionIndex(items.length, this.selectedIndex.value);
+        const start = this.controller.windowStart(rect.height);
+        return index >= start && index < start + Math.max(0, Math.floor(rect.height));
+      }),
     });
     highlight.subComponentOf = this;
     this.subComponents.selection = highlight;
@@ -369,11 +438,10 @@ export class List extends Component {
         const total = this.items.value.length;
         const height = Math.max(1, Math.floor(rect.height));
         if (total <= height) return { column, row: rect.row, width: 1, height };
-        const index = clampSelectionIndex(total, this.selectedIndex.value);
-        const window = selectionWindow(total, index, height);
+        const start = this.controller.windowStart(rect.height);
         const thumbSize = Math.max(1, Math.min(height, Math.round((height * height) / total)));
         const maxStart = height - thumbSize;
-        const thumbStart = Math.min(maxStart, Math.round((maxStart * window.start) / Math.max(1, total - height)));
+        const thumbStart = Math.min(maxStart, Math.round((maxStart * start) / Math.max(1, total - height)));
         return { column, row: rect.row + thumbStart, width: 1, height: thumbSize };
       }),
     });

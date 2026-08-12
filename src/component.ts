@@ -9,6 +9,7 @@ import type { DrawObject } from "./canvas/draw_object.ts";
 import type { View } from "./view.ts";
 import type { InputEventRecord } from "./input_reader/mod.ts";
 import { isFocusNavigationEvent } from "./focus_navigation_events.ts";
+import { fitsInRectangle } from "./utils/numbers.ts";
 import { Computed, Signal, type SignalOfObject } from "./signals/mod.ts";
 import { signalify } from "./utils/signals.ts";
 
@@ -129,8 +130,12 @@ export class Component extends EventEmitter<
       }
     });
     tui.on("mouseScroll", (event) => {
+      // The wheel goes to whatever scrollable sits under the pointer — like a
+      // desktop — not only the focused control; the focused control still
+      // receives it as a fallback so keyboard-driven flows keep scrolling.
       const state = this.state.peek();
-      if (state === "focused" || state === "active") {
+      const underPointer = this.visible.peek() && fitsInRectangle(event.x, event.y, this.rectangle.peek());
+      if (underPointer || state === "focused" || state === "active") {
         this.emit("mouseScroll", event);
       }
     });

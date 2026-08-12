@@ -392,6 +392,16 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The `List` wheel now scrolls the viewport through the items **without changing the selection**, so a long list can be
+  browsed while a selection is kept; an arrow key re-anchors the viewport on the selection, and the selected-row
+  highlight hides while it is scrolled out of view. `ListController` gains a `scrollTop` signal (`-1` follows the
+  selection, as before) and `windowStart(height)`; `handleScroll(scroll, height)` now moves that viewport rather than
+  the selection (it returns `void`), and `visibleListRows`/`visibleListRowsInto` take an optional `windowStart`. Compact
+  selectors that want the old cycle-on-wheel keep it by calling `controller.move()` (as the Exomux theme/background
+  pickers now do).
+- The mouse wheel routes to whatever scrollable control sits **under the pointer**, not only the focused one — a
+  component now receives `mouseScroll` when the pointer is within its bounds (the focused control still gets it as a
+  fallback), so hovering a list and scrolling works like a desktop.
 - The Three ASCII renderer no longer goes offline ("ASCII RENDERER OFFLINE — data must be an ArrayBuffer or an
   ArrayBufferView") the moment its scene resizes — e.g. when a control is focused or a window maximized. The WebGPU
   compatibility shim's `mappedAtCreation` `unmap` uploaded the shadow buffer as a bare `ArrayBuffer`, which some
