@@ -557,6 +557,7 @@ export function mountExomuxDesktop(
           cycleSeconds: Number(values.cycleSeconds ?? 15),
           updateHz: Number(values.updateHz ?? 60),
           audioMode: values.audioMode === "system" ? "system" : values.audioMode === "synth" ? "synth" : "mic",
+          debug: values.debug === true,
         })
         : id === "image"
         ? new ExomuxImageField(typeof values.path === "string" ? { path: values.path } : {})

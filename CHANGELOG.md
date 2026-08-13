@@ -31,6 +31,14 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- The Exomux butterchurn background gained a **Debug overlay** toggle (in its background-config options). When on, it
+  paints a two-line readout in the lower-left — the live renderer (`CPU` vs `WebGPU`) and the current preset name and
+  position — as part of the background layer, so windows occlude it rather than it floating over their content. Turning
+  it on also streams WebGPU diagnostics (adapter/device availability, `uncapturederror` validation messages, WGSL
+  shader-compilation warnings/errors, per-preset compile success/failure, and device-lost fall-backs) plus any JS
+  `console` output to a timestamped file under `logs/` in the working directory, so a GPU issue can be diagnosed after
+  the fact. The logging is entirely opt-in and every filesystem touch is guarded, so it is a no-op when the toggle is
+  off or the working directory is not writable. `logs/` is gitignored.
 - Focused controls are now visible by default. A theme that does not give a control a `focused` (or `active`) look of
   its own defaults it to a reverse-video cue over the base, so the keyboard-focused widget always stands out —
   `hierarchizeTheme` derives it via the new exported `withFocusCue(base)`. Passing `focused` explicitly (even equal to

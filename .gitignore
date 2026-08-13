@@ -6,3 +6,5 @@ plan/NeonExodus/
 docs/assets/*.map
 # `deno task exomux:compile` output.
 packages/exomux/exomux
+# Butterchurn debug-mode logs (created only when the debug overlay is enabled).
+logs/

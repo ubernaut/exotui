@@ -42,6 +42,7 @@ import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "
 import { type ExomuxButterchurnAudio, ExomuxButterchurnPreset } from "./butterchurn_preset.ts";
 import { ExomuxButterchurnGpu, requestExomuxGpuDevice } from "./butterchurn_gpu.ts";
 import type { ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
+import { createExomuxDebugLogger, type ExomuxDebugLogger } from "./debug_log.ts";
 
 // ── constants ───────────────────────────────────────────────────────────────
 
@@ -282,12 +283,37 @@ export interface ExomuxButterchurnFieldOptions {
   readonly updateHz?: number;
   /** What the shared analyser listens to when this field owns the capture. */
   readonly audioMode?: ExomuxAudioCaptureMode;
+  /**
+   * Draw a CPU/WebGPU + preset-name readout in the lower-left, and log GPU and
+   * JS messages to `logs/` for diagnosis. Off everywhere except when the
+   * background's "Debug overlay" setting is turned on.
+   */
+  readonly debug?: boolean;
+  /**
+   * Debug logger to use when `debug` is on. Defaults to a file logger under
+   * `logs/`; pass one (e.g. a capturing sink) to divert the output — tests use
+   * this to avoid writing files. The caller owns any logger it passes in.
+   */
+  readonly debugLogger?: ExomuxDebugLogger;
 }
 
 interface ButterchurnPointer {
   readonly column: number;
   readonly row: number;
   readonly updatedAt: number;
+}
+
+/**
+ * The two debug-overlay lines: renderer + position, then the preset name.
+ * Pure so the content is testable without a field or any I/O.
+ */
+export function exomuxButterchurnDebugLines(
+  mode: string,
+  position: number,
+  count: number,
+  presetName: string,
+): readonly [string, string] {
+  return [` butterchurn · ${mode} · ${position}/${count}`, ` ▸ ${presetName}`];
 }
 
 /**
@@ -338,6 +364,15 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
   readonly #frameMs: number;
   readonly #audioMode: ExomuxAudioCaptureMode;
   #heldSeconds = 0;
+
+  /** Debug overlay + logging, off unless the "Debug overlay" setting is on. */
+  readonly #debug: boolean;
+  #logger: ExomuxDebugLogger | undefined;
+  /** Whether this field created (and so must dispose) its own logger. */
+  #ownsLogger = false;
+  /** Last renderer/preset the overlay logged, so transitions log once. */
+  #loggedRenderer = "";
+  #loggedPreset = "";
 
   // GPU path. Presets keep rendering on the CPU until a device and the
   // preset's own shaders are both ready, so a missing adapter or a shader that
@@ -415,6 +450,20 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     this.#shuffleState = (this.#seed * 2_246_822_519 + 374_761_393) >>> 0;
     this.#preset = this.#load(this.#presetIndex);
     this.#order = [this.#presetIndex];
+    this.#debug = options.debug === true;
+    if (this.#debug) {
+      this.#ownsLogger = options.debugLogger === undefined;
+      this.#logger = options.debugLogger ?? createExomuxDebugLogger();
+      this.#logDebug(
+        "field",
+        `debug on · wantsGpu=${this.#wantsGpu} preset="${this.#preset.name}" (${this.#presetIndex}/${this.#catalog.length})`,
+      );
+    }
+  }
+
+  /** Records a line to the debug log when debug mode is on; a no-op otherwise. */
+  #logDebug(category: string, message: string): void {
+    this.#logger?.log(category, message);
   }
 
   /** Preset currently in front; during a blend this is the incoming one. */
@@ -594,6 +643,9 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     this.#gpu?.destroy();
     this.#gpu = undefined;
     this.#gpuState = "unavailable";
+    this.#logDebug("field", "disposed");
+    if (this.#ownsLogger) this.#logger?.dispose();
+    this.#logger = undefined;
   }
 
   advance(options: ExomuxBackgroundAdvanceOptions): boolean {
@@ -674,7 +726,47 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
         cells[column] = { char: shadeFor(peak), foreground, bold: peak > 0.9 };
       }
     }
+    if (this.#debug) this.#paintDebugOverlay(width, height, theme);
     return this.#cells;
+  }
+
+  /**
+   * Stamps a two-line readout into the lower-left of the cell grid: the live
+   * renderer (CPU vs WebGPU) and the current preset. It lives in the background
+   * grid, which is painted before any window, so windows occlude it naturally
+   * instead of it floating over their content. Renderer/preset changes are
+   * logged as they happen for the debug file.
+   */
+  #paintDebugOverlay(width: number, height: number, theme: ExomuxThemeSpec): void {
+    if (height < 2 || width < 4) return;
+    const renderer = this.renderer;
+    const mode = renderer === "gpu" ? "WebGPU" : renderer === "starting" ? "GPU…" : "CPU";
+    if (renderer !== this.#loggedRenderer) {
+      this.#loggedRenderer = renderer;
+      this.#logDebug("renderer", `now ${renderer} (${mode})`);
+    }
+    if (this.#preset.name !== this.#loggedPreset) {
+      this.#loggedPreset = this.#preset.name;
+      this.#logDebug("preset", `${this.#preset.name} (${this.#presetIndex}/${this.#catalog.length})`);
+    }
+    const [top, bottom] = exomuxButterchurnDebugLines(
+      mode,
+      this.#presetIndex + 1,
+      this.#catalog.length,
+      this.#preset.name,
+    );
+    this.#writeOverlayLine(height - 2, width, top, theme.accent, true);
+    this.#writeOverlayLine(height - 1, width, bottom, theme.text, false);
+  }
+
+  /** Overwrites one grid row's leading cells with `text`, clipped to `width`. */
+  #writeOverlayLine(row: number, width: number, text: string, foreground: ExomuxRgb, bold: boolean): void {
+    const cells = this.#cells[row];
+    if (!cells) return;
+    const limit = Math.min(width, text.length);
+    for (let column = 0; column < limit; column += 1) {
+      cells[column] = { char: text[column]!, foreground, bold };
+    }
   }
 
   // ── simulation ────────────────────────────────────────────────────────────

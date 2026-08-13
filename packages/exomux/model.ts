@@ -742,6 +742,13 @@ export const EXOMUX_BACKGROUND_SETTING_SPECS: Readonly<
       values: Object.freeze([...EXOMUX_AUDIO_MODES]),
       format: formatAudioMode,
     }),
+    Object.freeze({
+      id: "debug",
+      label: "Debug overlay",
+      detail: "Shows CPU/WebGPU mode and the live preset name, and logs GPU messages to logs/.",
+      values: Object.freeze([false, true]),
+      format: onOff,
+    }),
   ]),
 }) as Readonly<Partial<Record<ExomuxBackgroundId, readonly ExomuxSettingSpec<string>[]>>>;
 

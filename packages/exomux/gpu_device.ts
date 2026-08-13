@@ -14,6 +14,8 @@
 // Neither consumer may destroy it; they own their own resources and nothing
 // more.
 
+import { exomuxDebugLog } from "./debug_log.ts";
+
 let pending: Promise<GPUDevice | undefined> | undefined;
 let current: GPUDevice | undefined;
 
@@ -28,12 +30,26 @@ export function exomuxGpuDevice(): Promise<GPUDevice | undefined> {
   pending ??= (async () => {
     try {
       const adapter = await navigator.gpu?.requestAdapter();
-      if (!adapter) return undefined;
+      if (!adapter) {
+        exomuxDebugLog("gpu-device", "no adapter — running on the software renderer");
+        return undefined;
+      }
       const device = await adapter.requestDevice();
       current = device;
+      // Surface WebGPU validation/out-of-memory errors that otherwise vanish;
+      // the listener is cheap and only forwards when a debug logger is active.
+      try {
+        device.addEventListener("uncapturederror", (event) => {
+          const error = (event as GPUUncapturedErrorEvent).error;
+          exomuxDebugLog("gpu-error", error?.message ?? String(error));
+        });
+      } catch {
+        // Older runtimes may not dispatch the event; nothing else to do.
+      }
       // A lost device must not stay cached, or every later caller is handed a
       // corpse and there is no way back short of restarting the client.
-      device.lost.then(() => {
+      device.lost.then((info) => {
+        exomuxDebugLog("gpu-device", `device lost: ${info?.reason ?? "unknown"} ${info?.message ?? ""}`.trim());
         pending = undefined;
         current = undefined;
       }).catch(() => {
@@ -41,7 +57,8 @@ export function exomuxGpuDevice(): Promise<GPUDevice | undefined> {
         current = undefined;
       });
       return device;
-    } catch {
+    } catch (error) {
+      exomuxDebugLog("gpu-device", `requestDevice failed: ${error instanceof Error ? error.message : String(error)}`);
       return undefined;
     }
   })();

@@ -1,6 +1,7 @@
 import { assert, assertAlmostEquals, assertEquals } from "./deps.ts";
 import {
   EXOMUX_BUTTERCHURN_PRESETS,
+  exomuxButterchurnDebugLines,
   ExomuxButterchurnField,
   exomuxPresetLooksBlank,
 } from "../butterchurn_background.ts";
@@ -816,4 +817,63 @@ Deno.test("butterchurn: a shapes-only preset is no longer a black screen", () =>
   let painted = 0;
   for (const row of field.rasterizeCells(BOUNDS, THEME)) for (const cell of row) if (cell) painted += 1;
   assert(painted > 10, `a preset drawing only shapes painted ${painted} cells`);
+});
+
+Deno.test("exomuxButterchurnDebugLines composes the mode and preset readout", () => {
+  const [top, bottom] = exomuxButterchurnDebugLines("WebGPU", 3, 289, "Flexi - mom");
+  assertEquals(top, " butterchurn · WebGPU · 3/289");
+  assertEquals(bottom, " ▸ Flexi - mom");
+});
+
+Deno.test("Debug overlay draws the CPU/WebGPU + preset readout in the lower-left, and logs", () => {
+  const logs: string[] = [];
+  const field = new ExomuxButterchurnField({
+    audio: scriptedAudio(),
+    gpu: false, // forces the software path, so the overlay reads "CPU"
+    autoCycle: false,
+    debug: true,
+    // An injected logger keeps the test off the filesystem (no logs/ file).
+    debugLogger: { log: (category, message) => logs.push(`${category}: ${message}`), dispose: () => {} },
+  });
+  try {
+    run(field, 3);
+    const grid = field.rasterizeCells(BOUNDS, THEME);
+    const readRow = (row: number, length: number): string => {
+      const cells = grid[row] ?? [];
+      let text = "";
+      for (let column = 0; column < length; column += 1) text += cells[column]?.char ?? " ";
+      return text;
+    };
+    const clip = (line: string): string => line.slice(0, BOUNDS.width);
+    const [top, bottom] = exomuxButterchurnDebugLines(
+      "CPU",
+      field.presetIndex + 1,
+      EXOMUX_BUTTERCHURN_PRESETS.length,
+      field.presetName,
+    );
+    // The two overlay lines land on the bottom two grid rows.
+    assertEquals(readRow(BOUNDS.height - 2, clip(top).length), clip(top));
+    assertEquals(readRow(BOUNDS.height - 1, clip(bottom).length), clip(bottom));
+    // The field init and the software-renderer transition reached the logger.
+    assert(logs.some((line) => line.startsWith("field:")), `no field log: ${logs.join(" | ")}`);
+    assert(
+      logs.some((line) => line.startsWith("renderer:") && line.includes("software")),
+      `no software renderer log: ${logs.join(" | ")}`,
+    );
+  } finally {
+    field.dispose();
+  }
+});
+
+Deno.test("Debug overlay is absent when debug is off", () => {
+  const field = new ExomuxButterchurnField({ audio: scriptedAudio(), gpu: false, autoCycle: false });
+  try {
+    run(field, 3);
+    const grid = field.rasterizeCells(BOUNDS, THEME);
+    let text = "";
+    for (const cell of grid[BOUNDS.height - 1] ?? []) text += cell?.char ?? " ";
+    assert(!text.includes("butterchurn"), `overlay leaked without debug: "${text}"`);
+  } finally {
+    field.dispose();
+  }
 });

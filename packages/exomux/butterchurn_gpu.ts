@@ -26,6 +26,7 @@ import { SAMPLERS } from "./glsl_wgsl.ts";
 import type { ExomuxButterchurnPrim } from "./butterchurn_preset.ts";
 import { exomuxNoiseSet, type ExomuxNoiseTexture } from "./butterchurn_noise.ts";
 import { exomuxGpuDevice } from "./gpu_device.ts";
+import { exomuxDebugLog, exomuxDebugLoggingActive } from "./debug_log.ts";
 
 /** Internal render size. Chosen so `texsize`-relative offsets behave as authored. */
 const RENDER_WIDTH = 512;
@@ -523,8 +524,9 @@ export class ExomuxButterchurnGpu {
     this.#resolveTexture = this.#createResolveTarget();
     this.#readbackBytesPerRow = alignBytesPerRow(this.#width * 4);
     this.#readback = this.#createReadback();
-    device.lost.then(() => {
+    device.lost.then((info) => {
       this.#lost = true;
+      exomuxDebugLog("gpu-renderer", `device lost — falling back to CPU: ${info?.reason ?? "unknown"}`);
     }).catch(() => {
       this.#lost = true;
     });
@@ -612,11 +614,16 @@ export class ExomuxButterchurnGpu {
       .then((pipelines) => {
         this.#pipelines.set(name, pipelines);
         this.#evict();
+        exomuxDebugLog("gpu-compile", `compiled "${name}" (${this.#pipelines.size} cached)`);
       })
-      .catch(() => {
+      .catch((error) => {
         // Either the GLSL used something unsupported, the generated WGSL was
         // rejected, or the device is gone; all mean the CPU path for this one.
         this.#failed.add(name);
+        exomuxDebugLog(
+          "gpu-compile",
+          `failed "${name}" → CPU: ${error instanceof Error ? error.message : String(error)}`,
+        );
       })
       .finally(() => {
         this.#compiling.delete(name);
@@ -1370,6 +1377,7 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
 
     const vertex = stage === "warp" ? WARP_VERTEX : COMP_VERTEX;
     const module = this.#device.createShaderModule({ code: `${fragmentSource(body, samplers)}\n${vertex}` });
+    if (exomuxDebugLoggingActive()) await this.#logShaderDiagnostics(module, stage);
     const pipeline = await this.#device.createRenderPipelineAsync({
       layout: this.#device.createPipelineLayout({ bindGroupLayouts: [this.#presetLayout(samplers)] }),
       vertex: stage === "warp" ? { module, entryPoint: "vs", buffers: [MESH_LAYOUT] } : { module, entryPoint: "vs" },
@@ -1377,6 +1385,22 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
       primitive: { topology: "triangle-list" },
     });
     return { pipeline, samplers };
+  }
+
+  /** Logs WGSL warnings/errors for a shader module when debug logging is on. */
+  async #logShaderDiagnostics(module: GPUShaderModule, stage: "warp" | "comp"): Promise<void> {
+    try {
+      const info = await module.getCompilationInfo?.();
+      for (const message of info?.messages ?? []) {
+        if (message.type === "info") continue;
+        exomuxDebugLog(
+          "gpu-wgsl",
+          `${stage} ${message.type} @${message.lineNum}:${message.linePos} ${message.message}`,
+        );
+      }
+    } catch {
+      // getCompilationInfo is unavailable or the module is gone — skip quietly.
+    }
   }
 }
 
