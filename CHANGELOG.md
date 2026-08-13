@@ -396,8 +396,13 @@ quickly, but the affected entrypoint or module family should be named here.
   tangent with the window instead of sitting inside a thick margin; only the corners keep the unavoidable gap. And when
   the pincushion is on under Ghostty, the mouse is now mapped through the exact same distortion
   (`exomuxPincushionSource`) before hit-testing, so the block cursor — and clicks, drags, and scroll — land under the OS
-  pointer instead of drifting outward in the distorted regions. The block cursor also blinks at 4 Hz, and turns into a
+  pointer instead of drifting outward in the distorted regions. The block cursor also blinks at 2 Hz, and turns into a
   resize/move glyph (`↔ ↕ ⤢ ⤡ ✥`) when it is over a floating window's draggable border.
+- The Exomux block cursor no longer freezes in place while a modal or the start menu is open: the full-screen modal
+  catcher used to swallow the hover-motion that moves the cursor, so it kept tracking only on the bare desktop. It now
+  updates the cursor (and warps modal clicks through the pincushion the same way) while a modal is up, and drops the
+  resize glyph for a plain block there since the windows underneath can't be dragged. `F1` now opens (and closes) the
+  modal key reference from anywhere, instead of being sent to the focused terminal as an escape sequence.
 - Exomux no longer writes stray `config-file` includes into the user's global Ghostty config from sandboxed runs. It
   only manages `~/.config/ghostty/config` when running against the real config directory; a run with an explicit
   `--config-dir` (the launch-lifecycle tests do this) writes nothing there. Previously, because Ghostty being merely

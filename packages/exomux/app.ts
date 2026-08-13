@@ -207,8 +207,8 @@ const NETWORK_LIST_START = 1;
 const EXOMUX_ANY_MOTION_KEEPALIVE_MS = 1000;
 /** Two title-bar clicks within this window count as a double-click (maximize/restore). */
 const EXOMUX_DOUBLE_CLICK_MS = 400;
-/** Block-cursor blink half-period — toggling every 125ms is a 4 Hz blink. */
-const EXOMUX_CURSOR_BLINK_MS = 125;
+/** Block-cursor blink half-period — toggling every 250ms is a 2 Hz blink. */
+const EXOMUX_CURSOR_BLINK_MS = 250;
 const MAX_TOUCH_GESTURES = 8;
 const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
@@ -627,7 +627,7 @@ export function mountExomuxDesktop(
     const warped = warpPointerCell(event.x, event.y);
     return warped.x === event.x && warped.y === event.y ? event : { ...event, x: warped.x, y: warped.y };
   };
-  // The block cursor blinks at 4 Hz while it is on.
+  // The block cursor blinks at 2 Hz while it is on.
   const cursorBlinkOn = own(new Signal(true));
   let cursorBlinkTimer: ReturnType<typeof setInterval> | undefined;
   const stopCursorBlink = (): void => {
@@ -1177,6 +1177,7 @@ export function mountExomuxDesktop(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
           windowProjection.peek(),
+          !modalOpen(),
         ),
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
@@ -2217,15 +2218,35 @@ export function mountExomuxDesktop(
     onRelease: routeWindowPointer,
     onScroll: routeWindowScroll,
   }));
+  // Keeps the block cursor tracking the pointer even while this catcher is live.
+  // It sits above the desktop router (zIndex 30k vs 10k) and captures the drag,
+  // so it would otherwise swallow the hover-motion that updates mousePointer and
+  // freeze the cursor in place the moment a modal or the start menu opens. Warp
+  // through the pincushion first so both the cursor and the modal hit-test act on
+  // the cell the user visually points at.
+  const modalTrackPointer = (event: MousePressEvent): MousePressEvent => {
+    const warped = warpPointerEvent(event);
+    backgroundSetPointer({ column: warped.x, row: warped.y });
+    return warped;
+  };
   unsubscribers.push(app.mouse.register({
     id: "exomux-modal",
     bounds: () => app.tui.rectangle.peek(),
     zIndex: 30_000,
     disabled: () => !modalOpen(),
     captureDrag: true,
-    onPress: (event) => event.button === 0 ? routeModalActivation(event.x, event.y) : true,
-    onDrag: () => true,
-    onRelease: () => true,
+    onPress: (event) => {
+      const warped = modalTrackPointer(event);
+      return warped.button === 0 ? routeModalActivation(warped.x, warped.y) : true;
+    },
+    onDrag: (event) => {
+      modalTrackPointer(event);
+      return true;
+    },
+    onRelease: (event) => {
+      modalTrackPointer(event);
+      return true;
+    },
     onScroll: () => true,
   }));
   // Only two always-live top-bar controls remain: the start button and quit.
@@ -2276,6 +2297,17 @@ export function mountExomuxDesktop(
     event: KeyPressEvent,
     forwardTerminalInput: (bytes: Uint8Array) => void | Promise<unknown> = (bytes) => controller.writeActive(bytes),
   ): Promise<void> => {
+    // F1 toggles the help modal from anywhere. If help is up it closes; the start
+    // menu yields to it; any heavier modal (quit/kill/config) is left for the user
+    // to dismiss first rather than stacking the key reference on top of it.
+    if (event.key === "f1" && !event.ctrl && !event.meta) {
+      if (controller.helpVisible.peek()) controller.closeHelp();
+      else if (controller.startMenuVisible.peek()) {
+        controller.closeStartMenu();
+        controller.openHelp();
+      } else if (!modalOpen()) controller.openHelp();
+      return;
+    }
     if (controller.startMenuVisible.peek()) {
       if (event.key === "escape" || event.key.toLowerCase() === "q") controller.closeStartMenu();
       return;
@@ -2850,6 +2882,9 @@ async function handleManagerKey(
 }
 
 function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPressEvent): boolean {
+  // F1 is the global help shortcut, whichever window is active — pull it out of
+  // the terminal byte stream so routeKeyInBarrier can open the modal.
+  if (event.key === "f1" && !event.ctrl && !event.meta) return true;
   if (event.meta || controller.windowHost.inspect().switcherOpen) return true;
   const activeWindowId = controller.windowHost.controller.inspect().activeWindowId;
   if (activeWindowId === EXOMUX_NETWORK_WINDOW_ID) {
@@ -3794,7 +3829,7 @@ function paintHelp(
     "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
     "Ctrl-N & asks before killing. Drag title bars; drag borders to resize.",
     "Top bar: start menu at the left, open terminals beside it, quit at the right.",
-    "Press Escape, q, or ? to close help. Mouse and touch can use Close.",
+    "F1 opens/closes help. Escape, q, or ? close it; mouse and touch use Close.",
   ];
   const { rect, closeRect } = exomuxHelpLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
@@ -5316,13 +5351,13 @@ function exomuxBlockCursorRender(
   visible: boolean,
   pointer: { readonly column: number; readonly row: number } | undefined,
   projection: WorkbenchWindowHostProjection,
+  // A modal/menu is up: the windows underneath cannot be dragged, so keep the
+  // cursor a plain block instead of dangling a resize arrow that does nothing.
+  resizeAware = true,
 ): { readonly column: number; readonly row: number; readonly glyph: string } | undefined {
   if (!visible || !pointer) return undefined;
-  return {
-    column: pointer.column,
-    row: pointer.row,
-    glyph: resizeGlyphAt(projection, pointer.column, pointer.row) ?? "█",
-  };
+  const glyph = resizeAware ? resizeGlyphAt(projection, pointer.column, pointer.row) ?? "█" : "█";
+  return { column: pointer.column, row: pointer.row, glyph };
 }
 
 /**

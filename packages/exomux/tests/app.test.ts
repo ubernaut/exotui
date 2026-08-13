@@ -1912,6 +1912,45 @@ Deno.test("Exomux wheel and touch input scroll styled history and manipulate win
   }
 });
 
+Deno.test("F1 toggles the help modal from anywhere without leaking to the terminal", async () => {
+  const initial = session("f1-help", "f1 help", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 90, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    // Focus a real terminal so a stray key would otherwise reach the child.
+    const terminalWindowId = exomuxWindowId(initial.id);
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({ kind: "focus", id: terminalWindowId }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+    assertEquals(controller.helpVisible.peek(), false);
+
+    const pressF1 = () =>
+      harness.app.tui.emit("keyPress", createTestKeyPress("f1", { buffer: new TextEncoder().encode("\x1bOP") }));
+
+    pressF1();
+    await mounted.whenIdle();
+    assertEquals(controller.helpVisible.peek(), true);
+    // The shortcut is consumed by the mux, never forwarded as bytes.
+    assertEquals(client.inputs, []);
+
+    // Pressing it again toggles the modal back off.
+    pressF1();
+    await mounted.whenIdle();
+    assertEquals(controller.helpVisible.peek(), false);
+    assertEquals(client.inputs, []);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux classifies queued keys against the modal state in arrival order", async () => {
   const initial = session("ordered-keys", "ordered keys", 0);
   const client = new FakeExomuxClient([initial]);
