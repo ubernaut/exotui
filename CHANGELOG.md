@@ -285,6 +285,13 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Changed
 
+- Exomux's fall-back music generator (what the butterchurn/reactive backgrounds visualize when no microphone or system
+  audio is available) is now an actual on-the-fly composition instead of a flat drone. Three voices — a low bass, a mid
+  melodic lead, and a high arpeggio — each run their own 16-step sequencer on their own rhythmic interval, drawing notes
+  from a shared minor-pentatonic scale; the patterns re-roll every bar and the root and tempo drift every few bars, so
+  the piece keeps mixing itself up. All choices come from a seeded PRNG (`createExomuxAudioSource({ seed })`), so it is
+  fully reproducible for tests while seeding from the wall clock in normal use. The published `ExomuxAudioFrame` shape
+  (24 spectrum bands, 256 waveform samples, bass/mid/treble, beat) is unchanged.
 - Exomux scrolls one row per wheel notch by default instead of three, which reads far better in menus like the theme
   picker. Scroll speed is now a selectable desktop-wide setting and a per-window override (a window follows the desktop
   speed unless pinned). Utility lists — the session manager, the network tree, the settings panes — move one selection

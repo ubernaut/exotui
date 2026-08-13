@@ -171,6 +171,57 @@ export interface ExomuxAudioSourceOptions {
    * recorder at all and runs on the generated signal.
    */
   readonly mode?: ExomuxAudioCaptureMode;
+  /**
+   * Seeds the fall-back music generator. Omitted, it seeds from the wall clock
+   * so every session drifts differently; pass a fixed number for a reproducible
+   * sequence (used by tests).
+   */
+  readonly seed?: number;
+}
+
+/** Minor-pentatonic semitone offsets — random note picks stay consonant. */
+const SYNTH_SCALE = [0, 3, 5, 7, 10, 12];
+/** Root pitches (Hz) the generator drifts between: A1, C2, D2, E2. */
+const SYNTH_ROOTS = [55, 65.41, 73.42, 82.41];
+/** Tempos (BPM) the generator drifts between. */
+const SYNTH_BPMS = [96, 112, 128, 140];
+/** Seconds of signal the 256-sample scope trace spans. */
+const SYNTH_WAVE_SECONDS = 0.14;
+
+/** The nearest published band index for a frequency, matching `bandFreq`'s log spacing. */
+function synthFreqToBand(freq: number): number {
+  const t = Math.log(freq / MIN_FREQ) / Math.log(MAX_FREQ / MIN_FREQ);
+  return Math.max(0, Math.min(EXOMUX_AUDIO_BANDS - 1, Math.round(t * EXOMUX_AUDIO_BANDS - 0.5)));
+}
+
+/** Cheap deterministic per-sample hash noise in [0,1) — no PRNG state consumed. */
+function synthHashNoise(index: number, salt: number): number {
+  const x = Math.sin(index * 12.9898 + salt * 78.233) * 43_758.5453;
+  return x - Math.floor(x);
+}
+
+/** How each frequency band behaves in the generated music. */
+type SynthRole = "bass" | "lead" | "arp";
+interface SynthVoice {
+  readonly role: SynthRole;
+  /** Octaves above the root. */
+  readonly octave: number;
+  /** Envelope release rate (1/seconds) — bass rings, hats snap. */
+  readonly decay: number;
+  /** Base chance a live step fires. */
+  readonly density: number;
+  /** Only every `stride`-th 16th-note step may fire (rhythmic interval). */
+  readonly stride: number;
+  /** Harmonic richness 0..1. */
+  readonly bright: number;
+  /** 16-step gate, re-rolled each bar. */
+  pattern: boolean[];
+  /** Current scale degree (can run past the scale length into higher octaves). */
+  degree: number;
+  /** Current fundamental (Hz). */
+  freq: number;
+  /** Envelope level 0..1. */
+  amp: number;
 }
 
 export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}): ExomuxAudioSource {
@@ -207,7 +258,101 @@ export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}):
   let beatCooldown = 0;
   let lastFrameAt: number | undefined;
   let synthTime = 0;
-  let synthBeatClock = 0;
+
+  // --- Fall-back music generator -------------------------------------------
+  // With no recorder available the analyser plays its own music so reactive
+  // fields keep moving. Three voices (low/mid/high) each run an independent
+  // 16-step sequencer, firing notes from a shared scale on their own rhythmic
+  // interval; the patterns re-roll every bar and the root/tempo drift every few
+  // bars, so it mixes itself up on the fly instead of looping. All choices come
+  // from a seeded PRNG (the house LCG), so a fixed seed is fully reproducible.
+  let synthRng = (Math.trunc(options.seed ?? performance.now()) >>> 0) || 1;
+  const synthRandom = (): number => {
+    synthRng = (Math.imul(synthRng, 1_664_525) + 1_013_904_223) >>> 0;
+    return synthRng / 4_294_967_296;
+  };
+  const synthVoices: SynthVoice[] = [
+    {
+      role: "bass",
+      octave: 0,
+      decay: 2.6,
+      density: 0.28,
+      stride: 4,
+      bright: 0.7,
+      pattern: [],
+      degree: 0,
+      freq: 55,
+      amp: 0,
+    },
+    {
+      role: "lead",
+      octave: 2,
+      decay: 5.5,
+      density: 0.5,
+      stride: 2,
+      bright: 0.5,
+      pattern: [],
+      degree: 0,
+      freq: 220,
+      amp: 0,
+    },
+    {
+      role: "arp",
+      octave: 3,
+      decay: 13,
+      density: 0.66,
+      stride: 1,
+      bright: 0.3,
+      pattern: [],
+      degree: 0,
+      freq: 440,
+      amp: 0,
+    },
+  ];
+  let synthRoot = SYNTH_ROOTS[0]!;
+  let synthBpm = SYNTH_BPMS[1]!;
+  let synthStep = 0;
+  let synthStepClock = 0;
+  let synthBar = 0;
+  let synthStarted = false;
+
+  const synthNoteFreq = (voice: SynthVoice, degree: number): number => {
+    const wrapped = ((degree % SYNTH_SCALE.length) + SYNTH_SCALE.length) % SYNTH_SCALE.length;
+    const semitone = SYNTH_SCALE[wrapped]! + 12 * (voice.octave + Math.floor(degree / SYNTH_SCALE.length));
+    return synthRoot * Math.pow(2, semitone / 12);
+  };
+  const synthRollPatterns = (): void => {
+    for (const voice of synthVoices) {
+      const pattern: boolean[] = [];
+      for (let s = 0; s < 16; s += 1) pattern[s] = s % voice.stride === 0 && synthRandom() < voice.density;
+      // The bass always marks the downbeat so there is a steady pulse (and beat).
+      if (voice.role === "bass") pattern[0] = true;
+      voice.pattern = pattern;
+    }
+  };
+  const synthRollScene = (): void => {
+    synthRoot = SYNTH_ROOTS[Math.floor(synthRandom() * SYNTH_ROOTS.length)]!;
+    synthBpm = SYNTH_BPMS[Math.floor(synthRandom() * SYNTH_BPMS.length)]!;
+  };
+  const synthTriggerStep = (step: number): void => {
+    for (const voice of synthVoices) {
+      if (!voice.pattern[step]) continue;
+      if (voice.role === "lead") {
+        // A melody: a small random walk with the occasional leap.
+        const leap = synthRandom() < 0.2;
+        const dir = synthRandom() < 0.5 ? -1 : 1;
+        voice.degree = Math.max(-2, Math.min(11, voice.degree + dir * (leap ? 3 : 1)));
+      } else if (voice.role === "arp") {
+        // An arpeggio climbing the scale across two octaves, then wrapping.
+        voice.degree = (voice.degree + 1) % (SYNTH_SCALE.length * 2);
+      } else {
+        // The bass mostly anchors the root, sometimes the fifth.
+        voice.degree = synthRandom() < 0.75 ? 0 : 3;
+      }
+      voice.freq = synthNoteFreq(voice, voice.degree);
+      voice.amp = 1;
+    }
+  };
 
   function pushSamples(bytes: Uint8Array, carry: { byte: number | undefined }): void {
     let start = 0;
@@ -338,25 +483,77 @@ export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}):
 
   function analyseSynth(dt: number): void {
     synthTime += dt;
-    synthBeatClock += dt;
-    const pulse = synthBeatClock > 0.62;
-    if (pulse) synthBeatClock = 0;
-    for (let band = 0; band < EXOMUX_AUDIO_BANDS; band += 1) {
-      const wobble = 0.5 +
-        0.28 * Math.sin(synthTime * (0.7 + band * 0.13) + band * 1.7) +
-        0.18 * Math.sin(synthTime * (1.9 + band * 0.07) + band * 0.6);
-      const rolloff = 1 - band / (EXOMUX_AUDIO_BANDS * 1.6);
-      rawBands[band] = clamp01(wobble * rolloff * 0.75 + (pulse && band < 5 ? 0.45 : 0));
-    }
-    level = clamp01(0.35 + 0.2 * Math.sin(synthTime * 0.9) + (pulse ? 0.25 : 0));
 
-    const kick = Math.max(0, 1 - synthBeatClock / 0.16);
-    for (let i = 0; i < EXOMUX_AUDIO_WAVEFORM; i += 1) {
-      const t = synthTime - (EXOMUX_AUDIO_WAVEFORM - i) / SAMPLE_RATE * 64;
-      waveform[i] = Math.sin(t * Math.PI * 2 * 55) * (0.22 + kick * 0.34) +
-        Math.sin(t * Math.PI * 2 * 173) * 0.16 +
-        Math.sin(t * Math.PI * 2 * 811) * 0.08;
+    // Advance the sequencer. The first frame lays down a scene and plays the
+    // downbeat; after that the step clock walks 16th notes, re-rolling the bar's
+    // patterns at each wrap and drifting the root/tempo every fourth bar.
+    if (!synthStarted) {
+      synthRollScene();
+      synthRollPatterns();
+      synthTriggerStep(0);
+      synthStarted = true;
+    } else {
+      synthStepClock += dt;
+      let guard = 0;
+      while (guard < 8) {
+        const secondsPerStep = 60 / synthBpm / 4;
+        if (synthStepClock < secondsPerStep) break;
+        synthStepClock -= secondsPerStep;
+        guard += 1;
+        synthStep = (synthStep + 1) % 16;
+        if (synthStep === 0) {
+          synthBar += 1;
+          synthRollPatterns();
+          if (synthBar % 4 === 0) synthRollScene();
+        }
+        synthTriggerStep(synthStep);
+      }
     }
+
+    // Envelope release: each voice decays toward silence between its hits.
+    for (const voice of synthVoices) voice.amp *= Math.exp(-voice.decay * dt);
+
+    // Time-domain scope trace: the sum of the live voices sampled across a short
+    // window, soft-clipped so it stays in -1..1 with a little airy shimmer.
+    for (let i = 0; i < EXOMUX_AUDIO_WAVEFORM; i += 1) {
+      const t = synthTime - (EXOMUX_AUDIO_WAVEFORM - 1 - i) / (EXOMUX_AUDIO_WAVEFORM - 1) * SYNTH_WAVE_SECONDS;
+      let sample = 0;
+      for (const voice of synthVoices) {
+        if (voice.amp < 0.001) continue;
+        const w = 2 * Math.PI * voice.freq * t;
+        sample += voice.amp * (Math.sin(w) + voice.bright * (0.4 * Math.sin(2 * w) + 0.2 * Math.sin(3 * w)));
+      }
+      sample += (synthHashNoise(i, synthBar) - 0.5) * 0.06 * synthVoices[2]!.amp;
+      waveform[i] = Math.tanh(sample * 0.6);
+    }
+
+    // Spectrum: drop each live voice's fundamental and two harmonics into their
+    // bands (bleeding to neighbours for fuller bars), over a gentle drifting floor.
+    rawBands.fill(0);
+    for (const voice of synthVoices) {
+      if (voice.amp < 0.001) continue;
+      const partials: readonly [number, number][] = [
+        [voice.freq, 1],
+        [voice.freq * 2, 0.2 + 0.5 * voice.bright],
+        [voice.freq * 3, 0.35 * voice.bright],
+      ];
+      for (const [freq, weight] of partials) {
+        if (freq >= MAX_FREQ) continue;
+        const band = synthFreqToBand(freq);
+        const energy = voice.amp * weight;
+        rawBands[band] = Math.max(rawBands[band]!, energy);
+        if (band > 0) rawBands[band - 1] = Math.max(rawBands[band - 1]!, energy * 0.5);
+        if (band < EXOMUX_AUDIO_BANDS - 1) rawBands[band + 1] = Math.max(rawBands[band + 1]!, energy * 0.5);
+      }
+    }
+    for (let band = 0; band < EXOMUX_AUDIO_BANDS; band += 1) {
+      const floor = 0.05 * (1 - band / EXOMUX_AUDIO_BANDS) * (0.6 + 0.4 * Math.sin(synthTime * 0.8 + band * 0.5));
+      rawBands[band] = clamp01(rawBands[band]! + Math.max(0, floor));
+    }
+
+    let energy = 0;
+    for (const voice of synthVoices) energy += voice.amp;
+    level = clamp01(0.12 + energy * 0.4);
   }
 
   function frame(now = performance.now()): ExomuxAudioFrame {
