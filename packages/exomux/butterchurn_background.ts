@@ -952,6 +952,12 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     if (gpu.readbacks === this.#gpuReadbacks) {
       this.#gpuStall += 1;
       if (this.#gpuStall > Math.max(GPU_STALL_FRAMES, Math.round(1500 / this.#frameMs)) || gpu.lost) {
+        this.#logDebug(
+          "gpu-renderer",
+          `${
+            gpu.lost ? "device lost" : `readback stalled ${this.#gpuStall}f`
+          } on "${this.#preset.name}" → software fallback`,
+        );
         this.#gpu = undefined;
         this.#gpuState = "unavailable";
         gpu.destroy();
@@ -1010,7 +1016,18 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
       return;
     }
     this.#deadFrames += 1;
-    if (this.#deadFrames >= Math.max(DEAD_PRESET_FRAMES, Math.round(1000 / this.#frameMs))) this.nextPreset();
+    if (this.#deadFrames >= Math.max(DEAD_PRESET_FRAMES, Math.round(1000 / this.#frameMs))) {
+      // The usual cause of "presets cycle every ~1s instead of the configured
+      // hold" — logging the coverage and the renderer at the skip tells whether
+      // the GPU drew black or the software path did.
+      this.#logDebug(
+        "dead-skip",
+        `"${this.#preset.name}" blank ${this.#deadFrames}f coverage=${
+          (lit / cells).toFixed(3)
+        } renderer=${this.renderer} — skipping`,
+      );
+      this.nextPreset();
+    }
   }
 
   /** Copies a resolved GPU frame into the ink buffer the rasterizer reads. */
