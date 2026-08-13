@@ -827,6 +827,10 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
       this.#catalog.length,
       this.#preset.name,
     );
+    // A third line names where the debug log is being written (or that it could
+    // not open one), so "is it even logging, and where?" is answerable on screen.
+    const logInfo = this.#logger?.describe?.();
+    if (logInfo && height >= 3) this.#writeOverlayLine(height - 3, width, ` log: ${logInfo}`, theme.muted, false);
     this.#writeOverlayLine(height - 2, width, top, theme.accent, true);
     this.#writeOverlayLine(height - 1, width, bottom, theme.text, false);
   }

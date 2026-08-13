@@ -23,6 +23,8 @@
 export interface ExomuxDebugLogger {
   log(category: string, message: string): void;
   dispose(): void;
+  /** The absolute log path once open, or a short status ("unwritable"). For the overlay. */
+  describe?(): string;
 }
 
 type DebugSink = (category: string, message: string) => void;
@@ -60,15 +62,36 @@ export function createExomuxDebugLogger(): ExomuxDebugLogger {
   const encoder = new TextEncoder();
   let file: Deno.FsFile | undefined;
   let failed = false;
+  let resolvedPath: string | undefined;
+
+  // Where the log can go, best first: a `logs/` dir under the working directory
+  // (the project root during development), then a stable home fallback so a run
+  // launched from a read-only directory — which is easy to hit with a detachable
+  // daemon — still produces a log the user can find.
+  const candidateDirs = (): string[] => {
+    const dirs: string[] = [];
+    try {
+      dirs.push(`${Deno.cwd()}/logs`);
+    } catch { /* no --allow-read for cwd */ }
+    try {
+      const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
+      if (home) dirs.push(`${home}/.exomux/logs`);
+    } catch { /* no --allow-env */ }
+    return dirs;
+  };
 
   const openFile = (): Deno.FsFile | undefined => {
     if (file || failed) return file;
-    try {
-      Deno.mkdirSync("logs", { recursive: true });
-      file = Deno.openSync(`logs/butterchurn-${logStamp()}.log`, { create: true, write: true, append: true });
-    } catch {
-      failed = true; // No --allow-write, read-only cwd, ... — stay a no-op.
+    for (const dir of candidateDirs()) {
+      try {
+        Deno.mkdirSync(dir, { recursive: true });
+        const path = `${dir}/butterchurn-${logStamp()}.log`;
+        file = Deno.openSync(path, { create: true, write: true, append: true });
+        resolvedPath = path;
+        return file;
+      } catch { /* try the next candidate */ }
     }
+    failed = true; // No --allow-write, or nowhere writable — stay a silent no-op.
     return file;
   };
 
@@ -103,6 +126,10 @@ export function createExomuxDebugLogger(): ExomuxDebugLogger {
 
   return {
     log: write,
+    describe: () => {
+      openFile();
+      return resolvedPath ?? "unwritable";
+    },
     dispose: () => {
       for (const method of CONSOLE_METHODS) {
         const previous = original[method];

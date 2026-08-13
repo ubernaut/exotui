@@ -16,6 +16,12 @@ Deno.test("Debug logger writes to logs/, tees console to the file, and restores 
     const logger = createExomuxDebugLogger();
     try {
       assert(exomuxDebugLoggingActive());
+      // describe() names the actual file, under logs/ in the (temp) cwd here.
+      const described = logger.describe?.() ?? "";
+      assert(
+        described.startsWith(`${dir}/logs/butterchurn-`),
+        `describe() should name the log file, got "${described}"`,
+      );
       exomuxDebugLog("gpu", "hello world");
       // While active, console output is diverted to the file, not the terminal.
       assert(console.warn !== originalWarn, "console.warn was not intercepted");
