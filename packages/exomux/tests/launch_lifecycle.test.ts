@@ -73,6 +73,15 @@ Deno.test({
       assert(startup.output.length > 0, "the client should have rendered something");
       const settled = await pumpFor(pty, 4_000);
       assert(!settled.exited, "an attached client must stay alive, not exit on its own");
+
+      // A sandboxed run (explicit --config-dir) must never manage the user's
+      // global Ghostty config. If it did, it would write a cursor.conf here and
+      // leak a temp `config-file` include into ~/.config/ghostty/config that
+      // breaks Ghostty ("error opening config-file …: FileNotFound") once this
+      // temp dir is cleaned up.
+      const wroteCursorConf = await Deno.stat(`${configDir}/shaders/cursor.conf`)
+        .then(() => true).catch(() => false);
+      assert(!wroteCursorConf, "a --config-dir run must not write a Ghostty cursor.conf");
     } finally {
       try {
         pty?.close();

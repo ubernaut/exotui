@@ -392,6 +392,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Exomux no longer writes stray `config-file` includes into the user's global Ghostty config from sandboxed runs. It
+  only manages `~/.config/ghostty/config` when running against the real config directory; a run with an explicit
+  `--config-dir` (the launch-lifecycle tests do this) writes nothing there. Previously, because Ghostty being merely
+  _installed_ enabled the shader/cursor-config wiring, each such run appended a `config-file` include pointing at a temp
+  dir, which then broke Ghostty on its next launch (`error opening config-file …/shaders/cursor.conf: FileNotFound`)
+  once the temp dir was cleaned up.
 - In the Exomux settings window the wheel now scrolls the theme/background list **under the pointer** by its viewport,
   and never changes a selection. Previously a wheel notch anywhere in the window cycled the _active_ pane's selection,
   so scrolling over the background list changed the theme. Settings scroll is routed by pointer position

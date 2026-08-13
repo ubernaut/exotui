@@ -278,7 +278,13 @@ export async function runExomuxClient(
   // Offer (and drive) the interface shaders whenever Ghostty is available —
   // running inside it, or just installed — so the settings manage the same
   // Ghostty shader config the installer sets up, even from another terminal.
-  const ghostty = isGhosttyAvailable();
+  //
+  // Only ever touch the user's *global* Ghostty config when running against
+  // their real config directory. A run with an explicit `--config-dir` (the
+  // launch-lifecycle tests do this) is sandboxed: it must not write includes
+  // into ~/.config/ghostty/config, or leftover temp paths break Ghostty on
+  // its next launch with `error opening config-file …: FileNotFound`.
+  const ghostty = isGhosttyAvailable() && configDirectory === defaultExomuxConfigDirectory();
   // Applying shaders writes the GLSL and a managed Ghostty config; Ghostty
   // picks it up on its next config reload, which cannot be forced from here.
   const applyShaders = ghostty
