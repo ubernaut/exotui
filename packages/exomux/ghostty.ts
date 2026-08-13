@@ -199,6 +199,32 @@ function glslFloat(value: number): string {
  * chosen parameters baked in as constants. Ghostty binds `iChannel0` to the
  * terminal, `iResolution` to its size, and `iTime` to elapsed seconds.
  */
+/**
+ * Source UV the pincushion shader samples for a given output UV — the exact CPU
+ * mirror of the GLSL in `generateExomuxShader`, including the edge-midpoint
+ * overscan zoom. Exomux warps the mouse through this so, on Ghostty, the block
+ * cursor and click/scroll targets land under the OS pointer despite the
+ * distortion (the shader displays output pixel `o` using source texel
+ * `exomuxPincushionSource(o)`).
+ */
+/** The pincushion `magnitude` a shader config currently uses (its default when unset). */
+export function exomuxPincushionMagnitude(config: ExomuxShaderConfig): number {
+  const param = EXOMUX_SHADER_PARAMS.pincushion.find((entry) => entry.id === "magnitude")!;
+  return exomuxShaderParamValue(config, "pincushion", param);
+}
+
+export function exomuxPincushionSource(
+  u: number,
+  v: number,
+  magnitude: number,
+): { readonly u: number; readonly v: number } {
+  const cx = u * 2 - 1;
+  const cy = v * 2 - 1;
+  const r2 = cx * cx + cy * cy;
+  const scale = (1 + magnitude * r2) / (1 + magnitude);
+  return { u: (cx * scale) * 0.5 + 0.5, v: (cy * scale) * 0.5 + 0.5 };
+}
+
 export function generateExomuxShader(
   effect: ExomuxShaderEffect,
   params: Readonly<Record<string, number>> = {},
@@ -210,13 +236,17 @@ export function generateExomuxShader(
   };
   if (effect === "pincushion") {
     return [
-      "// Exomux CRT pincushion distortion",
+      "// Exomux CRT pincushion distortion (mirrored on the CPU by",
+      "// exomuxPincushionSource — keep the math identical).",
       "void mainImage(out vec4 fragColor, in vec2 fragCoord) {",
       "  vec2 uv = fragCoord / iResolution.xy;",
       "  vec2 centered = uv * 2.0 - 1.0;",
       `  float magnitude = ${value("magnitude")};`,
       "  float r2 = dot(centered, centered);",
-      "  centered *= 1.0 + magnitude * r2;",
+      "  // Pincushion pulls content inward; the / (1 + magnitude) overscan zoom",
+      "  // pulls the edge midpoints (r2 = 1) back out to the screen edge so only",
+      "  // the corners keep a gap.",
+      "  centered *= (1.0 + magnitude * r2) / (1.0 + magnitude);",
       "  vec2 warped = centered * 0.5 + 0.5;",
       "  if (warped.x < 0.0 || warped.x > 1.0 || warped.y < 0.0 || warped.y > 1.0) {",
       "    fragColor = vec4(0.0, 0.0, 0.0, 1.0);",

@@ -71,6 +71,7 @@ import {
   exomuxOvergrowthVisible,
 } from "./overgrowth.ts";
 import { ExomuxOperationQueue } from "./operation_queue.ts";
+import { exomuxPincushionMagnitude, exomuxPincushionSource, isRunningInGhostty } from "./ghostty.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
   type ExomuxSettingsButtonCells,
@@ -206,6 +207,8 @@ const NETWORK_LIST_START = 1;
 const EXOMUX_ANY_MOTION_KEEPALIVE_MS = 1000;
 /** Two title-bar clicks within this window count as a double-click (maximize/restore). */
 const EXOMUX_DOUBLE_CLICK_MS = 400;
+/** Block-cursor blink half-period — toggling every 125ms is a 4 Hz blink. */
+const EXOMUX_CURSOR_BLINK_MS = 125;
 const MAX_TOUCH_GESTURES = 8;
 const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
@@ -596,6 +599,42 @@ export function mountExomuxDesktop(
     activeBackgroundField()?.clearPointer();
     if (mousePointer.peek() !== undefined) mousePointer.value = undefined;
   };
+  // With the pincushion CRT shader on under Ghostty, the terminal grid is
+  // visually warped but Ghostty still reports the mouse in raw grid cells. Warp
+  // the reported cell through the exact shader map (exomuxPincushionSource) so
+  // the block cursor — and clicks/drags/scrolls — land under the OS pointer
+  // instead of drifting outward in the distorted regions.
+  const runningInGhostty = isRunningInGhostty();
+  const pincushionActive = (): boolean => runningInGhostty && controller.shaderConfig.peek().effects.pincushion.enabled;
+  const warpPointerCell = (x: number, y: number): { readonly x: number; readonly y: number } => {
+    if (!pincushionActive()) return { x, y };
+    const rect = app.tui.rectangle.peek();
+    const columns = Math.max(1, rect.width);
+    const rows = Math.max(1, rect.height);
+    const source = exomuxPincushionSource(
+      (x + 0.5) / columns,
+      (y + 0.5) / rows,
+      exomuxPincushionMagnitude(controller.shaderConfig.peek()),
+    );
+    const column = Math.floor(source.u * columns);
+    const row = Math.floor(source.v * rows);
+    // Past the distorted content (the black corner margin) there is nothing to
+    // point at — keep the raw cell rather than jumping off-grid.
+    if (column < 0 || row < 0 || column >= columns || row >= rows) return { x, y };
+    return { x: column, y: row };
+  };
+  const warpPointerEvent = <T extends { readonly x: number; readonly y: number }>(event: T): T => {
+    const warped = warpPointerCell(event.x, event.y);
+    return warped.x === event.x && warped.y === event.y ? event : { ...event, x: warped.x, y: warped.y };
+  };
+  // The block cursor blinks at 4 Hz while it is on.
+  const cursorBlinkOn = own(new Signal(true));
+  let cursorBlinkTimer: ReturnType<typeof setInterval> | undefined;
+  const stopCursorBlink = (): void => {
+    if (cursorBlinkTimer === undefined) return;
+    clearInterval(cursorBlinkTimer);
+    cursorBlinkTimer = undefined;
+  };
   // The block cursor needs free-motion mouse events, which require any-motion
   // tracking (mode 1003). The library only ever enables button-event tracking
   // (mode 1002) and (re)asserts it from `Tui.run()` — which fires *after* this
@@ -629,8 +668,15 @@ export function mountExomuxDesktop(
       // click-only motion; a plain mode set is invisible and idempotent.
       stopAnyMotionKeepalive();
       anyMotionKeepalive = setInterval(() => writeAnyMotionTracking(true), EXOMUX_ANY_MOTION_KEEPALIVE_MS);
+      stopCursorBlink();
+      cursorBlinkOn.value = true;
+      cursorBlinkTimer = setInterval(() => {
+        cursorBlinkOn.value = !cursorBlinkOn.peek();
+      }, EXOMUX_CURSOR_BLINK_MS);
     } else {
       stopAnyMotionKeepalive();
+      stopCursorBlink();
+      cursorBlinkOn.value = true;
       backgroundClearPointer();
     }
   };
@@ -640,6 +686,7 @@ export function mountExomuxDesktop(
   own({
     dispose: () => {
       stopAnyMotionKeepalive();
+      stopCursorBlink();
       writeAnyMotionTracking(false);
     },
   });
@@ -1080,6 +1127,8 @@ export function mountExomuxDesktop(
         // frame. It only changes on free motion when the cursor is enabled.
         mousePointer.value?.column,
         mousePointer.value?.row,
+        // The cursor blinks, so each on/off toggle has to repaint.
+        cursorBlinkOn.value,
         // Settings reach the painter directly — border glyphs, window opacity —
         // so a change to either has to invalidate the frame. Without this the
         // desktop only repaints because the status line happens to change too.
@@ -1124,7 +1173,11 @@ export function mountExomuxDesktop(
         backgroundList,
         backgroundOptionControls,
         backgroundButtons,
-        blockCursor: controller.globalSettings.peek().blockCursor ? mousePointer.peek() : undefined,
+        blockCursor: exomuxBlockCursorRender(
+          controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
+          mousePointer.peek(),
+          windowProjection.peek(),
+        ),
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
           ? {
@@ -1551,6 +1604,9 @@ export function mountExomuxDesktop(
   // double-click. Cleared once a double-click fires so a triple starts fresh.
   let lastTitleBarClick: { readonly windowId: string; readonly at: number } | undefined;
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
+    // Map the OS pointer through the pincushion distortion first, so the block
+    // cursor and every hit-test below act on the cell the user visually points at.
+    event = warpPointerEvent(event);
     backgroundSetPointer({ column: event.x, row: event.y });
     if (modalOpen()) {
       if (terminalMouse.hasLegacyCapture) {
@@ -1709,6 +1765,7 @@ export function mountExomuxDesktop(
   };
 
   const routeWindowScroll = (event: MouseScrollEvent): Promise<boolean> => {
+    event = warpPointerEvent(event);
     backgroundSetPointer({ column: event.x, row: event.y });
     if (modalOpen()) return Promise.resolve(true);
     if (contains(shelfBounds.peek(), event.x, event.y)) return Promise.resolve(true);
@@ -2838,7 +2895,7 @@ interface RenderExomuxDesktopOptions {
   /** Hosts the background-config modal's Close button as a real Button. */
   backgroundButtons?: ExomuxSettingsWidgets;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
-  blockCursor?: { readonly column: number; readonly row: number };
+  blockCursor?: { readonly column: number; readonly row: number; readonly glyph: string };
 }
 
 /** The desktop effect remains visible unless a terminal owns the maximized surface. */
@@ -3094,14 +3151,15 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) paintKillConfirmation(painter, projection, controller, pendingKillSessionId);
 
-  // The optional block cursor sits on top of everything, at the mouse cell.
+  // The optional block cursor sits on top of everything, at the mouse cell —
+  // a solid block, or a resize/move glyph when it is over a window's drag edge.
   if (options.blockCursor) {
-    const { column, row } = options.blockCursor;
+    const { column, row, glyph } = options.blockCursor;
     if (
       column >= bounds.column && column < bounds.column + bounds.width && row >= bounds.row &&
       row < bounds.row + bounds.height
     ) {
-      painter.cell(column, row, "█", { foreground: theme.accent, background: theme.background });
+      painter.cell(column, row, glyph, { foreground: theme.accent, background: theme.background });
     }
   }
 
@@ -5223,6 +5281,48 @@ function configControlSessionAt(
     return undefined;
   }
   return undefined;
+}
+
+/**
+ * The block cursor's glyph when it sits on a floating window's draggable border:
+ * the title-bar row moves the window, the side/bottom edges and bottom corners
+ * resize it. Returns `undefined` over content or bare desktop (a solid block).
+ */
+export function resizeGlyphAt(
+  projection: WorkbenchWindowHostProjection,
+  column: number,
+  row: number,
+): string | undefined {
+  for (let index = projection.floatingWindows.length - 1; index >= 0; index -= 1) {
+    const window = projection.floatingWindows[index]!;
+    if (!contains(window.rect, column, row)) continue;
+    if (contains(window.clientRect, column, row)) return undefined; // inside the content
+    const rect = window.rect;
+    const onLeft = column === rect.column;
+    const onRight = column === rect.column + rect.width - 1;
+    const onBottom = row === rect.row + rect.height - 1;
+    if (row === rect.row) return "✥"; // the title-bar row drags to move
+    if (onBottom && onLeft) return "⤢"; // bottom-left ↔ top-right resize
+    if (onBottom && onRight) return "⤡"; // bottom-right ↔ top-left resize
+    if (onLeft || onRight) return "↔"; // side edges resize width
+    if (onBottom) return "↕"; // bottom edge resizes height
+    return undefined;
+  }
+  return undefined;
+}
+
+/** Block-cursor render descriptor: its cell and glyph (resize/move-aware), or none. */
+function exomuxBlockCursorRender(
+  visible: boolean,
+  pointer: { readonly column: number; readonly row: number } | undefined,
+  projection: WorkbenchWindowHostProjection,
+): { readonly column: number; readonly row: number; readonly glyph: string } | undefined {
+  if (!visible || !pointer) return undefined;
+  return {
+    column: pointer.column,
+    row: pointer.row,
+    glyph: resizeGlyphAt(projection, pointer.column, pointer.row) ?? "█",
+  };
 }
 
 /**

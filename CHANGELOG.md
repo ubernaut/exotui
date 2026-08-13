@@ -392,6 +392,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux pincushion CRT shader gained an overscan zoom (`/ (1 + magnitude)`) so the midpoint of each screen edge is
+  tangent with the window instead of sitting inside a thick margin; only the corners keep the unavoidable gap. And when
+  the pincushion is on under Ghostty, the mouse is now mapped through the exact same distortion
+  (`exomuxPincushionSource`) before hit-testing, so the block cursor — and clicks, drags, and scroll — land under the OS
+  pointer instead of drifting outward in the distorted regions. The block cursor also blinks at 4 Hz, and turns into a
+  resize/move glyph (`↔ ↕ ⤢ ⤡ ✥`) when it is over a floating window's draggable border.
 - Exomux no longer writes stray `config-file` includes into the user's global Ghostty config from sandboxed runs. It
   only manages `~/.config/ghostty/config` when running against the real config directory; a run with an explicit
   `--config-dir` (the launch-lifecycle tests do this) writes nothing there. Previously, because Ghostty being merely

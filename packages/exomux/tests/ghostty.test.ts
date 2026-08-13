@@ -10,6 +10,7 @@ import {
   EXOMUX_SHADER_PARAMS,
   exomuxGhosttyConfigPath,
   exomuxGhosttyUserConfigPath,
+  exomuxPincushionSource,
   exomuxShaderDirectory,
   generateExomuxShader,
   isGhosttyAvailable,
@@ -86,6 +87,25 @@ Deno.test("Generated shaders are valid Shadertoy GLSL with baked-in parameters",
   const pin = generateExomuxShader("pincushion", { magnitude: 0.4 });
   assertStringIncludes(pin, "float magnitude = 0.4;");
   assertStringIncludes(pin, "texture(iChannel0, warped)");
+});
+
+Deno.test("Pincushion source warp fixes the center and pulls edge midpoints to the screen edge", () => {
+  const near = (a: number, b: number, eps = 1e-9) => assert(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
+  for (const magnitude of [0.025, 0.1, 0.5]) {
+    // The center is a fixed point at any magnitude.
+    const center = exomuxPincushionSource(0.5, 0.5, magnitude);
+    near(center.u, 0.5);
+    near(center.v, 0.5);
+    // Edge midpoints (r2 = 1) map to exactly the source edge — tangent, no margin.
+    near(exomuxPincushionSource(1, 0.5, magnitude).u, 1);
+    near(exomuxPincushionSource(0, 0.5, magnitude).u, 0);
+    near(exomuxPincushionSource(0.5, 0, magnitude).v, 0);
+    near(exomuxPincushionSource(0.5, 1, magnitude).v, 1);
+  }
+  // Zero magnitude is the identity.
+  const identity = exomuxPincushionSource(0.3, 0.8, 0);
+  near(identity.u, 0.3);
+  near(identity.v, 0.8);
 });
 
 Deno.test("Cursor config toggles mouse-hide-while-typing for the block cursor", async () => {

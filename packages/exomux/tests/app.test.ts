@@ -31,6 +31,7 @@ import {
   exomuxStartMenuLayout,
   exomuxWindowConfigLayout,
   projectExomuxTerminalBar,
+  resizeGlyphAt,
 } from "../app.ts";
 import {
   createExomuxController,
@@ -413,6 +414,27 @@ Deno.test("A single title-bar click focuses the window without maximizing it", a
     harness.destroy();
     await controller.dispose();
   }
+});
+
+Deno.test("resizeGlyphAt picks a move/resize glyph on a floating window's border", () => {
+  const projection = {
+    floatingWindows: [{
+      rect: { column: 4, row: 2, width: 20, height: 10 },
+      clientRect: { column: 5, row: 3, width: 18, height: 8 },
+    }],
+  } as unknown as Parameters<typeof resizeGlyphAt>[0];
+  // Top row is the title bar → move.
+  assertEquals(resizeGlyphAt(projection, 10, 2), "✥");
+  // Side edges → horizontal resize.
+  assertEquals(resizeGlyphAt(projection, 4, 6), "↔");
+  assertEquals(resizeGlyphAt(projection, 23, 6), "↔");
+  // Bottom edge → vertical resize; bottom corners → diagonal resize.
+  assertEquals(resizeGlyphAt(projection, 10, 11), "↕");
+  assertEquals(resizeGlyphAt(projection, 4, 11), "⤢");
+  assertEquals(resizeGlyphAt(projection, 23, 11), "⤡");
+  // Inside the content and off the window → no glyph (a plain block).
+  assertEquals(resizeGlyphAt(projection, 10, 6), undefined);
+  assertEquals(resizeGlyphAt(projection, 0, 0), undefined);
 });
 
 Deno.test("Option-row clicks step back on the left half and forward on the right", () => {
