@@ -407,6 +407,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- Scrolling an Exomux picker (the theme/background lists in Settings) no longer leaves a **duplicated row**. The
+  off-screen surface those lists composite through renders incrementally, and the incremental renderer could skip a cell
+  when a List's selection highlight — a higher-zIndex overlay — moved or hid in the same pass the rows scrolled, leaving
+  the overlapped-but-changed row showing its previous item. The surface now forces a clean full redraw per snapshot
+  (`Canvas.rerenderAll()`, factored out of the resize path) so a composited frame is always exact.
 - The Exomux pincushion CRT shader gained an overscan zoom (`/ (1 + magnitude)`) so the midpoint of each screen edge is
   tangent with the window instead of sitting inside a thick margin; only the corners keep the unavoidable gap. And when
   the pincushion is on under Ghostty, the mouse is now mapped through the exact same distortion

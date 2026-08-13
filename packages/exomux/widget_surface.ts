@@ -68,6 +68,11 @@ export class ExomuxWidgetSurface {
   async render(): Promise<void> {
     for (let pass = 0; pass < 2; pass += 1) {
       for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
+      // Force a clean, full redraw: the incremental renderer can leave a stale
+      // cell when an overlapping higher-zIndex object (a List's selection
+      // highlight) moves or hides as rows scroll, and this surface's snapshot
+      // must be exact — a skipped cell reads as a duplicated row on the desktop.
+      this.#canvas.rerenderAll();
       this.#canvas.render();
     }
   }

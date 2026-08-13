@@ -120,6 +120,49 @@ Deno.test("settings surface pickers route clicks, wheel, and keys into the bound
   }
 });
 
+Deno.test("settings surface picker scrolls without duplicating rows", async () => {
+  const { bindings } = mockBindings();
+  const surface = new ExomuxSettingsSurface(() => {});
+  try {
+    surface.bind(bindings);
+    const items = Array.from({ length: 10 }, (_, index) => `theme-${index}`);
+    const picker = (over: Partial<ExomuxPickerSpec>): ExomuxPickerSpec => ({
+      column: 0,
+      row: 0,
+      width: 16,
+      height: 4,
+      items,
+      foreground: [220, 230, 255],
+      background: [30, 40, 70],
+      selectedForeground: [10, 10, 20],
+      selectedBackground: [255, 105, 180],
+      scrollbarTrack: [40, 50, 80],
+      scrollbarThumb: [120, 130, 160],
+      ...over,
+    });
+    surface.sync(picker({}), picker({ column: 18, items: ["a", "b", "c"] }));
+    await settle(() => !surface.ready());
+
+    // Wheel the viewport down one notch at a time. Each step must show four
+    // distinct consecutive items: the "duplicate row" artifact left the same
+    // item on two rows after a scroll (a stale cell the incremental renderer
+    // skipped when the selection highlight scrolled out of view).
+    for (let top = 1; top <= items.length - 4; top += 1) {
+      surface.handleScroll("theme", 1);
+      await settle(() => !plainRow(surface, 0, 0, 15).includes(`theme-${top}`));
+      const visible = [0, 1, 2, 3].map((row) => plainRow(surface, row, 0, 15).replace(/[>]/g, "").trim());
+      assertEquals(
+        new Set(visible).size,
+        visible.length,
+        `scroll to ${top} duplicated a row: ${JSON.stringify(visible)}`,
+      );
+      assertEquals(visible, [0, 1, 2, 3].map((offset) => `theme-${top + offset}`));
+    }
+  } finally {
+    surface.dispose();
+  }
+});
+
 /** Strips SGR from a run of cells on one surface row. */
 const SGR = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
 function plainRow(surface: ExomuxSettingsSurface, row: number, column: number, width: number): string {

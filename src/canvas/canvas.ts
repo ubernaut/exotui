@@ -137,6 +137,21 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
   }
 
   resize() {
+    this.rerenderAll();
+  }
+
+  /**
+   * Discards all retained render state and re-queues every in-bounds object for
+   * a full redraw on the next `render()`.
+   *
+   * The incremental renderer can miss a cell when a higher-zIndex object that
+   * overlaps others moves or hides in the same pass their content changes (a
+   * List's selection highlight scrolling out of view is the case that surfaced
+   * this) — the overlapped-but-changed row keeps its stale content. A caller
+   * that composites a snapshot and cannot tolerate a stale cell forces a clean
+   * pass with this; it is also what a resize needs.
+   */
+  rerenderAll(): void {
     const { columns, rows } = this.size.peek();
 
     this.clearRetainedResizeState();
