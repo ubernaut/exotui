@@ -250,6 +250,7 @@ export const EXOMUX_BACKGROUND_IDS = [
   "fire",
   "turbulence",
   "butterchurn",
+  "butterchurn cpu",
   "image",
 ] as const;
 export type ExomuxBackgroundId = (typeof EXOMUX_BACKGROUND_IDS)[number];
@@ -702,6 +703,38 @@ const densitySpec = (detail: string): ExomuxSettingSpec<string> =>
  * preset picker and the image file browser are modal panes of their own, not
  * cycleable rows, so they are not listed either.
  */
+/** Shared by both butterchurn backgrounds (GPU and software) — the same knobs apply. */
+const BUTTERCHURN_SETTING_SPECS: readonly ExomuxSettingSpec<string>[] = Object.freeze([
+  Object.freeze({
+    id: "cycleSeconds",
+    label: "Cycle time",
+    detail: "Seconds each preset holds the desktop; Hold stays on one.",
+    values: Object.freeze([15, 30, 60, 120, 0, 5, 10]),
+    format: (value: ExomuxSettingValue) => (Number(value) === 0 ? "Hold" : `${value}s`),
+  }),
+  Object.freeze({
+    id: "updateHz",
+    label: "Update rate",
+    detail: "Frames per second the field advances at.",
+    values: Object.freeze([60, 120, 5, 10, 15, 30]),
+    format: (value: ExomuxSettingValue) => `${value} Hz`,
+  }),
+  Object.freeze({
+    id: "audioMode",
+    label: "Sound source",
+    detail: "Microphone, the system output, or a generated signal.",
+    values: Object.freeze([...EXOMUX_AUDIO_MODES]),
+    format: formatAudioMode,
+  }),
+  Object.freeze({
+    id: "debug",
+    label: "Debug overlay",
+    detail: "Shows CPU/WebGPU mode and the live preset name, and logs GPU messages to logs/.",
+    values: Object.freeze([false, true]),
+    format: onOff,
+  }),
+]);
+
 export const EXOMUX_BACKGROUND_SETTING_SPECS: Readonly<
   Partial<Record<ExomuxBackgroundId, readonly ExomuxSettingSpec<string>[]>>
 > = Object.freeze({
@@ -720,36 +753,8 @@ export const EXOMUX_BACKGROUND_SETTING_SPECS: Readonly<
       format: (value: ExomuxSettingValue) => `${Math.round(Number(value) * 100)}%`,
     }),
   ]),
-  butterchurn: Object.freeze([
-    Object.freeze({
-      id: "cycleSeconds",
-      label: "Cycle time",
-      detail: "Seconds each preset holds the desktop; Hold stays on one.",
-      values: Object.freeze([15, 30, 60, 120, 0, 5, 10]),
-      format: (value: ExomuxSettingValue) => (Number(value) === 0 ? "Hold" : `${value}s`),
-    }),
-    Object.freeze({
-      id: "updateHz",
-      label: "Update rate",
-      detail: "Frames per second the field advances at.",
-      values: Object.freeze([60, 120, 5, 10, 15, 30]),
-      format: (value: ExomuxSettingValue) => `${value} Hz`,
-    }),
-    Object.freeze({
-      id: "audioMode",
-      label: "Sound source",
-      detail: "Microphone, the system output, or a generated signal.",
-      values: Object.freeze([...EXOMUX_AUDIO_MODES]),
-      format: formatAudioMode,
-    }),
-    Object.freeze({
-      id: "debug",
-      label: "Debug overlay",
-      detail: "Shows CPU/WebGPU mode and the live preset name, and logs GPU messages to logs/.",
-      values: Object.freeze([false, true]),
-      format: onOff,
-    }),
-  ]),
+  butterchurn: BUTTERCHURN_SETTING_SPECS,
+  "butterchurn cpu": BUTTERCHURN_SETTING_SPECS,
 }) as Readonly<Partial<Record<ExomuxBackgroundId, readonly ExomuxSettingSpec<string>[]>>>;
 
 /** Defaults for one background: the first value of each of its specs. */

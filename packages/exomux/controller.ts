@@ -987,12 +987,14 @@ export class ExomuxController {
     const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
     this.backgroundConfigOptionIndex.value = 0;
     this.backgroundConfigListIndex.value = 0;
-    this.backgroundConfigPane.value = id === "butterchurn" || id === "image" ? "list" : "options";
+    this.backgroundConfigPane.value = id === "butterchurn" || id === "butterchurn cpu" || id === "image"
+      ? "list"
+      : "options";
     if (id === "image" && !this.backgroundBrowsePath.peek()) {
       this.backgroundBrowsePath.value = homeDirectory();
     }
     this.backgroundConfigVisible.value = true;
-    this.status.value = specs.length > 0 || id === "butterchurn" || id === "image"
+    this.status.value = specs.length > 0 || id === "butterchurn" || id === "butterchurn cpu" || id === "image"
       ? "Background settings · Tab pane · ↑↓ choose · ←→/Enter change · Escape close"
       : "This background has nothing to configure.";
   }

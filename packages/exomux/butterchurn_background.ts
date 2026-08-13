@@ -39,6 +39,7 @@ import {
   type ExomuxAudioSource,
 } from "./audio.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "./butterchurn_catalog.ts";
+import { EXOMUX_BUTTERCHURN_ROTATION } from "./butterchurn_rotation.ts";
 import { type ExomuxButterchurnAudio, ExomuxButterchurnPreset } from "./butterchurn_preset.ts";
 import { ExomuxButterchurnGpu, requestExomuxGpuDevice } from "./butterchurn_gpu.ts";
 import type { ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
@@ -226,17 +227,31 @@ const MIN_AVERAGE = 0.02;
  * `EXOMUX_BUTTERCHURN_CATALOG`.
  */
 /**
- * The presets the field cycles: all of them.
+ * The presets the GPU field cycles: all of them.
  *
- * `butterchurn_rotation.ts` is a curated subset, and it is stale — it was
- * audited against a renderer that could not compile a third of the catalog,
- * before the catalog grew from 293 presets to 472. Filtering by it now would
- * hide the 179 presets that were just added, which is the opposite of what it
- * is for. A preset that renders nothing is skipped within a second at runtime,
- * so the curation buys less than it did.
+ * The GPU renderer runs each preset's own shaders, so it resolves nearly the
+ * whole catalog to an image. The software-only field cycles the curated subset
+ * below instead, since the CPU path draws far fewer.
  */
 export const EXOMUX_BUTTERCHURN_PRESETS: readonly ExomuxButterchurnPresetSource[] = Object.freeze(
   [...EXOMUX_BUTTERCHURN_CATALOG],
+);
+
+/**
+ * The presets the software-only field cycles: those that resolve to a moving
+ * image on the CPU renderer, per `scripts/audit_butterchurn_catalog.ts`
+ * (`butterchurn_rotation.ts`). The rest draw with custom waves/shapes and a
+ * composite shader the CPU path does not run, so they would auto-skip on sight.
+ * Every preset is still reachable by index through the full catalog.
+ */
+export const EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS: readonly ExomuxButterchurnPresetSource[] = Object.freeze(
+  (() => {
+    const keep = new Set(EXOMUX_BUTTERCHURN_ROTATION);
+    const software = EXOMUX_BUTTERCHURN_CATALOG.filter((preset) => keep.has(preset.name));
+    // A stale rotation (or a machine with no CPU-drawable presets) must not
+    // leave the background with nothing to cycle.
+    return software.length > 0 ? software : [...EXOMUX_BUTTERCHURN_CATALOG];
+  })(),
 );
 
 /**
@@ -277,6 +292,13 @@ export interface ExomuxButterchurnFieldOptions {
    * renderer, which is what tests use so frames stay reproducible.
    */
   readonly gpu?: boolean;
+  /**
+   * Show a centered "no GPU" message instead of falling back to the software
+   * renderer when no working WebGPU device is found. This is what makes the GPU
+   * background distinct from the dedicated software one: it does not pretend to
+   * run on the CPU (where most of its catalog resolves to nothing), it says so.
+   */
+  readonly errorWithoutGpu?: boolean;
   /** Seconds each preset holds before cycling; 0 holds the current one. */
   readonly cycleSeconds?: number;
   /** Frames per second the field advances at; timing scales around it. */
@@ -301,6 +323,15 @@ interface ButterchurnPointer {
   readonly column: number;
   readonly row: number;
   readonly updatedAt: number;
+}
+
+/**
+ * The centered notice a GPU-required butterchurn field shows when no working
+ * WebGPU device is found — it points at the software background rather than
+ * limping along on the CPU renderer. Pure so the content is testable.
+ */
+export function exomuxButterchurnGpuErrorLines(): readonly string[] {
+  return ["no working WebGPU device", "this background needs a GPU", 'try the "butterchurn cpu" background'];
 }
 
 /**
@@ -378,6 +409,8 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
   // preset's own shaders are both ready, so a missing adapter or a shader that
   // will not compile degrades to the software renderer rather than to nothing.
   readonly #wantsGpu: boolean;
+  /** Show a "no GPU" notice instead of the software renderer when none is found. */
+  readonly #errorWithoutGpu: boolean;
   #gpu: ExomuxButterchurnGpu | undefined;
   #gpuState: "idle" | "starting" | "ready" | "unavailable" = "idle";
   #gpuPresets = new Map<string, boolean>();
@@ -447,6 +480,7 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     this.#frameMs = 1000 / clamp(finite(options.updateHz, 1000 / FRAME_BASELINE_MS), 1, 240);
     this.#audioMode = options.audioMode ?? "mic";
     this.#wantsGpu = options.gpu ?? true;
+    this.#errorWithoutGpu = options.errorWithoutGpu === true;
     this.#shuffleState = (this.#seed * 2_246_822_519 + 374_761_393) >>> 0;
     this.#preset = this.#load(this.#presetIndex);
     this.#order = [this.#presetIndex];
@@ -680,12 +714,21 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     // rate-independent when the desktop stalls or the terminal resizes.
     const frames = elapsedMs / this.#frameMs;
     if (!this.#renderOnGpu(input, audio, frames)) {
+      // A GPU-required field with no device shows a notice instead of running
+      // the software renderer, so it does not churn through presets the CPU
+      // path cannot draw. rasterizeCells paints the message.
+      if (this.#showGpuError()) return true;
       this.#warpPass(frames);
       this.#drawWaves(audio, frames);
       this.#drawPointer(bounds, now, frames);
     }
     this.#skipDeadPreset();
     return true;
+  }
+
+  /** GPU was required but no working device was found: show a notice, not the CPU. */
+  #showGpuError(): boolean {
+    return this.#errorWithoutGpu && this.#gpuState === "unavailable";
   }
 
   rasterizeCells(
@@ -699,6 +742,11 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     }
     const { width, height } = normalized;
     this.#ensureCellBuffer(width, height);
+
+    if (this.#showGpuError()) {
+      this.#paintGpuError(width, height, theme);
+      return this.#cells;
+    }
 
     const ink = this.#ink;
     const accent = theme.accent;
@@ -728,6 +776,30 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     }
     if (this.#debug) this.#paintDebugOverlay(width, height, theme);
     return this.#cells;
+  }
+
+  /** Blanks the grid and centers a "no working GPU" notice pointing at the CPU background. */
+  #paintGpuError(width: number, height: number, theme: ExomuxThemeSpec): void {
+    for (let row = 0; row < height; row += 1) {
+      const cells = this.#cells[row]!;
+      for (let column = 0; column < width; column += 1) cells[column] = undefined;
+    }
+    const lines = exomuxButterchurnGpuErrorLines();
+    const top = Math.max(0, Math.floor((height - lines.length) / 2));
+    for (let index = 0; index < lines.length; index += 1) {
+      const row = top + index;
+      if (row >= height) break;
+      const cells = this.#cells[row]!;
+      const text = lines[index]!;
+      const start = Math.max(0, Math.floor((width - text.length) / 2));
+      for (let offset = 0; offset < text.length && start + offset < width; offset += 1) {
+        cells[start + offset] = {
+          char: text[offset]!,
+          foreground: index === 0 ? theme.accent : theme.text,
+          bold: index === 0,
+        };
+      }
+    }
   }
 
   /**

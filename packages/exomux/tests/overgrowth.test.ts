@@ -26,7 +26,15 @@ Deno.test("exomux overgrowth applies only to the organic backgrounds", () => {
   // Naming the excluded ids rather than deriving them from the list under test
   // keeps this from passing tautologically when a background is added.
   const focal = EXOMUX_BACKGROUND_IDS.filter((id) => !exomuxBackgroundOvergrows(id));
-  assertEquals([...focal].sort(), ["biomech", "butterchurn", "image", "metaballs", "skull", "vaporwave"]);
+  assertEquals([...focal].sort(), [
+    "biomech",
+    "butterchurn",
+    "butterchurn cpu",
+    "image",
+    "metaballs",
+    "skull",
+    "vaporwave",
+  ]);
 });
 
 Deno.test("exomux overgrowth ratio ramps slowly and never fully hides a window", () => {

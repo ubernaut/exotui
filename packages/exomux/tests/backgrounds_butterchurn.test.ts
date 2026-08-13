@@ -1,8 +1,10 @@
 import { assert, assertAlmostEquals, assertEquals } from "./deps.ts";
 import {
   EXOMUX_BUTTERCHURN_PRESETS,
+  EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
   exomuxButterchurnDebugLines,
   ExomuxButterchurnField,
+  exomuxButterchurnGpuErrorLines,
   exomuxPresetLooksBlank,
 } from "../butterchurn_background.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "../butterchurn_catalog.ts";
@@ -876,4 +878,49 @@ Deno.test("Debug overlay is absent when debug is off", () => {
   } finally {
     field.dispose();
   }
+});
+
+Deno.test("The software preset list is a non-empty CPU-drawable subset of the full catalog", () => {
+  assert(EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS.length > 0, "software list must not be empty");
+  assert(
+    EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS.length < EXOMUX_BUTTERCHURN_PRESETS.length,
+    "the software subset should be smaller than the full catalog",
+  );
+  const catalog = new Set(EXOMUX_BUTTERCHURN_PRESETS.map((preset) => preset.name));
+  for (const preset of EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS) {
+    assert(catalog.has(preset.name), `software preset "${preset.name}" is not in the catalog`);
+  }
+});
+
+Deno.test("The software butterchurn field renders on the CPU and never shows the GPU notice", () => {
+  const field = new ExomuxButterchurnField({
+    audio: scriptedAudio(),
+    gpu: false,
+    catalog: EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
+    autoCycle: false,
+  });
+  try {
+    run(field, 50);
+    assertEquals(field.renderer, "software");
+    let painted = 0;
+    let text = "";
+    for (const row of field.rasterizeCells(BOUNDS, THEME)) {
+      for (const cell of row) {
+        if (cell) painted += 1;
+        text += cell?.char ?? " ";
+      }
+    }
+    assert(painted > 20, `a curated software preset should paint, got ${painted}`);
+    // errorWithoutGpu is off here, and gpu:false never reaches the "unavailable"
+    // state, so the "no GPU" notice must never appear on the software field.
+    assert(!text.includes("WebGPU"), "the software field must never show the GPU notice");
+  } finally {
+    field.dispose();
+  }
+});
+
+Deno.test("The GPU-error notice names the software background as the alternative", () => {
+  const joined = exomuxButterchurnGpuErrorLines().join(" ");
+  assert(joined.includes("WebGPU"), `notice should mention WebGPU: "${joined}"`);
+  assert(joined.includes("butterchurn cpu"), `notice should point at the CPU background: "${joined}"`);
 });

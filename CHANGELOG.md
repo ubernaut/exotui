@@ -31,6 +31,13 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Exomux's software MilkDrop renderer is now its own background, **"butterchurn cpu"**, instead of a silent fallback of
+  the GPU one. It never touches the GPU and cycles only the **365 of 472** presets that actually resolve to a moving
+  image on the CPU path (audited by `scripts/audit_butterchurn_catalog.ts`, now run against the CPU renderer;
+  `EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS`) — so it no longer skips through blank presets roughly once a second the way the
+  GPU field did when it had no device. The GPU **"butterchurn"** background, in turn, now shows a centered "no working
+  WebGPU device — try butterchurn cpu" notice when no GPU is found, rather than limping along on the CPU renderer
+  (`errorWithoutGpu`). Both share the same knobs (cycle time, update rate, sound source, debug overlay).
 - The Exomux butterchurn background gained a **Debug overlay** toggle (in its background-config options). When on, it
   paints a two-line readout in the lower-left — the live renderer (`CPU` vs `WebGPU`) and the current preset name and
   position — as part of the background layer, so windows occlude it rather than it floating over their content. Turning

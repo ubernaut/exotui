@@ -96,7 +96,11 @@ import {
   releaseExomuxIdleBackgrounds,
 } from "./background.ts";
 import { ExomuxBiomechField } from "./biomech_background.ts";
-import { EXOMUX_BUTTERCHURN_PRESETS, ExomuxButterchurnField } from "./butterchurn_background.ts";
+import {
+  EXOMUX_BUTTERCHURN_PRESETS,
+  EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
+  ExomuxButterchurnField,
+} from "./butterchurn_background.ts";
 import { ExomuxImageField, isExomuxImageFile } from "./image_background.ts";
 import { destroyExomuxGpuDevice } from "./gpu_device.ts";
 import { ExomuxCircuitField } from "./circuit_background.ts";
@@ -558,6 +562,18 @@ export function mountExomuxDesktop(
           updateHz: Number(values.updateHz ?? 60),
           audioMode: values.audioMode === "system" ? "system" : values.audioMode === "synth" ? "synth" : "mic",
           debug: values.debug === true,
+          // The GPU background says so when there is no device, rather than
+          // limping along on the CPU renderer the "butterchurn cpu" field owns.
+          errorWithoutGpu: true,
+        })
+        : id === "butterchurn cpu"
+        ? new ExomuxButterchurnField({
+          cycleSeconds: Number(values.cycleSeconds ?? 15),
+          updateHz: Number(values.updateHz ?? 60),
+          audioMode: values.audioMode === "system" ? "system" : values.audioMode === "synth" ? "synth" : "mic",
+          debug: values.debug === true,
+          gpu: false,
+          catalog: EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
         })
         : id === "image"
         ? new ExomuxImageField(typeof values.path === "string" ? { path: values.path } : {})
@@ -1051,8 +1067,9 @@ export function mountExomuxDesktop(
   // asks for more: butterchurn's update rate is a real setting, and a 60 Hz
   // field driven by a 8 Hz timer would be the knob that does nothing.
   const backgroundTickMs = (): number => {
-    if (controller.backgroundId.peek() !== "butterchurn") return EXOMUX_METABALL_FRAME_INTERVAL_MS;
-    const values = exomuxBackgroundSettingsFor(controller.backgroundSettings.peek(), "butterchurn");
+    const id = controller.backgroundId.peek();
+    if (id !== "butterchurn" && id !== "butterchurn cpu") return EXOMUX_METABALL_FRAME_INTERVAL_MS;
+    const values = exomuxBackgroundSettingsFor(controller.backgroundSettings.peek(), id);
     const hz = Number(values.updateHz ?? 60);
     return Number.isFinite(hz) && hz > 0 ? Math.max(4, Math.round(1000 / hz)) : EXOMUX_METABALL_FRAME_INTERVAL_MS;
   };
@@ -4139,9 +4156,14 @@ function exomuxBrowseRows(path: string): ExomuxBackgroundConfigListRow[] {
 /** The list pane's rows for the active background, or empty when it has none. */
 function exomuxBackgroundConfigList(controller: ExomuxController): ExomuxBackgroundConfigListRow[] {
   const id = controller.backgroundId.peek();
-  if (id === "butterchurn") {
-    return EXOMUX_BUTTERCHURN_PRESETS.map((preset, index) => ({ label: preset.name, presetIndex: index }));
-  }
+  // Each field cycles its own catalog, so the picker lists that same catalog by
+  // index: the whole set for the GPU field, the CPU-drawable subset for software.
+  const catalog = id === "butterchurn"
+    ? EXOMUX_BUTTERCHURN_PRESETS
+    : id === "butterchurn cpu"
+    ? EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS
+    : undefined;
+  if (catalog) return catalog.map((preset, index) => ({ label: preset.name, presetIndex: index }));
   if (id === "image") return exomuxBrowseRows(controller.backgroundBrowsePath.peek() || "/");
   return [];
 }
@@ -4231,7 +4253,7 @@ function paintBackgroundConfigModal(
     bold: true,
   });
 
-  const header = id === "butterchurn"
+  const header = id === "butterchurn" || id === "butterchurn cpu"
     ? `Preset (${list.length}) — current: ${
       exomuxBackgroundHasPresets(backgroundField) ? backgroundField.presetName : "…"
     }`

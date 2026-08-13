@@ -98,7 +98,10 @@ function snapshot(field: ExomuxButterchurnField): string[] {
 
 async function audit(index: number): Promise<Verdict> {
   const name = EXOMUX_BUTTERCHURN_CATALOG[index]!.name;
-  const field = new ExomuxButterchurnField({ audio: auditAudio(), presetIndex: index, autoCycle: false });
+  // Audit the CPU renderer explicitly: this list drives the software-only
+  // background, which never touches the GPU, so a machine with a working device
+  // must not silently audit the (much larger) set of presets its shaders resolve.
+  const field = new ExomuxButterchurnField({ audio: auditAudio(), presetIndex: index, autoCycle: false, gpu: false });
   let now = 0;
   const started = performance.now();
   // The GPU path reads back asynchronously, so each frame needs a turn of the
@@ -151,18 +154,20 @@ if (import.meta.main) {
   const module = `// Copyright 2023 Im-Beast. MIT license.
 
 // GENERATED FILE — do not edit by hand.
-// Regenerate with: deno run -A scripts/audit_butterchurn_catalog.ts
+// Regenerate with: deno run -A -c packages/exomux/deno.json scripts/audit_butterchurn_catalog.ts
 //
-// The presets the butterchurn background cycles through, selected by rendering
-// each one and keeping those that resolve to a moving image at terminal
-// resolution. Of ${verdicts.length} presets in the catalog: ${summary}.
+// The presets the SOFTWARE-only butterchurn background ("butterchurn cpu")
+// cycles through, chosen by rendering each on the CPU renderer and keeping those
+// that resolve to a moving image at terminal resolution. Of ${verdicts.length} presets in the
+// catalog: ${summary}.
 //
 // The excluded ones are not broken — most draw with custom waves, custom shapes
-// and a composite shader, none of which this renderer runs, so they resolve to
-// an empty screen. Every preset remains selectable by index through
-// \`EXOMUX_BUTTERCHURN_CATALOG\`; this list only decides what auto-cycling walks.
+// and a composite shader, none of which the CPU renderer runs, so they resolve
+// to an empty screen there (the GPU background renders them from their shaders).
+// Every preset remains selectable by index through \`EXOMUX_BUTTERCHURN_CATALOG\`;
+// this list only decides what the software field auto-cycles.
 
-/** Names of the presets worth cycling, in catalog order. */
+/** Names of the CPU-drawable presets, in catalog order. */
 export const EXOMUX_BUTTERCHURN_ROTATION: readonly string[] = ${JSON.stringify(kept.map((v) => v.name), null, 2)};
 `;
   await Deno.writeTextFile(OUTPUT, module);
