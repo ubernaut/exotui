@@ -862,6 +862,23 @@ export class ExomuxButterchurnGpu {
     return layout;
   }
 
+  /**
+   * Wraps createBindGroup in a validation error scope while debug logging is on,
+   * so a device that rejects a group — as some hardware drivers do where a
+   * software renderer accepts it — reports exactly why, instead of a bare
+   * "BindGroup is invalid" surfacing later at set_bind_group. Groups are cached,
+   * so each logs at most once.
+   */
+  #createBindGroupChecked(label: string, descriptor: GPUBindGroupDescriptor): GPUBindGroup {
+    if (!exomuxDebugLoggingActive()) return this.#device.createBindGroup(descriptor);
+    this.#device.pushErrorScope("validation");
+    const group = this.#device.createBindGroup(descriptor);
+    this.#device.popErrorScope().then((error) => {
+      if (error) exomuxDebugLog("gpu-bindgroup", `${label}: ${error.message}`);
+    }).catch(() => {});
+    return group;
+  }
+
   #presetBindGroup(
     preset: string,
     key: string,
@@ -887,7 +904,10 @@ export class ExomuxButterchurnGpu {
         resource: this.#samplers.get(`${binding.address}:${binding.filter}`)!,
       });
     });
-    const group = this.#device.createBindGroup({ layout: this.#presetLayout(samplers), entries });
+    const group = this.#createBindGroupChecked(
+      `preset "${preset}" ${key} [${samplers.join("+")}]`,
+      { layout: this.#presetLayout(samplers), entries },
+    );
     groups.set(key, group);
     return group;
   }
@@ -912,7 +932,7 @@ export class ExomuxButterchurnGpu {
   #utilityBindGroup(key: string, input: GPUTexture, sampler: GPUSampler, buffer: GPUBuffer): GPUBindGroup {
     const cached = this.#utilityGroups.get(key);
     if (cached) return cached;
-    const group = this.#device.createBindGroup({
+    const group = this.#createBindGroupChecked(`utility ${key}`, {
       layout: this.#utilityLayout,
       entries: [
         { binding: 0, resource: this.#view(input) },
@@ -1276,7 +1296,7 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
   #primBindGroup(source: GPUTexture): GPUBindGroup {
     const cached = this.#primBindGroups.get(source);
     if (cached) return cached;
-    const group = this.#device.createBindGroup({
+    const group = this.#createBindGroupChecked("prim", {
       layout: this.#ensurePrimLayout(),
       entries: [
         { binding: 0, resource: this.#view(source) },
@@ -1337,7 +1357,7 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
   }
 
   #waveBindGroup(): GPUBindGroup {
-    this.#waveBindGroupCache ??= this.#device.createBindGroup({
+    this.#waveBindGroupCache ??= this.#createBindGroupChecked("wave", {
       layout: this.#wavePipeline().getBindGroupLayout(0),
       entries: [],
     });
