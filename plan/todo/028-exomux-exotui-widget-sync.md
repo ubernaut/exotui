@@ -8,6 +8,29 @@ This plan is the "make exotui richer, then adopt it in exomux" program.
 See `docs/exomux-component-audit.md` for the full per-control verdicts, rationale, and `packages/exomux/app.ts`
 line anchors. This file is the actionable roadmap.
 
+## Reprioritization (user, Aug 14 2026)
+
+This is now the **P0 strategic program** for the library: exomux is the proving ground, and back-feeding its richness
+into exotui is the highest-leverage path to a robust library — ahead of the broad 023/024 parity backlogs. The user
+called out **windowing and mouse/cursor** as the clearest new-component candidates.
+
+The audit is **stale** — it predates the mouse/cursor work landed Aug 13–14, which should be folded into the ledger
+(mostly extending WS-008 windowing and WS-009 cursor, likely as new WS items):
+
+- **Block cursor** now blinks (2 Hz) and turns into a contextual **resize/move glyph** over a floating window's border
+  (`resizeGlyphAt`, `exomuxBlockCursorRender` in `app.ts`) — a strong `SoftwareCursor` component candidate.
+- **Any-motion tracking** (xterm mode 1003) enable + keepalive + teardown is a reusable input helper (WS-009).
+- **Scroll-under-pointer / wheel-under-pointer** routing (the wheel scrolls the viewport under the pointer without
+  moving selection, and routes to the control under the cursor, not the focused one) — a general interaction contract
+  worth promoting alongside the richer `List` (WS-003).
+- **Ghostty pincushion mouse warp** (`exomuxPincushionSource`) is Ghostty-specific, but the "map reported cell → visual
+  cell through a display distortion before hit-testing" pattern could be a general pointer-transform hook.
+- **F1 → help** and the **debug overlay/logging** are exomux-local; not component candidates.
+- Already promoted to exotui this session: **`Canvas.rerenderAll()`** (full-redraw escape hatch the compositing surface
+  now uses) — WS-001 should build on it.
+
+Refresh `docs/exomux-component-audit.md` against the current `app.ts` before executing WS items.
+
 ## Motivation (from user direction, Aug 12 2026)
 
 Audit every exomux control and, for each, decide whether it is (a) driven by an exotui component, (b) a one-off hack

@@ -11,13 +11,29 @@ browser build in parity with the terminal interface.
 - Push after externally useful milestones, starting with web parity plus the GitHub Pages build.
 - Prefer reusable library APIs over demo-local behavior.
 
-## Current Priorities
+## Current Priorities (reprioritized Aug 14 2026)
 
-1. Bring the standalone web/API workbench experience into practical parity with the console workbench.
-2. Build GitHub Pages docs from the updated web demos and push the result.
-3. Promote workbench/windowing behavior into reusable curses-grade primitives.
-4. Harden terminal portability, interaction contracts, docs, visual regression, forms, theming, performance, and API
-   stability.
+The web parity, GitHub Pages, windowing/workbench, forms, theming, performance, and portability work that opened this
+plan has shipped (see `todo/done/001`–`022`, and `027` active backgrounds). The strategic focus now is **back-feeding
+exomux's proven, battle-tested richness into exotui as first-class components**: exomux has become the proving ground,
+and its compositing surface, windowing, mouse/cursor, terminal rendering, and background families are the
+highest-leverage additions to the library.
+
+1. **`028` Exomux ↔ exotui widget sync (P0).** Promote the compositing surface (`WidgetSurface`), then richer
+   `List`/`Tree`/`Modal`/`Input`/`ContextMenu`, a real `TerminalScreen`, window-host niceties, and the
+   animated-background + software-cursor/any-motion helpers into exotui, and have exomux consume them instead of
+   hand-drawing. Concrete and bounded (10 WS items) versus the broad aspirational backlogs. Windowing and mouse/cursor
+   are the clearest wins — and the mouse/cursor surface has grown well past the Aug 12 audit (block-cursor blink,
+   resize-edge glyph, any-motion tracking, scroll/wheel-under-pointer routing, pincushion mouse warp), so refresh
+   `docs/exomux-component-audit.md` before executing.
+2. **`023` / `024` library feature parity (P1, reference backlog).** Textual/OpenTUI parity and the 200-feature program
+   are the durable backlog; pull specific items forward when 028 or a demo needs them rather than running top-to-bottom.
+3. **`025` production demo showcases (P2).** Exercise the library as a system; strongest once 028 has landed the
+   components they would build on.
+4. **`026` exomux network menu (P2).** MVP shipped; Phase 2 (OSC 7 cwd tracking, capability/provider manifest, remote
+   session discovery) is exomux-specific polish, not library-building.
+5. **Top-level research plans (P3, opportunistic).** `html-css-layout-engine.md` (partial), `kitty-graphics-integration.md`
+   (not started). `tailscale-integration.md` is superseded by `026` and can be archived once 026 completes.
 
 ## Completion Standard
 
