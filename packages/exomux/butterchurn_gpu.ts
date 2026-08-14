@@ -687,7 +687,11 @@ export class ExomuxButterchurnGpu {
         colorAttachments: [{ view: this.#view(target), loadOp: "load", storeOp: "store" }],
       });
       wavePass.setPipeline(this.#wavePipeline());
-      wavePass.setBindGroup(0, this.#waveBindGroup());
+      // The wave shader samples nothing — it draws colored vertices straight
+      // from the vertex buffer — so it has no bind group. Binding an empty group
+      // 0 anyway is what an "auto" layout with no bindings does not have: strict
+      // drivers (Intel/Mesa) reject "group index 0", poison the command buffer,
+      // and the whole frame renders black. So bind nothing.
       wavePass.setVertexBuffer(0, this.#waveBuffer!);
       wavePass.draw(frame.waveCount);
       wavePass.end();
@@ -1189,7 +1193,6 @@ export class ExomuxButterchurnGpu {
   }
 
   #wavePipelineCache: GPURenderPipeline | undefined;
-  #waveBindGroupCache: GPUBindGroup | undefined;
 
   #wavePipeline(): GPURenderPipeline {
     if (this.#wavePipelineCache) return this.#wavePipelineCache;
@@ -1354,14 +1357,6 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
       first += prim.vertexCount;
     }
     pass.end();
-  }
-
-  #waveBindGroup(): GPUBindGroup {
-    this.#waveBindGroupCache ??= this.#createBindGroupChecked("wave", {
-      layout: this.#wavePipeline().getBindGroupLayout(0),
-      entries: [],
-    });
-    return this.#waveBindGroupCache;
   }
 
   // ── compilation ───────────────────────────────────────────────────────────

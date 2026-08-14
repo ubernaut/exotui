@@ -414,6 +414,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux GPU butterchurn background rendered every preset black on stricter WebGPU drivers (an Intel/Mesa laptop,
+  where a software driver was fine), so the dead-preset watchdog skipped through the whole catalog about once a second.
+  The waveform pass bound an **empty bind group at index 0** of a pipeline that declares no bindings (its shader reads
+  only vertex attributes); a lenient driver ignores it, but a strict one rejects "group index 0", poisons the command
+  buffer, and the frame renders nothing. The pass now binds no group, as it should. The debug build also logs the exact
+  `createBindGroup` validation reason (via a validation error scope) so the next such driver quirk is one capture away.
 - Scrolling an Exomux picker (the theme/background lists in Settings) no longer leaves a **duplicated row**. The
   off-screen surface those lists composite through renders incrementally, and the incremental renderer could skip a cell
   when a List's selection highlight — a higher-zIndex overlay — moved or hid in the same pass the rows scrolled, leaving
