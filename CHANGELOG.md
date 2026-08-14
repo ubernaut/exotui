@@ -414,6 +414,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- A handful of Exomux butterchurn presets failed to compile their shader and rendered black on strict WebGPU drivers
+  (naga): the vendored preset WGSL sometimes divides by a literal zero (an accidental `x/0` from the source MilkDrop),
+  which const-folds to `inf`/`nan` and fails the whole module. `sanitizeShaderBody` nudges a literal-zero divisor to a
+  tiny epsilon so the value stays finite and the preset draws (confirmed: "suksma - coal drapes…" went from a compile
+  error to a full render). Legitimate small divisors (`0.5`, `0.03`, `0.0001`) are left untouched.
 - The Exomux GPU butterchurn background rendered every preset black on stricter WebGPU drivers (an Intel/Mesa laptop,
   where a software driver was fine), so the dead-preset watchdog skipped through the whole catalog about once a second.
   The waveform pass bound an **empty bind group at index 0** of a pipeline that declares no bindings (its shader reads

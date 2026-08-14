@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "./deps.ts";
-import { ExomuxButterchurnGpu } from "../butterchurn_gpu.ts";
+import { ExomuxButterchurnGpu, sanitizeShaderBody } from "../butterchurn_gpu.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG } from "../butterchurn_catalog.ts";
 import { ExomuxButterchurnPreset } from "../butterchurn_preset.ts";
 
@@ -326,4 +326,24 @@ Deno.test("butterchurn gpu: cycling the whole rotation does not accumulate pipel
     "the earliest preset should have been evicted, not still resident",
   );
   gpu.destroy();
+});
+
+Deno.test("sanitizeShaderBody neutralizes divide-by-literal-zero that naga rejects", () => {
+  // The real regression: an author `x/0` const-folds to -inf, which naga refuses,
+  // failing the whole module — so the preset renders black on strict drivers.
+  assertEquals(
+    sanitizeShaderBody("vec3<f32>(((-(1.0) / 0.0)), 0.0, 0.0)"),
+    "vec3<f32>(((-(1.0) / 1e-6)), 0.0, 0.0)",
+  );
+  assertEquals(sanitizeShaderBody("a / 0"), "a / 1e-6");
+  assertEquals(sanitizeShaderBody("a /0."), "a / 1e-6");
+  assertEquals(sanitizeShaderBody("a / 0.00"), "a / 1e-6");
+  // Legitimate small divisors must be left alone.
+  assertEquals(sanitizeShaderBody("a / 0.5"), "a / 0.5");
+  assertEquals(sanitizeShaderBody("a / 0.03"), "a / 0.03");
+  assertEquals(sanitizeShaderBody("a / 0.0001"), "a / 0.0001");
+  assertEquals(sanitizeShaderBody("a / 10.0"), "a / 10.0");
+  // A shader with no zero divisor is untouched.
+  const clean = "ret = textureSampleLevel(t_tex, t_smp, uv, 0.0).xyz * 2.0;";
+  assertEquals(sanitizeShaderBody(clean), clean);
 });

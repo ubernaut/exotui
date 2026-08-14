@@ -203,9 +203,25 @@ fn shade(uv: vec2<f32>, uv_orig: vec2<f32>, vColor: vec4<f32>) -> vec3<f32> {
 }
 
 /** Assembles a complete fragment shader module for one translated body. */
+/**
+ * Neutralizes constant expressions that naga rejects at parse time.
+ *
+ * The vendored preset shaders are already WGSL, translated from author MilkDrop
+ * HLSL that sometimes divides by a literal zero (an accidental `x/0`). A lenient
+ * driver folds that to a runtime infinity and renders through it, but naga's
+ * const-evaluator refuses `inf`/`nan` as a concrete f32 and fails the whole
+ * module, so the preset renders black on strict drivers (Intel/Mesa). Nudge a
+ * literal zero divisor to a tiny epsilon: the value becomes large-but-finite, so
+ * the module compiles and the preset draws instead of dead-skipping. Matches a
+ * bare `0`, `0.`, or `0.0…` divisor only — never `0.5`, `0e3`, or a hex literal.
+ */
+export function sanitizeShaderBody(body: string): string {
+  return body.replace(/\/\s*0(?:\.0*)?(?![.0-9eExX])/g, "/ 1e-6");
+}
+
 function fragmentSource(body: string, samplers: readonly string[]): string {
   return `${shaderPrelude(samplers)}
-${body}
+${sanitizeShaderBody(body)}
   return ret;
 }
 
