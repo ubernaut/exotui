@@ -432,6 +432,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux GPU **butterchurn** background no longer strobes through blank presets. A third of the catalog (166 of 472)
+  compiles its shaders but resolves to a black/near-black frame on the GPU path — a genuine GPU-vs-CPU fidelity gap — so
+  the dead-preset watchdog skipped each within a second. The GPU field now auto-cycles only the **306 GPU-drawable**
+  presets (`scripts/audit_butterchurn_gpu.ts` → `EXOMUX_BUTTERCHURN_GPU_PRESETS`), exactly as the CPU field already
+  curates to CPU-drawable ones; every preset stays reachable by index. (The underlying GPU-render gap is a separate,
+  deeper investigation.)
 - A handful of Exomux butterchurn presets failed to compile their shader and rendered black on strict WebGPU drivers
   (naga): the vendored preset WGSL sometimes divides by a literal zero (an accidental `x/0` from the source MilkDrop),
   which const-folds to `inf`/`nan` and fails the whole module. `sanitizeShaderBody` nudges a literal-zero divisor to a

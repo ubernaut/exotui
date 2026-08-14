@@ -98,7 +98,7 @@ import {
 } from "./background.ts";
 import { ExomuxBiomechField } from "./biomech_background.ts";
 import {
-  EXOMUX_BUTTERCHURN_PRESETS,
+  EXOMUX_BUTTERCHURN_GPU_PRESETS,
   EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
   ExomuxButterchurnField,
 } from "./butterchurn_background.ts";
@@ -563,6 +563,10 @@ export function mountExomuxDesktop(
           updateHz: Number(values.updateHz ?? 60),
           audioMode: values.audioMode === "system" ? "system" : values.audioMode === "synth" ? "synth" : "mic",
           debug: values.debug === true,
+          // Cycle only presets that actually draw on the GPU; the third of the
+          // catalog that resolves to black there would otherwise dead-skip once a
+          // second (a strobe).
+          catalog: EXOMUX_BUTTERCHURN_GPU_PRESETS,
           // The GPU background says so when there is no device, rather than
           // limping along on the CPU renderer the "butterchurn cpu" field owns.
           errorWithoutGpu: true,
@@ -4202,9 +4206,10 @@ function exomuxBrowseRows(path: string): ExomuxBackgroundConfigListRow[] {
 function exomuxBackgroundConfigList(controller: ExomuxController): ExomuxBackgroundConfigListRow[] {
   const id = controller.backgroundId.peek();
   // Each field cycles its own catalog, so the picker lists that same catalog by
-  // index: the whole set for the GPU field, the CPU-drawable subset for software.
+  // index: the GPU-drawable subset for the GPU field, the CPU-drawable subset for
+  // software.
   const catalog = id === "butterchurn"
-    ? EXOMUX_BUTTERCHURN_PRESETS
+    ? EXOMUX_BUTTERCHURN_GPU_PRESETS
     : id === "butterchurn cpu"
     ? EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS
     : undefined;

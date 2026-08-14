@@ -40,6 +40,7 @@ import {
 } from "./audio.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "./butterchurn_catalog.ts";
 import { EXOMUX_BUTTERCHURN_ROTATION } from "./butterchurn_rotation.ts";
+import { EXOMUX_BUTTERCHURN_GPU_ROTATION } from "./butterchurn_gpu_rotation.ts";
 import { type ExomuxButterchurnAudio, ExomuxButterchurnPreset } from "./butterchurn_preset.ts";
 import { ExomuxButterchurnGpu, requestExomuxGpuDevice } from "./butterchurn_gpu.ts";
 import type { ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
@@ -227,14 +228,28 @@ const MIN_AVERAGE = 0.02;
  * `EXOMUX_BUTTERCHURN_CATALOG`.
  */
 /**
- * The presets the GPU field cycles: all of them.
- *
- * The GPU renderer runs each preset's own shaders, so it resolves nearly the
- * whole catalog to an image. The software-only field cycles the curated subset
- * below instead, since the CPU path draws far fewer.
+ * The full catalog, as a preset list. The GPU and software fields each cycle a
+ * curated subset (below); every preset stays reachable by index through this.
  */
 export const EXOMUX_BUTTERCHURN_PRESETS: readonly ExomuxButterchurnPresetSource[] = Object.freeze(
   [...EXOMUX_BUTTERCHURN_CATALOG],
+);
+
+/**
+ * The presets the GPU field auto-cycles: those that render to a non-blank frame
+ * on the GPU, per `scripts/audit_butterchurn_gpu.ts` (`butterchurn_gpu_rotation.ts`).
+ * A third of the catalog compiles its shaders but resolves to black on the GPU
+ * path (a genuine GPU-vs-CPU fidelity gap), and cycling those makes the field
+ * dead-skip once a second — a strobe. Curating avoids it; every preset is still
+ * reachable by index through the full catalog.
+ */
+export const EXOMUX_BUTTERCHURN_GPU_PRESETS: readonly ExomuxButterchurnPresetSource[] = Object.freeze(
+  (() => {
+    const keep = new Set(EXOMUX_BUTTERCHURN_GPU_ROTATION);
+    const gpu = EXOMUX_BUTTERCHURN_CATALOG.filter((preset) => keep.has(preset.name));
+    // A stale/empty rotation must not leave the background with nothing to cycle.
+    return gpu.length > 0 ? gpu : [...EXOMUX_BUTTERCHURN_CATALOG];
+  })(),
 );
 
 /**

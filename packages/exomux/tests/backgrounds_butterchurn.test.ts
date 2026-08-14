@@ -1,5 +1,6 @@
 import { assert, assertAlmostEquals, assertEquals } from "./deps.ts";
 import {
+  EXOMUX_BUTTERCHURN_GPU_PRESETS,
   EXOMUX_BUTTERCHURN_PRESETS,
   EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
   exomuxButterchurnDebugLines,
@@ -877,6 +878,18 @@ Deno.test("Debug overlay is absent when debug is off", () => {
     assert(!text.includes("butterchurn"), `overlay leaked without debug: "${text}"`);
   } finally {
     field.dispose();
+  }
+});
+
+Deno.test("The GPU preset list is a non-empty GPU-drawable subset of the full catalog", () => {
+  assert(EXOMUX_BUTTERCHURN_GPU_PRESETS.length > 0, "GPU list must not be empty");
+  assert(
+    EXOMUX_BUTTERCHURN_GPU_PRESETS.length < EXOMUX_BUTTERCHURN_PRESETS.length,
+    "the GPU subset should be smaller than the full catalog (some presets render black on the GPU)",
+  );
+  const catalog = new Set(EXOMUX_BUTTERCHURN_PRESETS.map((preset) => preset.name));
+  for (const preset of EXOMUX_BUTTERCHURN_GPU_PRESETS) {
+    assert(catalog.has(preset.name), `GPU preset "${preset.name}" is not in the catalog`);
   }
 });
 
