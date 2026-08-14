@@ -7,7 +7,7 @@ import { drawTextRows } from "./text_children.ts";
 import { Text } from "./text.ts";
 import { cropToWidth, textWidth } from "../utils/strings.ts";
 import { BoxObject } from "../canvas/box.ts";
-import type { TextRectangle } from "../canvas/text.ts";
+import { TextObject, type TextRectangle } from "../canvas/text.ts";
 import type { Rectangle } from "../types.ts";
 import type { Style } from "../theme.ts";
 
@@ -36,7 +36,20 @@ export interface ListOptions extends ComponentOptions, ListControllerOptions {
    * item distinct from the selection. Read a Signal inside it to stay reactive.
    */
   markerFor?: ListRowMarker;
+  /**
+   * Per-row style. When set, each visible row is drawn as its own full-width
+   * styled cell (foreground and background) instead of the component's uniform
+   * theme — so rows can carry state colour (an active item bright, a stopped one
+   * muted) or a translucent "ground" background for a composited host to blit.
+   * Returning `undefined` falls back to the component's base style. Read Signals
+   * inside it to stay reactive. Additive: off by default; other consumers and
+   * `drawTextRows` are unaffected.
+   */
+  rowStyle?: ListRowStyle;
 }
+
+/** Chooses the style for one row, given its item index and whether it is selected. */
+export type ListRowStyle = (index: number, selected: boolean) => Style | undefined;
 
 /** Public interface describing a virtual Row. */
 export interface VirtualRow<T> {
@@ -304,7 +317,7 @@ export class ListController {
 
 /** Public class implementing a list. */
 export class List extends Component {
-  declare drawnObjects: { scrollbarTrack?: BoxObject; scrollbarThumb?: BoxObject };
+  declare drawnObjects: { scrollbarTrack?: BoxObject; scrollbarThumb?: BoxObject; styledRows?: TextObject[] };
   items: Signal<string[]>;
   selectedIndex: Signal<number>;
   readonly controller: ListController;
@@ -313,6 +326,9 @@ export class List extends Component {
   readonly #selectedStyle?: Style;
   readonly #scrollbar?: ListScrollbar;
   readonly #markerFor: ListRowMarker;
+  readonly #rowStyle?: ListRowStyle;
+  /** Per-row draw objects for the `rowStyle` path; created lazily, one per viewport row. */
+  #styledRows: TextObject[] = [];
 
   constructor(options: ListOptions) {
     super(options);
@@ -326,6 +342,7 @@ export class List extends Component {
     this.#selectedStyle = options.selectedStyle;
     this.#scrollbar = options.scrollbar;
     this.#markerFor = options.markerFor ?? defaultRowMarker;
+    this.#rowStyle = options.rowStyle;
     this.items = this.controller.items;
     this.selectedIndex = this.controller.selectedIndex;
     this.#rows = new Computed(() =>
@@ -369,9 +386,59 @@ export class List extends Component {
 
   override draw(): void {
     super.draw();
-    drawTextRows(this, this.#rows);
+    // Per-row styling needs reactive per-object styles, which draw objects carry
+    // but a component's shared theme does not — so that path renders styled
+    // TextObjects; otherwise the uniform, cached drawTextRows path is kept.
+    if (this.#rowStyle) this.#drawStyledRows();
+    else drawTextRows(this, this.#rows);
     if (this.#selectedStyle) this.#drawSelectionHighlight(this.#selectedStyle);
     if (this.#scrollbar) this.#drawScrollbar(this.#scrollbar);
+  }
+
+  /**
+   * Draws each visible row as its own styled TextObject so `rowStyle` can colour
+   * rows individually. One object per viewport row is created once and reused;
+   * its value and style Computeds read the current scroll window, so scrolling
+   * reflows content and colour without new allocations.
+   */
+  #drawStyledRows(): void {
+    const reserve = this.#scrollbar ? 1 : 0;
+    const rowStyle = this.#rowStyle!;
+    const height = Math.max(0, Math.floor(this.rectangle.peek().height));
+    const rows = this.drawnObjects.styledRows ??= this.#styledRows;
+    while (rows.length < height) {
+      const i = rows.length;
+      const object = new TextObject({
+        canvas: this.tui.canvas,
+        view: this.view,
+        zIndex: this.zIndex,
+        overwriteRectangle: true,
+        rectangle: new Computed<TextRectangle>(() => {
+          const rect = this.rectangle.value;
+          return { column: rect.column, row: rect.row + i, width: Math.max(0, rect.width - reserve) };
+        }),
+        value: new Computed(() => {
+          const rect = this.rectangle.value;
+          if (i >= rect.height) return "";
+          const items = this.items.value;
+          const index = this.controller.windowStart(rect.height) + i;
+          const item = items[index];
+          if (item === undefined) return "";
+          const selected = index === clampSelectionIndex(items.length, this.selectedIndex.value);
+          return padListRow(`${this.#markerFor(index, selected)} ${item}`, Math.max(0, rect.width - reserve));
+        }),
+        style: new Computed(() => {
+          const rect = this.rectangle.value;
+          const items = this.items.value;
+          const index = this.controller.windowStart(rect.height) + i;
+          if (i >= rect.height || index >= items.length) return this.style.value;
+          const selected = index === clampSelectionIndex(items.length, this.selectedIndex.value);
+          return rowStyle(index, selected) ?? this.style.value;
+        }),
+      });
+      object.draw();
+      rows.push(object);
+    }
   }
 
   /** Full-width highlight drawn over the selected row, above the base rows. */

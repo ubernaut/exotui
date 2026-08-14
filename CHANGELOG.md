@@ -71,6 +71,12 @@ quickly, but the affected entrypoint or module family should be named here.
   `markerFor(index, selected)` chooses each row's one-character leading marker, so a caller can mark a second state — a
   current/active item distinct from the cursor — reactively. All three are additive — off by default, no change to
   `drawTextRows` or other consumers.
+- `List` gains **`rowStyle(index, selected)`**: a per-row reactive style. When set, each visible row is drawn as its own
+  full-width styled `TextObject` (foreground and background) instead of the component's uniform theme — so rows can
+  carry state colour (an active item bright, a stopped one muted) or a translucent "ground" background for a composited
+  host to blit — and the styling tracks the scroll window (it colours by item, not screen row). Returning `undefined`
+  falls back to the base style. Additive: off by default; the cached `drawTextRows` path and other consumers are
+  unchanged.
 - Exomux has an optional block mouse cursor (a new "Block mouse cursor" setting, off by default): a themed block drawn
   at the mouse cell. While on, Exomux enables any-motion mouse tracking (mode 1003) so it follows free movement — and
   keeps it re-asserted on a light keepalive so the library's own `ENABLE_MOUSE` (which only asks for button-event
