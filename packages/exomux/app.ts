@@ -244,7 +244,7 @@ export function exomuxMetaballsMayAdvance(
   return msSinceLastAdvance >= EXOMUX_MAX_BACKGROUND_STALL_MS;
 }
 
-type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "bg-settings" | "favorite";
+type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "favorite";
 
 /** One entry in the start menu, before layout assigns it a rect. */
 interface ExomuxStartMenuItem {
@@ -255,11 +255,11 @@ interface ExomuxStartMenuItem {
 
 /**
  * The start-menu entries for the current state. Over an active butterchurn
- * background the menu gains two context items — open its settings, and favorite
- * the preset showing when the menu opened (a filled box when it already is) —
- * slotted in just below the "Settings" command they belong with. The preset
- * name is captured at open time in `startMenuPreset`, so the items are the same
- * wherever the layout is computed (paint, hit-test, keyboard).
+ * background the menu gains one context item — favorite the preset showing when
+ * the menu opened (a filled box when it already is) — slotted in just below the
+ * "Settings" command it belongs with. The preset name is captured at open time
+ * in `startMenuPreset`, so the items are the same wherever the layout is
+ * computed (paint, hit-test, keyboard).
  */
 export function exomuxStartMenuItems(controller: ExomuxController): readonly ExomuxStartMenuItem[] {
   const preset = controller.startMenuPreset.peek();
@@ -268,11 +268,10 @@ export function exomuxStartMenuItems(controller: ExomuxController): readonly Exo
   if (!overButterchurn || preset === undefined) return START_MENU_ITEMS;
   const favorited = controller.isButterchurnFavorite(preset);
   const context: readonly ExomuxStartMenuItem[] = [
-    { id: "bg-settings", label: "Background settings" },
     { id: "favorite", label: `Favorite ${favorited ? "☑" : "☐"}` },
   ];
-  // Below "Settings", not at the top: they read as extensions of it, not new
-  // primary commands. Falls back to appending if the config item ever moves.
+  // Below "Settings", not at the top: it reads as an extension of it, not a new
+  // primary command. Falls back to appending if the config item ever moves.
   const at = START_MENU_ITEMS.findIndex((item) => item.id === "config");
   const insertAfter = at >= 0 ? at + 1 : START_MENU_ITEMS.length;
   return Object.freeze([
@@ -1346,9 +1345,6 @@ export function mountExomuxDesktop(
         break;
       case "quit":
         controller.openQuitModal();
-        break;
-      case "bg-settings":
-        controller.openBackgroundConfig();
         break;
       case "favorite": {
         // Act on the preset the field is actually showing; the live-favorites

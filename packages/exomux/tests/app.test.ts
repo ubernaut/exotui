@@ -4349,7 +4349,7 @@ Deno.test("Exomux right-clicks the desktop to open the menu at the cursor", asyn
   }
 });
 
-Deno.test("exomuxStartMenuItems adds background-settings and favorite items over an active butterchurn", () => {
+Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an active butterchurn", () => {
   // Off a butterchurn background, the menu is just the standard commands.
   const offButterchurn = exomuxStartMenuItems({
     startMenuPreset: { peek: () => undefined },
@@ -4357,10 +4357,9 @@ Deno.test("exomuxStartMenuItems adds background-settings and favorite items over
     isButterchurnFavorite: () => false,
   } as unknown as ExomuxController);
   assert(!offButterchurn.some((item) => item.id === "favorite"), "no favorite item off a butterchurn background");
-  assert(!offButterchurn.some((item) => item.id === "bg-settings"), "no bg-settings item off a butterchurn background");
 
-  // Over one, the two context items sit directly below "Settings" (the config
-  // command), and the favorite box is empty for a preset not yet favorited.
+  // Over one, the favorite item sits directly below "Settings" (the config
+  // command), and its box is empty for a preset not yet favorited.
   const unfavorited = exomuxStartMenuItems({
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn" },
@@ -4369,11 +4368,7 @@ Deno.test("exomuxStartMenuItems adds background-settings and favorite items over
   const ids = unfavorited.map((item) => item.id);
   const configAt = ids.indexOf("config");
   assert(configAt >= 0, "the Settings command is present");
-  assertEquals(
-    ids.slice(configAt, configAt + 3),
-    ["config", "bg-settings", "favorite"],
-    "the context items follow Settings, in order",
-  );
+  assertEquals(ids.slice(configAt, configAt + 2), ["config", "favorite"], "the favorite item follows Settings");
   const favItem = unfavorited.find((item) => item.id === "favorite");
   assert(favItem, "a favorite item is offered over a butterchurn background");
   assertStringIncludes(favItem!.label, "☐", "an unfavorited preset shows an empty box");
