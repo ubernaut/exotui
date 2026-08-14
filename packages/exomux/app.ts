@@ -257,9 +257,9 @@ interface ExomuxStartMenuItem {
  * The start-menu entries for the current state. Over an active butterchurn
  * background the menu gains two context items — open its settings, and favorite
  * the preset showing when the menu opened (a filled box when it already is) —
- * above the standard commands. The preset name is captured at open time in
- * `startMenuPreset`, so the items are the same wherever the layout is computed
- * (paint, hit-test, keyboard).
+ * slotted in just below the "Settings" command they belong with. The preset
+ * name is captured at open time in `startMenuPreset`, so the items are the same
+ * wherever the layout is computed (paint, hit-test, keyboard).
  */
 export function exomuxStartMenuItems(controller: ExomuxController): readonly ExomuxStartMenuItem[] {
   const preset = controller.startMenuPreset.peek();
@@ -267,10 +267,18 @@ export function exomuxStartMenuItems(controller: ExomuxController): readonly Exo
   const overButterchurn = id === "butterchurn" || id === "butterchurn cpu";
   if (!overButterchurn || preset === undefined) return START_MENU_ITEMS;
   const favorited = controller.isButterchurnFavorite(preset);
-  return Object.freeze([
+  const context: readonly ExomuxStartMenuItem[] = [
     { id: "bg-settings", label: "Background settings" },
     { id: "favorite", label: `Favorite ${favorited ? "☑" : "☐"}` },
-    ...START_MENU_ITEMS,
+  ];
+  // Below "Settings", not at the top: they read as extensions of it, not new
+  // primary commands. Falls back to appending if the config item ever moves.
+  const at = START_MENU_ITEMS.findIndex((item) => item.id === "config");
+  const insertAfter = at >= 0 ? at + 1 : START_MENU_ITEMS.length;
+  return Object.freeze([
+    ...START_MENU_ITEMS.slice(0, insertAfter),
+    ...context,
+    ...START_MENU_ITEMS.slice(insertAfter),
   ]);
 }
 

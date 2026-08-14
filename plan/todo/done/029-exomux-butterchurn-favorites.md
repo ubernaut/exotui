@@ -5,12 +5,12 @@ Status: **done Aug 14 2026.** Applies to **both** butterchurn backgrounds — th
 
 ## As built
 
-- **Right-click context items.** `exomuxStartMenuItems(controller)` (in `app.ts`) prepends two items to the start menu
-  whenever the active background is a butterchurn one and a preset is showing: **"Background settings"** (opens
-  `controller.openBackgroundConfig()`) and **"Favorite ☐/☑"** (a checked box when the showing preset is already a
-  favorite). The preset showing at open time is captured in `controller.startMenuPreset` so paint, hit-test, and
-  keyboard all agree on the item list. The menu opens on right-click over the desktop (or the start button) as before;
-  these items just extend it.
+- **Right-click context items.** `exomuxStartMenuItems(controller)` (in `app.ts`) slots two items into the start menu
+  just below "Settings" whenever the active background is a butterchurn one and a preset is showing: **"Background
+  settings"** (opens `controller.openBackgroundConfig()`) and **"Favorite ☐/☑"** (a checked box when the showing preset
+  is already a favorite). The preset showing at open time is captured in `controller.startMenuPreset` so paint,
+  hit-test, and keyboard all agree on the item list. The menu opens on right-click over the desktop (or the start
+  button) as before; these items just extend it.
 - **Shared favorites list.** `controller.butterchurnFavorites` (a `Signal<readonly string[]>` of preset names) with
   `toggleButterchurnFavorite` / `isButterchurnFavorite`. One list shared by both renderers; the field filters it to its
   own catalog at cycle time, so a preset favorited on the CPU that is black on the GPU simply does not appear in the GPU

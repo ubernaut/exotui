@@ -4359,14 +4359,21 @@ Deno.test("exomuxStartMenuItems adds background-settings and favorite items over
   assert(!offButterchurn.some((item) => item.id === "favorite"), "no favorite item off a butterchurn background");
   assert(!offButterchurn.some((item) => item.id === "bg-settings"), "no bg-settings item off a butterchurn background");
 
-  // Over one, the two context items lead, and the favorite box is empty for a
-  // preset that is not yet favorited.
+  // Over one, the two context items sit directly below "Settings" (the config
+  // command), and the favorite box is empty for a preset not yet favorited.
   const unfavorited = exomuxStartMenuItems({
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn" },
     isButterchurnFavorite: (_name: string) => false,
   } as unknown as ExomuxController);
-  assertEquals(unfavorited[0]?.id, "bg-settings", "background settings leads the context items");
+  const ids = unfavorited.map((item) => item.id);
+  const configAt = ids.indexOf("config");
+  assert(configAt >= 0, "the Settings command is present");
+  assertEquals(
+    ids.slice(configAt, configAt + 3),
+    ["config", "bg-settings", "favorite"],
+    "the context items follow Settings, in order",
+  );
   const favItem = unfavorited.find((item) => item.id === "favorite");
   assert(favItem, "a favorite item is offered over a butterchurn background");
   assertStringIncludes(favItem!.label, "☐", "an unfavorited preset shows an empty box");
