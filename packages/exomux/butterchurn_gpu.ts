@@ -34,6 +34,19 @@ const RENDER_WIDTH = 512;
 const MIN_RENDER_HEIGHT = 128;
 const MAX_RENDER_HEIGHT = 512;
 /**
+ * Height, in cell rows, of the ribbon the basic waveform is drawn as.
+ *
+ * The frame is rendered several times wider than the cell grid and box-filtered
+ * back down (see the resolve pass), which averages a one-pixel line away: a
+ * preset whose only content is the basic waveform then resolves to black on the
+ * GPU while the CPU — which deposits ink straight into cells — shows it. Drawing
+ * the waveform as a ribbon a little over a cell tall keeps it above that filter,
+ * matching the cell-resolution weight the software path gives it. A horizontal
+ * oscilloscope trace is what MilkDrop's basic waveform is, so thickening it
+ * vertically is the faithful shape.
+ */
+const WAVE_RIBBON_CELLS = 1.5;
+/**
  * Presets whose compiled pipelines are kept.
  *
  * Enough for the one on screen, the one being prewarmed, and a few steps back
@@ -709,7 +722,8 @@ export class ExomuxButterchurnGpu {
       // drivers (Intel/Mesa) reject "group index 0", poison the command buffer,
       // and the whole frame renders black. So bind nothing.
       wavePass.setVertexBuffer(0, this.#waveBuffer!);
-      wavePass.draw(frame.waveCount);
+      // Two vertices per waveform point make up the ribbon strip.
+      wavePass.draw(frame.waveCount * 2);
       wavePass.end();
     }
 
@@ -1184,20 +1198,32 @@ export class ExomuxButterchurnGpu {
 
   #writeWave(frame: ExomuxButterchurnGpuFrame): void {
     const count = Math.max(2, frame.waveCount);
-    if (this.#waveData.length < count * 8) this.#waveData = new Float32Array(count * 8);
+    // Two vertices per waveform point — the ribbon's upper and lower edge — so
+    // the trace draws as a triangle strip a little over a cell tall instead of a
+    // one-pixel line the resolve filter would erase. See WAVE_RIBBON_CELLS.
+    const verts = count * 2;
+    if (this.#waveData.length < verts * 8) this.#waveData = new Float32Array(verts * 8);
     const data = this.#waveData;
+    // Half the ribbon height, in clip space. The clip range spans the grid's
+    // #height rows over two units, so one row is 2/#height; offset each edge by
+    // half the target ribbon height about the point.
+    const halfHeight = WAVE_RIBBON_CELLS / Math.max(1, this.#height);
     for (let index = 0; index < count; index += 1) {
-      const at = index * 8;
-      data[at] = frame.wave[index * 2] ?? 0;
-      data[at + 1] = frame.wave[index * 2 + 1] ?? 0;
-      data[at + 2] = 0;
-      data[at + 3] = 0;
-      data[at + 4] = frame.waveColor[0];
-      data[at + 5] = frame.waveColor[1];
-      data[at + 6] = frame.waveColor[2];
-      data[at + 7] = frame.waveColor[3];
+      const x = frame.wave[index * 2] ?? 0;
+      const y = frame.wave[index * 2 + 1] ?? 0;
+      for (let edge = 0; edge < 2; edge += 1) {
+        const at = (index * 2 + edge) * 8;
+        data[at] = x;
+        data[at + 1] = y + (edge === 0 ? halfHeight : -halfHeight);
+        data[at + 2] = 0;
+        data[at + 3] = 0;
+        data[at + 4] = frame.waveColor[0];
+        data[at + 5] = frame.waveColor[1];
+        data[at + 6] = frame.waveColor[2];
+        data[at + 7] = frame.waveColor[3];
+      }
     }
-    const waveBytes = count * 8 * 4;
+    const waveBytes = verts * 8 * 4;
     if (!this.#waveBuffer || this.#waveBuffer.size < waveBytes) {
       this.#waveBuffer?.destroy();
       this.#waveBuffer = this.#device.createBuffer({
@@ -1205,7 +1231,7 @@ export class ExomuxButterchurnGpu {
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
     }
-    this.#device.queue.writeBuffer(this.#waveBuffer, 0, data, 0, count * 8);
+    this.#device.queue.writeBuffer(this.#waveBuffer, 0, data, 0, verts * 8);
   }
 
   #wavePipelineCache: GPURenderPipeline | undefined;
@@ -1240,7 +1266,8 @@ struct WaveOut { @builtin(position) position: vec4<f32>, @location(0) color: vec
           },
         }],
       },
-      primitive: { topology: "line-strip" },
+      // A ribbon: consecutive edge-vertex pairs (top, bottom) form the strip.
+      primitive: { topology: "triangle-strip" },
     });
     return this.#wavePipelineCache;
   }

@@ -7,6 +7,7 @@ import {
   ExomuxButterchurnField,
   exomuxButterchurnGpuErrorLines,
   exomuxPresetLooksBlank,
+  floorWaveColor,
 } from "../butterchurn_background.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "../butterchurn_catalog.ts";
 import { EXOMUX_BUTTERCHURN_ROTATION } from "../butterchurn_rotation.ts";
@@ -936,4 +937,28 @@ Deno.test("The GPU-error notice names the software background as the alternative
   const joined = exomuxButterchurnGpuErrorLines().join(" ");
   assert(joined.includes("WebGPU"), `notice should mention WebGPU: "${joined}"`);
   assert(joined.includes("butterchurn cpu"), `notice should point at the CPU background: "${joined}"`);
+});
+
+Deno.test("floorWaveColor lifts a dim wave colour to the GPU visibility floor, hue preserved", () => {
+  // A dim colour (Aderrasi-style: near-black, one channel barely lit) is scaled
+  // up so its peak channel reaches the floor, while the ratio between channels —
+  // the hue — is untouched.
+  const [r, g, b] = floorWaveColor(0, 0.08, 0.05);
+  assertAlmostEquals(Math.max(r, g, b), 0.4, 1e-9, "peak channel should reach the floor");
+  assertEquals(r, 0, "a zero channel stays zero");
+  assertAlmostEquals(g / b, 0.08 / 0.05, 1e-9, "the channel ratio (hue) is preserved");
+});
+
+Deno.test("floorWaveColor leaves an already-bright wave colour untouched", () => {
+  // Peak already above the floor: the CPU would not over-spend ink here either,
+  // so the colour passes through verbatim.
+  const bright: [number, number, number] = [0.86, 0.59, 0.59];
+  assertEquals(floorWaveColor(...bright), bright);
+});
+
+Deno.test("floorWaveColor leaves a near-black wave colour black", () => {
+  // Below the epsilon there is no colour to preserve; amplifying it would only
+  // manufacture a waveform the preset never asked for (the CPU draws nothing here).
+  assertEquals(floorWaveColor(0, 0, 0), [0, 0, 0]);
+  assertEquals(floorWaveColor(1e-4, 0, 0), [1e-4, 0, 0]);
 });

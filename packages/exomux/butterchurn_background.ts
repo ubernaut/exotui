@@ -128,6 +128,27 @@ const PRIM_INK = 500;
  */
 const MIN_WAVE_ALPHA = 0.5;
 /**
+ * Minimum peak brightness for the basic waveform's colour on the GPU path.
+ *
+ * The same `wave_a` problem above has a colour twin on the GPU. The software
+ * path spends a fixed `WAVE_INK` budget on the waveform, so even a dim colour —
+ * or a waveform that collapses to a tight cluster of points — deposits enough
+ * ink to read. The GPU draws the waveform faithfully instead: an additive
+ * line strip tinted `colour * alpha`. A preset whose `wave_r/g/b` are near zero
+ * (many are; some go negative and clamp to black) then contributes essentially
+ * nothing and the whole preset resolves to black on the GPU while rendering on
+ * the CPU — the bulk of the "GPU renders fewer presets than the CPU" gap.
+ *
+ * Lifting a dim wave colour up to this peak (hue preserved, so the preset's
+ * intended colour survives) gives the GPU waveform the CPU's visibility floor.
+ * Presets already at or above it are left untouched, and a genuinely black
+ * wave colour (peak below `WAVE_GPU_LUMA_EPSILON`) is left black — the CPU
+ * draws nothing there either.
+ */
+const WAVE_GPU_LUMA_FLOOR = 0.4;
+/** Below this peak a wave colour is treated as "no colour" and not boosted. */
+const WAVE_GPU_LUMA_EPSILON = 1e-3;
+/**
  * Ceiling on a preset's decay.
  *
  * MilkDrop presets may set `decay` to 1 and rely on their composite shader,
@@ -1010,9 +1031,7 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
       wave: preset.wave,
       waveCount: preset.waveCount,
       waveColor: [
-        clamp(values.waveR, 0, 1),
-        clamp(values.waveG, 0, 1),
-        clamp(values.waveB, 0, 1),
+        ...floorWaveColor(clamp(values.waveR, 0, 1), clamp(values.waveG, 0, 1), clamp(values.waveB, 0, 1)),
         Math.max(MIN_WAVE_ALPHA, clamp(values.waveAlpha, 0, 1)) * (SILENT_INK + (1 - SILENT_INK) * audio.level),
       ],
       q: this.#q,
@@ -1363,6 +1382,19 @@ function clampEnergy(value: number): number {
 
 function clamp(value: number, low: number, high: number): number {
   return Number.isFinite(value) ? (value < low ? low : value > high ? high : value) : low;
+}
+
+/**
+ * Lift a dim wave colour up to a minimum peak (hue preserved) so the GPU
+ * waveform reads, matching the software path's fixed-budget visibility. Colours
+ * already at the floor pass through unchanged; a near-black colour stays black.
+ * See {@link WAVE_GPU_LUMA_FLOOR}.
+ */
+export function floorWaveColor(red: number, green: number, blue: number): [number, number, number] {
+  const peak = Math.max(red, green, blue);
+  if (peak < WAVE_GPU_LUMA_EPSILON || peak >= WAVE_GPU_LUMA_FLOOR) return [red, green, blue];
+  const scale = WAVE_GPU_LUMA_FLOOR / peak;
+  return [red * scale, green * scale, blue * scale];
 }
 
 /** Clamp-to-edge bilinear read of a three-channel field, written into `out`. */

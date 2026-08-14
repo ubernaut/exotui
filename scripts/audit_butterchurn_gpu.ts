@@ -5,13 +5,18 @@
  * `packages/exomux/butterchurn_gpu_rotation.ts` — the subset the GPU butterchurn
  * background auto-cycles.
  *
- * A large share of the catalog compiles its shaders but resolves to a black or
- * near-black frame on the GPU path (an author `x/0` the sanitizer now rescues is
- * only a handful; most are a genuine GPU-vs-CPU fidelity gap that is its own
- * investigation). Cycling through those shows a preset that dead-skips within a
- * second, which reads as a strobe. This audit keeps only the presets that
- * actually draw, so auto-cycle stays on real imagery. Every preset remains
- * reachable by index through `EXOMUX_BUTTERCHURN_CATALOG`.
+ * A minority of the catalog still resolves to a black or near-black frame on the
+ * GPU path — mostly shader-heavy presets whose look the CPU builds from ink the
+ * GPU seeds only from feedback, a genuine GPU-vs-CPU fidelity gap. Cycling
+ * through those shows a preset that dead-skips within a second, which reads as a
+ * strobe. This audit keeps the presets that draw above the runtime dead-skip
+ * floor, so auto-cycle stays on real imagery. Every preset remains reachable by
+ * index through `EXOMUX_BUTTERCHURN_CATALOG`.
+ *
+ * The keep threshold tracks the runtime dead-skip (`DEAD_PRESET_COVERAGE`, 1%),
+ * not a stricter bar of its own: a preset that renders steadily above the floor
+ * the runtime uses to skip strobes is one auto-cycle should visit. An earlier 3%
+ * bar dropped ~a dozen presets that render a real, if sparse, figure.
  *
  * Runs against whichever WebGPU device the host exposes; that is a good proxy
  * for other conformant drivers but not identical, so a preset that only fails on
@@ -35,8 +40,12 @@ const CELLS = WIDTH * HEIGHT;
 const WARMUP_FRAMES = 80;
 /** Real-time gap per frame so readbacks keep up with the sim clock. */
 const FRAME_SLEEP_MS = 6;
-/** A preset must cover at least this share of the desktop to be worth cycling. */
-const MIN_COVERAGE = 0.03;
+/**
+ * A preset must cover at least this share of the desktop to be worth cycling.
+ * Set just above the runtime dead-skip coverage (1%) so a kept preset renders
+ * with margin over the floor that would make the runtime skip it as a strobe.
+ */
+const MIN_COVERAGE = 0.015;
 
 function coverage(field: ExomuxButterchurnField): number {
   let painted = 0;

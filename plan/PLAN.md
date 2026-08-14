@@ -32,8 +32,13 @@ highest-leverage additions to the library.
    components they would build on.
 4. **`026` exomux network menu (P2).** MVP shipped; Phase 2 (OSC 7 cwd tracking, capability/provider manifest, remote
    session discovery) is exomux-specific polish, not library-building.
-5. **Top-level research plans (P3, opportunistic).** `html-css-layout-engine.md` (partial), `kitty-graphics-integration.md`
-   (not started). `tailscale-integration.md` is superseded by `026` and can be archived once 026 completes.
+5. **Top-level research plans (P3, opportunistic).** `html-css-layout-engine.md` (partial),
+   `kitty-graphics-integration.md` (not started). `tailscale-integration.md` is superseded by `026` and can be archived
+   once 026 completes.
+6. **Exomux butterchurn polish (P2, exomux-specific).** `030` GPU render-fidelity — two systematic fixes landed (wave
+   colour floor + waveform ribbon), lifting the GPU auto-cycle rotation 306 → 369 of 472; a residual ~28 shader-heavy
+   presets remain black and are characterised for a later pass. `029` right-click "bg settings"/favorite menu and a
+   favorites-only cycle toggle for both butterchurns (specified, not started).
 
 ## Completion Standard
 
