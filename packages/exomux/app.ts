@@ -81,6 +81,7 @@ import {
 import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
 import { ExomuxSessionNameField } from "./session_name_field.ts";
+import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
@@ -914,6 +915,19 @@ export function mountExomuxDesktop(
       },
     ),
   );
+  // The SCP modal's password prompt is a real, composited Input (masked) — the
+  // first interactive field migrated off hand-drawn paint onto the reusable
+  // ExomuxInputField. It owns typing/cursor/backspace; its value is pushed to
+  // the controller. Enter/Escape stay with the modal's key handler.
+  const scpPasswordField = own(
+    new ExomuxInputField({
+      requestRepaint: () => {
+        settingsWidgetRevision.value += 1;
+      },
+      onChange: (value) => controller.setScpPassword(value),
+      password: true,
+    }),
+  );
   // The background-config modal reuses the same real controls: a List for its
   // preset/image pane, Cyclers/CheckBoxes for its options, a Button to close.
   const bumpSettingsWidgets = () => {
@@ -1188,6 +1202,7 @@ export function mountExomuxDesktop(
         settingsPickers,
         settingsOptions,
         sessionNameField,
+        scpPasswordField,
         backgroundList,
         backgroundOptionControls,
         backgroundButtons,
@@ -2462,18 +2477,33 @@ export function mountExomuxDesktop(
       return;
     }
     if (controller.pendingScp.peek()) {
-      // The modal hosts a password field, so printable keys type into it;
-      // only Enter/Escape/Backspace act. "Paste path" stays on its button.
+      // The modal hosts a real composited password Input. Enter sends and Escape
+      // cancels at the modal level; everything else — typing, backspace, space,
+      // cursor keys — is owned natively by the Input, which pushes its value back
+      // through onChange.
       if (event.key === "return") {
         void controller.confirmScpTransfer(bodyRect.peek());
       } else if (event.key === "escape") {
         controller.cancelScpTransfer(false);
-      } else if (event.key === "backspace") {
-        controller.backspaceScpPassword();
-      } else if (event.key === "space") {
-        controller.appendScpPassword(" ");
-      } else if (!event.ctrl && !event.meta && event.key.length === 1) {
-        controller.appendScpPassword(event.shift ? event.key.toUpperCase() : event.key);
+      } else if (scpPasswordField.active) {
+        const shifted = !event.ctrl && !event.meta && event.shift && event.key.length === 1;
+        scpPasswordField.handleKey({
+          key: shifted ? event.key.toUpperCase() : event.key,
+          ctrl: event.ctrl,
+          meta: event.meta,
+          shift: event.shift,
+        });
+      } else {
+        // The composited Input mounts on the first render after the modal opens.
+        // Any keystroke that beats it accumulates on the controller instead; the
+        // Input seeds from that password when it mounts, so nothing is lost.
+        if (event.key === "backspace") {
+          controller.backspaceScpPassword();
+        } else if (event.key === "space") {
+          controller.appendScpPassword(" ");
+        } else if (!event.ctrl && !event.meta && event.key.length === 1) {
+          controller.appendScpPassword(event.shift ? event.key.toUpperCase() : event.key);
+        }
       }
       return;
     }
@@ -2941,6 +2971,8 @@ interface RenderExomuxDesktopOptions {
   settingsOptions?: ExomuxSettingsOptions;
   /** Hosts the session-name editor as a real composited Input while renaming. */
   sessionNameField?: ExomuxSessionNameField;
+  /** Hosts the SCP modal's password prompt as a real composited (masked) Input. */
+  scpPasswordField?: ExomuxInputField;
   /** Hosts the background-config modal's list pane as a real composited List. */
   backgroundList?: ExomuxBackgroundList;
   /** Hosts the background-config modal's option controls as real Cyclers/CheckBoxes. */
@@ -3191,7 +3223,20 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   if (controller.helpVisible.peek()) paintHelp(painter, projection, theme);
   if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme);
   const scpRequest = controller.pendingScp.peek();
-  if (scpRequest) paintScpModal(painter, projection, theme, scpRequest);
+  if (scpRequest) {
+    paintScpModal(painter, projection, theme, scpRequest, options.scpPasswordField);
+  } else {
+    // Modal closed: tear the composited Input down (the spec is unused here).
+    options.scpPasswordField?.sync(false, "", {
+      column: 0,
+      row: 0,
+      width: 1,
+      foreground: theme.text,
+      background: theme.background,
+      cursorForeground: theme.text,
+      cursorBackground: theme.background,
+    });
+  }
   const configSessionId = controller.configSessionId.peek();
   if (configSessionId) paintWindowConfigModal(painter, projection, theme, controller, configSessionId);
   if (controller.backgroundConfigVisible.peek()) {
@@ -4824,6 +4869,7 @@ function paintScpModal(
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
   request: ExomuxScpRequest,
+  passwordField?: ExomuxInputField,
 ): void {
   const { rect, cancelRect, pasteRect, sendRect } = exomuxScpLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
@@ -4843,12 +4889,33 @@ function paintScpModal(
     },
   );
   const passwordRow = rect.row + Math.max(3, rect.height - 3);
-  const masked = request.password.length > 0 ? "•".repeat(Math.min(request.password.length, rect.width - 16)) : "";
-  const passwordHint = masked || "(key/agent auth)";
-  painter.write(rect.column + 2, passwordRow, fitText(`Password: ${passwordHint}`, rect.width - 4), {
-    foreground: request.password.length > 0 ? theme.text : theme.muted,
+  const label = "Password: ";
+  painter.write(rect.column + 2, passwordRow, label, { foreground: theme.muted, background: theme.surfaceStrong });
+  const fieldColumn = rect.column + 2 + label.length;
+  const fieldWidth = Math.max(1, rect.width - 4 - label.length);
+  // The value is a real masked exotui Input composited over the region, with a
+  // hand-drawn fallback until its first snapshot renders.
+  passwordField?.sync(true, request.password, {
+    column: 0,
+    row: 0,
+    width: fieldWidth,
+    foreground: theme.text,
     background: theme.surfaceStrong,
+    cursorForeground: theme.surfaceStrong,
+    cursorBackground: theme.accent,
   });
+  if (passwordField?.ready()) {
+    for (let column = 0; column < fieldWidth; column += 1) {
+      const cell = passwordField.cellAt(0, column);
+      if (cell !== undefined) painter.rawCell(fieldColumn + column, passwordRow, cell);
+    }
+  } else {
+    const masked = request.password.length > 0 ? "*".repeat(Math.min(request.password.length, fieldWidth)) : "";
+    painter.write(fieldColumn, passwordRow, fitText(masked || "(key/agent auth)", fieldWidth), {
+      foreground: request.password.length > 0 ? theme.text : theme.muted,
+      background: theme.surfaceStrong,
+    });
+  }
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
     foreground: theme.text,
     background: theme.surface,

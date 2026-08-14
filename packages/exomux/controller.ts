@@ -1426,6 +1426,15 @@ export class ExomuxController {
     }
   }
 
+  /** Sets the pending transfer's password field outright (from the composited Input's value). */
+  setScpPassword(password: string): void {
+    const request = this.pendingScp.peek();
+    if (this.#disposed || !request) return;
+    const capped = password.length > 256 ? password.slice(0, 256) : password;
+    if (capped === request.password) return;
+    this.pendingScp.value = { ...request, password: capped };
+  }
+
   /** Appends one typed character to the pending transfer's password field. */
   appendScpPassword(char: string): void {
     const request = this.pendingScp.peek();

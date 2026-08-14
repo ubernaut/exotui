@@ -300,6 +300,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Changed
 
+- Exomux's SCP transfer prompt now hosts a **real composited `Input`** for its password field instead of a hand-drawn
+  `•`-masked box: it masks (`*`), owns typing/cursor/backspace natively, and pushes its value back to the controller. It
+  rides a new reusable `ExomuxInputField` (`packages/exomux/input_field.ts`) — the generalized form of the session-name
+  editor's composited-Input pattern (masked or validated, `sync`/`handleKey`/`cellAt`/`ready`) — the first step of
+  back-feeding exomux's hand-drawn controls onto real components. Keystrokes that beat the field's async mount are
+  accumulated on the controller and seeded in, so none are lost.
 - Exomux's fall-back music generator (what the butterchurn/reactive backgrounds visualize when no microphone or system
   audio is available) is now an actual on-the-fly composition instead of a flat drone. Three voices — a low bass, a mid
   melodic lead, and a high arpeggio — each run their own 16-step sequencer on their own rhythmic interval, drawing notes
