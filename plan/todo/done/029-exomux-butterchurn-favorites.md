@@ -1,7 +1,36 @@
 # Exomux Butterchurn — Right-Click Menu + Preset Favorites
 
-Status: specified Aug 14 2026 (user); not started. Implement **after** the butterchurn GPU-preset fidelity work (the
-GPU-vs-CPU render gap). Applies to **both** butterchurn backgrounds — the GPU `"butterchurn"` and the software
+Status: **done Aug 14 2026.** Applies to **both** butterchurn backgrounds — the GPU `"butterchurn"` and the software
+`"butterchurn cpu"`.
+
+## As built
+
+- **Right-click context items.** `exomuxStartMenuItems(controller)` (in `app.ts`) prepends two items to the start menu
+  whenever the active background is a butterchurn one and a preset is showing: **"Background settings"** (opens
+  `controller.openBackgroundConfig()`) and **"Favorite ☐/☑"** (a checked box when the showing preset is already a
+  favorite). The preset showing at open time is captured in `controller.startMenuPreset` so paint, hit-test, and
+  keyboard all agree on the item list. The menu opens on right-click over the desktop (or the start button) as before;
+  these items just extend it.
+- **Shared favorites list.** `controller.butterchurnFavorites` (a `Signal<readonly string[]>` of preset names) with
+  `toggleButterchurnFavorite` / `isButterchurnFavorite`. One list shared by both renderers; the field filters it to its
+  own catalog at cycle time, so a preset favorited on the CPU that is black on the GPU simply does not appear in the GPU
+  favorites cycle. Persisted to the config file (`ExomuxConfig.butterchurnFavorites`, round-tripped through
+  `ExomuxPreferences` and `normalizeButterchurnFavorites`).
+- **"Favorites only" toggle.** A new boolean spec in `BUTTERCHURN_SETTING_SPECS` (both butterchurn ids). The field
+  gained `favorites` / `favoritesOnly` options and a live `setFavorites(names, only)`; `#eligibleIndices()` restricts
+  the auto-cycle shuffle to favorited catalog indices, falling back to the whole catalog when none are present and
+  holding a lone favorite. Favoriting updates the live field via a `butterchurnFavorites` subscription (no rebuild, so
+  the on-screen preset is not restarted); flipping the toggle rebuilds via the settings revision like the other knobs.
+  The GPU prewarm now follows the real play order (`#peekNext()`), so favorites-only prewarms the right preset.
+- **Tests.** Field: favorites-only visits only favorites; empty/single fallback; `setFavorites` redirects live;
+  `selectPreset` still reaches any index (`backgrounds_butterchurn.test.ts`). Menu: `exomuxStartMenuItems` adds the
+  context items and reflects favorite state (`app.test.ts`). Controller: `toggleButterchurnFavorite` round-trips through
+  `onPreferencesChanged` (`app.test.ts`). Config: `butterchurnFavorites` round-trips (`config.test.ts`); the spec and
+  `normalizeButterchurnFavorites` are covered (`background_config.test.ts`).
+
+---
+
+Original spec (Aug 14 2026). Applies to **both** butterchurn backgrounds — the GPU `"butterchurn"` and the software
 `"butterchurn cpu"`.
 
 ## Requirements (from user direction, Aug 14 2026)

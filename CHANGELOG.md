@@ -31,6 +31,14 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- Exomux butterchurn backgrounds gained **preset favorites**. Right-clicking an active butterchurn desktop (GPU or
+  software) adds two items to the menu: **Background settings** (opens that background's config) and **Favorite ☐/☑**,
+  which toggles whether the showing preset is a favorite (a checked box when it already is). A new **Favorites only**
+  background setting then restricts auto-cycle to the favorites — falling back to the whole catalog when none are set,
+  and holding a lone favorite. The favorites list is shared across both renderers (each cycles the ones in its own
+  catalog) and persists to the config file. Favoriting updates the live field without restarting the preset on screen;
+  only the toggle rebuilds it. New surface: `exomuxStartMenuItems`, `controller.butterchurnFavorites` /
+  `toggleButterchurnFavorite`, the field's `favorites`/`favoritesOnly` options and `setFavorites`.
 - New **`WidgetSurface`** (`@ubernaut/deno-tui/app`): an off-screen component host for apps that paint their own
   retained grid by hand (a terminal multiplexer fusing PTY screens, translucent windows, and GPU backgrounds is the
   motivating case). It mounts a component subtree on an in-memory `Canvas`, renders it manually (no terminal, no loop,

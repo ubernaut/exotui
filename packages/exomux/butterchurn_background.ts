@@ -353,6 +353,19 @@ export interface ExomuxButterchurnFieldOptions {
    * this to avoid writing files. The caller owns any logger it passes in.
    */
   readonly debugLogger?: ExomuxDebugLogger;
+  /**
+   * Preset names the auto-cycle may restrict to when {@link favoritesOnly} is
+   * on. Matched by name (not index) so the list survives a catalog reorder, and
+   * shared across both butterchurn renderers — each cycles the favourites that
+   * exist in its own catalog. Updatable live with {@link setFavorites}.
+   */
+  readonly favorites?: readonly string[];
+  /**
+   * Cycle only the {@link favorites} instead of the whole catalog. With no
+   * favourites in this field's catalog it falls back to the full catalog rather
+   * than cycling nothing; a single favourite simply holds.
+   */
+  readonly favoritesOnly?: boolean;
 }
 
 interface ButterchurnPointer {
@@ -417,6 +430,10 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
    */
   #order: number[] = [];
   #cursor = 0;
+  /** Preset names the auto-cycle restricts to when {@link #favoritesOnly}. */
+  #favorites: Set<string>;
+  /** Whether the auto-cycle is limited to {@link #favorites}. */
+  #favoritesOnly: boolean;
   /** State for the order shuffle, so a seeded field is reproducible. */
   #shuffleState: number;
   #presetIndex: number;
@@ -517,6 +534,8 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     this.#audioMode = options.audioMode ?? "mic";
     this.#wantsGpu = options.gpu ?? true;
     this.#errorWithoutGpu = options.errorWithoutGpu === true;
+    this.#favorites = new Set(options.favorites ?? []);
+    this.#favoritesOnly = options.favoritesOnly === true;
     this.#shuffleState = (this.#seed * 2_246_822_519 + 374_761_393) >>> 0;
     this.#preset = this.#load(this.#presetIndex);
     this.#order = [this.#presetIndex];
@@ -617,21 +636,52 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     return this.#order[Math.min(this.#order.length - 1, this.#cursor + 1)]!;
   }
 
+  /**
+   * Catalog indices the auto-cycle shuffle draws from. In favourites-only mode
+   * that is the favourited presets (matched by name, so the pool survives a
+   * catalog reorder); with none of them in this field's catalog it falls back
+   * to the whole catalog rather than cycling nothing. A single favourite yields
+   * a one-entry pool, so the field simply holds it.
+   */
+  #eligibleIndices(): number[] {
+    if (this.#favoritesOnly && this.#favorites.size > 0) {
+      const favored: number[] = [];
+      for (let index = 0; index < this.#catalog.length; index += 1) {
+        if (this.#favorites.has(this.#catalog[index]!.name)) favored.push(index);
+      }
+      if (favored.length > 0) return favored;
+    }
+    return Array.from({ length: this.#catalog.length }, (_, index) => index);
+  }
+
   /** Queues another permutation whenever fewer than two presets remain ahead. */
   #extendOrder(): void {
     if (this.#order.length - this.#cursor > 1) return;
-    const count = this.#catalog.length;
-    const shuffled = Array.from({ length: count }, (_, index) => index);
-    for (let index = count - 1; index > 0; index -= 1) {
+    const shuffled = this.#eligibleIndices();
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(this.#shuffle() * (index + 1));
       [shuffled[index], shuffled[swap]] = [shuffled[swap]!, shuffled[index]!];
     }
     // Without this the seam between two permutations can show the same preset
     // twice running, which is the one repeat the shuffle exists to avoid.
-    if (count > 1 && shuffled[0] === this.#order[this.#order.length - 1]) {
+    if (shuffled.length > 1 && shuffled[0] === this.#order[this.#order.length - 1]) {
       [shuffled[0], shuffled[1]] = [shuffled[1]!, shuffled[0]!];
     }
     this.#order.push(...shuffled);
+  }
+
+  /**
+   * Updates the favourites the auto-cycle may restrict to, live. The preset on
+   * screen is left in place; the change takes effect on the next cycle. Pass the
+   * full list each time — add/remove is the caller's concern. Cheap enough to
+   * call on every favourite toggle, and does not rebuild the field.
+   */
+  setFavorites(names: readonly string[], only: boolean): void {
+    this.#favorites = new Set(names);
+    this.#favoritesOnly = only;
+    // Drop the queued-but-unshown tail so the next pick honours the new pool;
+    // the history (<= cursor) and the current preset stay put.
+    if (this.#order.length > this.#cursor + 1) this.#order.length = this.#cursor + 1;
   }
 
   /** Keeps the history long enough to step back through, and no longer. */
@@ -1017,7 +1067,9 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
     // Start the next preset compiling before it is needed, so a transition
     // does not begin with several frames of software rendering.
     if (this.#autoCycle && this.#cycleSeconds > 0 && this.#heldSeconds > this.#cycleSeconds - PRESET_PREWARM_SECONDS) {
-      const next = this.#catalog[(this.#presetIndex + 1) % this.#catalog.length]!;
+      // The actual next in the play order (which honours the shuffle and any
+      // favourites filter), not the catalog neighbour, so the prewarm lands.
+      const next = this.#catalog[this.#peekNext()]!;
       if (this.#gpuPresets.get(next.name) !== false) gpu.prepare(next);
     }
 

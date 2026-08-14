@@ -15,6 +15,7 @@ import {
   type ExomuxGlobalSettings,
   exomuxTheme,
   type ExomuxThemeId,
+  normalizeButterchurnFavorites,
   normalizeExomuxBackgroundSettings,
   normalizeExomuxGlobalSettings,
 } from "./model.ts";
@@ -30,6 +31,8 @@ export interface ExomuxConfig {
   readonly backgroundId: ExomuxBackgroundId;
   readonly globalSettings: ExomuxGlobalSettings;
   readonly backgroundSettings: ExomuxBackgroundSettingsMap;
+  /** Preset names favorited for the butterchurn "Favorites only" cycle. */
+  readonly butterchurnFavorites: readonly string[];
   /** GLSL interface shaders (applied only inside Ghostty). */
   readonly shaders: ExomuxShaderConfig;
 }
@@ -48,6 +51,7 @@ export function normalizeExomuxConfig(value: unknown): ExomuxConfig {
     backgroundId: exomuxBackgroundId(record.backgroundId),
     globalSettings: normalizeExomuxGlobalSettings(record.globalSettings),
     backgroundSettings: normalizeExomuxBackgroundSettings(record.backgroundSettings),
+    butterchurnFavorites: normalizeButterchurnFavorites(record.butterchurnFavorites),
     shaders: normalizeExomuxShaderConfig(record.shaders),
   });
 }

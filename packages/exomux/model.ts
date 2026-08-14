@@ -727,6 +727,13 @@ const BUTTERCHURN_SETTING_SPECS: readonly ExomuxSettingSpec<string>[] = Object.f
     format: formatAudioMode,
   }),
   Object.freeze({
+    id: "favoritesOnly",
+    label: "Favorites only",
+    detail: "Auto-cycle just the presets you've favorited (right-click); off cycles the whole catalog.",
+    values: Object.freeze([false, true]),
+    format: onOff,
+  }),
+  Object.freeze({
     id: "debug",
     label: "Debug overlay",
     detail: "Shows CPU/WebGPU mode and the live preset name, and logs GPU messages to logs/.",
@@ -796,6 +803,30 @@ export function normalizeExomuxBackgroundSettings(value: unknown): ExomuxBackgro
       if (typeof candidate === "string" && candidate.length > 0 && candidate.length <= 1024) values[key] = candidate;
     }
     if (Object.keys(values).length > 0) out[id] = Object.freeze(values);
+  }
+  return Object.freeze(out);
+}
+
+/**
+ * Upper bound on stored butterchurn favourites. The catalog is ~472 presets, so
+ * this only guards a corrupt or hand-edited config from an unbounded list.
+ */
+export const EXOMUX_MAX_BUTTERCHURN_FAVORITES = 1024;
+
+/**
+ * Normalizes a persisted butterchurn favourites list: non-empty strings only,
+ * de-duplicated with order preserved, capped. Any other shape becomes empty.
+ * The entries are preset names (shared across both butterchurn renderers).
+ */
+export function normalizeButterchurnFavorites(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return Object.freeze([]);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.length === 0 || entry.length > 1024 || seen.has(entry)) continue;
+    seen.add(entry);
+    out.push(entry);
+    if (out.length >= EXOMUX_MAX_BUTTERCHURN_FAVORITES) break;
   }
   return Object.freeze(out);
 }

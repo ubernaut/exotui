@@ -28,6 +28,7 @@ import {
   type ExomuxPointerInputSource,
   exomuxQuitLayout,
   exomuxScpLayout,
+  exomuxStartMenuItems,
   exomuxStartMenuLayout,
   exomuxWindowConfigLayout,
   projectExomuxTerminalBar,
@@ -40,6 +41,7 @@ import {
   EXOMUX_SETTINGS_WINDOW_ID,
   EXOMUX_WARNING_TTL_MS,
   type ExomuxController,
+  type ExomuxPreferences,
 } from "../controller.ts";
 import {
   cycleExomuxGlobalSetting,
@@ -4343,6 +4345,66 @@ Deno.test("Exomux right-clicks the desktop to open the menu at the cursor", asyn
     assertEquals(controller.startMenuAnchor.peek(), undefined);
   } finally {
     harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("exomuxStartMenuItems adds background-settings and favorite items over an active butterchurn", () => {
+  // Off a butterchurn background, the menu is just the standard commands.
+  const offButterchurn = exomuxStartMenuItems({
+    startMenuPreset: { peek: () => undefined },
+    backgroundId: { peek: () => "metaballs" },
+    isButterchurnFavorite: () => false,
+  } as unknown as ExomuxController);
+  assert(!offButterchurn.some((item) => item.id === "favorite"), "no favorite item off a butterchurn background");
+  assert(!offButterchurn.some((item) => item.id === "bg-settings"), "no bg-settings item off a butterchurn background");
+
+  // Over one, the two context items lead, and the favorite box is empty for a
+  // preset that is not yet favorited.
+  const unfavorited = exomuxStartMenuItems({
+    startMenuPreset: { peek: () => "Some Preset" },
+    backgroundId: { peek: () => "butterchurn" },
+    isButterchurnFavorite: (_name: string) => false,
+  } as unknown as ExomuxController);
+  assertEquals(unfavorited[0]?.id, "bg-settings", "background settings leads the context items");
+  const favItem = unfavorited.find((item) => item.id === "favorite");
+  assert(favItem, "a favorite item is offered over a butterchurn background");
+  assertStringIncludes(favItem!.label, "☐", "an unfavorited preset shows an empty box");
+
+  // The box is checked when the showing preset is already a favorite, and the
+  // software butterchurn is treated the same as the GPU one.
+  const favorited = exomuxStartMenuItems({
+    startMenuPreset: { peek: () => "Some Preset" },
+    backgroundId: { peek: () => "butterchurn cpu" },
+    isButterchurnFavorite: (name: string) => name === "Some Preset",
+  } as unknown as ExomuxController);
+  const checked = favorited.find((item) => item.id === "favorite");
+  assertStringIncludes(checked!.label, "☑", "an already-favorited preset shows a checked box");
+});
+
+Deno.test("toggleButterchurnFavorite updates the list and persists it through onPreferencesChanged", async () => {
+  const client = new FakeExomuxClient([]);
+  const saved: ExomuxPreferences[] = [];
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    onPreferencesChanged: (preferences) => saved.push(preferences),
+  });
+  try {
+    assertEquals(controller.butterchurnFavorites.peek(), []);
+    assertEquals(controller.isButterchurnFavorite("Nebula"), false);
+
+    assertEquals(controller.toggleButterchurnFavorite("Nebula"), true, "toggling on returns the new membership");
+    assertEquals(controller.butterchurnFavorites.peek(), ["Nebula"]);
+    assert(controller.isButterchurnFavorite("Nebula"));
+    assert(
+      saved.some((preferences) => preferences.butterchurnFavorites.includes("Nebula")),
+      "the favorite is written out through onPreferencesChanged",
+    );
+
+    assertEquals(controller.toggleButterchurnFavorite("Nebula"), false, "toggling off returns the new membership");
+    assertEquals(controller.butterchurnFavorites.peek(), []);
+  } finally {
     await controller.dispose();
   }
 });

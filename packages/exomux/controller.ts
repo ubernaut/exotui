@@ -318,6 +318,8 @@ export interface ExomuxPreferences {
   readonly backgroundId: ExomuxBackgroundId;
   readonly globalSettings: ExomuxGlobalSettings;
   readonly backgroundSettings: ExomuxBackgroundSettingsMap;
+  /** Preset names favorited for the butterchurn "Favorites only" cycle. */
+  readonly butterchurnFavorites: readonly string[];
 }
 
 /** Construction options after the detached client has connected. */
@@ -412,6 +414,13 @@ export class ExomuxController {
   readonly startMenuVisible = new Signal(false);
   /** Where the menu is anchored; undefined docks it under the start button. */
   readonly startMenuAnchor = new Signal<{ readonly column: number; readonly row: number } | undefined>(undefined);
+  /**
+   * The butterchurn preset showing when the menu opened, or undefined when the
+   * active background is not a butterchurn one. Drives the menu's context items
+   * (background settings / favorite this preset); captured at open time since
+   * the menu is a momentary popup.
+   */
+  readonly startMenuPreset: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** The tmux-style name of the attached session, editable from settings. */
   readonly sessionName = new Signal<string>("main");
   /** True while a rename is in flight, to gate concurrent attempts. */
@@ -445,6 +454,12 @@ export class ExomuxController {
   readonly backgroundSettings: Signal<ExomuxBackgroundSettingsMap> = new Signal<ExomuxBackgroundSettingsMap>(
     Object.freeze({}),
   );
+  /**
+   * Preset names favorited for the butterchurn "Favorites only" cycle, shared
+   * across both butterchurn renderers. A durable preference persisted to the
+   * config file; the field filters it to its own catalog at cycle time.
+   */
+  readonly butterchurnFavorites: Signal<readonly string[]> = new Signal<readonly string[]>(Object.freeze([]));
   /** Whether the background config modal is open. */
   readonly backgroundConfigVisible: Signal<boolean> = new Signal(false);
   /** Selected option row in the background config modal. */
@@ -586,11 +601,18 @@ export class ExomuxController {
     if (!this.#disposed) this.#persistActiveSession();
   }
 
-  /** Opens the menu, docked under the start button or anchored at a cursor. */
-  openStartMenu(anchor?: { readonly column: number; readonly row: number }): void {
+  /**
+   * Opens the menu, docked under the start button or anchored at a cursor.
+   *
+   * `presetName` is the butterchurn preset showing when the menu opened, or
+   * undefined when the active background is not a butterchurn one; it drives the
+   * menu's context items (background settings / favorite this preset).
+   */
+  openStartMenu(anchor?: { readonly column: number; readonly row: number }, presetName?: string): void {
     this.#assertActive();
     this.prefixPending.value = false;
     this.startMenuAnchor.value = anchor;
+    this.startMenuPreset.value = presetName;
     this.startMenuVisible.value = true;
   }
 
@@ -599,6 +621,7 @@ export class ExomuxController {
     if (this.#disposed) return;
     this.startMenuVisible.value = false;
     this.startMenuAnchor.value = undefined;
+    this.startMenuPreset.value = undefined;
   }
 
   /** True when the session can be renamed (discovered through the state root). */
@@ -770,12 +793,12 @@ export class ExomuxController {
   }
 
   /** Toggles the start menu dropdown, returning its new visibility. */
-  toggleStartMenu(): boolean {
+  toggleStartMenu(presetName?: string): boolean {
     if (this.startMenuVisible.peek()) {
       this.closeStartMenu();
       return false;
     }
-    this.openStartMenu();
+    this.openStartMenu(undefined, presetName);
     return true;
   }
 
@@ -1028,6 +1051,27 @@ export class ExomuxController {
     this.backgroundSettingsRevision.value += 1;
     this.#persistMetadata();
     this.status.value = `Background image: ${path}`;
+  }
+
+  /** Whether a butterchurn preset (by name) is in the favorites list. */
+  isButterchurnFavorite(name: string): boolean {
+    return this.butterchurnFavorites.peek().includes(name);
+  }
+
+  /**
+   * Adds or removes a butterchurn preset from the favorites list and persists
+   * it, returning the new membership. Shared across both butterchurn renderers;
+   * the field filters the list to its own catalog when cycling favorites only.
+   */
+  toggleButterchurnFavorite(name: string): boolean {
+    if (this.#disposed || name.length === 0) return this.isButterchurnFavorite(name);
+    const current = this.butterchurnFavorites.peek();
+    const favorited = current.includes(name);
+    const next = favorited ? current.filter((entry) => entry !== name) : [...current, name];
+    this.butterchurnFavorites.value = Object.freeze(next);
+    this.#persistMetadata();
+    this.status.value = favorited ? `Unfavorited ${name}` : `Favorited ${name}`;
+    return !favorited;
   }
 
   /**
@@ -1889,6 +1933,7 @@ export class ExomuxController {
       this.backgroundId.value = preferences.backgroundId;
       this.globalSettings.value = preferences.globalSettings;
       this.backgroundSettings.value = preferences.backgroundSettings;
+      this.butterchurnFavorites.value = preferences.butterchurnFavorites;
     }
     for (const [sessionId, settings] of Object.entries(restored.windowSettings)) {
       this.#applyWindowSettings(sessionId, settings);
@@ -2167,6 +2212,7 @@ export class ExomuxController {
       backgroundId: this.backgroundId.peek(),
       globalSettings: this.globalSettings.peek(),
       backgroundSettings: this.backgroundSettings.peek(),
+      butterchurnFavorites: this.butterchurnFavorites.peek(),
     });
   }
 
@@ -2213,6 +2259,7 @@ export class ExomuxController {
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
     this.startMenuVisible.dispose();
+    this.startMenuPreset.dispose();
     this.#tailnetPoller?.dispose();
     this.networkTree.dispose();
     this.networkStatus.dispose();
@@ -2220,6 +2267,7 @@ export class ExomuxController {
     this.sessionHosts.dispose();
     this.backgroundId.dispose();
     this.backgroundPresetStep.dispose();
+    this.butterchurnFavorites.dispose();
     this.pendingScp.dispose();
     this.status.value = "disposed";
     this.status.dispose();

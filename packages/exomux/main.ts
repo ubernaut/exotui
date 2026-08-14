@@ -469,6 +469,7 @@ export function exomuxConfigToPreferences(config: ExomuxConfig): ExomuxPreferenc
     backgroundId: config.backgroundId,
     globalSettings: config.globalSettings,
     backgroundSettings: config.backgroundSettings,
+    butterchurnFavorites: config.butterchurnFavorites,
   };
 }
 
@@ -534,6 +535,7 @@ export function createExomuxConfigWriter(
         backgroundId: preferences.backgroundId,
         globalSettings: preferences.globalSettings,
         backgroundSettings,
+        butterchurnFavorites: preferences.butterchurnFavorites,
       };
       schedule();
     },

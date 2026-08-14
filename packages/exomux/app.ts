@@ -244,7 +244,35 @@ export function exomuxMetaballsMayAdvance(
   return msSinceLastAdvance >= EXOMUX_MAX_BACKGROUND_STALL_MS;
 }
 
-type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit";
+type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "bg-settings" | "favorite";
+
+/** One entry in the start menu, before layout assigns it a rect. */
+interface ExomuxStartMenuItem {
+  readonly id: ExomuxMenuId;
+  readonly label: string;
+  readonly danger?: boolean;
+}
+
+/**
+ * The start-menu entries for the current state. Over an active butterchurn
+ * background the menu gains two context items — open its settings, and favorite
+ * the preset showing when the menu opened (a filled box when it already is) —
+ * above the standard commands. The preset name is captured at open time in
+ * `startMenuPreset`, so the items are the same wherever the layout is computed
+ * (paint, hit-test, keyboard).
+ */
+export function exomuxStartMenuItems(controller: ExomuxController): readonly ExomuxStartMenuItem[] {
+  const preset = controller.startMenuPreset.peek();
+  const id = controller.backgroundId.peek();
+  const overButterchurn = id === "butterchurn" || id === "butterchurn cpu";
+  if (!overButterchurn || preset === undefined) return START_MENU_ITEMS;
+  const favorited = controller.isButterchurnFavorite(preset);
+  return Object.freeze([
+    { id: "bg-settings", label: "Background settings" },
+    { id: "favorite", label: `Favorite ${favorited ? "☑" : "☐"}` },
+    ...START_MENU_ITEMS,
+  ]);
+}
 
 function menuQuitRect(bounds: Rectangle): Rectangle {
   return {
@@ -269,14 +297,19 @@ export interface ExomuxStartMenuLayout {
   readonly items: readonly ExomuxStartMenuItemLayout[];
 }
 
-/** Lays out the start-menu dropdown hanging below the top-left button. */
+/**
+ * Lays out the start-menu dropdown hanging below the top-left button. The
+ * entries default to the standard commands; pass `exomuxStartMenuItems(...)` to
+ * include the context items an active butterchurn background adds.
+ */
 export function exomuxStartMenuLayout(
   bounds: Rectangle,
   anchor?: { readonly column: number; readonly row: number },
+  entries: readonly ExomuxStartMenuItem[] = START_MENU_ITEMS,
 ): ExomuxStartMenuLayout {
-  const labelWidth = START_MENU_ITEMS.reduce((max, item) => Math.max(max, textWidth(item.label)), 0);
+  const labelWidth = entries.reduce((max, item) => Math.max(max, textWidth(item.label)), 0);
   const width = Math.min(Math.max(18, labelWidth + 4), Math.max(4, bounds.width));
-  const height = Math.min(START_MENU_ITEMS.length + 2, Math.max(3, bounds.height - 1));
+  const height = Math.min(entries.length + 2, Math.max(3, bounds.height - 1));
   // Docked under the start button by default; a right-click anchors it at the
   // cursor, clamped so the whole panel stays on screen.
   const column = anchor
@@ -284,7 +317,7 @@ export function exomuxStartMenuLayout(
     : bounds.column;
   const row = anchor ? Math.max(bounds.row, Math.min(anchor.row, bounds.row + bounds.height - height)) : bounds.row + 1;
   const panelRect: Rectangle = { column, row, width, height };
-  const items = START_MENU_ITEMS.map((item, index) => ({
+  const items = entries.map((item, index) => ({
     id: item.id,
     label: item.label,
     danger: item.danger ?? false,
@@ -570,6 +603,8 @@ export function mountExomuxDesktop(
           // The GPU background says so when there is no device, rather than
           // limping along on the CPU renderer the "butterchurn cpu" field owns.
           errorWithoutGpu: true,
+          favorites: controller.butterchurnFavorites.peek(),
+          favoritesOnly: values.favoritesOnly === true,
         })
         : id === "butterchurn cpu"
         ? new ExomuxButterchurnField({
@@ -579,6 +614,8 @@ export function mountExomuxDesktop(
           debug: values.debug === true,
           gpu: false,
           catalog: EXOMUX_BUTTERCHURN_SOFTWARE_PRESETS,
+          favorites: controller.butterchurnFavorites.peek(),
+          favoritesOnly: values.favoritesOnly === true,
         })
         : id === "image"
         ? new ExomuxImageField(typeof values.path === "string" ? { path: values.path } : {})
@@ -606,6 +643,13 @@ export function mountExomuxDesktop(
       return;
     }
     if (row.path) controller.setBackgroundImagePath(row.path);
+  };
+  /** The butterchurn preset showing now, or undefined when the background isn't one. */
+  const currentButterchurnPreset = (): string | undefined => {
+    const id = controller.backgroundId.peek();
+    if (id !== "butterchurn" && id !== "butterchurn cpu") return undefined;
+    const field = activeBackgroundField();
+    return exomuxBackgroundHasPresets(field) ? field.presetName : undefined;
   };
   // The last known mouse cell, for the optional block cursor. It updates on any
   // pointer event, including free motion once any-motion tracking is enabled.
@@ -1103,6 +1147,19 @@ export function mountExomuxDesktop(
   controller.backgroundSettingsRevision.subscribe(retimeBackground, subscriptions.signal);
   controller.backgroundId.subscribe(retimeBackground, subscriptions.signal);
   unsubscribers.push(() => clearInterval(metaballTimer));
+  // Favoriting a preset updates the live butterchurn field in place rather than
+  // rebuilding it (a rebuild would restart the preset on screen). The setting
+  // that toggles "Favorites only" still rebuilds via the settings revision; this
+  // only keeps the field's favorites list current between those rebuilds.
+  const syncButterchurnFavorites = (): void => {
+    const id = controller.backgroundId.peek();
+    if (id !== "butterchurn" && id !== "butterchurn cpu") return;
+    const field = backgroundFields.get(id);
+    if (!(field instanceof ExomuxButterchurnField)) return;
+    const values = exomuxBackgroundSettingsFor(controller.backgroundSettings.peek(), id);
+    field.setFavorites(controller.butterchurnFavorites.peek(), values.favoritesOnly === true);
+  };
+  controller.butterchurnFavorites.subscribe(syncButterchurnFavorites, subscriptions.signal);
   // Client teardown releases the GPU deterministically: every field with a
   // device-side renderer or a recorder child is disposed, then the shared
   // device itself is destroyed. Relying on process exit is not enough — a
@@ -1282,6 +1339,16 @@ export function mountExomuxDesktop(
       case "quit":
         controller.openQuitModal();
         break;
+      case "bg-settings":
+        controller.openBackgroundConfig();
+        break;
+      case "favorite": {
+        // Act on the preset the field is actually showing; the live-favorites
+        // subscription then updates the cycle without rebuilding the field.
+        const field = activeBackgroundField();
+        if (exomuxBackgroundHasPresets(field)) controller.toggleButterchurnFavorite(field.presetName);
+        break;
+      }
     }
     await syncWindows();
   };
@@ -1532,7 +1599,11 @@ export function mountExomuxDesktop(
 
   const performModalActivation = async (column: number, row: number): Promise<boolean> => {
     if (controller.startMenuVisible.peek()) {
-      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek(), controller.startMenuAnchor.peek());
+      const layout = exomuxStartMenuLayout(
+        app.tui.rectangle.peek(),
+        controller.startMenuAnchor.peek(),
+        exomuxStartMenuItems(controller),
+      );
       const item = layout.items.find((candidate) => contains(candidate.rect, column, row));
       if (item) {
         controller.closeStartMenu();
@@ -1682,7 +1753,7 @@ export function mountExomuxDesktop(
         return sessionId ? controller.windowSettingsFor(sessionId).mouseReporting : false;
       })();
       if (!overReportingTerminal) {
-        await enqueue(() => controller.openStartMenu({ column: event.x, row: event.y }));
+        await enqueue(() => controller.openStartMenu({ column: event.x, row: event.y }, currentButterchurnPreset()));
         return true;
       }
     }
@@ -1890,7 +1961,11 @@ export function mountExomuxDesktop(
 
   const modalTouchTargetAt = (column: number, row: number): ExomuxTouchTarget | undefined => {
     if (controller.startMenuVisible.peek()) {
-      const layout = exomuxStartMenuLayout(app.tui.rectangle.peek(), controller.startMenuAnchor.peek());
+      const layout = exomuxStartMenuLayout(
+        app.tui.rectangle.peek(),
+        controller.startMenuAnchor.peek(),
+        exomuxStartMenuItems(controller),
+      );
       const item = layout.items.find((candidate) => contains(candidate.rect, column, row));
       return item ? { kind: "start-item", id: item.id, hitRect: item.rect } : undefined;
     }
@@ -2100,7 +2175,7 @@ export function mountExomuxDesktop(
     if (event.kind === "down" && activation) {
       const startRect = touchLike ? coarseMenuRect(START_BUTTON) : START_BUTTON;
       if (contains(startRect, point.x, point.y)) {
-        controller.toggleStartMenu();
+        controller.toggleStartMenu(currentButterchurnPreset());
         return true;
       }
     }
@@ -2291,7 +2366,7 @@ export function mountExomuxDesktop(
   unsubscribers.push(
     registerMenuTarget(app, "start", START_BUTTON, () =>
       enqueue(() => {
-        controller.toggleStartMenu();
+        controller.toggleStartMenu(currentButterchurnPreset());
       }), modalOpen),
   );
   unsubscribers.push(
@@ -3275,7 +3350,11 @@ function paintStartMenu(
   theme: ExomuxThemeSpec,
   controller: ExomuxController,
 ): void {
-  const { panelRect, items } = exomuxStartMenuLayout(bounds, controller.startMenuAnchor.peek());
+  const { panelRect, items } = exomuxStartMenuLayout(
+    bounds,
+    controller.startMenuAnchor.peek(),
+    exomuxStartMenuItems(controller),
+  );
   painter.fill(panelRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.borderBox(panelRect, exomuxBorderGlyphs("thin"), {
     foreground: theme.accent,

@@ -54,6 +54,7 @@ Deno.test("Exomux config round-trips through the filesystem and reset restores d
       backgroundId: "image",
       globalSettings: { ...defaultExomuxConfig().globalSettings, opacity: 0.55 },
       backgroundSettings: withExomuxBackgroundString({}, "image", "path", "/wall.png"),
+      butterchurnFavorites: ["Preset A", "Preset B"],
       shaders: defaultExomuxConfig().shaders,
     };
     await writeExomuxConfig(path, config);
@@ -62,6 +63,7 @@ Deno.test("Exomux config round-trips through the filesystem and reset restores d
     assertEquals(reloaded.backgroundId, "image");
     assertEquals(reloaded.globalSettings.opacity, 0.55);
     assertEquals(reloaded.backgroundSettings.image?.path, "/wall.png");
+    assertEquals(reloaded.butterchurnFavorites, ["Preset A", "Preset B"]);
 
     const afterReset = await resetExomuxConfig(path);
     assertEquals(afterReset, defaultExomuxConfig());
@@ -103,6 +105,7 @@ Deno.test("Exomux preference writer persists changes and copies the wallpaper", 
       backgroundId: "image",
       globalSettings: { ...defaultExomuxConfig().globalSettings, opacity: 0.7 },
       backgroundSettings: withExomuxBackgroundString({}, "image", "path", source),
+      butterchurnFavorites: [],
     });
     // Debounced + best-effort; give the coalesced write time to land.
     for (let attempt = 0; attempt < 40; attempt += 1) {

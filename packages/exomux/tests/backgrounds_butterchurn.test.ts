@@ -421,6 +421,94 @@ Deno.test("butterchurn: clicking the bare desktop skips to the next preset", () 
   assert(last.presetIndex !== EXOMUX_BUTTERCHURN_PRESETS.length - 1);
 });
 
+/** A small catalog of distinctly-named presets, for the favorites-cycle tests. */
+function namedCatalog(count: number): ExomuxButterchurnPresetSource[] {
+  return Array.from({ length: count }, (_unused, index) => source({ name: `p${index}` }));
+}
+
+Deno.test("butterchurn: favorites-only auto-cycle visits only the favorited presets", () => {
+  const field = new ExomuxButterchurnField({
+    gpu: false,
+    audio: scriptedAudio(),
+    catalog: namedCatalog(6),
+    autoCycle: false,
+    presetIndex: 1,
+    favorites: ["p1", "p3", "p5"],
+    favoritesOnly: true,
+  });
+  const seen = new Set<string>();
+  // Enough steps to walk several shuffled permutations of the favorites.
+  for (let step = 0; step < 60; step += 1) {
+    field.nextPreset();
+    seen.add(field.presetName);
+  }
+  assertEquals([...seen].sort(), ["p1", "p3", "p5"], "the cycle must visit every favorite and nothing else");
+});
+
+Deno.test("butterchurn: favorites-only with none of them in the catalog cycles the whole catalog", () => {
+  const field = new ExomuxButterchurnField({
+    gpu: false,
+    audio: scriptedAudio(),
+    catalog: namedCatalog(5),
+    autoCycle: false,
+    favorites: ["not-in-this-catalog"],
+    favoritesOnly: true,
+  });
+  const seen = new Set<string>();
+  for (let step = 0; step < 60; step += 1) {
+    field.nextPreset();
+    seen.add(field.presetName);
+  }
+  assertEquals(seen.size, 5, "with no favorite present it falls back to the full catalog rather than cycling nothing");
+});
+
+Deno.test("butterchurn: a single favorite holds instead of cycling", () => {
+  const field = new ExomuxButterchurnField({
+    gpu: false,
+    audio: scriptedAudio(),
+    catalog: namedCatalog(5),
+    autoCycle: false,
+    presetIndex: 2,
+    favorites: ["p2"],
+    favoritesOnly: true,
+  });
+  for (let step = 0; step < 20; step += 1) field.nextPreset();
+  assertEquals(field.presetName, "p2", "a lone favorite is simply held");
+});
+
+Deno.test("butterchurn: setFavorites redirects the live cycle without a rebuild", () => {
+  const field = new ExomuxButterchurnField({
+    gpu: false,
+    audio: scriptedAudio(),
+    catalog: namedCatalog(6),
+    autoCycle: false,
+    presetIndex: 0,
+  });
+  // Favoriting live (as the right-click menu does) restricts the upcoming cycle.
+  field.setFavorites(["p2", "p4"], true);
+  const seen = new Set<string>();
+  for (let step = 0; step < 40; step += 1) {
+    field.nextPreset();
+    seen.add(field.presetName);
+  }
+  assertEquals([...seen].sort(), ["p2", "p4"], "the queued order must honour the newly-set favorites");
+});
+
+Deno.test("butterchurn: selectPreset still reaches any preset in favorites-only mode", () => {
+  const field = new ExomuxButterchurnField({
+    gpu: false,
+    audio: scriptedAudio(),
+    catalog: namedCatalog(6),
+    autoCycle: false,
+    presetIndex: 1,
+    favorites: ["p1"],
+    favoritesOnly: true,
+  });
+  // Auto-cycle is restricted, but an explicit choice can land anywhere.
+  field.selectPreset(4);
+  assertEquals(field.presetName, "p4", "an explicit pick is not limited to favorites");
+});
+
 Deno.test("butterchurn: stepping back retraces what was shown, not the catalog", () => {
   // The play order is shuffled, so stepping back by catalog index would land on
   // a preset nobody has seen. Going back must undo the last step.

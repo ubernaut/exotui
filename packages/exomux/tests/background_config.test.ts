@@ -5,6 +5,7 @@ import {
   EXOMUX_BACKGROUND_IDS,
   EXOMUX_BACKGROUND_SETTING_SPECS,
   exomuxBackgroundSettingsFor,
+  normalizeButterchurnFavorites,
   normalizeExomuxBackgroundSettings,
   withExomuxBackgroundString,
 } from "../model.ts";
@@ -85,6 +86,26 @@ Deno.test("background settings: cycle time, update rate and audio mode are real 
   synth.advance({ bounds: BOUNDS, now: 0 });
   assertEquals(synth.audioLabel, "synth");
   synth.dispose();
+});
+
+Deno.test("background settings: butterchurn exposes a Favorites-only knob on both renderers", () => {
+  for (const id of ["butterchurn", "butterchurn cpu"] as const) {
+    const spec = (EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? []).find((candidate) => candidate.id === "favoritesOnly");
+    assert(spec, `${id} should offer a Favorites-only setting`);
+    assertEquals(spec!.values, [false, true], "it is a boolean toggle defaulting to off");
+  }
+});
+
+Deno.test("normalizeButterchurnFavorites keeps clean names and drops junk", () => {
+  assertEquals(normalizeButterchurnFavorites(["a", "b"]), ["a", "b"]);
+  // De-duplicates, preserving first-seen order.
+  assertEquals(normalizeButterchurnFavorites(["a", "b", "a"]), ["a", "b"]);
+  // Non-strings, empties, and non-arrays are rejected.
+  assertEquals(normalizeButterchurnFavorites(["a", "", 3, null, "b"]), ["a", "b"]);
+  assertEquals(normalizeButterchurnFavorites("nope"), []);
+  assertEquals(normalizeButterchurnFavorites(undefined), []);
+  // The result is frozen so callers cannot mutate the stored list.
+  assert(Object.isFrozen(normalizeButterchurnFavorites(["a"])));
 });
 
 Deno.test("background config modal: layout scrolls the list and pins the options", () => {

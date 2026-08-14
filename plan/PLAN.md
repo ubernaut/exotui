@@ -38,7 +38,7 @@ highest-leverage additions to the library.
 6. **Exomux butterchurn polish (P2, exomux-specific).** `030` GPU render-fidelity — two systematic fixes landed (wave
    colour floor + waveform ribbon), lifting the GPU auto-cycle rotation 306 → 369 of 472; a residual ~28 shader-heavy
    presets remain black and are characterised for a later pass. `029` right-click "bg settings"/favorite menu and a
-   favorites-only cycle toggle for both butterchurns (specified, not started).
+   favorites-only cycle toggle for both butterchurns — **done** (`todo/done/029`).
 
 ## Completion Standard
 
