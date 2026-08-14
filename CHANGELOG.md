@@ -31,6 +31,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Added
 
+- New **`WidgetSurface`** (`@ubernaut/deno-tui/app`): an off-screen component host for apps that paint their own
+  retained grid by hand (a terminal multiplexer fusing PTY screens, translucent windows, and GPU backgrounds is the
+  motivating case). It mounts a component subtree on an in-memory `Canvas`, renders it manually (no terminal, no loop,
+  no stdout), forces a full redraw per pass so a snapshot is always exact, and exposes the cells through `cellAt` for
+  the host to composite. Promoted from exomux's proven `ExomuxWidgetSurface`, which is now a thin alias — so the
+  settings/background surfaces and composited input fields ride the library primitive.
 - Exomux's software MilkDrop renderer is now its own background, **"butterchurn cpu"**, instead of a silent fallback of
   the GPU one. It never touches the GPU and cycles only the **365 of 472** presets that actually resolve to a moving
   image on the CPU path (audited by `scripts/audit_butterchurn_catalog.ts`, now run against the CPU renderer;
