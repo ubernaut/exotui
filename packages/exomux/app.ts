@@ -8,8 +8,10 @@ import {
   createAnsiStyle,
   DrawObject,
   encodeTerminalKeyPress,
+  listWindowFromTop,
   type PointerInputEvent,
   type Rectangle,
+  selectionWindow,
   Signal,
   type SignalOfObject,
   type Style,
@@ -83,6 +85,8 @@ import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_
 import { ExomuxSessionNameField } from "./session_name_field.ts";
 import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
+import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
+import { widgetSurfaceCellData } from "./widget_surface.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
@@ -996,6 +1000,29 @@ export function mountExomuxDesktop(
   // stable when the settings window or background modal is open in the same
   // frame — one shared host would thrash re-renders between spec sets.
   const windowConfigOptionControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
+  // The sessions panel's rows as a real composited List (WS-003). The wheel
+  // scrolls this viewport top without touching the selection; -1 re-follows it.
+  const sessionList = own(new ExomuxSessionList(bumpSettingsWidgets));
+  const sessionListScrollTop = own(new Signal(-1));
+  const sessionListViewportHeight = (): number => {
+    const manager = windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
+    return Math.max(1, (manager?.clientRect.height ?? 1) - SESSION_LIST_START);
+  };
+  // Arrowing (or attaching) pulls a wheel-scrolled viewport just far enough to
+  // show the selection again; a changed session list re-follows it outright.
+  selectedSessionIndex.subscribe(() => {
+    const top = sessionListScrollTop.peek();
+    if (top < 0) return;
+    const height = sessionListViewportHeight();
+    const length = controller.sessions.peek().length;
+    const selected = clampIndex(selectedSessionIndex.peek(), length);
+    const start = listWindowFromTop(length, top, height).start;
+    if (selected < start) sessionListScrollTop.value = selected;
+    else if (selected >= start + height) sessionListScrollTop.value = selected - height + 1;
+  }, subscriptions.signal);
+  controller.sessions.subscribe(() => {
+    sessionListScrollTop.value = -1;
+  }, subscriptions.signal);
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -1201,6 +1228,7 @@ export function mountExomuxDesktop(
         controller.pendingKillSessionId.value,
         controller.status.value,
         selectedSessionIndex.value,
+        sessionListScrollTop.value,
         controller.windowHost.viewRevision.value,
         controller.windowHost.commitRevision.value,
         // Every input-driven modal and menu state, so the desktop repaints on
@@ -1280,6 +1308,8 @@ export function mountExomuxDesktop(
         backgroundOptionControls,
         backgroundButtons,
         windowConfigOptionControls,
+        sessionList,
+        sessionListScrollTop: sessionListScrollTop.peek(),
         blockCursor: exomuxBlockCursorRender(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
@@ -1524,11 +1554,19 @@ export function mountExomuxDesktop(
     if (windowId === EXOMUX_SESSIONS_WINDOW_ID) {
       const sessions = controller.sessions.peek();
       if (sessions.length === 0) return true;
-      // Lists move one selection per notch regardless of scroll speed, which is
-      // the natural feel for a menu.
-      selectedSessionIndex.value = clampIndex(
-        selectedSessionIndex.peek() + listScrollStep(windowId, delta),
+      // A proper listbox wheel: the viewport scrolls one row per notch and the
+      // selection stays put; the next arrow key re-anchors the window on it.
+      const height = sessionListViewportHeight();
+      const currentTop = exomuxSessionListWindowStart(
         sessions.length,
+        selectedSessionIndex.peek(),
+        height,
+        sessionListScrollTop.peek(),
+      );
+      const maxTop = Math.max(0, sessions.length - height);
+      sessionListScrollTop.value = Math.max(
+        0,
+        Math.min(currentTop + listScrollStep(windowId, delta), maxTop),
       );
       return true;
     }
@@ -1860,6 +1898,7 @@ export function mountExomuxDesktop(
         selectedSessionIndex.peek(),
         event.x,
         event.y,
+        sessionListScrollTop.peek(),
       );
       if (hit && clientWindow?.id === EXOMUX_SESSIONS_WINDOW_ID) {
         await enqueue(() => activateManagerHit(hit));
@@ -2129,6 +2168,7 @@ export function mountExomuxDesktop(
             selectedSessionIndex.peek(),
             point.x,
             point.y,
+            sessionListScrollTop.peek(),
           );
           if (hit) await activateManagerHit(hit);
         } else if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
@@ -2295,6 +2335,7 @@ export function mountExomuxDesktop(
         selectedSessionIndex.peek(),
         point.x,
         point.y,
+        sessionListScrollTop.peek(),
       );
       if (hit && clientWindow.id === EXOMUX_SESSIONS_WINDOW_ID) await activateManagerHit(hit);
       if (clientWindow.id === EXOMUX_NETWORK_WINDOW_ID) {
@@ -3127,6 +3168,10 @@ interface RenderExomuxDesktopOptions {
   backgroundButtons?: ExomuxSettingsWidgets;
   /** Hosts the per-window config modal's value rows as real Cyclers/CheckBoxes. */
   windowConfigOptionControls?: ExomuxSettingsOptions;
+  /** Hosts the sessions panel's rows as a real composited List. */
+  sessionList?: ExomuxSessionList;
+  /** Sessions viewport top set by the wheel; -1 follows the selection. */
+  sessionListScrollTop?: number;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
   blockCursor?: { readonly column: number; readonly row: number; readonly glyph: string };
 }
@@ -3322,6 +3367,8 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.settingsPickers,
       options.settingsOptions,
       options.sessionNameField,
+      options.sessionList,
+      options.sessionListScrollTop,
     );
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
@@ -3343,6 +3390,8 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.settingsPickers,
       options.settingsOptions,
       options.sessionNameField,
+      options.sessionList,
+      options.sessionListScrollTop,
     );
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
@@ -3701,6 +3750,8 @@ function paintWindow(
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
   sessionNameField?: ExomuxSessionNameField,
+  sessionList?: ExomuxSessionList,
+  sessionListScrollTop = -1,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3758,7 +3809,16 @@ function paintWindow(
   if (panelOpacity < 1 && backdrop) fillWithGround(painter, window.clientRect, theme, ground);
   else painter.fill(window.clientRect, " ", { foreground: theme.text, background: theme.surface });
   if (window.id === EXOMUX_SESSIONS_WINDOW_ID) {
-    paintSessionManager(painter, window.clientRect, controller, selectedSessionIndex, window.active, ground);
+    paintSessionManager(
+      painter,
+      window.clientRect,
+      controller,
+      selectedSessionIndex,
+      window.active,
+      ground,
+      sessionList,
+      sessionListScrollTop,
+    );
     return;
   }
   if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
@@ -3849,6 +3909,8 @@ function paintSessionManager(
   selectedSessionIndex: number,
   active: boolean,
   ground: ExomuxGround = () => controller.theme.peek().surface,
+  sessionList?: ExomuxSessionList,
+  sessionListScrollTop = -1,
 ): void {
   const theme = controller.theme.peek();
   // Both header lines clamp to the window so a narrow session panel never spills
@@ -3875,20 +3937,66 @@ function paintSessionManager(
   }
   const selected = clampIndex(selectedSessionIndex, sessions.length);
   const available = Math.max(0, rect.height - SESSION_LIST_START);
-  const offset = Math.max(0, Math.min(selected - Math.floor(available / 2), sessions.length - available));
+  const rowFor = (session: ExomuxSessionSummary): ExomuxSessionListRow => {
+    const attached = controller.runtime(session.id)?.attached.peek() ?? false;
+    const status = session.running ? (attached ? "LIVE" : "HOLD") : session.status.toUpperCase();
+    return { label: `[${status}] ${session.title} :: ${session.commandLine}`, running: session.running };
+  };
+  const rows = sessions.map(rowFor);
+  sessionList?.sync({
+    width: Math.max(1, rect.width),
+    height: Math.max(1, available),
+    rows,
+    selectedIndex: selected,
+    scrollTop: sessionListScrollTop,
+    active,
+    foreground: theme.text,
+    mutedForeground: theme.muted,
+    background: theme.surface,
+    selectedForeground: theme.background,
+    selectedBackground: theme.accent,
+    scrollbarTrack: theme.surfaceStrong,
+    scrollbarThumb: theme.muted,
+  });
+  if (sessionList?.ready()) {
+    // Blit the real List's cells, re-grounding each cell that kept the base
+    // surface background so a translucent panel shows the desktop through its
+    // rows — the same only-default-backgrounds-see-through rule the terminal
+    // uses. Deliberate colour (the accent selection block, the scrollbar) stays.
+    for (let visibleIndex = 0; visibleIndex < available; visibleIndex += 1) {
+      const row = rect.row + SESSION_LIST_START + visibleIndex;
+      for (let column = 0; column < rect.width; column += 1) {
+        const x = rect.column + column;
+        const cell = widgetSurfaceCellData(sessionList.cellAt(visibleIndex, column));
+        if (!cell || cell.glyph === "") {
+          painter.write(x, row, " ", { foreground: theme.text, background: ground(x, row) });
+          continue;
+        }
+        const keepBackground = cell.background !== undefined &&
+          !exomuxRgbEquals(cell.background, theme.surface);
+        painter.write(x, row, cell.glyph, {
+          foreground: cell.foreground ?? theme.text,
+          background: keepBackground ? cell.background! : ground(x, row),
+          bold: cell.bold,
+        });
+        column += Math.max(0, exomuxGlyphColumns(cell.glyph) - 1);
+      }
+    }
+    return;
+  }
+  // Hand-drawn fallback until the composited snapshot lands, on the same
+  // window math as the List so the swap never shifts a row.
+  const offset = exomuxSessionListWindowStart(sessions.length, selected, available, sessionListScrollTop);
   for (let visibleIndex = 0; visibleIndex < available; visibleIndex += 1) {
     const index = offset + visibleIndex;
     const session = sessions[index];
     if (!session) break;
-    const runtime = controller.runtime(session.id);
     const isSelected = active && index === selected;
-    const attached = runtime?.attached.peek() ?? false;
-    const status = session.running ? (attached ? "LIVE" : "HOLD") : session.status.toUpperCase();
     const row = rect.row + SESSION_LIST_START + visibleIndex;
     const rowRect = { column: rect.column, row, width: rect.width, height: 1 };
     const foreground = isSelected ? theme.background : session.running ? theme.text : theme.muted;
     const label = fitText(
-      `${isSelected ? ">" : " "} [${status}] ${session.title} :: ${session.commandLine}`,
+      `${isSelected ? ">" : " "} ${rows[index]!.label}`,
       Math.max(0, rect.width - 2),
     );
     // The selected row is a deliberate block of colour and stays opaque; the
@@ -3901,6 +4009,11 @@ function paintSessionManager(
       writeOnGround(painter, rect.column + 1, row, label, { foreground }, ground);
     }
   }
+}
+
+/** True when two theme colours are the same RGB triple. */
+function exomuxRgbEquals(a: ExomuxRgb, b: ExomuxRgb): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
 
 /** Unthemed terminal defaults used when a window opts out of theme recoloring. */
@@ -5562,12 +5675,30 @@ class ExomuxDesktopDrawObject extends DrawObject<"exomux-desktop"> {
   }
 }
 
+/**
+ * Top item index of the sessions list viewport: an explicit wheel-scrolled top,
+ * or the selection-following window otherwise. One function serves painting,
+ * hit-testing, and wheel stepping — and matches the composited List's own
+ * window math — so they can never disagree.
+ */
+export function exomuxSessionListWindowStart(
+  length: number,
+  selectedIndex: number,
+  height: number,
+  scrollTop: number,
+): number {
+  const safeHeight = Math.max(0, Math.floor(height));
+  if (scrollTop < 0) return selectionWindow(length, clampIndex(selectedIndex, length), safeHeight).start;
+  return listWindowFromTop(length, scrollTop, safeHeight).start;
+}
+
 function managerSessionAt(
   controller: ExomuxController,
   projection: WorkbenchWindowHostProjection,
   selectedSessionIndex: number,
   column: number,
   row: number,
+  scrollTop = -1,
 ): ExomuxManagerSessionHit | undefined {
   const manager = projection.windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
   if (!manager || !contains(manager.clientRect, column, row)) return undefined;
@@ -5575,8 +5706,7 @@ function managerSessionAt(
   const available = Math.max(0, manager.clientRect.height - SESSION_LIST_START);
   const relativeRow = row - manager.clientRect.row;
   if (relativeRow < SESSION_LIST_START || relativeRow >= SESSION_LIST_START + available) return undefined;
-  const selected = clampIndex(selectedSessionIndex, sessions.length);
-  const offset = Math.max(0, Math.min(selected - Math.floor(available / 2), sessions.length - available));
+  const offset = exomuxSessionListWindowStart(sessions.length, selectedSessionIndex, available, scrollTop);
   const index = offset + relativeRow - SESSION_LIST_START;
   const session = sessions[index];
   return session ? { session, index } : undefined;

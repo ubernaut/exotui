@@ -24,8 +24,8 @@ export { createThemeEngine, ThemeEngine } from "./src/theme.ts";
 export { Tui } from "./src/tui.ts";
 export type { TuiOptions } from "./src/tui.ts";
 export type { Rectangle } from "./src/types.ts";
-export { WidgetSurface } from "./src/app/widget_surface.ts";
-export type { WidgetSurfaceCell } from "./src/app/widget_surface.ts";
+export { WidgetSurface, widgetSurfaceCellData } from "./src/app/widget_surface.ts";
+export type { WidgetSurfaceCell, WidgetSurfaceCellData } from "./src/app/widget_surface.ts";
 
 export { GridLayout } from "./src/layout/grid_layout.ts";
 export { HorizontalLayout } from "./src/layout/horizontal_layout.ts";

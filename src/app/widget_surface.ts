@@ -26,6 +26,75 @@ import { Tui } from "../tui.ts";
 /** One styled cell from the surface, or undefined for an untouched cell. */
 export type WidgetSurfaceCell = string | Uint8Array | undefined;
 
+/** A surface cell decoded into its glyph and truecolor attributes. */
+export interface WidgetSurfaceCellData {
+  glyph: string;
+  foreground?: [number, number, number];
+  background?: [number, number, number];
+  bold: boolean;
+}
+
+const CELL_SGR_PATTERN = /\x1b\[([0-9;]*)m/g;
+const cellDecoder = new TextDecoder();
+
+/**
+ * Decodes one surface cell into its glyph and truecolor attributes, so a host
+ * can re-style what it composites — blend a translucent panel's cell background
+ * against its own scene, say — without string-level SGR surgery at every site.
+ *
+ * Surface cells are produced by this library's own style pipeline, so only the
+ * sequences it emits are interpreted: truecolor foreground/background
+ * (38;2 / 48;2), bold (1/22), and resets (0/39/49). Anything else in a cell is
+ * ignored rather than guessed at. Returns undefined for an untouched cell.
+ */
+export function widgetSurfaceCellData(cell: WidgetSurfaceCell): WidgetSurfaceCellData | undefined {
+  if (cell === undefined) return undefined;
+  const text = typeof cell === "string" ? cell : cellDecoder.decode(cell);
+  // Attributes are captured as they cover glyph text, not at end of string —
+  // the trailing reset every styled cell carries would otherwise wipe them.
+  const active: WidgetSurfaceCellData = { glyph: "", bold: false };
+  const data: WidgetSurfaceCellData = { glyph: "", bold: false };
+  const consume = (slice: string): void => {
+    if (slice === "") return;
+    if (data.glyph === "") {
+      data.foreground = active.foreground;
+      data.background = active.background;
+      data.bold = active.bold;
+    }
+    data.glyph += slice;
+  };
+  CELL_SGR_PATTERN.lastIndex = 0;
+  let cursor = 0;
+  for (let match = CELL_SGR_PATTERN.exec(text); match; match = CELL_SGR_PATTERN.exec(text)) {
+    consume(text.slice(cursor, match.index));
+    cursor = match.index + match[0].length;
+    const params = match[1] === "" ? [0] : match[1]!.split(";").map(Number);
+    for (let index = 0; index < params.length; index += 1) {
+      const param = params[index]!;
+      if (param === 0) {
+        active.foreground = undefined;
+        active.background = undefined;
+        active.bold = false;
+      } else if (param === 1) active.bold = true;
+      else if (param === 22) active.bold = false;
+      else if (param === 39) active.foreground = undefined;
+      else if (param === 49) active.background = undefined;
+      else if ((param === 38 || param === 48) && params[index + 1] === 2) {
+        const channel: [number, number, number] = [
+          params[index + 2] ?? 0,
+          params[index + 3] ?? 0,
+          params[index + 4] ?? 0,
+        ];
+        if (param === 38) active.foreground = channel;
+        else active.background = channel;
+        index += 4;
+      }
+    }
+  }
+  consume(text.slice(cursor));
+  return data;
+}
+
 /** An off-screen Tui whose rendered cells can be composited into a host grid. */
 export class WidgetSurface {
   readonly #sink: MemoryCanvasSink;

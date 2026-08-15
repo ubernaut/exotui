@@ -28,6 +28,7 @@ import {
   type ExomuxPointerInputSource,
   exomuxQuitLayout,
   exomuxScpLayout,
+  exomuxSessionListWindowStart,
   exomuxStartMenuItems,
   exomuxStartMenuLayout,
   exomuxWindowConfigLayout,
@@ -1679,6 +1680,64 @@ Deno.test("Exomux terminal bar raises every open terminal, protects floating pai
   }
 });
 
+Deno.test("Exomux sessions panel renders as a composited List with translucent row grounds", async () => {
+  const initialSessions = [session("list-a", "alpha", 0), session("list-b", "beta", 1)];
+  const client = new FakeExomuxClient(initialSessions);
+  const controller = await createExomuxController({ client, initialSessions });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 26 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    // A half-transparent desktop, so the panel rows blend against the field.
+    controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 0.5 };
+    await harness.pilot.settle();
+    const manager = mounted.windowProjection.peek().windows.find((window) =>
+      window.id === EXOMUX_SESSIONS_WINDOW_ID
+    );
+    assert(manager);
+    const theme = controller.theme.peek();
+    const cellText = (column: number, row: number): string => {
+      const value = harness.canvas.frameBuffer[row]?.[column] ?? "";
+      return typeof value === "string" ? value : new TextDecoder().decode(value);
+    };
+    const selectedRowY = manager.clientRect.row + 3;
+    // The composited List puts its selection marker in the panel's first
+    // column; the hand-drawn fallback indents it by one. Waiting for the
+    // column-0 marker therefore waits for the real component's snapshot. The
+    // harness has no free-running render loop, so pump settle() while waiting.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (stripAnsi(cellText(manager.clientRect.column, selectedRowY)).includes(">")) break;
+      await harness.pilot.settle();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assertStringIncludes(stripAnsi(cellText(manager.clientRect.column, selectedRowY)), ">");
+
+    // The selected row is the List's opaque accent block.
+    assertStringIncludes(cellText(manager.clientRect.column + 1, selectedRowY), `48;2;${theme.accent.join(";")}`);
+    // An unselected row blends its ground against the desktop rather than
+    // keeping the plain surface colour.
+    const unselected = cellText(manager.clientRect.column + 1, selectedRowY + 1);
+    assert(
+      !unselected.includes(`48;2;${theme.surface.join(";")}`),
+      `unselected row should take the blended ground, saw "${unselected.replaceAll("\x1b", "ESC")}"`,
+    );
+    // The session labels flow through the composited cells.
+    let secondRow = "";
+    for (let column = 0; column < manager.clientRect.width; column += 1) {
+      secondRow += stripAnsi(cellText(manager.clientRect.column + column, selectedRowY + 1));
+    }
+    assertStringIncludes(secondRow, "beta");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux manager wheel selection never clicks through its fixed header", async () => {
   const initialSessions = Array.from(
     { length: 20 },
@@ -1714,18 +1773,19 @@ Deno.test("Exomux manager wheel selection never clicks through its fixed header"
     assertEquals(controller.windowHost.controller.inspect().activeWindowId, EXOMUX_SESSIONS_WINDOW_ID);
     assertEquals(mounted.selectedSessionIndex.peek(), 12);
 
-    // The manager list moves one selection per wheel notch, like any menu.
+    // A wheel notch scrolls the list viewport without moving the selection —
+    // the proper listbox wheel the composited List provides (WS-003).
+    const available = Math.max(0, manager.clientRect.height - 3);
+    const topBefore = exomuxSessionListWindowStart(sessions.length, 12, available, -1);
     assertEquals(
       (await harness.pilot.scroll(1, manager.clientRect.column + 2, manager.clientRect.row + 3)).handled,
       true,
     );
     await mounted.whenIdle();
-    assertEquals(mounted.selectedSessionIndex.peek(), 13);
+    assertEquals(mounted.selectedSessionIndex.peek(), 12, "the wheel must not move the selection");
     manager = mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
     assert(manager);
-    const available = Math.max(0, manager.clientRect.height - 3);
-    const offset = Math.max(0, Math.min(13 - Math.floor(available / 2), sessions.length - available));
-    const targetIndex = offset + 1;
+    const targetIndex = topBefore + 1 + 1; // scrolled one notch, clicked visible row 1
     const rowClick = await harness.pilot.click(manager.clientRect.column + 2, manager.clientRect.row + 4);
     assertEquals(rowClick.press.handled, true);
     await mounted.whenIdle();
@@ -2617,7 +2677,7 @@ class FakeExomuxPointerSource implements ExomuxPointerInputSource {
   }
 }
 
-class FakeExomuxClient implements ExomuxClientPort {
+export class FakeExomuxClient implements ExomuxClientPort {
   connected = true;
   delayInputAcks = false;
   rejectAttach = false;
@@ -2892,7 +2952,7 @@ function mouseHoverPointer(
   };
 }
 
-function session(
+export function session(
   id: string,
   title: string,
   sequence: number,

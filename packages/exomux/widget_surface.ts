@@ -13,3 +13,6 @@ export type ExomuxWidgetCell = WidgetSurfaceCell;
 
 /** An off-screen Tui whose rendered cells can be composited into a window. */
 export { WidgetSurface as ExomuxWidgetSurface };
+
+/** Structured decode of one surface cell (glyph + truecolor attributes). */
+export { widgetSurfaceCellData, type WidgetSurfaceCellData } from "@ubernaut/deno-tui/app";

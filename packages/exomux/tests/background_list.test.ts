@@ -27,6 +27,7 @@ Deno.test("background list composites a List with cursor and active markers", as
   const base = {
     width: 24,
     height: 5,
+    scrollTop: -1,
     items: ["Geiss", "Flexi", "Martin", "Aderrasi"],
     foreground: [220, 230, 255] as const,
     background: [30, 40, 70] as const,
