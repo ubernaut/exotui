@@ -1648,7 +1648,13 @@ export function mountExomuxDesktop(
         Math.max(0, controller.backgroundConfigListIndex.peek()),
         Math.max(0, list.length - 1),
       );
-      const layout = exomuxBackgroundConfigLayout(windowProjection.peek().bounds, list.length, listIndex, specs.length);
+      const layout = exomuxBackgroundConfigLayout(
+        windowProjection.peek().bounds,
+        list.length,
+        listIndex,
+        specs.length,
+        controller.backgroundConfigScrollTop.peek(),
+      );
       if (contains(layout.closeRect, column, row) || !contains(layout.rect, column, row)) {
         controller.closeBackgroundConfig();
         return true;
@@ -1657,6 +1663,7 @@ export function mountExomuxDesktop(
       if (hitList) {
         controller.backgroundConfigPane.value = "list";
         controller.backgroundConfigListIndex.value = hitList.index;
+        controller.backgroundConfigScrollTop.value = -1;
         activateBackgroundConfigRow(list[hitList.index]);
         return true;
       }
@@ -1877,9 +1884,44 @@ export function mountExomuxDesktop(
     return handled;
   };
 
+  /**
+   * Scrolls the background-config modal's list viewport under the pointer,
+   * moving the window without moving the selection (a proper listbox wheel).
+   */
+  const scrollBackgroundConfigList = (column: number, row: number, direction: number): void => {
+    if (direction === 0) return;
+    const specs = EXOMUX_BACKGROUND_SETTING_SPECS[controller.backgroundId.peek()] ?? [];
+    const list = exomuxBackgroundConfigList(controller);
+    if (list.length === 0) return;
+    const listIndex = Math.min(Math.max(0, controller.backgroundConfigListIndex.peek()), list.length - 1);
+    const layout = exomuxBackgroundConfigLayout(
+      windowProjection.peek().bounds,
+      list.length,
+      listIndex,
+      specs.length,
+      controller.backgroundConfigScrollTop.peek(),
+    );
+    if (!contains(layout.listRect, column, row)) return;
+    // The window's current top, whether it was following the selection or
+    // already scrolled, so a notch steps on from what is shown.
+    const currentTop = layout.listRows[0]?.index ?? 0;
+    const maxTop = Math.max(0, list.length - layout.listRect.height);
+    const lines = Math.max(1, controller.globalSettings.peek().scrollLines);
+    const nextTop = Math.min(maxTop, Math.max(0, currentTop + direction * lines));
+    if (nextTop !== controller.backgroundConfigScrollTop.peek()) {
+      controller.backgroundConfigScrollTop.value = nextTop;
+    }
+  };
+
   const routeWindowScroll = (event: MouseScrollEvent): Promise<boolean> => {
     event = warpPointerEvent(event);
     backgroundSetPointer({ column: event.x, row: event.y });
+    // The background-config modal owns the wheel over its list pane, scrolling
+    // that viewport rather than letting the gesture fall through or die.
+    if (controller.backgroundConfigVisible.peek()) {
+      scrollBackgroundConfigList(event.x, event.y, Math.sign(event.scroll));
+      return Promise.resolve(true);
+    }
     if (modalOpen()) return Promise.resolve(true);
     if (contains(shelfBounds.peek(), event.x, event.y)) return Promise.resolve(true);
     const packet = terminalMouse.routeLegacyScroll(event, windowProjection.peek());
@@ -2463,6 +2505,8 @@ export function mountExomuxDesktop(
         const count = Math.max(1, list.length);
         controller.backgroundConfigListIndex.value = (controller.backgroundConfigListIndex.peek() + delta + count) %
           count;
+        // Moving the selection re-couples the viewport to it.
+        controller.backgroundConfigScrollTop.value = -1;
       };
       if (event.key === "escape" || event.key.toLowerCase() === "q") {
         controller.closeBackgroundConfig();
@@ -2488,9 +2532,22 @@ export function mountExomuxDesktop(
         if (!inList && settingId) controller.cycleBackgroundSetting(settingId, -1);
       } else if (event.key === "right") {
         if (!inList && settingId) controller.cycleBackgroundSetting(settingId, 1);
-      } else if (event.key === "return" || event.key === "space") {
+      } else if (event.key === "return") {
         if (inList) activateBackgroundConfigRow(list[controller.backgroundConfigListIndex.peek()]);
         else if (settingId) controller.cycleBackgroundSetting(settingId, 1);
+      } else if (event.key === "space") {
+        // Over a butterchurn preset, Space toggles its favorite (Enter still
+        // selects); elsewhere it keeps the activate/cycle behaviour.
+        const row = inList ? list[controller.backgroundConfigListIndex.peek()] : undefined;
+        const butterchurn = controller.backgroundId.peek() === "butterchurn" ||
+          controller.backgroundId.peek() === "butterchurn cpu";
+        if (row && butterchurn && row.presetIndex !== undefined) {
+          controller.toggleButterchurnFavorite(row.label);
+        } else if (inList) {
+          activateBackgroundConfigRow(list[controller.backgroundConfigListIndex.peek()]);
+        } else if (settingId) {
+          controller.cycleBackgroundSetting(settingId, 1);
+        }
       }
       return;
     }
@@ -4319,6 +4376,7 @@ export function exomuxBackgroundConfigLayout(
   listLength: number,
   listIndex: number,
   optionCount: number,
+  scrollTop = -1,
 ): ExomuxBackgroundConfigLayout {
   const width = fitModalSpan(bounds.width, 46, 84, 6);
   const wantsList = listLength > 0;
@@ -4327,7 +4385,11 @@ export function exomuxBackgroundConfigLayout(
   const rect = centeredRect(bounds, width, height);
   const listTop = rect.row + 2;
   const visibleRows = wantsList ? Math.max(1, rect.height - optionCount - 5) : 0;
-  const start = selectListStart(listIndex, listLength, visibleRows);
+  // An explicit `scrollTop` scrolls the viewport independently of the selection
+  // (the wheel sets it); otherwise the window follows the selection.
+  const start = scrollTop >= 0
+    ? Math.min(Math.max(0, Math.floor(scrollTop)), Math.max(0, listLength - visibleRows))
+    : selectListStart(listIndex, listLength, visibleRows);
   const listRows: { rect: Rectangle; index: number }[] = [];
   for (let offset = 0; offset < visibleRows && start + offset < listLength; offset += 1) {
     listRows.push({
@@ -4372,11 +4434,26 @@ function paintBackgroundConfigModal(
   const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
   const list = exomuxBackgroundConfigList(controller);
   const listIndex = Math.min(Math.max(0, controller.backgroundConfigListIndex.peek()), Math.max(0, list.length - 1));
-  const layout = exomuxBackgroundConfigLayout(projection.bounds, list.length, listIndex, specs.length);
+  const layout = exomuxBackgroundConfigLayout(
+    projection.bounds,
+    list.length,
+    listIndex,
+    specs.length,
+    controller.backgroundConfigScrollTop.peek(),
+  );
   const { rect, listRows, optionRows, closeRect } = layout;
   const pane = controller.backgroundConfigPane.peek();
   const values = exomuxBackgroundSettingsFor(controller.backgroundSettings.peek(), id);
   const optionIndex = controller.backgroundConfigOptionIndex.peek();
+  // Butterchurn preset rows carry a favorite star (filled when favorited); the
+  // image browser and other backgrounds render their label as-is.
+  const favable = id === "butterchurn" || id === "butterchurn cpu";
+  const rowLabel = (row: ExomuxBackgroundConfigListRow): string =>
+    favable && row.presetIndex !== undefined
+      ? `${controller.isButterchurnFavorite(row.label) ? "★" : "☆"} ${row.label}`
+      : row.directory
+      ? `${row.label}/`
+      : row.label;
 
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
@@ -4386,8 +4463,8 @@ function paintBackgroundConfigModal(
     bold: true,
   });
 
-  const header = id === "butterchurn" || id === "butterchurn cpu"
-    ? `Preset (${list.length}) — current: ${
+  const header = favable
+    ? `Preset (${list.length}) · ★ Space · current: ${
       exomuxBackgroundHasPresets(backgroundField) ? backgroundField.presetName : "…"
     }`
     : id === "image"
@@ -4409,7 +4486,7 @@ function paintBackgroundConfigModal(
     painter.write(
       rowRect.column,
       rowRect.row,
-      fitText(`${focused ? ">" : current ? "·" : " "} ${row.label}`, rowRect.width),
+      fitText(`${focused ? ">" : current ? "·" : " "} ${rowLabel(row)}`, rowRect.width),
       {
         foreground: focused ? theme.background : row.directory ? theme.accent : current ? theme.accent : theme.text,
         background: focused ? theme.accent : theme.surfaceStrong,
@@ -4423,9 +4500,10 @@ function paintBackgroundConfigModal(
     hosts.list.sync({
       width: layout.listRect.width,
       height: layout.listRect.height,
-      items: list.map((row) => (row.directory ? `${row.label}/` : row.label)),
+      items: list.map(rowLabel),
       selectedIndex: listIndex,
       activeIndex: list.findIndex((row) => row.presetIndex !== undefined && row.presetIndex === activePreset),
+      scrollTop: controller.backgroundConfigScrollTop.peek(),
       foreground: theme.text,
       background: theme.surfaceStrong,
       selectedForeground: theme.background,

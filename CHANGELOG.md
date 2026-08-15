@@ -33,10 +33,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 - Exomux butterchurn backgrounds gained **preset favorites**. Right-clicking an active butterchurn desktop (GPU or
   software) adds a **Favorite ☐/☑** item to the menu (below Settings), which toggles whether the showing preset is a
-  favorite (a checked box when it already is). A new **Favorites only** background setting then restricts auto-cycle to
-  the favorites — falling back to the whole catalog when none are set, and holding a lone favorite. The favorites list
-  is shared across both renderers (each cycles the ones in its own catalog) and persists to the config file. Favoriting
-  updates the live field without restarting the preset on screen; only the toggle rebuilds it. New surface:
+  favorite (a checked box when it already is). The background-config **preset picker** also shows a ★/☆ per preset and
+  toggles it with **Space** (Enter still selects). A new **Favorites only** background setting then restricts auto-cycle
+  to the favorites — falling back to the whole catalog when none are set, and holding a lone favorite. The favorites
+  list is shared across both renderers (each cycles the ones in its own catalog) and persists to the config file.
+  Favoriting updates the live field without restarting the preset on screen; only the toggle rebuilds it. New surface:
   `exomuxStartMenuItems`, `controller.butterchurnFavorites` / `toggleButterchurnFavorite`, the field's
   `favorites`/`favoritesOnly` options and `setFavorites`.
 - New **`WidgetSurface`** (`@ubernaut/deno-tui/app`): an off-screen component host for apps that paint their own
@@ -440,6 +441,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ### Fixed
 
+- The Exomux background-config **preset picker** now scrolls with the **mouse wheel**. The modal swallowed every wheel
+  event, so its composited preset List could not be scrolled at all. The wheel over the list pane now scrolls the
+  viewport in place (via the List's `scrollTop`) without moving the selection — arrow keys and clicks still move the
+  selection and re-couple the viewport to it. Hit-testing and the hand-drawn fallback follow the same scrolled window,
+  so clicks land on the row shown.
 - Many more Exomux **butterchurn** presets now render on the GPU instead of strobing past as black. Measuring both
   renderers head-to-head with identical parameters (`scripts/diag_butterchurn_gap.ts`) corrected the earlier belief that
   the GPU drew far fewer presets than the CPU — an artifact of comparing two differently-thresholded audits. The real

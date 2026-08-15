@@ -123,6 +123,24 @@ Deno.test("background config modal: layout scrolls the list and pins the options
   assert(bare.rect.height < layout.rect.height);
 });
 
+Deno.test("background config modal: an explicit scrollTop scrolls the viewport off the selection", () => {
+  const bounds = { column: 0, row: 0, width: 120, height: 40 };
+  // Default (-1) follows the selection.
+  const followed = exomuxBackgroundConfigLayout(bounds, 472, 300, 3);
+  assert(followed.listRows.some((row) => row.index === 300), "the selection is visible when following");
+
+  // An explicit top scrolls the window there, and the selection may be off-screen.
+  const scrolled = exomuxBackgroundConfigLayout(bounds, 472, 300, 3, 10);
+  assertEquals(scrolled.listRows[0]?.index, 10, "the window starts at the requested top");
+  assert(!scrolled.listRows.some((row) => row.index === 300), "the selection can scroll out of view");
+
+  // A too-large top is clamped so the last page never runs past the list.
+  const clamped = exomuxBackgroundConfigLayout(bounds, 472, 0, 3, 100000);
+  const visible = clamped.listRows.length;
+  assertEquals(clamped.listRows[0]?.index, 472 - visible, "the top clamps to the final page");
+  assertEquals(clamped.listRows[visible - 1]?.index, 471, "the last row is the final item");
+});
+
 /** Builds a tiny valid PNG in memory: 4x2, RGB, one red row and one blue row. */
 async function tinyPng(): Promise<Uint8Array> {
   const width = 4;

@@ -468,6 +468,13 @@ export class ExomuxController {
   readonly backgroundConfigPane: Signal<"list" | "options"> = new Signal<"list" | "options">("options");
   /** Selection inside the modal's list pane (preset index, or browser row). */
   readonly backgroundConfigListIndex: Signal<number> = new Signal(0);
+  /**
+   * Explicit viewport top for the modal's list pane, for wheel scrolling; `-1`
+   * (the default) makes the viewport follow the selection. The wheel sets it so
+   * scrolling moves the viewport without moving the selection; moving the
+   * selection (keys, click) resets it to `-1`.
+   */
+  readonly backgroundConfigScrollTop: Signal<number> = new Signal(-1);
   /** Directory the image background's file browser is showing. */
   readonly backgroundBrowsePath: Signal<string> = new Signal<string>("");
   /** Bumped whenever a background's settings change, so the field rebuilds. */
@@ -1010,6 +1017,7 @@ export class ExomuxController {
     const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
     this.backgroundConfigOptionIndex.value = 0;
     this.backgroundConfigListIndex.value = 0;
+    this.backgroundConfigScrollTop.value = -1;
     this.backgroundConfigPane.value = id === "butterchurn" || id === "butterchurn cpu" || id === "image"
       ? "list"
       : "options";
