@@ -1,8 +1,8 @@
 # Exomux UX + Multi-Client Hardening
 
-Status: **UX-001 through UX-010 landed Aug 15 2026 — plan complete.** Still needs the user's live confirmation on
-the resize-ghost fix (the corner drag recipe), the session switcher, and the Ghostty visual pass for the VHS shader
-and manager window.
+Status: **UX-001 through UX-011 landed Aug 15 2026.** Still needs the user's live confirmation on the resize-ghost
+fix (the corner drag recipe), the session switcher, and the Ghostty visual pass for the VHS shader and manager
+window — plus a debug-log capture from a stuttering many-window run for UX-011's write-path evidence.
 
 ## UX-001 — Resize ghosting in the settings window (P0 bug) — **fixed Aug 15 2026**
 
@@ -134,6 +134,19 @@ shaders use; intensities flow through shader params into the Ghostty config. The
 display distortion — evaluate whether it needs a pointer-transform hook like the pincushion's before enabling it by
 default.
 
+## UX-011 — Terminal write-path telemetry in the debug log (P1 tooling, user, Aug 15) — **done Aug 15 2026**
+
+The "many windows stutter but the CPU graph looks fine" report needs ground truth. The suspected limiter is the
+write path between the canvas and the terminal (small kernel pty buffer + the terminal's parse/raster drain rate):
+since UX-001 the sink loops writes to completion with bounded stalls, so saturation shows up as the single JS
+thread *waiting* — dropped frames with an idle CPU — and past the 40ms budget as a degraded flush that forces a
+maximal full repaint next frame. `AnsiCanvasSink` now counts, per window: frames flushed, bytes offered,
+`writeSync` calls, WouldBlock refusals, short writes, total/max stall time, degraded flushes, and dropped bytes
+(`takeFlushTelemetry()` on the sink contract; draining resets). While the global debug toggle (UX-008) is on,
+exomux drains the counters every 5s and logs one fixed-format key=value line per active window under the `flush`
+category (plus a "since launch" baseline when the toggle turns on) — greppable, plottable evidence of frames
+blocked on a saturated terminal.
+
 ## Verification
 
 - UX-001: headless corner-drag repro test (frame-buffer scan per tick), plus the user's live confirm; the fix gets a
@@ -148,3 +161,6 @@ default.
   param edits rewrite the shader values, non-Ghostty hides the launcher button.
 - UX-010: the five intensity params register, persist, and rewrite the shader config; the GLSL compiles under
   Ghostty's shader contract (manual check on the user's machine for the visual pass).
+- UX-011: sink tests count bytes/stalls/WouldBlocks under a throttled stdout and degraded flushes/dropped bytes
+  under a saturated one, with drain-resets; the formatter's key=value line is pinned exactly. Live evidence comes
+  from the user's laptop: debug toggle on, reproduce the stutter, read the `flush` lines.

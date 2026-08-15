@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "./deps.ts";
+import { assert, assertEquals, assertStringIncludes } from "./deps.ts";
 import { BoxObject } from "../src/canvas/box.ts";
 import { TextObject } from "../src/canvas/text.ts";
 import {
@@ -507,4 +507,78 @@ Deno.test("a permanently saturated terminal degrades the flush and forces a full
   canvas.render();
   const emitted = new TextDecoder().decode(new Uint8Array(reopened));
   assertStringIncludes(emitted, "ABCDEF", "the truncated frame heals with a full repaint");
+});
+
+Deno.test("ansi sink telemetry counts bytes, stalls, and degraded flushes", () => {
+  // A tty that short-writes and intermittently WouldBlocks: every byte still
+  // arrives (the survival test above proves it), and the telemetry must record
+  // how hard the write path worked to get them there — that effort is wait,
+  // not compute, so it is invisible everywhere else.
+  let calls = 0;
+  const throttled = {
+    writeSync(data: Uint8Array): number {
+      calls += 1;
+      if (calls % 3 === 0) {
+        const error = new Error("would block");
+        error.name = "WouldBlock";
+        throw error;
+      }
+      return Math.min(7, data.length);
+    },
+  };
+  const sink = new AnsiCanvasSink({ stdout: throttled, flushLimit: 64 });
+  const updates: CanvasCellUpdate[] = Array.from({ length: 30 }, (_, index) => ({
+    row: Math.floor(index / 10),
+    column: index % 10,
+    value: String.fromCharCode(65 + (index % 26)),
+  }));
+  sink.flush(updates, {} as CanvasRenderStats);
+
+  const telemetry = sink.takeFlushTelemetry();
+  assertEquals(telemetry.frames, 1);
+  assert(telemetry.bytes > 0, "the frame's bytes are counted");
+  assert(telemetry.writes > 1, "short writes force extra writeSync calls");
+  assert(telemetry.wouldBlocks > 0, "buffer-full refusals are counted");
+  assert(telemetry.shortWrites > 0, "partial deliveries are counted");
+  assert(telemetry.stallMs > 0, "time waiting on WouldBlock is stall time");
+  assert(telemetry.maxStallMs > 0);
+  assert(telemetry.maxStallMs <= telemetry.stallMs + 0.001);
+  assertEquals(telemetry.degradedFlushes, 0);
+  assertEquals(telemetry.droppedBytes, 0);
+
+  // Draining resets the window.
+  const drained = sink.takeFlushTelemetry();
+  assertEquals(drained.frames, 0);
+  assertEquals(drained.bytes, 0);
+  assertEquals(drained.writes, 0);
+  assertEquals(drained.stallMs, 0);
+});
+
+Deno.test("ansi sink telemetry records degraded flushes and dropped bytes", () => {
+  // The stdout accepts a little, then refuses forever (flow-controlled tty):
+  // the flush degrades past the stall budget and the telemetry must show the
+  // abandoned tail — this is the ground truth for stutter-with-idle-CPU.
+  let budget = 10;
+  const stuck = {
+    writeSync(data: Uint8Array): number {
+      const take = Math.min(budget, data.length);
+      budget -= take;
+      return take;
+    },
+  };
+  const sink = new AnsiCanvasSink({ stdout: stuck });
+  const updates: CanvasCellUpdate[] = Array.from({ length: 40 }, (_, index) => ({
+    row: 0,
+    column: index,
+    value: "#",
+  }));
+  sink.flush(updates, {} as CanvasRenderStats);
+  assertEquals(sink.takeFlushDegraded(), true);
+
+  const telemetry = sink.takeFlushTelemetry();
+  assertEquals(telemetry.frames, 1);
+  assertEquals(telemetry.degradedFlushes, 1);
+  assert(telemetry.droppedBytes > 0, "the abandoned tail is measured");
+  assert(telemetry.bytes >= telemetry.droppedBytes);
+  assert(telemetry.maxStallMs > 30, "the stall budget was exhausted before dropping");
 });

@@ -22,6 +22,20 @@
 // working directory, or any other error degrades to a silent no-op rather than
 // taking the desktop down.
 
+import type { AnsiFlushTelemetry } from "@ubernaut/deno-tui";
+
+/**
+ * One greppable key=value line for a drained sink-telemetry window — the
+ * evidence format for "stutter with an idle CPU". Fixed keys in a fixed order
+ * so a log full of these can be extracted and plotted with one grep/awk pass.
+ */
+export function formatExomuxFlushTelemetry(telemetry: AnsiFlushTelemetry): string {
+  return `frames=${telemetry.frames} bytes=${telemetry.bytes} writes=${telemetry.writes} ` +
+    `wouldblock=${telemetry.wouldBlocks} short=${telemetry.shortWrites} ` +
+    `stall_ms=${telemetry.stallMs.toFixed(1)} max_stall_ms=${telemetry.maxStallMs.toFixed(1)} ` +
+    `degraded=${telemetry.degradedFlushes} dropped_bytes=${telemetry.droppedBytes}`;
+}
+
 /** A live debug logger. `dispose()` restores `console` and closes the file. */
 export interface ExomuxDebugLogger {
   log(category: string, message: string): void;

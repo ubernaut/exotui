@@ -48,6 +48,49 @@ export interface CanvasCellSink {
    * stale cells the diff will never touch again.
    */
   takeFlushDegraded?(): boolean;
+  /**
+   * Write-path counters accumulated since the last drain; reading resets
+   * them. This is the evidence channel for "stutter with an idle CPU": a
+   * saturated terminal shows up here as stall time and degraded flushes, not
+   * as load on any CPU graph.
+   */
+  takeFlushTelemetry?(): AnsiFlushTelemetry;
+}
+
+/** Write-path telemetry accumulated between {@linkcode CanvasCellSink.takeFlushTelemetry} drains. */
+export interface AnsiFlushTelemetry {
+  /** flush()/flushRanges() invocations — one per rendered frame. */
+  frames: number;
+  /** Encoded bytes offered to the terminal. */
+  bytes: number;
+  /** writeSync calls made delivering those bytes. */
+  writes: number;
+  /** Buffer-full refusals (WouldBlock/EAGAIN) from the tty. */
+  wouldBlocks: number;
+  /** Writes that accepted fewer bytes than offered. */
+  shortWrites: number;
+  /** Total time spent stalled waiting for the terminal to drain. */
+  stallMs: number;
+  /** The single worst stall. */
+  maxStallMs: number;
+  /** Flushes abandoned past the stall budget; each forces a full repaint. */
+  degradedFlushes: number;
+  /** Bytes dropped by those abandoned flushes. */
+  droppedBytes: number;
+}
+
+function emptyFlushTelemetry(): AnsiFlushTelemetry {
+  return {
+    frames: 0,
+    bytes: 0,
+    writes: 0,
+    wouldBlocks: 0,
+    shortWrites: 0,
+    stallMs: 0,
+    maxStallMs: 0,
+    degradedFlushes: 0,
+    droppedBytes: 0,
+  };
 }
 
 /** Options for configuring ansi Canvas Sink. */
@@ -75,6 +118,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
   readonly #stdout: CanvasStdout;
   readonly #flushLimit: number;
   #degraded = false;
+  #telemetry = emptyFlushTelemetry();
 
   constructor(options: AnsiCanvasSinkOptions) {
     this.#stdout = options.stdout;
@@ -85,6 +129,12 @@ export class AnsiCanvasSink implements CanvasCellSink {
     const degraded = this.#degraded;
     this.#degraded = false;
     return degraded;
+  }
+
+  takeFlushTelemetry(): AnsiFlushTelemetry {
+    const telemetry = this.#telemetry;
+    this.#telemetry = emptyFlushTelemetry();
+    return telemetry;
   }
 
   /**
@@ -101,23 +151,41 @@ export class AnsiCanvasSink implements CanvasCellSink {
   #write(sequence: string): void {
     if (sequence.length === 0) return;
     const bytes = textEncoder.encode(sequence);
+    const telemetry = this.#telemetry;
+    telemetry.bytes += bytes.length;
     let offset = 0;
     let stalledSince: number | undefined;
+    // Rolls a finished stall into the counters; only called while stalled, so
+    // the happy path pays nothing beyond the byte/write counts.
+    const endStall = (now: number): void => {
+      if (stalledSince === undefined) return;
+      const stall = now - stalledSince;
+      telemetry.stallMs += stall;
+      if (stall > telemetry.maxStallMs) telemetry.maxStallMs = stall;
+      stalledSince = undefined;
+    };
     while (offset < bytes.length) {
+      const offered = bytes.length - offset;
       let written = 0;
+      telemetry.writes += 1;
       try {
         written = this.#stdout.writeSync(offset === 0 ? bytes : bytes.subarray(offset));
       } catch (error) {
         if (!isWouldBlockError(error)) throw error;
+        telemetry.wouldBlocks += 1;
       }
       if (written > 0) {
+        if (written < offered) telemetry.shortWrites += 1;
         offset += written;
-        stalledSince = undefined;
+        if (stalledSince !== undefined) endStall(performance.now());
         continue;
       }
       const now = performance.now();
       stalledSince ??= now;
       if (now - stalledSince > MAX_WRITE_STALL_MS) {
+        endStall(now);
+        telemetry.degradedFlushes += 1;
+        telemetry.droppedBytes += bytes.length - offset;
         this.#degraded = true;
         return;
       }
@@ -133,6 +201,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
   }
 
   flush(updates: readonly CanvasCellUpdate[], _stats?: CanvasRenderStats): void {
+    this.#telemetry.frames += 1;
     let drawSequence = "";
     for (let index = 0; index < updates.length;) {
       const span = compactAnsiUpdateSpan(updates, index);
@@ -151,6 +220,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
   }
 
   flushRanges(ranges: readonly CanvasRowRangeUpdate[], _stats: CanvasRenderStats): void {
+    this.#telemetry.frames += 1;
     let drawSequence = "";
     for (const range of ranges) {
       drawSequence += moveCursor(range.row, range.startColumn);

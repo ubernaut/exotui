@@ -1,7 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertStringIncludes } from "./deps.ts";
-import { createExomuxDebugLogger, exomuxDebugLog, exomuxDebugLoggingActive } from "../debug_log.ts";
+import {
+  createExomuxDebugLogger,
+  exomuxDebugLog,
+  exomuxDebugLoggingActive,
+  formatExomuxFlushTelemetry,
+} from "../debug_log.ts";
 
 Deno.test("Debug logger writes to logs/, tees console to the file, and restores on dispose", () => {
   // With nothing installed, the free logging function is a silent no-op.
@@ -76,4 +81,24 @@ Deno.test("Global debug logger captures uncaught errors and unhandled rejections
     Deno.chdir(cwd);
     Deno.removeSync(dir, { recursive: true });
   }
+});
+
+Deno.test("Flush telemetry formats as fixed greppable key=value pairs", () => {
+  // The debug log's write-path lines are evidence meant for grep/awk: fixed
+  // keys in a fixed order, milliseconds to one decimal, raw byte counts.
+  const line = formatExomuxFlushTelemetry({
+    frames: 12,
+    bytes: 245_760,
+    writes: 48,
+    wouldBlocks: 3,
+    shortWrites: 2,
+    stallMs: 220.44,
+    maxStallMs: 38.06,
+    degradedFlushes: 1,
+    droppedBytes: 6_800,
+  });
+  assertEquals(
+    line,
+    "frames=12 bytes=245760 writes=48 wouldblock=3 short=2 stall_ms=220.4 max_stall_ms=38.1 degraded=1 dropped_bytes=6800",
+  );
 });

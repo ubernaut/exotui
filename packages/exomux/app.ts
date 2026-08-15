@@ -84,7 +84,12 @@ import {
   exomuxOvergrowthVisible,
 } from "./overgrowth.ts";
 import { ExomuxOperationQueue } from "./operation_queue.ts";
-import { createExomuxDebugLogger, exomuxDebugLog, type ExomuxDebugLogger } from "./debug_log.ts";
+import {
+  createExomuxDebugLogger,
+  exomuxDebugLog,
+  type ExomuxDebugLogger,
+  formatExomuxFlushTelemetry,
+} from "./debug_log.ts";
 import { exomuxPincushionMagnitude, exomuxPincushionSource, isRunningInGhostty } from "./ghostty.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
@@ -231,6 +236,8 @@ const EXOMUX_ANY_MOTION_KEEPALIVE_MS = 1000;
 const EXOMUX_DOUBLE_CLICK_MS = 400;
 /** Block-cursor blink half-period — toggling every 250ms is a 2 Hz blink. */
 const EXOMUX_CURSOR_BLINK_MS = 250;
+/** How often the debug log gets one write-path telemetry line (UX-011). */
+export const EXOMUX_FLUSH_TELEMETRY_MS = 5_000;
 const MAX_TOUCH_GESTURES = 8;
 const CLASSIFIED_INPUT_PIPELINE_DEPTH = 4;
 const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIED_INPUT_PIPELINE_DEPTH;
@@ -809,13 +816,37 @@ export function mountExomuxDesktop(
   // calls, uncaught errors, and unhandled rejections all land in one file the
   // status line names — the evidence channel for anything the TUI would hide.
   let globalDebugLogger: ExomuxDebugLogger | undefined;
+  // Terminal write-path telemetry (UX-011): while debug logging is on, drain
+  // the sink's counters every few seconds and log one line per window that
+  // emitted anything. Stall time and degraded flushes here are frames blocked
+  // on a saturated terminal — work no CPU graph shows.
+  let flushTelemetryTimer: ReturnType<typeof setInterval> | undefined;
+  const stopFlushTelemetry = (): void => {
+    if (flushTelemetryTimer === undefined) return;
+    clearInterval(flushTelemetryTimer);
+    flushTelemetryTimer = undefined;
+  };
+  const startFlushTelemetry = (): void => {
+    const sink = app.tui.canvas.sink;
+    // Headless/memory sinks have no terminal write path to measure.
+    if (!sink.takeFlushTelemetry || flushTelemetryTimer !== undefined) return;
+    exomuxDebugLog("flush", `since launch: ${formatExomuxFlushTelemetry(sink.takeFlushTelemetry())}`);
+    flushTelemetryTimer = setInterval(() => {
+      const drained = sink.takeFlushTelemetry?.();
+      if (drained && (drained.frames > 0 || drained.bytes > 0)) {
+        exomuxDebugLog("flush", formatExomuxFlushTelemetry(drained));
+      }
+    }, EXOMUX_FLUSH_TELEMETRY_MS);
+  };
   const applyDebugLogging = (): void => {
     const enabled = controller.globalSettings.peek().debugLogging;
     if (enabled && !globalDebugLogger) {
       globalDebugLogger = createExomuxDebugLogger({ prefix: "exomux", captureGlobalErrors: true });
       exomuxDebugLog("debug", "global debug logging on");
+      startFlushTelemetry();
       controller.status.value = `Debug log: ${globalDebugLogger.describe?.() ?? "open"}`;
     } else if (!enabled && globalDebugLogger) {
+      stopFlushTelemetry();
       globalDebugLogger.dispose();
       globalDebugLogger = undefined;
       controller.status.value = "Debug logging off";
@@ -826,6 +857,7 @@ export function mountExomuxDesktop(
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyDebugLogging));
   own({
     dispose: () => {
+      stopFlushTelemetry();
       globalDebugLogger?.dispose();
       globalDebugLogger = undefined;
     },
