@@ -1,6 +1,6 @@
 # Exomux UX + Multi-Client Hardening
 
-Status: **UX-001 through UX-011 landed Aug 15 2026.** Still needs the user's live confirmation on the resize-ghost
+Status: **UX-001 through UX-012 landed Aug 15 2026.** Still needs the user's live confirmation on the resize-ghost
 fix (the corner drag recipe), the session switcher, and the Ghostty visual pass for the VHS shader and manager
 window — plus a debug-log capture from a stuttering many-window run for UX-011's write-path evidence.
 
@@ -146,6 +146,21 @@ maximal full repaint next frame. `AnsiCanvasSink` now counts, per window: frames
 exomux drains the counters every 5s and logs one fixed-format key=value line per active window under the `flush`
 category (plus a "since launch" baseline when the toggle turns on) — greppable, plottable evidence of frames
 blocked on a saturated terminal.
+
+## UX-012 — Resume leaves nested full-screen sessions blank until a manual resize (P1 bug, user, Aug 15) — **fixed Aug 15 2026**
+
+**Report:** resuming a local session whose terminals run remote exomux instances (ssh → exomux on another host)
+shows nothing usable until each remote window is manually resized; the user reads it as the desktop chrome not
+painting. **Root cause:** the host retains a bounded raw-output ring per session (2MB / 2048 entries). A
+long-running full-screen child paints diffs, so the ring's tail cannot reconstruct its screen; on reattach the
+`truncated` path clears the client-side screen and replays fragments — a mostly blank window — and nothing asked
+the child to repaint. The manual resize worked because it changed the pty size, and the SIGWINCH made the nested
+exomux repaint fully. **Fix:** a truncated attach now schedules a repaint wiggle through the coalescing-safe resize
+drain — one genuinely different row count, then the real geometry (an unchanged TIOCSWINSZ raises no SIGWINCH) —
+so full-screen children redraw themselves immediately on resume; clean attaches send no wiggle. Applies to both
+the resume path and UX-007 adoption, which share `#attachRuntime`. Headless repro confirmed the desktop chrome
+itself paints correctly with nested-exomux replays, so the chrome half of the report needs the user's debug log
+(UX-011 flush lines plus any errors) from a live resume to rule out a write-path component on the real terminal.
 
 ## Verification
 

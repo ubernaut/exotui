@@ -175,7 +175,10 @@ Deno.test("Exomux paints titlebar text and controls in the main theme foreground
     expectForeground("maximize");
     expectForeground("minimize");
     // The title text follows the same rule.
-    assertStringIncludes(cellText(manager.titleBarRect.column + 1, manager.titleBarRect.row), foregroundSgr(theme.text));
+    assertStringIncludes(
+      cellText(manager.titleBarRect.column + 1, manager.titleBarRect.row),
+      foregroundSgr(theme.text),
+    );
   } finally {
     harness.destroy();
     await controller.dispose();
@@ -1701,9 +1704,7 @@ Deno.test("Exomux sessions panel renders as a composited List with translucent r
     // A half-transparent desktop, so the panel rows blend against the field.
     controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 0.5 };
     await harness.pilot.settle();
-    const manager = mounted.windowProjection.peek().windows.find((window) =>
-      window.id === EXOMUX_SESSIONS_WINDOW_ID
-    );
+    const manager = mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
     assert(manager);
     const theme = controller.theme.peek();
     const cellText = (column: number, row: number): string => {
@@ -2912,7 +2913,10 @@ export class FakeExomuxClient implements ExomuxClientPort {
     this.#sessionListeners.get(sessionId)?.(exited);
   }
 
-  resize(_sessionId: string, _columns: number, _rows: number): Promise<boolean> {
+  readonly resizes: Array<{ sessionId: string; columns: number; rows: number }> = [];
+
+  resize(sessionId: string, columns: number, rows: number): Promise<boolean> {
+    this.resizes.push({ sessionId, columns, rows });
     return Promise.resolve(true);
   }
 
@@ -3620,6 +3624,44 @@ Deno.test("Exomux overgrows every unselected window while an organic background 
     assertEquals(mounted.overgrowthRatios().size, 0, "vaporwave must not overgrow windows");
   } finally {
     harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux truncated attach wiggles the pty size so full-screen children repaint (resume fix)", async () => {
+  // A long-running full-screen child (a nested exomux, vim, htop) overflows
+  // the host's replay ring; on resume the retained tail cannot reconstruct its
+  // screen and the window stays blank until the child repaints. The controller
+  // must ask for that repaint the only way a pty allows: a real size change
+  // and back (an unchanged TIOCSWINSZ raises no SIGWINCH).
+  const initial = session("remote-exomux", "ssh host exomux", 7);
+  const client = new FakeExomuxClient([initial]);
+  client.truncateNextAttach = true;
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  try {
+    await waitForCondition(() => client.resizes.length >= 2, 2_000);
+    const [wiggle, settle] = client.resizes;
+    assertEquals(wiggle!.sessionId, "remote-exomux");
+    assertEquals(settle!.sessionId, "remote-exomux");
+    assertEquals(wiggle!.columns, settle!.columns, "only the row count wiggles");
+    assert(wiggle!.rows !== settle!.rows, "the wiggle size must actually differ");
+    assert(Math.abs(wiggle!.rows - settle!.rows) === 1, "one row off, then the real geometry");
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux clean attach sends no repaint wiggle", async () => {
+  const initial = session("clean-shell", "shell", 3);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  try {
+    await waitForCondition(() => client.resizes.length >= 1, 2_000);
+    // Give a hypothetical second (wiggle) resize a moment to appear; it must not.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const rowSizes = client.resizes.map((entry) => entry.rows);
+    assertEquals(new Set(rowSizes).size, 1, "every resize carries the real geometry, no wiggle");
+  } finally {
     await controller.dispose();
   }
 });
@@ -5253,10 +5295,14 @@ Deno.test("Exomux settings layout stacks the pickers on narrow windows (UX-002)"
     "the background-config button sits directly below the background list",
   );
   // Rows and hit regions agree with the list rects.
-  assert(narrow.themeRows.every((row) => row.rect.row >= narrow.themeListRect.row &&
-    row.rect.row < narrow.themeListRect.row + narrow.themeListRect.height));
-  assert(narrow.backgroundRows.every((row) => row.rect.row >= narrow.backgroundListRect.row &&
-    row.rect.row < narrow.backgroundListRect.row + narrow.backgroundListRect.height));
+  assert(narrow.themeRows.every((row) =>
+    row.rect.row >= narrow.themeListRect.row &&
+    row.rect.row < narrow.themeListRect.row + narrow.themeListRect.height
+  ));
+  assert(narrow.backgroundRows.every((row) =>
+    row.rect.row >= narrow.backgroundListRect.row &&
+    row.rect.row < narrow.backgroundListRect.row + narrow.backgroundListRect.height
+  ));
   // The options block still fits above the bottom row.
   assert(narrow.optionRows.every((row) => row.row > narrow.backgroundConfigRect.row && row.row < 25));
 });

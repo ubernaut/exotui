@@ -531,7 +531,7 @@ export class ExomuxController {
   readonly #runtimes = new Map<string, ExomuxTerminalRuntime>();
   readonly #lifecycleTails = new Map<string, Promise<void>>();
   readonly #warningTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  readonly #pendingResizes = new Map<string, { columns: number; rows: number }>();
+  readonly #pendingResizes = new Map<string, { columns: number; rows: number; repaint?: boolean }>();
   readonly #resizeFlights = new Map<string, Promise<void>>();
   readonly #killFlights = new Map<string, Promise<boolean>>();
   readonly #defaultCommand: string;
@@ -2299,7 +2299,8 @@ export class ExomuxController {
           onSession: (summary) => this.#acceptSession(runtime, summary, generation),
         });
         if (generation !== runtime.attachGeneration || this.#disposed) return;
-        if (attachment.truncated) {
+        const truncated = attachment.truncated;
+        if (truncated) {
           runtime.screen.clear();
           this.#warn(runtime, "Replay buffer was truncated; this view resumed at the retained boundary.");
           runtime.lastSequence = 0;
@@ -2307,7 +2308,12 @@ export class ExomuxController {
         this.#setHostSummary(runtime, attachment.session);
         for (const frame of attachment.replay) this.#acceptOutput(runtime, frame, generation);
         runtime.attached.value = true;
-        this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows);
+        // A truncated ring cannot reconstruct a full-screen child (a nested
+        // exomux, vim, htop): the retained tail is diffs against a screen that
+        // scrolled out of the buffer long ago, so the window resumes blank
+        // until the child repaints. Ask it to, the only way a pty can: a real
+        // size change and back (an unchanged TIOCSWINSZ raises no SIGWINCH).
+        this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows, truncated);
         runtime.renderRevision.value += 1;
         this.#publishSessions();
         result = true;
@@ -2384,9 +2390,12 @@ export class ExomuxController {
       : normalizeSession({ ...normalized, title: runtime.screenTitle });
   }
 
-  #scheduleTerminalResize(runtime: ExomuxTerminalRuntime, columns: number, rows: number): void {
+  #scheduleTerminalResize(runtime: ExomuxTerminalRuntime, columns: number, rows: number, repaint = false): void {
     if (this.#disposed) return;
-    this.#pendingResizes.set(runtime.sessionId, { columns, rows });
+    // Coalescing keeps only the newest geometry, but a pending repaint request
+    // must survive being overwritten by a later plain resize.
+    const previous = this.#pendingResizes.get(runtime.sessionId);
+    this.#pendingResizes.set(runtime.sessionId, { columns, rows, repaint: repaint || (previous?.repaint ?? false) });
     if (this.#resizeFlights.has(runtime.sessionId)) return;
     const flight = this.#drainTerminalResize(runtime);
     this.#resizeFlights.set(runtime.sessionId, flight);
@@ -2410,6 +2419,11 @@ export class ExomuxController {
         !runtime.summary.peek().running
       ) return;
       try {
+        if (next.repaint) {
+          // The wiggle size must actually differ or the pty raises no SIGWINCH.
+          const wiggleRows = next.rows > 2 ? next.rows - 1 : next.rows + 1;
+          await this.client.resize(runtime.sessionId, next.columns, wiggleRows);
+        }
         await this.client.resize(runtime.sessionId, next.columns, next.rows);
       } catch {
         // A later geometry observation may enqueue a fresh, recoverable resize.
