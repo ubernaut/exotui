@@ -1168,7 +1168,7 @@ export class ExomuxController {
     }
     const entry: ExomuxCustomShaderEntry = Object.freeze({ path, enabled: true });
     this.#setShaderConfig({ ...config, customShaders: [...config.customShaders, entry] });
-    this.status.value = `Added ${path} · reload Ghostty's config to apply.`;
+    this.status.value = `Added ${path} · Ghostty reloads automatically.`;
     return true;
   }
 

@@ -263,3 +263,37 @@ Deno.test("custom shader entries persist, order, and reach the Ghostty config (U
     Deno.removeSync(dir, { recursive: true });
   }
 });
+
+Deno.test("Ghostty reload walks the ancestor chain and signals SIGUSR2", async () => {
+  const { findExomuxGhosttyAncestor, reloadExomuxGhosttyConfig } = await import("../ghostty.ts");
+  // exomux(100) <- shell(80) <- exomux host? no: shell(80) <- ghostty(42) <- init(1)
+  const parents = new Map([[100, 80], [80, 42], [42, 1]]);
+  const names = new Map([[80, "bash"], [42, "ghostty"]]);
+  const probes = {
+    pid: 100,
+    readPpid: (pid: number) => Promise.resolve(parents.get(pid)),
+    readComm: (pid: number) => Promise.resolve(names.get(pid)),
+  };
+  assertEquals(await findExomuxGhosttyAncestor(probes), 42);
+
+  const killed: number[] = [];
+  assertEquals(await reloadExomuxGhosttyConfig({ ...probes, kill: (pid) => killed.push(pid) }), true);
+  assertEquals(killed, [42]);
+
+  // No Ghostty in the chain (ssh session): quietly false, nothing signalled.
+  const sshNames = new Map([[80, "bash"], [42, "sshd"]]);
+  const sshProbes = { ...probes, readComm: (pid: number) => Promise.resolve(sshNames.get(pid)) };
+  assertEquals(await reloadExomuxGhosttyConfig({ ...sshProbes, kill: (pid) => killed.push(pid) }), false);
+  assertEquals(killed, [42]);
+
+  // A kill failure (missing permission) degrades to false instead of throwing.
+  assertEquals(
+    await reloadExomuxGhosttyConfig({
+      ...probes,
+      kill: () => {
+        throw new Error("denied");
+      },
+    }),
+    false,
+  );
+});

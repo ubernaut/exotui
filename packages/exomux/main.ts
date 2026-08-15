@@ -46,6 +46,7 @@ import {
   ensureExomuxGhosttyInclude,
   type ExomuxShaderConfig,
   isGhosttyAvailable,
+  reloadExomuxGhosttyConfig,
 } from "./ghostty.ts";
 import { type ExomuxHostServer, serveExomuxHost } from "./host.ts";
 import { isExomuxAuthToken } from "./protocol.ts";
@@ -315,6 +316,9 @@ async function runExomuxClientSession(
         // Make enabling a shader take effect without a manual edit: add the
         // managed include to the user's Ghostty config (idempotent, best-effort).
         .then((result) => ensureExomuxGhosttyInclude(result.configPath))
+        // Then ask the hosting Ghostty to reload (SIGUSR2, the reload_config
+        // equivalent) so shader changes take effect immediately.
+        .then(() => reloadExomuxGhosttyConfig())
         .catch(() => undefined);
     }
     : undefined;

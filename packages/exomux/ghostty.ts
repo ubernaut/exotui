@@ -486,6 +486,66 @@ export function exomuxGhosttyUserConfigPath(
  * the config location is unknown or unwritable. Reversible: the user can delete
  * the one commented line it adds.
  */
+/** Injectable process probes for the Ghostty-ancestor walk; tests fake them. */
+export interface ExomuxGhosttyReloadProbes {
+  readonly pid?: number;
+  readonly readComm?: (pid: number) => Promise<string | undefined>;
+  readonly readPpid?: (pid: number) => Promise<number | undefined>;
+  readonly kill?: (pid: number) => void;
+}
+
+async function readProcComm(pid: number): Promise<string | undefined> {
+  try {
+    return (await Deno.readTextFile(`/proc/${pid}/comm`)).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+async function readProcPpid(pid: number): Promise<number | undefined> {
+  try {
+    const status = await Deno.readTextFile(`/proc/${pid}/status`);
+    const match = status.match(/^PPid:\s+(\d+)$/m);
+    return match ? Number.parseInt(match[1]!, 10) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Walks the parent-process chain to the Ghostty instance hosting this exomux. */
+export async function findExomuxGhosttyAncestor(probes: ExomuxGhosttyReloadProbes = {}): Promise<number | undefined> {
+  const readComm = probes.readComm ?? readProcComm;
+  const readPpid = probes.readPpid ?? readProcPpid;
+  let pid = probes.pid ?? Deno.pid;
+  for (let hop = 0; hop < 16; hop += 1) {
+    const parent = await readPpid(pid);
+    if (parent === undefined || parent <= 1) return undefined;
+    const comm = await readComm(parent);
+    if (comm === "ghostty") return parent;
+    pid = parent;
+  }
+  return undefined;
+}
+
+/**
+ * Asks the hosting Ghostty to reload its configuration — the programmatic
+ * equivalent of the reload_config keybind. Ghostty reloads on SIGUSR2, so
+ * this finds the ancestor Ghostty process and signals it. Best-effort: a
+ * non-Linux host, an exomux not running under Ghostty, or a missing signal
+ * permission all degrade to false without side effects.
+ */
+export async function reloadExomuxGhosttyConfig(probes: ExomuxGhosttyReloadProbes = {}): Promise<boolean> {
+  if (!probes.readPpid && Deno.build.os !== "linux") return false;
+  const ancestor = await findExomuxGhosttyAncestor(probes);
+  if (ancestor === undefined) return false;
+  try {
+    (probes.kill ?? ((pid: number) => Deno.kill(pid, "SIGUSR2")))(ancestor);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureExomuxGhosttyInclude(
   managedConfigPath: string,
   userConfigPath: string | undefined = exomuxGhosttyUserConfigPath(),
