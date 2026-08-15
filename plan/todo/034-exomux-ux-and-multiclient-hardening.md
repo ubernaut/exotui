@@ -1,10 +1,18 @@
 # Exomux UX + Multi-Client Hardening
 
-Status: specified Aug 15 2026 from user field reports (screenshots on file); **P0 — the next work block**, ahead of
-035–037. Ten items, ordered by the user's pain: the resize ghosting first, then window-behavior and contrast fixes,
-then the two session-model features.
+Status: **UX-001 through UX-008 landed Aug 15 2026**; UX-009 (Ghostty shader manager window) and UX-010 (VHS
+distortion shader) remain — the next slice. Needs the user's live confirmation on the resize-ghost fix (the corner
+drag recipe) and the session switcher.
 
-## UX-001 — Resize ghosting in the settings window (P0 bug, repro in hand)
+## UX-001 — Resize ghosting in the settings window (P0 bug) — **fixed Aug 15 2026**
+
+> **Root cause found:** not a repaint gap — dropped terminal writes. A saturated pty accepts fewer bytes than
+> `writeSync` offers, and raw-mode stdin shares the tty's non-blocking flag so writes can throw `WouldBlock`;
+> `AnsiCanvasSink` ignored both, truncating the biggest frames (a resize storm) mid-escape — stale bars and shifted
+> fragments on real terminals only, invisible to the in-memory harness. Every sink write now loops to completion
+> with bounded stall retries, and a still-saturated terminal degrades the flush so the canvas forces a clean full
+> repaint next render (self-healing). End-to-end regression: the interactive corner-drag recipe, with the emitted
+> ANSI stream replayed through the terminal emulator and diffed against the frame buffer.
 
 **Repro (user, Aug 15):** grab a corner of the settings window, resize it as small as it allows, release; grab again,
 resize as large as it allows, release. Stale picker rows (selection bars at old positions, horizontally-shifted
@@ -26,7 +34,7 @@ the frame buffer after *each tick*; (b) make every resize/move interaction tick 
 repaint) clears the ghosts live — if yes, the diff-desync theory is confirmed and (b) is the right shape; if no, the
 canvas itself holds them and the headless repro will show it.
 
-## UX-002 — Responsive settings layout: stack the pickers when narrow (P1)
+## UX-002 — Responsive settings layout: stack the pickers when narrow (P1) — **done Aug 15 2026** (stacked below 52 columns, background-config button under the background list)
 
 On narrow desktops (mobile) there is not enough horizontal room for the Theme and Background list boxes side by
 side. Below a width threshold, `exomuxGlobalConfigLayout` should stack them **vertically** (Theme above Background),
@@ -34,14 +42,14 @@ and the **Background-config button moves to sit directly below the background li
 Hit-testing, wheel routing, and the composited-picker regions all read the same layout function, so this is one
 layout change plus tests at narrow widths.
 
-## UX-003 — Settings/Sessions/Network behave like regular windows (P1)
+## UX-003 — Settings/Sessions/Network behave like regular windows (P1) — **done Aug 15 2026** (always-on-top pinning removed; raise on focus only)
 
 The settings window forces itself on top; sessions and network have similar special-casing. All three should behave
 like any other floating window: normal z-order (raise on focus only), no always-on-top pinning, normal stacking
 against terminals. Audit `EXOMUX_SETTINGS/SESSIONS/NETWORK_WINDOW_ID` special cases in the window-host wiring
 (spawn/raise paths) and remove the forced-top behavior.
 
-## UX-004 — Titlebar text/control contrast (P1)
+## UX-004 — Titlebar text/control contrast (P1) — **done Aug 15 2026** (titles and all controls in the main theme foreground; supersedes WS-011 tone painting)
 
 In some themes the titlebar button tones (restore/maximize from WS-011) and the title text read poorly against the
 active accent bar (screenshots: pink bar, near-invisible `[v]`/`[M]`). **User direction: use the main theme
@@ -50,13 +58,13 @@ Apply the same rule to the titlebar buttons: default them to the theme foregroun
 danger tone (and any tone that passes a contrast check against the actual bar colour — the WCAG lift helper from
 `terminal_palette` is available library-side).
 
-## UX-005 — X button on an exited window performs kill (P1)
+## UX-005 — X button on an exited window performs kill (P1) — **done Aug 15 2026** (host only treats failed disposal as fatal while the process still runs; dead windows reap in one click)
 
 Clicking the titlebar ✕ on a window whose process has exited does nothing. It should perform the kill action
 (remove the dead session/window) instead of being unresponsive — dead windows must always be closable with one
 click, no confirmation needed since there is no process to lose.
 
-## UX-006 — Sessions window lists host exomux sessions (P2 feature)
+## UX-006 — Sessions window lists host exomux sessions (P2 feature) — **done Aug 15 2026** (HOST SESSIONS section with liveness/uptime/terminal counts; click-to-switch through the launcher's new client loop; keyboard switching deferred)
 
 The sessions panel currently lists terminal windows in the current exomux session. The user wants it to list the
 **exomux sessions running on the current host** (the tmux-like model: `--list-sessions` data — name, age, terminal
@@ -64,7 +72,7 @@ count, foreground commands) and allow switching between them from the panel. Des
 terminals; other host sessions with an attach/switch action), or a top-level session switcher above the terminal
 list. Switching means detach-current + attach-selected on the same client connection.
 
-## UX-007 — Multi-client live window sync (P2 bug/feature)
+## UX-007 — Multi-client live window sync (P2 bug/feature) — **done Aug 15 2026** (host broadcasts session lifecycle to every authenticated client; controllers adopt unknown running sessions without stealing focus)
 
 Two clients attached to the same exomux session do not see each other's window opens/closes in real time — a client
 only picks up new windows on reconnect. The host must broadcast session-topology changes (window/session
@@ -72,7 +80,7 @@ opened/closed/renamed) to every attached client, and clients must reconcile thei
 than only at attach. Check the host protocol for an existing session-update event (the taskbar's session summaries
 update — the gap may be window-set reconciliation client-side).
 
-## UX-008 — Global debug mode capturing warnings and errors (P0 tooling, user, Aug 15)
+## UX-008 — Global debug mode capturing warnings and errors (P0 tooling) — **done Aug 15 2026** (settings toggle; console + uncaught errors + unhandled rejections to logs/exomux-<time>.log, path in the status line)
 
 The existing debug logging is butterchurn-only (`debug_log.ts`, opened by the butterchurn "Debug overlay" setting).
 Promote it to a **global settings toggle**: when on, open one logger (`logs/exomux-<timestamp>.log` under the working

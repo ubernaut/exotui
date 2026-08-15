@@ -431,3 +431,80 @@ class RangeOnlySink {
 class DirectRangeSink extends RangeOnlySink {
   readonly requiresCellUpdates = false;
 }
+
+Deno.test("ansi sink survives short writes and WouldBlock without dropping bytes", () => {
+  // A real tty accepts fewer bytes than offered under pressure, and raw-mode
+  // stdin shares the tty's non-blocking flag, so writeSync can also throw
+  // WouldBlock. Both used to silently drop the rest of the frame — the ghost
+  // cells the diff renderer then never repainted.
+  const received: number[] = [];
+  let calls = 0;
+  const throttled = {
+    writeSync(data: Uint8Array): number {
+      calls += 1;
+      if (calls % 3 === 0) {
+        const error = new Error("would block");
+        error.name = "WouldBlock";
+        throw error;
+      }
+      const take = Math.min(7, data.length);
+      for (let index = 0; index < take; index += 1) received.push(data[index]!);
+      return take;
+    },
+  };
+  const sink = new AnsiCanvasSink({ stdout: throttled, flushLimit: 64 });
+  const updates: CanvasCellUpdate[] = Array.from({ length: 30 }, (_, index) => ({
+    row: Math.floor(index / 10),
+    column: index % 10,
+    value: String.fromCharCode(65 + (index % 26)),
+  }));
+  sink.flush(updates, {} as CanvasRenderStats);
+  assertEquals(sink.takeFlushDegraded(), false);
+
+  // Reference: the same flush against an unconstrained stdout.
+  const reference: number[] = [];
+  const open = {
+    writeSync(data: Uint8Array): number {
+      for (const byte of data) reference.push(byte);
+      return data.length;
+    },
+  };
+  const referenceSink = new AnsiCanvasSink({ stdout: open, flushLimit: 64 });
+  referenceSink.flush(updates, {} as CanvasRenderStats);
+  assertEquals(received, reference, "every byte must arrive, in order");
+});
+
+Deno.test("a permanently saturated terminal degrades the flush and forces a full repaint", () => {
+  // The stdout accepts a little, then refuses forever (flow-controlled tty).
+  let budget = 10;
+  const stuck = {
+    writeSync(data: Uint8Array): number {
+      const take = Math.min(budget, data.length);
+      budget -= take;
+      return take;
+    },
+  };
+  const sink = new AnsiCanvasSink({ stdout: stuck });
+  const canvas = new Canvas({ sink, size: { columns: 6, rows: 2 } });
+  const text = new TextObject({
+    canvas,
+    rectangle: new Signal({ column: 0, row: 0 }),
+    value: new Signal("ABCDEF"),
+    style: new Signal((value: string) => value),
+    zIndex: new Signal(1),
+  });
+  text.draw();
+  canvas.render();
+  // The stall budget was exhausted mid-frame: the canvas must have scheduled a
+  // clean full repaint so nothing ghosts. Open the tap and render again — the
+  // whole frame is re-emitted.
+  const reopened: number[] = [];
+  budget = 0;
+  (stuck as { writeSync(data: Uint8Array): number }).writeSync = (data: Uint8Array) => {
+    for (const byte of data) reopened.push(byte);
+    return data.length;
+  };
+  canvas.render();
+  const emitted = new TextDecoder().decode(new Uint8Array(reopened));
+  assertStringIncludes(emitted, "ABCDEF", "the truncated frame heals with a full repaint");
+});
