@@ -1,14 +1,17 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-// Opt-in debug logging for the butterchurn background.
+// Opt-in debug logging.
 //
-// When the butterchurn "Debug overlay" setting is on, the field opens a logger
-// with `createExomuxDebugLogger()`. That logger:
-//   * writes to `logs/butterchurn-<timestamp>.log` under the current working
+// Two settings open loggers with `createExomuxDebugLogger()`: the global
+// "Debug logging" toggle (prefix `exomux`, with global error/rejection
+// capture) and the butterchurn "Debug overlay" (prefix `butterchurn`). A
+// logger:
+//   * writes to `logs/<prefix>-<timestamp>.log` under the current working
 //     directory (the project root during development), creating `logs/` if
-//     needed, and
+//     needed,
 //   * tees the JS `console` methods to the same file so stray warnings/info are
-//     captured instead of corrupting the full-screen TUI.
+//     captured instead of corrupting the full-screen TUI, and
+//   * (globally) records uncaught errors and unhandled rejections.
 //
 // GPU code that wants to record a message calls the free function
 // `exomuxDebugLog(category, message)`, which forwards to the active logger when
@@ -53,12 +56,25 @@ function logStamp(): string {
   }
 }
 
+/** Options for one debug logger. */
+export interface ExomuxDebugLoggerOptions {
+  /** Log filename prefix (`<prefix>-<timestamp>.log`). */
+  readonly prefix?: string;
+  /**
+   * Also capture global `error` and `unhandledrejection` events. While on,
+   * both are logged **and consumed** (`preventDefault`), so a stray rejection
+   * is recorded instead of tearing the whole desktop down mid-diagnosis.
+   */
+  readonly captureGlobalErrors?: boolean;
+}
+
 /**
  * Opens a debug logger and installs it as the process-wide sink. At most one is
  * meaningfully active; creating a second replaces the sink and the newer one's
  * `dispose()` restores the console it captured.
  */
-export function createExomuxDebugLogger(): ExomuxDebugLogger {
+export function createExomuxDebugLogger(options: ExomuxDebugLoggerOptions = {}): ExomuxDebugLogger {
+  const prefix = options.prefix ?? "butterchurn";
   const encoder = new TextEncoder();
   let file: Deno.FsFile | undefined;
   let failed = false;
@@ -85,7 +101,7 @@ export function createExomuxDebugLogger(): ExomuxDebugLogger {
     for (const dir of candidateDirs()) {
       try {
         Deno.mkdirSync(dir, { recursive: true });
-        const path = `${dir}/butterchurn-${logStamp()}.log`;
+        const path = `${dir}/${prefix}-${logStamp()}.log`;
         file = Deno.openSync(path, { create: true, write: true, append: true });
         resolvedPath = path;
         return file;
@@ -124,6 +140,29 @@ export function createExomuxDebugLogger(): ExomuxDebugLogger {
   const sink: DebugSink = write;
   activeSink = sink;
 
+  // Uncaught errors and unhandled rejections are what a debug session most
+  // needs on file; they are also exactly what a full-screen TUI hides.
+  const onError = (event: Event): void => {
+    const error = (event as ErrorEvent).error ?? (event as ErrorEvent).message;
+    write("uncaught-error", stringifyArg(error));
+    if (error instanceof Error && error.stack) write("uncaught-error", error.stack);
+    event.preventDefault();
+  };
+  const onRejection = (event: Event): void => {
+    const reason = (event as PromiseRejectionEvent).reason;
+    write("unhandled-rejection", stringifyArg(reason));
+    if (reason instanceof Error && reason.stack) write("unhandled-rejection", reason.stack);
+    event.preventDefault();
+  };
+  if (options.captureGlobalErrors) {
+    try {
+      globalThis.addEventListener("error", onError);
+      globalThis.addEventListener("unhandledrejection", onRejection);
+    } catch {
+      // An environment without event targets simply skips global capture.
+    }
+  }
+
   return {
     log: write,
     describe: () => {
@@ -131,6 +170,14 @@ export function createExomuxDebugLogger(): ExomuxDebugLogger {
       return resolvedPath ?? "unwritable";
     },
     dispose: () => {
+      if (options.captureGlobalErrors) {
+        try {
+          globalThis.removeEventListener("error", onError);
+          globalThis.removeEventListener("unhandledrejection", onRejection);
+        } catch {
+          // Nothing installed.
+        }
+      }
       for (const method of CONSOLE_METHODS) {
         const previous = original[method];
         if (previous) consoleRef[method] = previous;

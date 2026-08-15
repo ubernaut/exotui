@@ -3410,6 +3410,7 @@ Deno.test("Exomux global settings normalize and reject unknown values", () => {
       opacity: 0.85,
       scrollLines: 1,
       blockCursor: false,
+      debugLogging: false,
     },
   );
   // Unlisted durations fall back rather than being trusted.

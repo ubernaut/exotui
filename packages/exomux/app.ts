@@ -84,6 +84,7 @@ import {
   exomuxOvergrowthVisible,
 } from "./overgrowth.ts";
 import { ExomuxOperationQueue } from "./operation_queue.ts";
+import { createExomuxDebugLogger, type ExomuxDebugLogger, exomuxDebugLog } from "./debug_log.ts";
 import { exomuxPincushionMagnitude, exomuxPincushionSource, isRunningInGhostty } from "./ghostty.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
@@ -749,6 +750,31 @@ export function mountExomuxDesktop(
   applyBlockCursorMode();
   controller.globalSettings.subscribe(applyBlockCursorMode);
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyBlockCursorMode));
+  // Global debug logging (UX-008): while on, console output, exomuxDebugLog
+  // calls, uncaught errors, and unhandled rejections all land in one file the
+  // status line names — the evidence channel for anything the TUI would hide.
+  let globalDebugLogger: ExomuxDebugLogger | undefined;
+  const applyDebugLogging = (): void => {
+    const enabled = controller.globalSettings.peek().debugLogging;
+    if (enabled && !globalDebugLogger) {
+      globalDebugLogger = createExomuxDebugLogger({ prefix: "exomux", captureGlobalErrors: true });
+      exomuxDebugLog("debug", "global debug logging on");
+      controller.status.value = `Debug log: ${globalDebugLogger.describe?.() ?? "open"}`;
+    } else if (!enabled && globalDebugLogger) {
+      globalDebugLogger.dispose();
+      globalDebugLogger = undefined;
+      controller.status.value = "Debug logging off";
+    }
+  };
+  applyDebugLogging();
+  controller.globalSettings.subscribe(applyDebugLogging);
+  unsubscribers.push(() => controller.globalSettings.unsubscribe(applyDebugLogging));
+  own({
+    dispose: () => {
+      globalDebugLogger?.dispose();
+      globalDebugLogger = undefined;
+    },
+  });
   own({
     dispose: () => {
       stopCursorBlink();

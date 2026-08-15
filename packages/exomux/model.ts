@@ -587,6 +587,13 @@ export interface ExomuxGlobalSettings {
    * with a terminal that can hide that pointer (e.g. Ghostty's mouse-hide-while-typing).
    */
   readonly blockCursor: boolean;
+  /**
+   * Capture warnings, errors, and console output to a log file. Anything that
+   * would otherwise scribble over (or vanish behind) the full-screen TUI —
+   * console calls, uncaught errors, unhandled rejections, GPU diagnostics —
+   * lands in `logs/exomux-<timestamp>.log` instead.
+   */
+  readonly debugLogging: boolean;
 }
 
 /**
@@ -649,6 +656,13 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     values: Object.freeze([true, false]),
     format: onOff,
   }),
+  Object.freeze({
+    id: "debugLogging" as const,
+    label: "Debug logging",
+    detail: "Captures warnings, errors, and console output to logs/exomux-<time>.log.",
+    values: Object.freeze([false, true]),
+    format: onOff,
+  }),
 ]) as readonly ExomuxGlobalSettingSpec[];
 
 /** Factory defaults for desktop-wide settings. */
@@ -664,6 +678,8 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     scrollLines: 1,
     // Off by default: it coexists with the terminal's own pointer.
     blockCursor: false,
+    // Off by default; the toggle names the log path in the status line.
+    debugLogging: false,
   });
 }
 
