@@ -74,3 +74,5 @@ export * from "./tree_commands.ts";
 export * from "./window_manager_commands.ts";
 export * from "./widget_commands.ts";
 export * from "./workbench/mod.ts";
+export * from "./software_cursor.ts";
+export * from "./animated_background.ts";

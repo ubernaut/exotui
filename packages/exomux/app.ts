@@ -10,6 +10,9 @@ import {
   encodeTerminalKeyPress,
   clampContextMenuSelection,
   contextMenuPlacement,
+  createAnyMotionTracking,
+  softwareCursorRender,
+  windowResizeGlyphAt,
   listWindowFromTop,
   modalActionRects,
   ModalController,
@@ -719,46 +722,25 @@ export function mountExomuxDesktop(
     clearInterval(cursorBlinkTimer);
     cursorBlinkTimer = undefined;
   };
-  // The block cursor needs free-motion mouse events, which require any-motion
-  // tracking (mode 1003). The library only ever enables button-event tracking
-  // (mode 1002) and (re)asserts it from `Tui.run()` — which fires *after* this
-  // desktop mounts — so a one-shot 1003 is fragile: that later ENABLE_MOUSE, and
-  // any future re-emit, silently downgrades us back to click-only motion. Keep
-  // 1003 re-asserted on a light keepalive while the cursor is on so it always
-  // wins, and always turn it back off on teardown so the terminal is left the
-  // way we found it.
-  const anyMotionEncoder = new TextEncoder();
-  const writeAnyMotionTracking = (enabled: boolean): void => {
-    try {
-      Deno.stdout.writeSync(anyMotionEncoder.encode(enabled ? "\x1b[?1003h" : "\x1b[?1003l"));
-    } catch {
-      // No writable terminal (headless/tests) — nothing to toggle.
-    }
-  };
-  let anyMotionKeepalive: ReturnType<typeof setInterval> | undefined;
-  const stopAnyMotionKeepalive = (): void => {
-    if (anyMotionKeepalive === undefined) return;
-    clearInterval(anyMotionKeepalive);
-    anyMotionKeepalive = undefined;
-  };
+  // The block cursor needs free-motion mouse events (mode 1003). The library
+  // only ever enables button-event tracking (mode 1002) and (re)asserts it
+  // from `Tui.run()` — which fires *after* this desktop mounts — so the exotui
+  // any-motion helper keeps 1003 re-asserted on a keepalive while the cursor
+  // is on and restores the terminal on teardown (WS-009).
+  const anyMotion = createAnyMotionTracking({ keepaliveMs: EXOMUX_ANY_MOTION_KEEPALIVE_MS });
   let appliedBlockCursor = false;
   const applyBlockCursorMode = (): void => {
     const enabled = controller.globalSettings.peek().blockCursor;
     if (enabled === appliedBlockCursor) return;
     appliedBlockCursor = enabled;
-    writeAnyMotionTracking(enabled);
+    anyMotion.setEnabled(enabled);
     if (enabled) {
-      // Re-assert so a later ENABLE_MOUSE can never leave the cursor stuck at
-      // click-only motion; a plain mode set is invisible and idempotent.
-      stopAnyMotionKeepalive();
-      anyMotionKeepalive = setInterval(() => writeAnyMotionTracking(true), EXOMUX_ANY_MOTION_KEEPALIVE_MS);
       stopCursorBlink();
       cursorBlinkOn.value = true;
       cursorBlinkTimer = setInterval(() => {
         cursorBlinkOn.value = !cursorBlinkOn.peek();
       }, EXOMUX_CURSOR_BLINK_MS);
     } else {
-      stopAnyMotionKeepalive();
       stopCursorBlink();
       cursorBlinkOn.value = true;
       backgroundClearPointer();
@@ -769,9 +751,8 @@ export function mountExomuxDesktop(
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyBlockCursorMode));
   own({
     dispose: () => {
-      stopAnyMotionKeepalive();
       stopCursorBlink();
-      writeAnyMotionTracking(false);
+      anyMotion.dispose();
     },
   });
   // Preset stepping is requested on the controller, which does not own the
@@ -5978,42 +5959,11 @@ function configControlSessionAt(
  * the title-bar row moves the window, the side/bottom edges and bottom corners
  * resize it. Returns `undefined` over content or bare desktop (a solid block).
  */
-export function resizeGlyphAt(
-  projection: WorkbenchWindowHostProjection,
-  column: number,
-  row: number,
-): string | undefined {
-  for (let index = projection.floatingWindows.length - 1; index >= 0; index -= 1) {
-    const window = projection.floatingWindows[index]!;
-    if (!contains(window.rect, column, row)) continue;
-    if (contains(window.clientRect, column, row)) return undefined; // inside the content
-    const rect = window.rect;
-    const onLeft = column === rect.column;
-    const onRight = column === rect.column + rect.width - 1;
-    const onBottom = row === rect.row + rect.height - 1;
-    if (row === rect.row) return "✥"; // the title-bar row drags to move
-    if (onBottom && onLeft) return "⤢"; // bottom-left ↔ top-right resize
-    if (onBottom && onRight) return "⤡"; // bottom-right ↔ top-left resize
-    if (onLeft || onRight) return "↔"; // side edges resize width
-    if (onBottom) return "↕"; // bottom edge resizes height
-    return undefined;
-  }
-  return undefined;
-}
+/** The contextual drag glyph for one desktop cell (now the exotui helper). */
+export const resizeGlyphAt = windowResizeGlyphAt;
 
-/** Block-cursor render descriptor: its cell and glyph (resize/move-aware), or none. */
-function exomuxBlockCursorRender(
-  visible: boolean,
-  pointer: { readonly column: number; readonly row: number } | undefined,
-  projection: WorkbenchWindowHostProjection,
-  // A modal/menu is up: the windows underneath cannot be dragged, so keep the
-  // cursor a plain block instead of dangling a resize arrow that does nothing.
-  resizeAware = true,
-): { readonly column: number; readonly row: number; readonly glyph: string } | undefined {
-  if (!visible || !pointer) return undefined;
-  const glyph = resizeAware ? resizeGlyphAt(projection, pointer.column, pointer.row) ?? "█" : "█";
-  return { column: pointer.column, row: pointer.row, glyph };
-}
+/** Block-cursor render descriptor (now the exotui software-cursor helper). */
+const exomuxBlockCursorRender = softwareCursorRender;
 
 /**
  * Returns the window whose title bar covers one cell, when any. The title bar is
