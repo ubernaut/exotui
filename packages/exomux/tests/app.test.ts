@@ -5072,3 +5072,32 @@ Deno.test("Exomux close button kills an exited window in one click (UX-005)", as
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux settings layout stacks the pickers on narrow windows (UX-002)", () => {
+  // Wide: side-by-side columns under one header row.
+  const wide = exomuxGlobalConfigLayout({ column: 0, row: 0, width: 64, height: 24 }, 0, 0, 0);
+  assertEquals(wide.stacked, false);
+  assertEquals(wide.themeHeaderRect.row, wide.backgroundHeaderRect.row);
+  assert(wide.backgroundListRect.column > wide.themeListRect.column);
+
+  // Narrow: Theme above Background, both full width, each under its own
+  // header, with the background-config button directly below the list.
+  const narrow = exomuxGlobalConfigLayout({ column: 0, row: 0, width: 48, height: 26 }, 0, 0, 0);
+  assertEquals(narrow.stacked, true);
+  assertEquals(narrow.themeListRect.column, narrow.backgroundListRect.column);
+  assertEquals(narrow.themeListRect.width, narrow.backgroundListRect.width);
+  assert(narrow.backgroundListRect.row > narrow.themeListRect.row + narrow.themeListRect.height - 1);
+  assertEquals(narrow.backgroundHeaderRect.row, narrow.backgroundListRect.row - 1);
+  assertEquals(
+    narrow.backgroundConfigRect.row,
+    narrow.backgroundListRect.row + narrow.backgroundListRect.height,
+    "the background-config button sits directly below the background list",
+  );
+  // Rows and hit regions agree with the list rects.
+  assert(narrow.themeRows.every((row) => row.rect.row >= narrow.themeListRect.row &&
+    row.rect.row < narrow.themeListRect.row + narrow.themeListRect.height));
+  assert(narrow.backgroundRows.every((row) => row.rect.row >= narrow.backgroundListRect.row &&
+    row.rect.row < narrow.backgroundListRect.row + narrow.backgroundListRect.height));
+  // The options block still fits above the bottom row.
+  assert(narrow.optionRows.every((row) => row.row > narrow.backgroundConfigRect.row && row.row < 25));
+});

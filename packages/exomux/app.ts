@@ -4753,7 +4753,16 @@ export interface ExomuxGlobalConfigLayout {
   readonly backgroundConfigRect: Rectangle;
   /** The editable session-name field at the top of the window. */
   readonly sessionNameRect: Rectangle;
+  /** "Theme" column header. */
+  readonly themeHeaderRect: Rectangle;
+  /** "Background" column header. */
+  readonly backgroundHeaderRect: Rectangle;
+  /** True when the window is too narrow for side-by-side pickers (UX-002). */
+  readonly stacked: boolean;
 }
+
+/** Below this window width the settings pickers stack vertically (UX-002). */
+export const EXOMUX_STACKED_SETTINGS_WIDTH = 52;
 
 /** Scrolls a select list so the selected row stays visible. */
 function selectListStart(selected: number, total: number, visible: number): number {
@@ -4798,6 +4807,9 @@ export function exomuxGlobalConfigLayout(
     width: Math.max(0, rect.width - 2),
     height: 1,
   };
+  if (rect.width < EXOMUX_STACKED_SETTINGS_WIDTH) {
+    return stackedGlobalConfigLayout(rect, themeIndex, backgroundIndex, optionCount, sessionNameRect);
+  }
   const listTop = rect.row + 2;
   const visibleRows = Math.max(1, rect.height - optionCount - 4);
   const columnWidth = Math.max(8, Math.floor((rect.width - 3) / 2));
@@ -4851,6 +4863,81 @@ export function exomuxGlobalConfigLayout(
       width: Math.max(1, Math.min(22, closeRect.column - rect.column - 1)),
       height: 1,
     },
+    themeHeaderRect: { column: rect.column + 1, row: rect.row + 1, width: columnWidth, height: 1 },
+    backgroundHeaderRect: { column: rect.column + 2 + columnWidth, row: rect.row + 1, width: columnWidth, height: 1 },
+    stacked: false,
+  };
+}
+
+/**
+ * The narrow-window settings layout: the pickers stack vertically (Theme above
+ * Background, each full width under its own header), and the background-config
+ * button sits directly below the background list (UX-002, user direction).
+ */
+function stackedGlobalConfigLayout(
+  rect: Rectangle,
+  themeIndex: number,
+  backgroundIndex: number,
+  optionCount: number,
+  sessionNameRect: Rectangle,
+): ExomuxGlobalConfigLayout {
+  const innerColumn = rect.column + 1;
+  const innerWidth = Math.max(8, rect.width - 2);
+  // Name + two headers + the background-config row + options + the bottom row.
+  const listBudget = Math.max(2, rect.height - optionCount - 5);
+  const themeVisible = Math.max(1, Math.floor(listBudget / 2));
+  const backgroundVisible = Math.max(1, listBudget - themeVisible);
+  const themeTop = rect.row + 2;
+  const backgroundHeaderRow = themeTop + themeVisible;
+  const backgroundTop = backgroundHeaderRow + 1;
+  const themeStart = selectListStart(themeIndex, EXOMUX_THEMES.length, themeVisible);
+  const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, backgroundVisible);
+  const themeRows: { rect: Rectangle; index: number }[] = [];
+  const backgroundRows: { rect: Rectangle; index: number }[] = [];
+  for (let offset = 0; offset < themeVisible; offset += 1) {
+    if (themeStart + offset >= EXOMUX_THEMES.length) break;
+    themeRows.push({
+      rect: { column: innerColumn, row: themeTop + offset, width: innerWidth, height: 1 },
+      index: themeStart + offset,
+    });
+  }
+  for (let offset = 0; offset < backgroundVisible; offset += 1) {
+    if (backgroundStart + offset >= EXOMUX_BACKGROUND_IDS.length) break;
+    backgroundRows.push({
+      rect: { column: innerColumn, row: backgroundTop + offset, width: innerWidth, height: 1 },
+      index: backgroundStart + offset,
+    });
+  }
+  const backgroundConfigRect: Rectangle = {
+    column: innerColumn,
+    row: backgroundTop + backgroundVisible,
+    width: Math.max(1, Math.min(22, innerWidth)),
+    height: 1,
+  };
+  const optionTop = rect.row + rect.height - optionCount - 1;
+  const optionRows: Rectangle[] = [];
+  for (let index = 0; index < optionCount; index += 1) {
+    optionRows.push({ column: innerColumn, row: optionTop + index, width: innerWidth, height: 1 });
+  }
+  const closeRect: Rectangle = {
+    column: Math.max(rect.column, rect.column + rect.width - 9),
+    row: rect.row + rect.height - 1,
+    width: Math.max(1, Math.min(9, rect.width)),
+    height: 1,
+  };
+  return {
+    rect,
+    themeRows,
+    backgroundRows,
+    themeListRect: { column: innerColumn, row: themeTop, width: innerWidth, height: themeVisible },
+    backgroundListRect: { column: innerColumn, row: backgroundTop, width: innerWidth, height: backgroundVisible },
+    optionRows,
+    closeRect,
+    sessionNameRect,
+    backgroundConfigRect,
+    themeHeaderRect: { column: innerColumn, row: rect.row + 1, width: innerWidth, height: 1 },
+    backgroundHeaderRect: { column: innerColumn, row: backgroundHeaderRow, width: innerWidth, height: 1 },
+    stacked: true,
   };
 }
 
@@ -5260,16 +5347,14 @@ function paintGlobalSettingsWindow(
     );
   }
 
-  const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 3) / 2));
-  const headerRow = rect.row + 1;
-  const header = (column: number, text: string, focused: boolean) => {
-    writeOnGround(painter, column, headerRow, fitText(text, columnWidth), {
+  const header = (at: Rectangle, text: string, focused: boolean) => {
+    writeOnGround(painter, at.column, at.row, fitText(text, at.width), {
       foreground: focused ? theme.accent : theme.muted,
       bold: focused,
     }, g(theme.surfaceStrong));
   };
-  header(rect.column + 1, "Theme", pane === "theme");
-  header(rect.column + 2 + columnWidth, "Background", pane === "background");
+  header(layout.themeHeaderRect, "Theme", pane === "theme");
+  header(layout.backgroundHeaderRect, "Background", pane === "background");
 
   const paintRow = (rowRect: Rectangle, label: string, selected: boolean, focused: boolean) => {
     const rowBase = selected ? (focused ? theme.accent : theme.surface) : theme.surfaceStrong;
