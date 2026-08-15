@@ -1,7 +1,7 @@
 # Exomux UX + Multi-Client Hardening
 
 Status: specified Aug 15 2026 from user field reports (screenshots on file); **P0 — the next work block**, ahead of
-035–037. Seven items, ordered by the user's pain: the resize ghosting first, then window-behavior and contrast fixes,
+035–037. Eight items, ordered by the user's pain: the resize ghosting first, then window-behavior and contrast fixes,
 then the two session-model features.
 
 ## UX-001 — Resize ghosting in the settings window (P0 bug, repro in hand)
@@ -71,6 +71,16 @@ only picks up new windows on reconnect. The host must broadcast session-topology
 opened/closed/renamed) to every attached client, and clients must reconcile their window set on that event rather
 than only at attach. Check the host protocol for an existing session-update event (the taskbar's session summaries
 update — the gap may be window-set reconciliation client-side).
+
+## UX-008 — Global debug mode capturing warnings and errors (P0 tooling, user, Aug 15)
+
+The existing debug logging is butterchurn-only (`debug_log.ts`, opened by the butterchurn "Debug overlay" setting).
+Promote it to a **global settings toggle**: when on, open one logger (`logs/exomux-<timestamp>.log` under the working
+directory), tee the JS `console` methods, capture global `error`/`unhandledrejection` events, and route
+`exomuxDebugLog(category, message)` callers there — so any warning or error anywhere in the desktop lands in the
+file instead of vanishing (or corrupting the full-screen TUI). This is also the evidence channel for UX-001 on the
+user's machine. Every filesystem touch stays guarded (missing `--allow-write` degrades to a no-op), and the status
+line should say where the log went when the toggle turns on.
 
 ## Verification
 
