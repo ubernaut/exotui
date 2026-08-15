@@ -162,6 +162,22 @@ the resume path and UX-007 adoption, which share `#attachRuntime`. Headless repr
 itself paints correctly with nested-exomux replays, so the chrome half of the report needs the user's debug log
 (UX-011 flush lines plus any errors) from a live resume to rule out a write-path component on the real terminal.
 
+## UX-013 — VHS shader realism pass: tracking, static/snow, luma noise (P2, user, Aug 15) — **open**
+
+User verdict after the hash fix: **color bleeding and jitter/wavy lines look great**; the other three artifacts do
+not. Tracking errors, static/snow, and luma noise either look unrealistic ("shitty") or break when the screen size
+changes. Make a dedicated pass over those three effects in `generateExomuxShader`'s vhs branch:
+
+- Tracking errors: the torn band should read as a horizontal sync glitch (displaced scanline band with hash fill
+  and a bright seam), not a smooth smear; verify band position/height stay sane across resizes (iResolution-derived
+  quantities must be resolution-independent).
+- Static/snow: discrete short-lived flecks, not per-pixel confetti; density and fleck size must not change with
+  window size (scale sampling by a fixed cell/angular size rather than raw fragCoord).
+- Luma noise: film-like grain in dark areas — likely needs temporal smoothing (blend two hash frames) and a gentler
+  response curve; confirm it does not shimmer or re-pattern on resize.
+- Test on the user's machine across min→max resize; the Aug 15 screenshot (huge window, woven texture) is the
+  regression reference.
+
 ## Verification
 
 - UX-001: headless corner-drag repro test (frame-buffer scan per tick), plus the user's live confirm; the fix gets a
