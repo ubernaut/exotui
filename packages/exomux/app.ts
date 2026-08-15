@@ -991,6 +991,11 @@ export function mountExomuxDesktop(
   const backgroundList = own(new ExomuxBackgroundList(bumpSettingsWidgets));
   const backgroundOptionControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
   const backgroundButtons = own(new ExomuxSettingsWidgets(bumpSettingsWidgets));
+  // The per-window config modal renders its value rows through the same real
+  // Cycler/CheckBox host. A dedicated instance keeps its snapshot signature
+  // stable when the settings window or background modal is open in the same
+  // frame — one shared host would thrash re-renders between spec sets.
+  const windowConfigOptionControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
   const terminalRenderSubscriptions = new Map<
     string,
     { signal: Signal<number>; listener: () => void }
@@ -1274,6 +1279,7 @@ export function mountExomuxDesktop(
         backgroundList,
         backgroundOptionControls,
         backgroundButtons,
+        windowConfigOptionControls,
         blockCursor: exomuxBlockCursorRender(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
@@ -3119,6 +3125,8 @@ interface RenderExomuxDesktopOptions {
   backgroundOptionControls?: ExomuxSettingsOptions;
   /** Hosts the background-config modal's Close button as a real Button. */
   backgroundButtons?: ExomuxSettingsWidgets;
+  /** Hosts the per-window config modal's value rows as real Cyclers/CheckBoxes. */
+  windowConfigOptionControls?: ExomuxSettingsOptions;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
   blockCursor?: { readonly column: number; readonly row: number; readonly glyph: string };
 }
@@ -3378,7 +3386,9 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     });
   }
   const configSessionId = controller.configSessionId.peek();
-  if (configSessionId) paintWindowConfigModal(painter, projection, theme, controller, configSessionId);
+  if (configSessionId) {
+    paintWindowConfigModal(painter, projection, theme, controller, configSessionId, options.windowConfigOptionControls);
+  }
   if (controller.backgroundConfigVisible.peek()) {
     paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField, {
       list: options.backgroundList,
@@ -4982,6 +4992,7 @@ function paintWindowConfigModal(
   theme: ExomuxThemeSpec,
   controller: ExomuxController,
   sessionId: string,
+  optionControls?: ExomuxSettingsOptions,
 ): void {
   const { rect, rowRects, resetRect, closeRect } = exomuxWindowConfigLayout(projection.bounds);
   const settings = controller.windowSettingsFor(sessionId);
@@ -4994,14 +5005,48 @@ function paintWindowConfigModal(
     background: theme.accent,
     bold: true,
   });
+  // Each value row is rendered by a real Cycler/CheckBox composited over the
+  // value column, exactly like the settings window and background modal; the
+  // modal's existing routing (click/arrow/wheel cycles the value) drives it.
+  const controlWidth = Math.min(18, Math.max(6, (rowRects[0]?.width ?? 18) - 4));
+  const controlSpecs: ExomuxOptionControlSpec[] = rowRects.map((_rowRect, index) => {
+    const spec = EXOMUX_WINDOW_SETTING_SPECS[index]!;
+    const active = index === selected;
+    const foreground = active ? theme.background : theme.accent;
+    const background = active ? theme.accent : theme.surfaceStrong;
+    if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
+      return {
+        kind: "checkbox",
+        key: spec.id,
+        width: 3,
+        foreground,
+        background,
+        checked: Boolean(settings[spec.id]),
+      };
+    }
+    return {
+      kind: "cycler",
+      key: spec.id,
+      width: controlWidth,
+      foreground,
+      background,
+      options: spec.values.map((value) => spec.format(value)),
+      activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
+    };
+  });
+  const controlCells = optionControls?.cellsFor(controlSpecs) ?? [];
   for (let index = 0; index < rowRects.length; index += 1) {
     const rowRect = rowRects[index]!;
     const spec = EXOMUX_WINDOW_SETTING_SPECS[index]!;
     const active = index === selected;
     const value = spec.format(settings[spec.id]);
     const label = `${active ? ">" : " "} ${spec.label}`;
-    // Right-align the value so the column of settings reads as a table.
-    const valueColumn = rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
+    const cells = controlCells[index];
+    const width = controlSpecs[index]!.width;
+    const controlColumn = rowRect.column + Math.max(0, rowRect.width - width);
+    // Right-align the value so the column of settings reads as a table; until
+    // the composited snapshot is ready the hand-drawn value keeps the row full.
+    const valueColumn = cells ? controlColumn : rowRect.column + Math.max(0, rowRect.width - textWidth(value) - 1);
     painter.fill(rowRect, " ", {
       foreground: active ? theme.background : theme.text,
       background: active ? theme.accent : theme.surfaceStrong,
@@ -5012,11 +5057,18 @@ function paintWindowConfigModal(
       background: active ? theme.accent : theme.surfaceStrong,
       bold: active,
     });
-    painter.write(valueColumn, rowRect.row, value, {
-      foreground: active ? theme.background : theme.accent,
-      background: active ? theme.accent : theme.surfaceStrong,
-      bold: true,
-    });
+    if (cells) {
+      for (let column = 0; column < Math.min(width, cells.width); column += 1) {
+        const cell = cells.cells[column];
+        if (cell !== undefined) painter.rawCell(controlColumn + column, rowRect.row, cell);
+      }
+    } else {
+      painter.write(valueColumn, rowRect.row, value, {
+        foreground: active ? theme.background : theme.accent,
+        background: active ? theme.accent : theme.surfaceStrong,
+        bold: true,
+      });
+    }
   }
   const detail = EXOMUX_WINDOW_SETTING_SPECS[selected]?.detail ?? "";
   const detailRow = rect.row + Math.max(1, rect.height - 3);

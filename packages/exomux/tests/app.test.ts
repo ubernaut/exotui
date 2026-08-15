@@ -3002,6 +3002,51 @@ Deno.test("Exomux titlebar config button opens a per-window settings modal", asy
   }
 });
 
+Deno.test("Exomux window-config modal renders its value rows as composited controls", async () => {
+  const initial = session("cfg-widgets", "cfg widgets", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 110, rows: 30 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    const terminalWindow = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId("cfg-widgets"));
+    assert(terminalWindow);
+    const configControl = terminalWindow.controls.find((control) => control.kind === "config");
+    assert(configControl);
+    await harness.pilot.click(configControl.hitRect.column, configControl.hitRect.row);
+    await mounted.whenIdle();
+    assertEquals(controller.configSessionId.peek(), "cfg-widgets");
+
+    const layout = exomuxWindowConfigLayout(mounted.windowProjection.peek().bounds);
+    const plainRow = (rect: Rectangle): string => {
+      let text = "";
+      for (let column = rect.column; column < rect.column + rect.width; column += 1) {
+        const value = harness.canvas.frameBuffer[rect.row]?.[column] ?? "";
+        text += stripAnsi(typeof value === "string" ? value : new TextDecoder().decode(value));
+      }
+      return text;
+    };
+    // The composited Cycler/CheckBox snapshot lands asynchronously; until then
+    // the hand-drawn fallback fills the rows. Wait for the real controls.
+    assertEquals(EXOMUX_WINDOW_SETTING_SPECS[0]!.id, "themed");
+    assertEquals(EXOMUX_WINDOW_SETTING_SPECS[1]!.id, "scrollbackLimit");
+    await waitForCondition(() => plainRow(layout.rowRects[1]!).includes("<"), 2_000);
+    assertStringIncludes(plainRow(layout.rowRects[0]!), "✓"); // themed default on → checked CheckBox
+    const scrollbackRow = plainRow(layout.rowRects[1]!);
+    assertStringIncludes(scrollbackRow, "<"); // Cycler step affordances
+    assertStringIncludes(scrollbackRow, ">");
+    assertStringIncludes(scrollbackRow, "2,000 lines");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux window settings persist and drive scrollback on restore", async () => {
   const initial = session("persist-shell", "persist shell", 0);
   const client = new FakeExomuxClient([initial]);
