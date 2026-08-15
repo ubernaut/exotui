@@ -139,6 +139,43 @@ Deno.test("Exomux paints the metaball field behind floating desktop windows", as
   }
 });
 
+Deno.test("Exomux paints titlebar controls in their projected tones", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 90, rows: 26 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await harness.pilot.settle();
+    const manager = mounted.windowProjection.peek().floatingWindows.find((window) =>
+      window.id === EXOMUX_SESSIONS_WINDOW_ID
+    );
+    assert(manager);
+    const theme = controller.theme.peek();
+    const cellText = (column: number, row: number): string => {
+      const value = harness.canvas.frameBuffer[row]?.[column] ?? "";
+      return typeof value === "string" ? value : new TextDecoder().decode(value);
+    };
+    const foregroundSgr = (color: readonly [number, number, number]): string =>
+      `38;2;${color[0]};${color[1]};${color[2]}`;
+    // The workbench projection hands every control a tone; the painter must not
+    // collapse them all to the bar colour (close used to be the only survivor).
+    const expectTone = (kind: string, color: readonly [number, number, number]) => {
+      const control = manager.controls.find((entry) => entry.kind === kind);
+      assert(control, `missing ${kind} control`);
+      assertStringIncludes(cellText(control.rect.column, control.rect.row), foregroundSgr(color));
+    };
+    expectTone("close", theme.danger);
+    expectTone("maximize", theme.success);
+    expectTone("minimize", theme.warning);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux metaballs keep moving during sustained visible terminal output", async () => {
   assertEquals(exomuxMetaballsMayAdvance(124, 0, false), false);
   assertEquals(exomuxMetaballsMayAdvance(125, 0, false), true);

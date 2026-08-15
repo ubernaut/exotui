@@ -3660,6 +3660,27 @@ function mixExomuxRgb(from: ExomuxRgb, to: ExomuxRgb, amount: number): ExomuxRgb
   ];
 }
 
+/**
+ * Theme colour for a projected titlebar-button tone. The workbench hands every
+ * control a tone (close=danger, maximize=success, minimize=warning,
+ * restore=muted, unpin=success); "default" and unknown tones follow the bar's
+ * own text colour.
+ */
+function exomuxTitlebarToneColor(theme: ExomuxThemeSpec, tone: string): ExomuxRgb | undefined {
+  switch (tone) {
+    case "danger":
+      return theme.danger;
+    case "success":
+      return theme.success;
+    case "warning":
+      return theme.warning;
+    case "muted":
+      return theme.muted;
+    default:
+      return undefined;
+  }
+}
+
 function paintWindow(
   painter: DesktopPainter,
   window: WorkbenchWindowChromeProjection,
@@ -3713,11 +3734,11 @@ function paintWindow(
     },
   );
   for (const control of window.controls) {
-    const danger = control.kind === "close";
+    const toneColor = exomuxTitlebarToneColor(theme, control.tone);
     painter.write(control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
-      foreground: danger ? theme.danger : window.active ? theme.background : theme.text,
+      foreground: toneColor ?? (window.active ? theme.background : theme.text),
       background: window.active ? theme.accent : theme.surfaceStrong,
-      bold: danger || window.active,
+      bold: control.tone === "danger" || window.active,
     });
   }
   // These two carry no per-window override of their own, so they follow the
