@@ -2714,6 +2714,14 @@ export function mountExomuxDesktop(
       return;
     }
     if (controller.prefixPending.peek()) {
+      // Prefix-l: force a clean full repaint. The diff renderer assumes the
+      // terminal retained what it last wrote; if the terminal disagrees (a
+      // reflow, a glitched range), one keystroke heals — and diagnoses — it.
+      if (event.key.toLowerCase() === "l" && !event.ctrl && !event.meta) {
+        controller.cancelPrefix();
+        app.tui.canvas.rerenderAll();
+        return;
+      }
       await controller.handlePrefixKey(event.key, bodyRect.peek());
       await syncWindows();
       return;
@@ -4218,7 +4226,7 @@ function paintHelp(
     "Ctrl-N s        session manager    Ctrl-N r         refresh and recover",
     "Ctrl-N t        cycle theme        Ctrl-N Ctrl-N    send literal prefix",
     "Ctrl-N b        cycle background   Ctrl-N [ / ]     previous / next preset",
-    "Click desktop   skip preset        Start menu       every command lives there",
+    "Click desktop   skip preset        Ctrl-N l         force full redraw",
     "Ctrl-N d / x    detach window      Ctrl-N &         request terminal kill",
     "Wheel terminals or swipe vertically for styled history; [SCROLL] marks copy mode.",
     "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
