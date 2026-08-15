@@ -1,20 +1,105 @@
-# Tui
+# exotui
 
-<img src="https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/logo-transparent.png" align="right" width="250" height="250" alt="Deno mascot made as ASCII art" />
+[![Deno](https://github.com/ubernaut/exotui/actions/workflows/deno.yml/badge.svg)](https://github.com/ubernaut/exotui/actions/workflows/deno.yml)
 
-[![Deno](https://github.com/ubernaut/deno_tui/actions/workflows/deno.yml/badge.svg)](https://github.com/ubernaut/deno_tui/actions/workflows/deno.yml)
+[![The exomux desktop: transparent stacked terminal windows, the network panel, htop over animated backgrounds, all under a CRT/VHS shader](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui.png)](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui-demo.mp4)
 
-A reactive, composable, Deno-first toolkit for terminal user interfaces. This fork includes the original canvas and
-component foundation plus controller-first widgets, app and runtime primitives, browser and remote-terminal entrypoints,
-an optional Three.js ASCII renderer, and full-screen visualization demos.
+**▶ [Watch the demo](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui-demo.mp4)** ·
+**[Themes & backgrounds tour](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/themes-and-backgrounds.mp4)**
+— that screenshot is a real terminal: draggable transparent windows compositing through each other, a fluid-simulated
+desktop behind them, remote machines one keystroke away, and a VHS shader over the lot.
 
-**[Exomux](#exomux) is the flagship application** — a terminal multiplexer built entirely on this toolkit, and the
-reference for what a production-shaped adopter looks like.
+## What it is
 
-## Exomux
+**exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno — from a
+ten-line form to a full desktop environment. It ships as one package with focused entrypoints (published to JSR as
+`@ubernaut/deno-tui`): a signal-driven core, a retained-mode cell canvas, forty-plus widgets with headless controllers,
+an application runtime, terminal emulation good enough to build a terminal _inside_ your terminal, browser and remote
+hosts, and an optional Three.js ASCII renderer.
 
-A terminal multiplexer with a detachable host. Shells live in a daemon that outlives the UI, so the client can exit and
-reattach without disturbing a single running process.
+**exomux** is its flagship — a terminal multiplexer that grew into a terminal _desktop_. Shells live in a detachable
+daemon that outlives the UI (tmux's model), but the client is a windowing environment: floating, snapping, transparent
+windows over animated backgrounds, a network panel that reaches your whole tailnet, a MilkDrop audio visualizer, and
+Ghostty shader integration. Exomux imports only the public entrypoints — nothing in it touches `src/` — so it doubles as
+the standing proof that the published API is sufficient for a production-shaped application. Every gap it hit became a
+library export.
+
+## What's cool about it
+
+- **A real desktop, in cells.** Windows drag, resize, snap, tile, maximize, and minimize over a live animated desktop.
+  Transparency is honest compositing: a translucent window blends against every window and background layer beneath it,
+  not just the wallpaper.
+- **Backgrounds that are alive.** Fourteen theme-derived fields — a rain background running a 2-D fluid simulation (the
+  desktop floods; the drain plug is clickable), ivy that grows fruit, circuits, fire, matrix rain — and a butterchurn
+  visualizer driving a 472-preset MilkDrop catalog off your microphone, with both WebGPU and CPU renderers.
+- **The terminal is the GPU.** Under Ghostty, exomux manages real display shaders: CRT scanlines, barrel distortion
+  (with pointer-warp compensation so your mouse still lands where it looks), and a five-artifact VHS effect — plus a
+  manager window for chaining your own GLSL files.
+- **Your network is a tree.** Saved SSH hosts and live Tailscale devices in one panel: open a shell, launch a remote
+  system monitor, ping, copy addresses to the OS clipboard, discover tmux/exomux sessions on other machines and attach
+  with focus-if-open semantics, all fuzzy-filterable. Paste a local file path onto a remote shell and it offers to `scp`
+  it to that shell's working directory.
+- **Engineered like it matters.** The write path survives saturated ptys and self-heals truncated frames; multiple
+  clients attached to one session stay in live sync; resumed full-screen apps are asked to repaint themselves; a debug
+  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 518
+  tests.
+
+## Who it's for
+
+- **Deno developers** who want a typed, reactive, dependency-light way to build terminal UIs — with a tested path from
+  "one button" to "application shell with routes, commands, themes, and undo history".
+- **tmux/screen users** who want a multiplexer with windows instead of panes — and are willing to have fun.
+- **Tool builders** who need the middle layers à la carte: headless widget controllers, terminal emulation, scrollback,
+  process/PTY sessions, layout solvers, or the testing harness, each importable on its own.
+- **Creative coders** — ASCII Three.js scenes, audio-reactive MilkDrop visuals, shader-warped terminals, and a cell
+  canvas that treats the terminal as a render target.
+
+## Features
+
+**The toolkit**
+
+- Reactive state: `Signal`, `Computed`, `Effect`, lazy variants, persistent signals.
+- Retained-mode canvas with diff-blitting ANSI output, styled text, and write-integrity self-healing on
+  saturated/non-blocking terminals.
+- Eight component families (foundation, input, navigation, data, feedback, overlays, dashboard, visualization) — every
+  interactive widget backed by a headless controller usable without mounting anything.
+- `createTerminalApp()`: commands, key bindings, focus traversal, mouse routing, routes, settings, undo/redo history,
+  plugins, and clean shutdown in one definition.
+- Layout: grids, flex, split panes, a window-manager controller, and an HTML/CSS-style markup tree with terminal-cell
+  media queries and an optional Yoga backend.
+- Terminal emulation: process and PTY sessions, screen and scrollback controllers, OSC services (titles, OSC 52
+  clipboard, notifications, color queries) — enough to host full-screen apps inside your app.
+- Themes as semantic tokens with packs, pipelines, and validation; a Markdown component with a renderer-neutral document
+  model.
+- Browser (`./web`) and remote-terminal (`./remote`) entrypoints that reuse the same controllers and projections.
+- Three.js ASCII renderer (`./three-ascii`) with WebGPU post-processing, glyph/block/mixed output, and adaptive budgets.
+- A headless testing harness: in-memory terminal, interaction pilot, and snapshot helpers — the same tools this
+  repository's own suites run on.
+
+**Exomux**
+
+- Detachable loopback daemon (token-authenticated WebSocket); named sessions tmux-style (`-n` create, `-a` attach,
+  `--list-sessions`); crash-safe relaunch over stale or wedged descriptors.
+- PTY-backed shells via the optional `@sigma/pty-ffi` adapter with a pipe fallback.
+- Floating window workbench: drag, resize, snap, tile, shelf, taskbar, per-window settings, session rename, responsive
+  settings layout on narrow terminals.
+- Per-desktop and per-window opacity with true multi-layer compositing; chrome and controls blend at half the window's
+  transparency.
+- Thirteen themes and fourteen animated backgrounds, cycled from the settings window or prefix `b`; organic backgrounds
+  slowly overgrow idle windows and retreat when you focus them.
+- Butterchurn audio visualizer: 472 real MilkDrop presets (equations and shaders), GPU and CPU renderers, mic-driven,
+  with a preset browser and favorites.
+- Ghostty shader management: CRT scanlines, pincushion (pointer-warped), VHS with five independent artifact intensities,
+  and a shader-manager window for enabling, reordering, and adding custom GLSL entries.
+- Network panel: remembered SSH hosts plus live Tailscale devices; per-machine actions (shell, system monitor, ping, OSC
+  52 address copies); lazy remote tmux/exomux session discovery with attach and focus-if-open; `/` fuzzy filter.
+- Paste-to-scp: dropping a local file path on a remote shell offers a confirmed `scp` into that shell's captured working
+  directory.
+- Multi-client: every attached client sees window opens/closes live; the sessions panel lists all host sessions and
+  switches between them in place.
+- Global debug logging (console tees, uncaught errors, write-path flush telemetry) behind a settings toggle.
+
+## Exomux quick start
 
 ```sh
 deno task exomux            # or: ./visualization exomux
@@ -23,24 +108,8 @@ deno task exomux            # or: ./visualization exomux
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
 
-| Capability           | Detail                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| Detachable host      | Loopback WebSocket daemon, token-authenticated, survives client exit and relaunch             |
-| Named sessions       | tmux-style: bare launch attaches, `-n` creates, `-a <name>` targets, `--list-sessions` lists  |
-| Crash-safe launch    | Stale or wedged host descriptors are pruned or quarantined; a crash can never block relaunch  |
-| Real terminals       | PTY-backed shells through the optional `@sigma/pty-ffi` adapter, with a pipe fallback         |
-| Floating workbench   | Draggable, resizable, snapping windows over a live desktop, with session and network panels   |
-| Animated backgrounds | Twelve theme-derived fields, cycled with prefix `b`; all deterministic bar the mic-driven one |
-| Rain and flood       | The rain field runs a 2-D fluid sim; the desktop floods, and the drain plug is clickable      |
-| Audio visualizer     | The butterchurn field runs 289 real MilkDrop presets — equations and shaders — off the mic    |
-| Transparent windows  | Per-desktop and per-window opacity; terminal text sits on the live background behind it       |
-| Overgrowth           | Organic backgrounds slowly reclaim idle windows and retreat when focused                      |
-| Network panel        | Remembered SSH hosts and live Tailscale devices, one keystroke to spawn a shell               |
-
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 311
-tests, and it reaches the toolkit only through the public entrypoints listed below — nothing in it imports `src/`. That
-constraint is the point; Exomux is the standing proof that the published API is sufficient to build a non-trivial
-application, and every gap it hit became a library export.
+It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 518
+tests, and it reaches the toolkit only through the public entrypoints listed below.
 
 ```sh
 deno task exomux:test       # the package suite
@@ -49,7 +118,7 @@ deno task exomux:compile    # a self-contained binary
 
 Exomux's detached host currently requires Linux or Windows; see [OS Support](#os-support).
 
-## Quick Start
+## Library quick start
 
 New applications should use the focused `./app` entrypoint:
 
@@ -142,30 +211,30 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 Use `./app` for new terminal applications and the root entrypoint for compatibility or low-level composition. Focused
 entrypoints let application and tooling authors avoid taking a dependency on the broad terminal surface. Package
 stability policy and release checks are documented in
-[API Stability and Packaging](https://github.com/ubernaut/deno_tui/blob/main/docs/api-stability-and-packaging.md).
+[API Stability and Packaging](https://github.com/ubernaut/exotui/blob/main/docs/api-stability-and-packaging.md).
 
 ## Documentation
 
-- [Exomux](https://github.com/ubernaut/deno_tui/blob/main/packages/exomux/README.md) documents the flagship multiplexer,
+- [Exomux](https://github.com/ubernaut/exotui/blob/main/packages/exomux/README.md) documents the flagship multiplexer,
   why it is packaged separately, and how it depends on the toolkit.
-- [Repository Overview](https://github.com/ubernaut/deno_tui/blob/main/docs/repo-overview.md) maps module families,
+- [Repository Overview](https://github.com/ubernaut/exotui/blob/main/docs/repo-overview.md) maps module families,
   integration surfaces, demos, and quality gates.
-- [API Reference](https://github.com/ubernaut/deno_tui/blob/main/docs/api-reference.md) is generated from the public
+- [API Reference](https://github.com/ubernaut/exotui/blob/main/docs/api-reference.md) is generated from the public
   re-export graph and lists every exported symbol.
-- [API Stability and Packaging](https://github.com/ubernaut/deno_tui/blob/main/docs/api-stability-and-packaging.md)
+- [API Stability and Packaging](https://github.com/ubernaut/exotui/blob/main/docs/api-stability-and-packaging.md)
   defines entrypoint tiers and release policy.
-- [Testing and Performance](https://github.com/ubernaut/deno_tui/blob/main/docs/testing-and-performance.md) covers test
+- [Testing and Performance](https://github.com/ubernaut/exotui/blob/main/docs/testing-and-performance.md) covers test
   helpers, benchmarks, probes, and contributor gates.
-- [Visualization App](https://github.com/ubernaut/deno_tui/blob/main/docs/visualization-app.md) documents the system
+- [Visualization App](https://github.com/ubernaut/exotui/blob/main/docs/visualization-app.md) documents the system
   monitor shell and visualization controls.
-- [HTML/CSS-Style Layout](https://github.com/ubernaut/deno_tui/blob/main/docs/html-css-layout.md) documents markup
+- [HTML/CSS-Style Layout](https://github.com/ubernaut/exotui/blob/main/docs/html-css-layout.md) documents markup
   parsing, the supported CSS subset, and the simple and optional Yoga solvers.
-- [Terminal Emulation Strategy](https://github.com/ubernaut/deno_tui/blob/main/docs/terminal-emulation-strategy.md)
+- [Terminal Emulation Strategy](https://github.com/ubernaut/exotui/blob/main/docs/terminal-emulation-strategy.md)
   describes process, PTY, screen, and scrollback scope.
-- [Curses and WebTUI Parity](https://github.com/ubernaut/deno_tui/blob/main/docs/curses-webtui-parity.md) records
-  terminal and browser toolkit expectations.
-- [Browser Framework Plan](https://github.com/ubernaut/deno_tui/blob/main/docs/web-framework-plan.md) explains the
-  browser host, DOM target, remote bridge, and Pages build direction.
+- [Curses and WebTUI Parity](https://github.com/ubernaut/exotui/blob/main/docs/curses-webtui-parity.md) records terminal
+  and browser toolkit expectations.
+- [Browser Framework Plan](https://github.com/ubernaut/exotui/blob/main/docs/web-framework-plan.md) explains the browser
+  host, DOM target, remote bridge, and Pages build direction.
 
 Use the generated and queryable catalogs instead of maintaining parallel symbol lists:
 
@@ -257,7 +326,7 @@ responsive recipes, and `WindowManagerController` support application shells and
 an HTML/CSS-style tree with terminal-cell media queries, Flexbox, Grid, absolute positioning, overflow inspection, and
 an optional Yoga backend.
 
-See [HTML/CSS-Style Layout](https://github.com/ubernaut/deno_tui/blob/main/docs/html-css-layout.md),
+See [HTML/CSS-Style Layout](https://github.com/ubernaut/exotui/blob/main/docs/html-css-layout.md),
 `examples/layout_recipe_report.ts`, `examples/html_css_layout.ts`, and `examples/window_manager_demo.ts` for executable
 examples.
 
@@ -328,7 +397,7 @@ deno task three-ascii
 
 The API Workbench and Neon applications exercise the renderer inside resizable, tiled, fullscreen, and minimized
 windows. GPU-backed probes and visual smokes are documented in
-[Testing and Performance](https://github.com/ubernaut/deno_tui/blob/main/docs/testing-and-performance.md).
+[Testing and Performance](https://github.com/ubernaut/exotui/blob/main/docs/testing-and-performance.md).
 
 ## Demos
 
@@ -357,19 +426,19 @@ limited to distinct interactive or catalog surfaces.
 
 ### Renderer And Workbench
 
-![Three ASCII renderer terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/three-ascii.jpg)
+![Three ASCII renderer terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/three-ascii.jpg)
 
-![API workbench terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/api-workbench.jpg)
+![API workbench terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/api-workbench.jpg)
 
 ### Applications And Catalog
 
-![Component catalog terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/component-catalog.jpg)
+![Component catalog terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/component-catalog.jpg)
 
-![Showcase terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/showcase.jpg)
+![Showcase terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/showcase.jpg)
 
-![Neon Exodus suite terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/neon-exodus.jpg)
+![Neon Exodus suite terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/neon-exodus.jpg)
 
-![System monitor terminal screenshot](https://raw.githubusercontent.com/ubernaut/deno_tui/main/docs/screenshots/system-monitor.jpg)
+![System monitor terminal screenshot](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/system-monitor.jpg)
 
 ## Development
 
@@ -396,8 +465,8 @@ Exomux resolves against its own config, so a bare `deno test` at the repository 
 `deno task exomux:test` (or `deno task health`, which includes it) when changing anything it depends on.
 
 Renderer and workbench changes also require the matching live probe or PTY/browser visual smoke. See
-[Testing and Performance](https://github.com/ubernaut/deno_tui/blob/main/docs/testing-and-performance.md) for the
-current matrix and thresholds.
+[Testing and Performance](https://github.com/ubernaut/exotui/blob/main/docs/testing-and-performance.md) for the current
+matrix and thresholds.
 
 ## OS Support
 
