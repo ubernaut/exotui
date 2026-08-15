@@ -49,6 +49,7 @@ import {
   exomuxNetworkNodeAction,
   exomuxNetworkNodeHostShellTarget,
   exomuxNetworkNodeHostTarget,
+  exomuxNetworkNodeRemoteSession,
   exomuxNetworkNodeSessionId,
   exomuxScpCandidatePath,
   exomuxScpDestinationLabel,
@@ -1625,10 +1626,19 @@ export function mountExomuxDesktop(
     await syncWindows();
   };
 
-  const activateNetworkNode = async (row: TreeRow): Promise<void> => {
+  const activateNetworkNode = async (row: TreeRow, forceNew = false): Promise<void> => {
     const sessionId = exomuxNetworkNodeSessionId(row.id);
     if (sessionId) {
       await controller.openSession(sessionId, bodyRect.peek());
+      await syncWindows();
+      return;
+    }
+    // A discovered remote tmux/exomux session attaches in a new window, or
+    // focuses the window already attached to it; Shift-Enter forces a second
+    // attachment (TSM-013).
+    const remote = exomuxNetworkNodeRemoteSession(row.id);
+    if (remote) {
+      await controller.openRemoteSession(remote.target, remote.kind, remote.name, bodyRect.peek(), { forceNew });
       await syncWindows();
       return;
     }
@@ -2750,7 +2760,7 @@ export function mountExomuxDesktop(
       const row = tree.selected();
       if (!row) return true;
       if (row.hasChildren) tree.toggleActive();
-      else await activateNetworkNode(row);
+      else await activateNetworkNode(row, event.shift);
       return true;
     }
     if (event.key === "delete") {

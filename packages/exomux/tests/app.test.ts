@@ -46,8 +46,10 @@ import {
   EXOMUX_WARNING_TTL_MS,
   type ExomuxController,
   exomuxNetworkNodeAction,
+  exomuxNetworkNodeRemoteSession,
   exomuxPingSummary,
   type ExomuxPreferences,
+  parseExomuxRemoteSessions,
 } from "../controller.ts";
 import {
   cycleExomuxGlobalSetting,
@@ -5590,6 +5592,141 @@ Deno.test("Exomux network actions: monitor spawns over ssh -t, ping reports, cop
     assertEquals(monitor.command, "ssh");
     assertEquals(monitor.args, ["-t", "studio.tail.net", EXOMUX_REMOTE_MONITOR_COMMAND]);
     assertEquals(monitor.title, "studio · monitor");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux remote session probe output parses tmux and exomux rows, dropping junk", () => {
+  const output = [
+    "main\t3\t1",
+    "scratch\t1\t0",
+    "bad name!\t2\t0", // hostile name dropped
+    "not-a-row",
+    "--exomux--",
+    "NAME     STATE       UP    TERMINALS  RUNNING",
+    "default  attachable  3h 2m  2         nvim",
+    "stale    crashed     -     -          -", // non-attachable dropped
+  ].join("\n");
+  assertEquals(parseExomuxRemoteSessions(output), [
+    { kind: "tmux", name: "main", windows: 3, attached: true },
+    { kind: "tmux", name: "scratch", windows: 1, attached: false },
+    { kind: "exomux", name: "default", windows: 2 },
+  ]);
+  assertEquals(parseExomuxRemoteSessions(""), []);
+  // The rses: node id round-trips targets and names safely.
+  assertEquals(exomuxNetworkNodeRemoteSession("rses:tmux:studio.tail.net:main"), {
+    kind: "tmux",
+    target: "studio.tail.net",
+    name: "main",
+  });
+  assertEquals(exomuxNetworkNodeRemoteSession("act:ping:x"), undefined);
+});
+
+Deno.test("Exomux network Sessions node probes lazily, attaches, and focuses if open (TSM-012/013)", async () => {
+  const client = new FakeExomuxClient([]);
+  const probes: string[][] = [];
+  const probeOutput = "main\t3\t1\n--exomux--\nNAME  STATE  UP  TERMINALS  RUNNING\n";
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    tailnetSource: {
+      fetchStatus: () =>
+        Promise.resolve(
+          {
+            availability: "available",
+            detail: "tailscale is running",
+            snapshot: {
+              backendState: "Running",
+              devices: [
+                {
+                  id: "peer-1",
+                  shortName: "studio",
+                  dnsName: "studio.tail.net",
+                  ipv4: "100.64.0.2",
+                  os: "linux",
+                  online: true,
+                  self: false,
+                  relayed: false,
+                  tags: [],
+                },
+              ],
+              capturedAt: 1,
+            },
+          } satisfies TailnetStatusResult,
+        ),
+    },
+    tailnetPollIntervalMs: 300_000,
+    networkProbeRunner: (command, args) => {
+      probes.push([command, ...args]);
+      return Promise.resolve({ code: 0, stdout: new TextEncoder().encode(probeOutput) });
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await clickStartMenuItem(harness, mounted, "network");
+    await mounted.whenIdle();
+    await waitForCondition(
+      () => controller.networkTree.visibleRows().some((row) => row.id === "dev:peer-1"),
+      2_000,
+    );
+    assertEquals(probes.length, 0, "no SSH probes before the Sessions node expands");
+
+    const tree = controller.networkTree;
+    const pressOn = async (rowId: string, shift = false) => {
+      const index = tree.visibleRows().findIndex((row) => row.id === rowId);
+      assert(index >= 0, `row ${rowId} is visible`);
+      tree.setSelectedIndex(index);
+      await harness.pilot.press("return", { shift });
+      await mounted.whenIdle();
+    };
+
+    // Expanding the machine then its Sessions node fires exactly one probe.
+    await pressOn("dev:peer-1");
+    const sessionsGroupId = `grp:ses:${encodeURIComponent("studio.tail.net")}`;
+    await pressOn(sessionsGroupId);
+    await waitForCondition(() => probes.length === 1, 2_000);
+    assertEquals(probes[0]!.slice(0, 4), ["ssh", "-o", "BatchMode=yes", "studio.tail.net"]);
+    assertStringIncludes(probes[0]!.at(-1)!, "tmux list-sessions");
+    assertStringIncludes(probes[0]!.at(-1)!, "--exomux--");
+
+    // The discovered tmux session renders as an attachable row.
+    const rowId = `rses:tmux:${encodeURIComponent("studio.tail.net")}:main`;
+    await waitForCondition(() => tree.visibleRows().some((row) => row.id === rowId), 2_000);
+    assertStringIncludes(
+      tree.visibleRows().find((row) => row.id === rowId)!.node.label,
+      "tmux: main (3) · attached",
+    );
+
+    // Enter attaches over ssh -t in a new window.
+    await pressOn(rowId);
+    await waitForCondition(() => client.spawned.length === 1, 2_000);
+    assertEquals(client.spawned[0]!.command, "ssh");
+    assertEquals(client.spawned[0]!.args, ["-t", "studio.tail.net", "tmux attach -t main"]);
+    assertEquals(client.spawned[0]!.title, "studio · tmux:main");
+
+    // Enter again focuses the existing window instead of duplicating.
+    const attachedId = client.listSnapshot().find((candidate) => candidate.commandLine === "ssh")!.id;
+    await pressOn(rowId);
+    await mounted.whenIdle();
+    assertEquals(client.spawned.length, 1, "focus-if-open must not spawn again");
+    assertEquals(controller.windowHost.controller.inspect().activeWindowId, exomuxWindowId(attachedId));
+
+    // Shift-Enter forces a second attachment (after refocusing the panel,
+    // since focus-if-open just moved focus to the attached window).
+    controller.windowHost.execute({ kind: "focus", id: EXOMUX_NETWORK_WINDOW_ID }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+    await pressOn(rowId, true);
+    await waitForCondition(() => client.spawned.length === 2, 2_000);
+    assertEquals(client.spawned[1]!.args, ["-t", "studio.tail.net", "tmux attach -t main"]);
   } finally {
     harness.destroy();
     await controller.dispose();

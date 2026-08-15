@@ -28,9 +28,15 @@ Status: MVP implementation in progress as of July 21, 2026. Fleshes out the orig
   Copy IPv4 / Copy MagicDNS / Copy address (OSC 52 through the hosting terminal's stdout via the library's
   `terminalClipboardSequence`; a status-line confirmation names what was copied). The Details modal from the ledger
   row was deferred — it was not in the acceptance criteria.
-- Still tracked below (unchanged): remote tmux/exomux session listing with attach/focus-if-open (TSM-012/013),
-  remaining OSC 7 cwd targeting for scp (a `pwd`-probe capture already landed), capability/provider manifest
-  integration (TSM-011), fuzzy filter.
+- **TSM-012/013 landed Aug 15 2026:** every machine grows a lazily-probed `Sessions` node — expanding it runs one
+  batched `ssh -o BatchMode=yes` command (tmux tab-separated rows, a `--exomux--` marker, then exomux's own session
+  table) through the bounded injectable runner, cached per target with a 30s TTL and force-refreshed by `r`.
+  Discovered rows render as `tmux: main (3) · attached` / `exomux: default (2)`; Enter attaches over
+  `ssh -t <target> tmux attach -t <name>` (or `exomux -a <name>`) in a new window, re-activating focuses the window
+  already attached to that machine+session, and Shift-Enter forces a second attachment. Hostile probe lines and
+  non-conservative session names are dropped before argv.
+- Still tracked below (unchanged): remaining OSC 7 cwd targeting for scp (a `pwd`-probe capture already landed),
+  capability/provider manifest integration (TSM-011), fuzzy filter.
 
 This roadmap adds first-class Tailscale awareness to the Exomux terminal-multiplexer showcase: a `[ Tailnet ]` menu-bar
 entry beside `[ New ]` that opens a floating, TOC-style tree panel on the left edge of the desktop, from which tailnet

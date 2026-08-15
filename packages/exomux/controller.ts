@@ -165,6 +165,94 @@ const EXOMUX_NETWORK_ACTION_PREFIXES: readonly (readonly [string, ExomuxNetworkA
 export const EXOMUX_REMOTE_MONITOR_COMMAND =
   "command -v btop >/dev/null 2>&1 && exec btop; command -v htop >/dev/null 2>&1 && exec htop; exec top";
 
+/** One remote multiplexer session discovered by the SSH probe (TSM-012). */
+export interface ExomuxRemoteSession {
+  readonly kind: "tmux" | "exomux";
+  readonly name: string;
+  readonly windows?: number;
+  readonly attached?: boolean;
+}
+
+/** Per-target cache entry for remote-session discovery. */
+export interface ExomuxRemoteSessionProbe {
+  readonly state: "loading" | "ready" | "error";
+  readonly rows: readonly ExomuxRemoteSession[];
+  readonly fetchedAt: number;
+}
+
+/** Ready probe results stay fresh this long; expand or `r` within it reuses them. */
+export const EXOMUX_REMOTE_SESSIONS_TTL_MS = 30_000;
+
+/**
+ * The one batched probe the remote host runs: tmux sessions as tab-separated
+ * rows, a marker line, then exomux's own session table. Every branch is
+ * guarded so a machine without tmux or exomux still exits 0 with the marker.
+ */
+export const EXOMUX_REMOTE_SESSIONS_PROBE =
+  "tmux list-sessions -F '#{session_name}\t#{session_windows}\t#{session_attached}' 2>/dev/null; " +
+  "echo --exomux--; exomux --list-sessions 2>/dev/null || true";
+
+/** Conservative charset for remote session names entering ssh argv. */
+export function isExomuxRemoteSessionName(name: string): boolean {
+  return /^[A-Za-z0-9._@-]{1,64}$/.test(name);
+}
+
+/** Parses the batched probe output; hostile or unparseable lines are dropped. */
+export function parseExomuxRemoteSessions(output: string): ExomuxRemoteSession[] {
+  const rows: ExomuxRemoteSession[] = [];
+  const markerAt = output.indexOf("--exomux--");
+  const tmuxPart = markerAt >= 0 ? output.slice(0, markerAt) : output;
+  const exomuxPart = markerAt >= 0 ? output.slice(markerAt + "--exomux--".length) : "";
+  for (const rawLine of tmuxPart.split(/[\r\n]+/)) {
+    if (rows.length >= 64) break;
+    const parts = rawLine.split("\t");
+    if (parts.length !== 3) continue;
+    const [name, windowsText, attachedText] = parts as [string, string, string];
+    if (!isExomuxRemoteSessionName(name)) continue;
+    if (!/^\d{1,4}$/.test(windowsText.trim()) || !/^[01]$/.test(attachedText.trim())) continue;
+    rows.push({ kind: "tmux", name, windows: Number(windowsText.trim()), attached: attachedText.trim() === "1" });
+  }
+  for (const rawLine of exomuxPart.split(/[\r\n]+/)) {
+    if (rows.length >= 64) break;
+    const line = rawLine.trimEnd();
+    // The exomux table: NAME  STATE  UP  TERMINALS  RUNNING, two-plus spaces
+    // between columns; only attachable sessions are worth a row.
+    const columns = line.split(/\s{2,}/);
+    if (columns.length < 4 || columns[0] === "NAME") continue;
+    const [name, state, _up, terminals] = columns as [string, string, string, string];
+    if (state !== "attachable" || !isExomuxRemoteSessionName(name)) continue;
+    const windows = /^\d{1,4}$/.test(terminals) ? Number(terminals) : undefined;
+    rows.push({ kind: "exomux", name, ...(windows !== undefined ? { windows } : {}) });
+  }
+  return rows;
+}
+
+/** Extracts the SSH target from a `grp:ses:` sessions-group node id. */
+export function exomuxNetworkSessionsGroupTarget(nodeId: string): string | undefined {
+  if (!nodeId.startsWith("grp:ses:")) return undefined;
+  try {
+    return decodeURIComponent(nodeId.slice(8));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Parses a `rses:` remote-session leaf id into its target/kind/name. */
+export function exomuxNetworkNodeRemoteSession(
+  nodeId: string,
+): { kind: "tmux" | "exomux"; target: string; name: string } | undefined {
+  if (!nodeId.startsWith("rses:")) return undefined;
+  const parts = nodeId.slice(5).split(":");
+  if (parts.length !== 3) return undefined;
+  const kind = parts[0] === "tmux" ? "tmux" : parts[0] === "exomux" ? "exomux" : undefined;
+  if (!kind) return undefined;
+  try {
+    return { kind, target: decodeURIComponent(parts[1]!), name: decodeURIComponent(parts[2]!) };
+  } catch {
+    return undefined;
+  }
+}
+
 /** One human line from ping output: the reply line or the loss/rtt summary, bounded. */
 export function exomuxPingSummary(output: string): string | undefined {
   const lines = output.split(/[\r\n]+/).map((line) => line.trim());
@@ -255,7 +343,34 @@ export function buildExomuxNetworkNodes(
   expansion: ReadonlySet<string>,
   sessions: readonly ExomuxSessionSummary[] = [],
   sessionHosts: Readonly<Record<string, string>> = {},
+  remoteSessions: Readonly<Record<string, ExomuxRemoteSessionProbe>> = {},
 ): TreeNode[] {
+  // The Sessions subtree per machine (TSM-012): lazily probed on expand, so an
+  // unexpanded node costs zero SSH connections.
+  const sessionsGroup = (target: string): TreeNode => {
+    const id = `grp:ses:${encodeURIComponent(target)}`;
+    const probe = remoteSessions[target];
+    const children: TreeNode[] = [];
+    if (!probe) {
+      children.push({ id: `note:rses:${target}`, label: "Expand probes tmux/exomux over SSH", note: true });
+    } else if (probe.state === "loading" && probe.rows.length === 0) {
+      children.push({ id: `note:rses:${target}`, label: "Probing sessions…", note: true });
+    } else if (probe.state === "error") {
+      children.push({ id: `note:rses:${target}`, label: "Probe failed · r retries", note: true });
+    } else if (probe.rows.length === 0) {
+      children.push({ id: `note:rses:${target}`, label: "No tmux or exomux sessions", note: true });
+    } else {
+      for (const row of probe.rows) {
+        const windows = row.windows !== undefined ? ` (${row.windows})` : "";
+        const attached = row.attached ? " · attached" : "";
+        children.push({
+          id: `rses:${row.kind}:${encodeURIComponent(target)}:${encodeURIComponent(row.name)}`,
+          label: `${row.kind}: ${row.name}${windows}${attached}`,
+        });
+      }
+    }
+    return { id, label: "Sessions", children, expanded: expansion.has(id) };
+  };
   const shellsForTargets = (targets: readonly (string | undefined)[]): TreeNode[] => {
     const nodes: TreeNode[] = [];
     for (const session of sessions) {
@@ -287,6 +402,7 @@ export function buildExomuxNetworkNodes(
             ],
             expanded: expansion.has(actionsId),
           },
+          sessionsGroup(target),
           ...shellsForTargets([target]),
         ],
         expanded: expansion.has(id),
@@ -325,6 +441,7 @@ export function buildExomuxNetworkNodes(
             ],
             expanded: expansion.has(actionsId),
           },
+          ...(device.dnsName || device.ipv4 ? [sessionsGroup(device.dnsName || device.ipv4!)] : []),
           ...shellsForTargets([device.dnsName || undefined, device.ipv4]),
         ],
         expanded: expansion.has(id),
@@ -553,6 +670,11 @@ export class ExomuxController {
   readonly clipboardCopy = new Signal<{ readonly text: string; readonly nonce: number } | undefined>(undefined);
   #clipboardNonce = 0;
   readonly #networkProbeRunner: TailnetCommandRunner;
+  /** Remote-session discovery cache, keyed by SSH target (TSM-012). */
+  readonly remoteSessions = new Signal<Readonly<Record<string, ExomuxRemoteSessionProbe>>>({});
+  readonly #remoteSessionFlights = new Set<string>();
+  /** `kind\u0000target\u0000name` → local session id, powering focus-if-open (TSM-013). */
+  readonly #remoteAttachMap = new Map<string, string>();
   readonly backgroundId = new Signal<ExomuxBackgroundId>("metaballs");
   /** Running total of preset steps requested; the desktop applies the delta. */
   readonly backgroundPresetStep: Signal<number> = new Signal(0);
@@ -696,8 +818,12 @@ export class ExomuxController {
       onToggle: (row, expanded) => {
         if (expanded) this.#networkExpansion.add(row.id);
         else this.#networkExpansion.delete(row.id);
+        // Expanding a Sessions node is the lazy trigger for its SSH probe.
+        const probeTarget = expanded ? exomuxNetworkSessionsGroupTarget(row.id) : undefined;
+        if (probeTarget) void this.probeRemoteSessions(probeTarget);
       },
     });
+    this.remoteSessions.subscribe(() => this.#rebuildNetworkTree());
     this.savedHosts.subscribe(() => this.#rebuildNetworkTree());
     this.networkStatus.subscribe(() => this.#rebuildNetworkTree());
     this.sessionHosts.subscribe(() => this.#rebuildNetworkTree());
@@ -717,6 +843,7 @@ export class ExomuxController {
       this.#networkExpansion,
       this.sessions.peek(),
       this.sessionHosts.peek(),
+      this.remoteSessions.peek(),
     );
   }
 
@@ -1553,9 +1680,13 @@ export class ExomuxController {
     this.status.value = "Network panel · Enter opens SSH · Del forgets a saved host · r refreshes.";
   }
 
-  /** Forces one immediate tailnet status fetch. */
+  /** Forces one immediate tailnet status fetch, plus expanded session probes. */
   async refreshNetwork(): Promise<void> {
     this.#assertActive();
+    for (const id of this.#networkExpansion) {
+      const target = exomuxNetworkSessionsGroupTarget(id);
+      if (target) void this.probeRemoteSessions(target, { force: true });
+    }
     await this.#ensureTailnetPoller().refresh();
   }
 
@@ -1632,6 +1763,89 @@ export class ExomuxController {
     if (!bounded) return;
     this.clipboardCopy.value = { text: bounded, nonce: ++this.#clipboardNonce };
     this.status.value = `Copied ${label}: ${bounded}`;
+  }
+
+  /** Probes tmux/exomux sessions on one target over SSH; TTL-cached per target. */
+  async probeRemoteSessions(target: string, options: { force?: boolean } = {}): Promise<void> {
+    if (this.#disposed || !isExomuxSshTarget(target)) return;
+    const cached = this.remoteSessions.peek()[target];
+    const now = Date.now();
+    if (
+      !options.force && cached && cached.state === "ready" &&
+      now - cached.fetchedAt < EXOMUX_REMOTE_SESSIONS_TTL_MS
+    ) return;
+    if (this.#remoteSessionFlights.has(target)) return;
+    this.#remoteSessionFlights.add(target);
+    this.#setRemoteProbe(target, { state: "loading", rows: cached?.rows ?? [], fetchedAt: now });
+    try {
+      // BatchMode fails fast instead of hanging on a password prompt; the
+      // deadline reaps a dead network either way.
+      const result = await this.#networkProbeRunner(
+        "ssh",
+        ["-o", "BatchMode=yes", target, EXOMUX_REMOTE_SESSIONS_PROBE],
+        8_000,
+        65_536,
+      );
+      if (this.#disposed) return;
+      const output = new TextDecoder().decode(result.stdout);
+      if (result.code !== 0 && !output.includes("--exomux--")) {
+        this.#setRemoteProbe(target, { state: "error", rows: [], fetchedAt: Date.now() });
+        return;
+      }
+      this.#setRemoteProbe(target, { state: "ready", rows: parseExomuxRemoteSessions(output), fetchedAt: Date.now() });
+    } catch {
+      if (!this.#disposed) this.#setRemoteProbe(target, { state: "error", rows: [], fetchedAt: Date.now() });
+    } finally {
+      this.#remoteSessionFlights.delete(target);
+    }
+  }
+
+  #setRemoteProbe(target: string, probe: ExomuxRemoteSessionProbe): void {
+    this.remoteSessions.value = Object.freeze({ ...this.remoteSessions.peek(), [target]: probe });
+  }
+
+  /**
+   * Attaches a discovered remote session in a new window — or focuses the
+   * window already attached to it (TSM-013). `forceNew` (Shift-Enter) always
+   * opens a second attachment.
+   */
+  async openRemoteSession(
+    target: string,
+    kind: "tmux" | "exomux",
+    name: string,
+    bounds: Rectangle,
+    options: { forceNew?: boolean } = {},
+  ): Promise<void> {
+    this.#assertActive();
+    if (!isExomuxSshTarget(target) || !isExomuxRemoteSessionName(name)) {
+      this.status.value = "Refusing a remote session with unsupported characters.";
+      return;
+    }
+    const key = `${kind}\u0000${target}\u0000${name}`;
+    if (!options.forceNew) {
+      const existing = this.#remoteAttachMap.get(key);
+      const runtime = existing ? this.#runtimes.get(existing) : undefined;
+      if (runtime && runtime.summary.peek().running) {
+        this.windowHost.execute({ kind: "focus", id: exomuxWindowId(existing!) }, bounds);
+        this.status.value = `Focused ${kind} ${name} on ${target} · Shift-Enter attaches again.`;
+        return;
+      }
+      if (existing) this.#remoteAttachMap.delete(key);
+    }
+    const remoteCommand = kind === "tmux" ? `tmux attach -t ${name}` : `exomux -a ${name}`;
+    const shortHost = target.split("@").pop()!.split(".")[0] || target;
+    const session = await this.spawn({
+      bounds,
+      command: "ssh",
+      args: ["-t", target, remoteCommand],
+      title: `${shortHost} · ${kind}:${name}`,
+    });
+    if (session) {
+      this.#remoteAttachMap.set(key, session.id);
+      this.rememberHost(target);
+      this.sessionHosts.value = Object.freeze({ ...this.sessionHosts.peek(), [session.id]: target });
+      this.#persistMetadata();
+    }
   }
 
   /** Preferred SSH target for one tailnet device (MagicDNS name over raw IP). */
@@ -2718,6 +2932,7 @@ export class ExomuxController {
     this.quitModalVisible.dispose();
     this.hostSessions.dispose();
     this.clipboardCopy.dispose();
+    this.remoteSessions.dispose();
     this.shaderManagerVisible.dispose();
     this.shaderManagerIndex.dispose();
     this.shaderPathDraft.dispose();
