@@ -278,7 +278,7 @@ Acceptance:
 - [x] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
 - [x] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
       measured widgets.
-- [ ] Verify grow/shrink/basis, wrapping, gaps, min/max constraints, intrinsic basis, and one-cell remainder allocation
+- [x] Verify grow/shrink/basis, wrapping, gaps, min/max constraints, intrinsic basis, and one-cell remainder allocation
       across nested and overflowing containers.
 
 Completed slice July 16, 2026: the Simple solver now has independent reverse main-axis handling, wrapped-line
@@ -295,6 +295,16 @@ units, and the intrinsic-measurement cache key now varies with the viewport so v
 across resizes. Missing axes degrade to the local available size, never zero. The Yoga adapter leaves the new units
 unset instead of misreading them as cells, and all four capability profiles classify them (Simple supported,
 Yoga/Taffy-protocol unsupported); `inspectTuiCssSupport()` and the layout docs were updated.
+
+Completed verification slice Aug 15, 2026: the shared Simple/Yoga conformance corpus gains nested/overflowing fixtures
+for equal-grow remainder allocation, shrink-to-minimum with reported overflow, intrinsic text bases in a wrapping gapped
+container, and nested max-width caps under column shrink — each with per-backend dispositions where the backends
+legitimately differ (Yoga's fractional edge rounding; the adapter's native flex-shrink 0 default). The verification
+exposed and fixed two Simple allocator defects: share distribution front-loaded earlier items (equal weights could drift
+multiple cells; now largest-remainder rounds keep every item within one cell) and the force-fit pass squeezed items
+below explicit minimums (removed — shrinking stops at each minimum, zero-shrink items opt out entirely, and unfittable
+content overflows through the shared overflow inspection, satisfying the "no layout can violate an explicit minimum"
+acceptance for Flex; Block children remain clipped to the containing width per the updated invariant note).
 
 Completed intrinsic-sizing slice Aug 15, 2026: `min-content`, `max-content`, and `fit-content` are length units resolved
 through the same context contract (`intrinsicMin`/`intrinsicMax` supplied by a measuring solver; without them the

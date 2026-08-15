@@ -2362,23 +2362,25 @@ const markupLayoutFixtures: MarkupLayoutFixture[] = [
     ],
   },
   {
-    name: "minimum overflow policy is explicit per backend",
-    category: "solver-specific",
+    // Since the L1 fairness/minimum pass, both backends preserve an explicit
+    // minimum and let the container overflow instead of squeezing below it.
+    name: "explicit minimums overflow the container in both backends",
+    category: "common",
     markup: `<window id="main"><panel id="child">Child</panel></window>`,
     css: `
       #main { display: flex; width: 5; height: 3; }
       #child { width: 1; min-width: 8; max-width: 10; height: 1; }
     `,
     bounds: { column: 0, row: 0, width: 5, height: 3 },
+    expected: [
+      { id: "main", rect: { column: 0, row: 0, width: 5, height: 3 } },
+      { id: "child", rect: { column: 0, row: 0, width: 8, height: 1 } },
+    ],
     backends: [
       {
         name: "simple",
         solver: () => simpleLayoutSolver(),
-        disposition: "solver-specific",
-        expected: [
-          { id: "main", rect: { column: 0, row: 0, width: 5, height: 3 } },
-          { id: "child", rect: { column: 0, row: 0, width: 5, height: 1 } },
-        ],
+        disposition: "supported",
         expectedDiagnostics: [{
           code: "partial-solver-support",
           nodeId: "child",
@@ -2386,15 +2388,7 @@ const markupLayoutFixtures: MarkupLayoutFixture[] = [
           field: "minWidth",
         }],
       },
-      {
-        name: "yoga",
-        solver: () => yogaLayoutSolver(),
-        disposition: "solver-specific",
-        expected: [
-          { id: "main", rect: { column: 0, row: 0, width: 5, height: 3 } },
-          { id: "child", rect: { column: 0, row: 0, width: 8, height: 1 } },
-        ],
-      },
+      { name: "yoga", solver: () => yogaLayoutSolver(), disposition: "supported" },
     ],
   },
   {
@@ -2496,6 +2490,168 @@ const markupLayoutFixtures: MarkupLayoutFixture[] = [
             property: "grid-row",
             field: "gridRow",
           },
+        ],
+      },
+    ],
+  },
+  // L1 verification corpus: grow/shrink/basis, wrapping, gaps, min/max,
+  // intrinsic bases, and one-cell remainder allocation across nested and
+  // overflowing containers (036 L1).
+  {
+    name: "nested equal grow splits with a one-cell remainder",
+    category: "solver-specific",
+    markup: `
+      <window id="main">
+        <panel id="bar">T</panel>
+        <panel id="row">
+          <panel id="a">A</panel>
+          <panel id="b">B</panel>
+          <panel id="c">C</panel>
+        </panel>
+      </window>
+    `,
+    css: `
+      #main { display: flex; flex-direction: column; width: 100%; height: 100%; }
+      #bar { height: 1; }
+      #row { display: flex; flex-direction: row; flex: 1; }
+      #a, #b, #c { flex-grow: 1; flex-basis: 0; height: 2; }
+    `,
+    bounds: { column: 0, row: 0, width: 10, height: 6 },
+    backends: [
+      {
+        // Largest-remainder allocation: the single leftover cell lands on the
+        // first item; every item stays within one cell of the ideal share.
+        name: "simple",
+        solver: () => simpleLayoutSolver(),
+        disposition: "solver-specific",
+        expected: [
+          { id: "main", rect: { column: 0, row: 0, width: 10, height: 6 } },
+          { id: "bar", rect: { column: 0, row: 0, width: 10, height: 1 } },
+          { id: "row", rect: { column: 0, row: 1, width: 10, height: 5 } },
+          { id: "a", rect: { column: 0, row: 1, width: 4, height: 2 } },
+          { id: "b", rect: { column: 4, row: 1, width: 3, height: 2 } },
+          { id: "c", rect: { column: 7, row: 1, width: 3, height: 2 } },
+        ],
+      },
+      {
+        // Yoga rounds fractional edges per item, so 10/3 yields three 4-wide
+        // rects whose columns round from thirds and may abut off-by-one.
+        name: "yoga",
+        solver: () => yogaLayoutSolver(),
+        disposition: "solver-specific",
+        expected: [
+          { id: "main", rect: { column: 0, row: 0, width: 10, height: 6 } },
+          { id: "bar", rect: { column: 0, row: 0, width: 10, height: 1 } },
+          { id: "row", rect: { column: 0, row: 1, width: 10, height: 5 } },
+          { id: "a", rect: { column: 0, row: 1, width: 4, height: 2 } },
+          { id: "b", rect: { column: 3, row: 1, width: 4, height: 2 } },
+          { id: "c", rect: { column: 6, row: 1, width: 4, height: 2 } },
+        ],
+      },
+    ],
+  },
+  {
+    name: "shrinking stops at explicit minimums and reports the overflow",
+    category: "common",
+    markup: `
+      <window id="main">
+        <panel id="hold">HH</panel>
+        <panel id="give">GG</panel>
+      </window>
+    `,
+    css: `
+      #main { display: flex; flex-direction: row; width: 12; height: 3; }
+      #hold { flex-basis: 10; flex-shrink: 1; min-width: 8; height: 2; }
+      #give { flex-basis: 10; flex-shrink: 1; min-width: 6; height: 2; }
+    `,
+    bounds: { column: 0, row: 0, width: 20, height: 6 },
+    expected: [
+      { id: "main", rect: { column: 0, row: 0, width: 12, height: 3 } },
+      { id: "hold", rect: { column: 0, row: 0, width: 8, height: 2 } },
+      { id: "give", rect: { column: 8, row: 0, width: 6, height: 2 } },
+    ],
+    expectedScroll: [{ id: "main", width: 14, height: 3 }],
+    backends: [
+      {
+        name: "simple",
+        solver: () => simpleLayoutSolver(),
+        disposition: "supported",
+        expectedDiagnostics: [
+          { code: "partial-solver-support", nodeId: "hold", property: "min-width", field: "minWidth" },
+          { code: "partial-solver-support", nodeId: "give", property: "min-width", field: "minWidth" },
+        ],
+      },
+      { name: "yoga", solver: () => yogaLayoutSolver(), disposition: "supported" },
+    ],
+  },
+  {
+    name: "intrinsic text bases wrap with gaps inside a vertically overflowing container",
+    category: "common",
+    markup: `
+      <window id="main">
+        <panel id="one">alpha beta</panel>
+        <panel id="two">gamma</panel>
+        <panel id="three">delta epsilon</panel>
+      </window>
+    `,
+    css: `
+      #main { display: flex; flex-flow: row wrap; align-items: start; width: 14; height: 3; gap: 1; overflow: auto; }
+      #one, #two, #three { height: 1; }
+    `,
+    bounds: { column: 0, row: 0, width: 20, height: 8 },
+    expected: [
+      { id: "main", rect: { column: 0, row: 0, width: 14, height: 3 } },
+      { id: "one", rect: { column: 0, row: 0, width: 10, height: 1 } },
+      { id: "two", rect: { column: 0, row: 2, width: 5, height: 1 } },
+      { id: "three", rect: { column: 0, row: 4, width: 13, height: 1 } },
+    ],
+    expectedScroll: [{ id: "main", width: 14, height: 5 }],
+    backends: sharedMarkupFlexSolvers,
+  },
+  {
+    name: "nested max-width caps a grow item while column shrink is solver-specific",
+    category: "solver-specific",
+    markup: `
+      <window id="main">
+        <panel id="outer">
+          <panel id="capped">C</panel>
+          <panel id="rest">R</panel>
+        </panel>
+      </window>
+    `,
+    css: `
+      #main { display: flex; flex-direction: column; width: 16; height: 4; overflow: auto; }
+      #outer { display: flex; flex-direction: row; height: 6; }
+      #capped { flex-grow: 1; flex-basis: 0; max-width: 5; height: 6; }
+      #rest { flex-grow: 1; flex-basis: 0; height: 6; }
+    `,
+    bounds: { column: 0, row: 0, width: 24, height: 10 },
+    backends: [
+      {
+        // CSS default flex-shrink is 1, so the 6-high row shrinks into the
+        // 4-high column; the max-width cap on one item holds either way.
+        name: "simple",
+        solver: () => simpleLayoutSolver(),
+        disposition: "solver-specific",
+        expected: [
+          { id: "main", rect: { column: 0, row: 0, width: 16, height: 4 } },
+          { id: "outer", rect: { column: 0, row: 0, width: 16, height: 4 } },
+          { id: "capped", rect: { column: 0, row: 0, width: 5, height: 4 } },
+          { id: "rest", rect: { column: 5, row: 0, width: 11, height: 4 } },
+        ],
+      },
+      {
+        // The Yoga adapter keeps Yoga's native flex-shrink default of 0: the
+        // row's children stay 6 high inside the clamped 4-high row rect, and
+        // the overflow shows up in the row's scroll metadata instead.
+        name: "yoga",
+        solver: () => yogaLayoutSolver(),
+        disposition: "solver-specific",
+        expected: [
+          { id: "main", rect: { column: 0, row: 0, width: 16, height: 4 } },
+          { id: "outer", rect: { column: 0, row: 0, width: 16, height: 4 } },
+          { id: "capped", rect: { column: 0, row: 0, width: 5, height: 6 } },
+          { id: "rest", rect: { column: 5, row: 0, width: 11, height: 6 } },
         ],
       },
     ],

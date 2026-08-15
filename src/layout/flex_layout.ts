@@ -74,71 +74,98 @@ function solveFlexSizes<T extends string>(total: number, items: readonly FlexIte
   if (delta < 0) {
     const weights = flexWeights(items, "shrink");
     delta = -delta;
+    // Shrinking stops at each item's minimum (and skips zero-shrink items):
+    // content that cannot fit overflows the container and is reported through
+    // the shared overflow inspection, never silently squeezed below an
+    // explicit minimum.
     distributeNegative(sizes, delta, weights, minimums);
-
-    const overflow = sum(sizes) - total;
-    if (overflow > 0) {
-      distributeNegative(sizes, overflow, weights, zeroes(items.length));
-    }
   }
 
   return sizes;
 }
 
+/**
+ * Distributes `extra` cells by weight with a largest-remainder pass, so equal
+ * weights end within one cell of each other: every item's share is computed
+ * from the same round base, then the leftover is handed out one cell at a
+ * time in item order. Rounds repeat only when a maximum capped an item and
+ * freed weight for the rest.
+ */
 function distributePositive(sizes: number[], extra: number, weights: number[], maximums: number[]) {
   let remaining = extra;
   while (remaining > 0) {
     let totalWeight = 0;
     for (let index = 0; index < sizes.length; index += 1) {
       const room = Math.max(0, (maximums[index] ?? MAX_FLEX_SIZE) - (sizes[index] ?? 0));
-      if (room > 0) totalWeight += Math.max(1, weights[index] ?? 1);
+      if (room > 0 && flexRoundWeight(weights, index) > 0) totalWeight += flexRoundWeight(weights, index);
     }
     if (totalWeight === 0) break;
 
+    const round = remaining;
     let used = 0;
     for (let index = 0; index < sizes.length; index += 1) {
       if (remaining <= 0) break;
       const room = Math.max(0, (maximums[index] ?? MAX_FLEX_SIZE) - (sizes[index] ?? 0));
-      if (room <= 0) continue;
-      const weight = Math.max(1, weights[index] ?? 1);
-      let share = Math.floor(remaining * (weight / Math.max(1, totalWeight)));
-      if (share <= 0) share = 1;
-      const delta = Math.min(room, share, remaining);
+      const weight = flexRoundWeight(weights, index);
+      if (room <= 0 || weight <= 0) continue;
+      const delta = Math.min(room, Math.floor(round * (weight / totalWeight)), remaining);
+      if (delta <= 0) continue;
       sizes[index] = (sizes[index] ?? 0) + delta;
       remaining -= delta;
       used += delta;
+    }
+    // One-cell remainder pass in item order.
+    for (let index = 0; index < sizes.length && remaining > 0; index += 1) {
+      const room = Math.max(0, (maximums[index] ?? MAX_FLEX_SIZE) - (sizes[index] ?? 0));
+      if (room <= 0 || flexRoundWeight(weights, index) <= 0) continue;
+      sizes[index] = (sizes[index] ?? 0) + 1;
+      remaining -= 1;
+      used += 1;
     }
 
     if (used === 0) break;
   }
 }
 
+/** Same fair-round shape as {@linkcode distributePositive}, shrinking toward minimums. */
 function distributeNegative(sizes: number[], deficit: number, weights: number[], minimums: number[]) {
   let remaining = deficit;
   while (remaining > 0) {
     let totalWeight = 0;
     for (let index = 0; index < sizes.length; index += 1) {
       const room = Math.max(0, (sizes[index] ?? 0) - (minimums[index] ?? 0));
-      if (room > 0) totalWeight += Math.max(1, weights[index] ?? 1);
+      if (room > 0 && flexRoundWeight(weights, index) > 0) totalWeight += flexRoundWeight(weights, index);
     }
     if (totalWeight === 0) break;
 
+    const round = remaining;
     let used = 0;
     for (let index = 0; index < sizes.length; index += 1) {
       if (remaining <= 0) break;
       const room = Math.max(0, (sizes[index] ?? 0) - (minimums[index] ?? 0));
-      if (room <= 0) continue;
-      const weight = Math.max(1, weights[index] ?? 1);
-      let share = Math.floor(remaining * (weight / Math.max(1, totalWeight)));
-      if (share <= 0) share = 1;
-      const delta = Math.min(room, share, remaining);
+      const weight = flexRoundWeight(weights, index);
+      if (room <= 0 || weight <= 0) continue;
+      const delta = Math.min(room, Math.floor(round * (weight / totalWeight)), remaining);
+      if (delta <= 0) continue;
       sizes[index] = (sizes[index] ?? 0) - delta;
       remaining -= delta;
       used += delta;
     }
+    for (let index = 0; index < sizes.length && remaining > 0; index += 1) {
+      const room = Math.max(0, (sizes[index] ?? 0) - (minimums[index] ?? 0));
+      if (room <= 0 || flexRoundWeight(weights, index) <= 0) continue;
+      sizes[index] = (sizes[index] ?? 0) - 1;
+      remaining -= 1;
+      used += 1;
+    }
 
     if (used === 0) break;
   }
+}
+
+/** A zero weight opts the item out of this distribution (flex-grow/shrink: 0). */
+function flexRoundWeight(weights: number[], index: number): number {
+  return Math.max(0, weights[index] ?? 1);
 }
 
 function sum(values: number[]) {
@@ -153,10 +180,4 @@ function flexWeights<T extends string>(items: readonly FlexItem<T>[], key: "grow
     weights[index] = Math.max(0, items[index]![key] ?? 1);
   }
   return weights;
-}
-
-function zeroes(length: number): number[] {
-  const values = new Array<number>(length);
-  for (let index = 0; index < length; index += 1) values[index] = 0;
-  return values;
 }

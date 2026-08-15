@@ -335,14 +335,16 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       ),
       "min-max-constraints": invariant(
         "partial",
-        "Min/max values are clamped deterministically, but final allocation can clip a minimum to the available box.",
+        "Min/max values are clamped deterministically; Flex preserves explicit minimums and reports the resulting overflow, while Block children remain clipped to the containing width.",
       ),
     },
     limitations: {
       position: ["Absolute and relative positioning use the deterministic terminal-cell inset subset."],
       flexWrap: ["wrap-reverse has solver-specific ordering and placement semantics pending L1."],
-      flexGrow: ["Fractional weight and remainder distribution is a terminal-cell subset."],
-      flexShrink: ["A zero shrink weight is not fully honored by the current integer allocator."],
+      flexGrow: [
+        "Integer-cell largest-remainder distribution: equal weights end within one cell of each other.",
+      ],
+      flexShrink: ["A zero shrink weight opts the item out of shrinking; unshrinkable content overflows."],
       flexBasis: ["fr is not a valid generic flex-basis unit; intrinsic-basis parity is deferred to L1."],
       alignItems: [
         "Applied to Flex containers; Grid container cross-axis distribution is deferred to L1.",
