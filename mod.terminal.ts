@@ -6,6 +6,7 @@ export * from "./src/runtime/terminal_backend.ts";
 export * from "./src/runtime/terminal_color.ts";
 export * from "./src/runtime/terminal_backend_registry.ts";
 export * from "./src/runtime/terminal_capabilities.ts";
+export * from "./src/runtime/terminal_palette.ts";
 export * from "./src/runtime/terminal_screen.ts";
 export * from "./src/runtime/terminal_scrollback.ts";
 export * from "./src/runtime/terminal_sequences.ts";

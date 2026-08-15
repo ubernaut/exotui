@@ -11,7 +11,9 @@ import {
   listWindowFromTop,
   type PointerInputEvent,
   type Rectangle,
+  resolveTerminalCellStyle,
   selectionWindow,
+  type TerminalCellStyleOptions,
   Signal,
   type SignalOfObject,
   type Style,
@@ -91,7 +93,6 @@ import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
   ExomuxTerminalMouseRouter,
 } from "./terminal_mouse.ts";
-import { exomuxTerminalForegroundRgb, exomuxTerminalRgb } from "./terminal_palette.ts";
 import {
   type ExomuxAnimatedBackground,
   exomuxBackgroundAcceptsPicks,
@@ -4020,15 +4021,6 @@ function exomuxRgbEquals(a: ExomuxRgb, b: ExomuxRgb): boolean {
 const RAW_TERMINAL_BACKGROUND: ExomuxRgb = [0, 0, 0];
 const RAW_TERMINAL_FOREGROUND: ExomuxRgb = [229, 229, 229];
 
-/** Fades one color toward the surface so unfocused windows recede. */
-function dimTowards(color: ExomuxRgb, towards: ExomuxRgb): ExomuxRgb {
-  return [
-    Math.round(color[0] + (towards[0] - color[0]) * 0.45),
-    Math.round(color[1] + (towards[1] - color[1]) * 0.45),
-    Math.round(color[2] + (towards[2] - color[2]) * 0.45),
-  ];
-}
-
 function paintTerminal(
   painter: DesktopPainter,
   rect: Rectangle,
@@ -4048,14 +4040,19 @@ function paintTerminal(
     runtime.summary.peek().running && inspection.cursorVisible;
   // Theme-off keeps the child's true ANSI colors over a plain terminal ground;
   // theme-on maps unset colors onto the theme and lifts ANSI text to contrast.
+  // Palette resolution, contrast lift, translucent grounds, cursor inversion,
+  // and dim fading all live in the shared exotui resolver (WS-002).
   const themed = settings.themed;
-  const defaultBackground = themed ? theme.surface : RAW_TERMINAL_BACKGROUND;
-  const defaultForeground = themed ? theme.text : RAW_TERMINAL_FOREGROUND;
-  const dim = settings.dimInactive && !active;
-  // Only cells the program left at its default background become see-through.
-  // A program that painted a background chose that colour, and a transparent
-  // window would otherwise erase every deliberate block of colour on screen.
-  const transparent = backdrop !== undefined && opacity < 1;
+  const cellOptions: TerminalCellStyleOptions = {
+    defaultBackground: themed ? theme.surface : RAW_TERMINAL_BACKGROUND,
+    defaultForeground: themed ? theme.text : RAW_TERMINAL_FOREGROUND,
+    contrastLift: themed,
+    dimToward: settings.dimInactive && !active ? theme.surface : undefined,
+    ground: backdrop,
+    opacity,
+    cursorForeground: theme.background,
+    cursorBackground: theme.accent,
+  };
   for (let row = 0; row < rect.height; row += 1) {
     const cells = rows[row] ?? [];
     for (let column = 0; column < rect.width; column += 1) {
@@ -4066,29 +4063,20 @@ function paintTerminal(
       // has overwritten or shifted one half of a pair.
       if (cell.continuation) continue;
       const cursor = cursorActive && inspection.cursor.row === row && inspection.cursor.column === column;
-      const explicit = exomuxTerminalRgb(cell.background, true);
-      const ground = explicit ??
-        (transparent
-          ? mixExomuxRgb(backdrop(rect.column + column, rect.row + row), defaultBackground, opacity)
-          : defaultBackground);
-      let background = cursor ? theme.accent : ground;
-      let foreground = cursor
-        ? theme.background
-        : cell.background === undefined && themed
-        ? exomuxTerminalForegroundRgb(cell.foreground, theme.surface, theme.text) ?? defaultForeground
-        : exomuxTerminalRgb(cell.foreground, false) ?? defaultForeground;
-      if (dim) {
-        background = dimTowards(background, theme.surface);
-        foreground = dimTowards(foreground, theme.surface);
-      }
-      const rawGlyph = cell.char || " ";
+      const resolved = resolveTerminalCellStyle(
+        cell,
+        rect.column + column,
+        rect.row + row,
+        cursor,
+        cellOptions,
+      );
       // A double-width glyph on the last content column would put its follower
       // on the window border, so it degrades to a blank inside the client area.
-      const glyph = exomuxGlyphColumns(rawGlyph) === 2 && column + 1 >= rect.width ? " " : rawGlyph;
+      const glyph = exomuxGlyphColumns(resolved.glyph) === 2 && column + 1 >= rect.width ? " " : resolved.glyph;
       painter.cell(rect.column + column, rect.row + row, glyph, {
-        foreground,
-        background,
-        bold: cursor || cell.bold,
+        foreground: resolved.foreground,
+        background: resolved.background,
+        bold: resolved.bold,
       });
     }
   }

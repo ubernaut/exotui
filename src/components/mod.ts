@@ -35,6 +35,7 @@ export * from "./stepper.ts";
 export * from "./table.ts";
 export * from "./tabs.ts";
 export * from "./terminal_output.ts";
+export * from "./terminal_screen.ts";
 export * from "./text.ts";
 export * from "./textbox.ts";
 // `./three_ascii.ts` is deliberately absent; see `src/canvas/mod.ts`. The
