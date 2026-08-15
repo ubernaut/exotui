@@ -1,7 +1,7 @@
 # Butterchurn GPU render fidelity — closing the GPU-vs-CPU gap
 
-Status: in progress Aug 14 2026. Two systematic fixes landed; a residual truly-black set remains and is characterised
-below. Driven by user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
+Status: in progress; third systematic fix (MilkDrop motion vectors + screen borders as GPU seed geometry) landed
+Aug 15 2026 — regression 58 → 36. The residual echo-amplifier class is characterised below. Driven by user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
 
 ## The real numbers (measured, not guessed)
 
@@ -9,14 +9,19 @@ below. Driven by user direction: "GPU curation isn't really ideal. it'd be bette
 same coverage function) and buckets the result. This replaced the earlier belief that "the GPU renders far fewer presets
 than the CPU," which came from comparing two audit scripts with different thresholds — not a fair test.
 
-| Bucket                                      | Baseline | After floor + ribbon |
-| ------------------------------------------- | -------- | -------------------- |
-| both render (≥3%)                           | 200      | 223                  |
-| both blank (<3%)                            | 91       | 79                   |
-| GPU renders, CPU can't                      | 112      | 124                  |
-| **CPU renders, GPU can't** (the regression) | **69**   | **46**               |
-| — of those truly black (GPU <0.5%)          | 54       | 28                   |
-| — of those dim (0.5–3%)                     | 15       | 18                   |
+| Bucket                                      | Baseline | After floor + ribbon | After mv + borders (Aug 15) |
+| ------------------------------------------- | -------- | -------------------- | --------------------------- |
+| both render (≥3%)                           | 200      | 211*                 | 233                         |
+| both blank (<3%)                            | 91       | 103*                 | 79                          |
+| GPU renders, CPU can't                      | 112      | 100*                 | 124                         |
+| **CPU renders, GPU can't** (the regression) | **69**   | **58***              | **36**                      |
+| — of those truly black (GPU <0.5%)          | 54       | 49*                  | 29                          |
+| — of those dim (0.5–3%)                     | 15       | 9*                   | 7                           |
+
+\* The Aug 15 re-measurement of the pre-seed state (same sandbox, same thresholds, fresh run) — run-to-run variance
+against the Aug 14 numbers comes from audio-driven warmup differences. The before/after pair in the last two columns
+is same-day, same-environment: the motion-vector/border seeding cut the regression **58 → 36** and lifted total GPU
+renders 311 → 357 of 472.
 
 Head to head, the GPU renders **more** of the catalog than the CPU (347 vs 269 after the fixes). The "GPU is worse"
 framing was wrong. The genuine regression is the narrow "CPU renders, GPU black" set — 69, now 46.
@@ -59,16 +64,30 @@ intent; (b) hardcoded uniforms (scale1/bias1) that some comps depend on; (c) fee
 spark the GPU doesn't provide. Debugging each blind (no reference butterchurn output, can't repro the user's exact
 Intel) is expensive. They stay out of the auto-cycle rotation (so no strobe) and remain selectable by index.
 
-### Candidate next steps (not yet done)
+### Aug 15 2026 findings (the three candidate steps, worked)
 
-- **Seed the feedback loop.** MilkDrop/butterchurn seed the first frame with the waveform even when `wave_a` is tiny; a
-  feedback-textured prim on a black frame stays black. Verify the GPU deposits the basic waveform (now a ribbon)
-  _before_ the feedback-textured prims sample it, and consider a one-frame noise/seed so feedback-only presets ignite.
-- **Audit the warp/comp uniform coverage.** The hardcoded scale1=1/bias1=0 path (`#writeUniforms`) may starve comps that
-  read scale2/3 or bias2/3; confirm every `shade()` uniform a black preset reads is actually written.
-- **Diff a black preset's translated WGSL against a known-good port** for one representative (e.g.
-  `Goody - The Wild
-  Vort`) to see whether the warp shader's procedural term is being dropped or const-folded to zero.
+- **Uniform coverage — audited, not the cause.** `scale1..3`/`bias1..3` are all written (1/0 for all three), which is
+  self-consistent with the unnormalized blur chain; the nine-tap gaussian weights sum to 1.0 (brightness-preserving).
+  No `shade()` uniform a black preset reads is missing. The fixed 0..1 blur range does clip >1 energies a real
+  butterchurn would range-compress (dimmer blooms), but that cannot produce black.
+- **WGSL diff — translation intact.** `Goody - The Wild Vort`'s translated warp (`blur1·scale1 + bias1 − main`) and
+  comp (the video-echo mix, ×2.4 gamma, then squared) carry every term of the author's shader; nothing is dropped or
+  const-folded. The blackness is loop dynamics, not translation.
+- **Seed the feedback loop — root cause found and fixed.** The black set's real seed in MilkDrop is geometry we never
+  drew on *either* renderer: the **motion-vector trail grid** (`mv_x/y/dx/dy/l/r/g/b/a`, up to 64×48, drawn every
+  frame — `Goody` sets `mv_a 0.2`) and the **inner/outer screen borders** (`ib_*`/`ob_*`). Both are now built by
+  `ExomuxButterchurnPreset` per frame (per-frame-equation animatable) into a GPU-only draw list (`gpuPrims`: vectors
+  under the custom prims, borders over them) — kept away from the software renderer's fixed ink budget so CPU output
+  is unchanged. Unit-tested; spot measurement on the regression set immediately lit a dozen formerly-0% presets
+  (several at 50–100% coverage).
+
+### What still stays black
+
+`Goody - The Wild Vort`-class presets whose picture is an **echo amplifier**: the warp is a pure high-pass
+(`blur1 − main`) and the additive full-screen textured shape re-injects only ~0.75× of the previous frame, so with
+our pipeline the loop settles near 0.03 luminance — below the cell rasterizer's `MIN_INK` (0.1) — while real
+butterchurn reaches saturation. Diagnosing needs a pixel-level readback probe of the intermediate passes (what does
+`main` hold after 100 frames?), not more shader reading; tracked as the next step.
 
 ## Verification
 
