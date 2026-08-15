@@ -9,6 +9,8 @@ import {
   DrawObject,
   encodeTerminalKeyPress,
   listWindowFromTop,
+  modalActionRects,
+  ModalController,
   type PointerInputEvent,
   type Rectangle,
   resolveTerminalCellStyle,
@@ -1013,6 +1015,45 @@ export function mountExomuxDesktop(
   controller.networkTree.nodes.subscribe(() => {
     settingsWidgetRevision.value += 1;
   }, subscriptions.signal);
+  // The kill and quit confirmations ride the library ModalController (WS-005):
+  // arrow/tab selection, Enter/Space activation, Escape close. Exomux's own
+  // signals stay the source of truth for whether each dialog is open; these
+  // model the in-dialog interaction, and the painters read their selection.
+  const killModal = own(
+    new ModalController({
+      title: "Terminate host session?",
+      tone: "error",
+      actions: [
+        { id: "cancel", label: "Cancel" },
+        { id: "kill", label: "Kill", destructive: true, default: true },
+      ],
+    }),
+  );
+  const quitModal = own(
+    new ModalController({
+      title: "End Exomux session?",
+      tone: "warning",
+      actions: [
+        { id: "cancel", label: "Cancel" },
+        { id: "detach", label: "Detach", default: true },
+        { id: "terminate", label: "Terminate", destructive: true },
+      ],
+    }),
+  );
+  const openModalAtDefault = (modal: ModalController) => {
+    modal.open();
+    const actions = modal.actions.peek();
+    const preferred = actions.findIndex((action) => action.default && !action.disabled);
+    if (preferred >= 0) modal.setSelectedActionIndex(preferred);
+  };
+  controller.pendingKillSessionId.subscribe(() => {
+    if (controller.pendingKillSessionId.peek()) openModalAtDefault(killModal);
+    else killModal.close();
+  }, subscriptions.signal);
+  controller.quitModalVisible.subscribe(() => {
+    if (controller.quitModalVisible.peek()) openModalAtDefault(quitModal);
+    else quitModal.close();
+  }, subscriptions.signal);
   const sessionListViewportHeight = (): number => {
     const manager = windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
     return Math.max(1, (manager?.clientRect.height ?? 1) - SESSION_LIST_START);
@@ -1255,6 +1296,8 @@ export function mountExomuxDesktop(
         controller.pendingScp.value !== undefined,
         controller.configSessionId.value,
         controller.configRowIndex.value,
+        killModal.selectedActionIndex.value,
+        quitModal.selectedActionIndex.value,
         controller.networkTree.selectedIndex.value,
         controller.backgroundConfigVisible.value,
         controller.backgroundConfigPane.value,
@@ -1320,6 +1363,8 @@ export function mountExomuxDesktop(
         sessionList,
         sessionListScrollTop: sessionListScrollTop.peek(),
         networkTreeView,
+        killModalSelection: killModal.selectedAction()?.id,
+        quitModalSelection: quitModal.selectedAction()?.id,
         blockCursor: exomuxBlockCursorRender(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
@@ -2534,18 +2579,47 @@ export function mountExomuxDesktop(
       return;
     }
     if (controller.pendingKillSessionId.peek()) {
-      if (event.key === "return" || event.key.toLowerCase() === "y") {
+      // Arrows/tab move the selection, Enter/Space activate it, Escape closes
+      // (the ModalController owns that grammar); y/n stay as direct shortcuts.
+      const result = killModal.handleKeyPress(event);
+      if (result && "id" in result) {
+        if (result.id === "kill") {
+          await controller.confirmKillSession();
+          await syncWindows();
+        } else {
+          controller.cancelKillSession();
+        }
+        return;
+      }
+      if (result && "open" in result && !result.open) {
+        controller.cancelKillSession();
+        return;
+      }
+      if (result) return; // the selection moved
+      if (event.key.toLowerCase() === "y") {
         await controller.confirmKillSession();
         await syncWindows();
-      } else if (event.key === "escape" || event.key.toLowerCase() === "n") {
+      } else if (event.key.toLowerCase() === "n") {
         controller.cancelKillSession();
       }
       return;
     }
     if (controller.quitModalVisible.peek()) {
-      if (event.key === "escape" || event.key.toLowerCase() === "c") {
+      const result = quitModal.handleKeyPress(event);
+      if (result && "id" in result) {
+        if (result.id === "cancel") controller.cancelQuitModal();
+        else if (result.id === "detach") requestClientExit(false);
+        else requestClientExit(true);
+        return;
+      }
+      if (result && "open" in result && !result.open) {
         controller.cancelQuitModal();
-      } else if (event.key === "return" || event.key.toLowerCase() === "d") {
+        return;
+      }
+      if (result) return; // the selection moved
+      if (event.key.toLowerCase() === "c") {
+        controller.cancelQuitModal();
+      } else if (event.key.toLowerCase() === "d") {
         requestClientExit(false);
       } else if (event.key.toLowerCase() === "t") {
         requestClientExit(true);
@@ -3190,6 +3264,10 @@ interface RenderExomuxDesktopOptions {
   sessionList?: ExomuxSessionList;
   /** Hosts the network panel's hierarchy as a real composited Tree. */
   networkTreeView?: ExomuxNetworkTree;
+  /** Selected action id of the kill confirmation's ModalController. */
+  killModalSelection?: string;
+  /** Selected action id of the end-session modal's ModalController. */
+  quitModalSelection?: string;
   /** Sessions viewport top set by the wheel; -1 follows the selection. */
   sessionListScrollTop?: number;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
@@ -3440,7 +3518,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   if (projection.switcher) paintSwitcher(painter, projection, theme);
   if (controller.startMenuVisible.peek()) paintStartMenu(painter, bounds, theme, controller);
   if (controller.helpVisible.peek()) paintHelp(painter, projection, theme);
-  if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme);
+  if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme, options.quitModalSelection);
   const scpRequest = controller.pendingScp.peek();
   if (scpRequest) {
     paintScpModal(painter, projection, theme, scpRequest, options.scpPasswordField);
@@ -3468,7 +3546,9 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     });
   }
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
-  if (pendingKillSessionId) paintKillConfirmation(painter, projection, controller, pendingKillSessionId);
+  if (pendingKillSessionId) {
+    paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection);
+  }
 
   // The optional block cursor sits on top of everything, at the mouse cell —
   // a solid block, or a resize/move glyph when it is over a window's drag edge.
@@ -4251,11 +4331,27 @@ function paintHelp(
   });
 }
 
+/** Marks the modal button the keyboard selection rests on. */
+function paintModalSelectionMarker(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  theme: ExomuxThemeSpec,
+  selected: boolean,
+): void {
+  if (!selected) return;
+  painter.write(rect.column - 2, rect.row, ">", {
+    foreground: theme.accent,
+    background: theme.surfaceStrong,
+    bold: true,
+  });
+}
+
 function paintKillConfirmation(
   painter: DesktopPainter,
   projection: WorkbenchWindowHostProjection,
   controller: ExomuxController,
   sessionId: string,
+  selectedActionId?: string,
 ): void {
   const theme = controller.theme.peek();
   const title = controller.runtime(sessionId)?.summary.peek().title ?? sessionId;
@@ -4286,12 +4382,15 @@ function paintKillConfirmation(
     background: theme.danger,
     bold: true,
   });
+  paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
+  paintModalSelectionMarker(painter, confirmRect, theme, selectedActionId === "kill");
 }
 
 function paintQuitModal(
   painter: DesktopPainter,
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
+  selectedActionId?: string,
 ): void {
   const { rect, cancelRect, detachRect, terminateRect } = exomuxQuitLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
@@ -4325,6 +4424,9 @@ function paintQuitModal(
     background: theme.danger,
     bold: true,
   });
+  paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
+  paintModalSelectionMarker(painter, detachRect, theme, selectedActionId === "detach");
+  paintModalSelectionMarker(painter, terminateRect, theme, selectedActionId === "terminate");
 }
 
 interface ExomuxHelpLayout {
@@ -5368,28 +5470,9 @@ function fitModalSpan(available: number, min: number, max: number, margin: numbe
  * destructive choices where a mis-hit is costly. Buttons keep their declared
  * order, and each is clamped to the box width.
  */
+/** Modal button geometry, from the library's responsive-stacking layout (WS-005). */
 function modalButtonRects(rect: Rectangle, widths: readonly number[], gap = 2): Rectangle[] {
-  const inner = Math.max(1, rect.width - 4);
-  const spread = widths.reduce((sum, width) => sum + Math.min(width, inner), 0) + gap * (widths.length - 1);
-  if (widths.length <= 1 || spread <= inner) {
-    const buttonRow = rect.row + Math.max(1, rect.height - 2);
-    const slack = widths.length > 1 ? Math.max(0, Math.floor((inner - spread) / (widths.length - 1))) : 0;
-    let column = rect.column + 2;
-    return widths.map((width) => {
-      const fitted = Math.min(width, inner);
-      const button = { column, row: buttonRow, width: fitted, height: 1 };
-      column += fitted + gap + slack;
-      return button;
-    });
-  }
-  // Stack up from just above the bottom border, first button at the top.
-  const firstRow = rect.row + Math.max(1, rect.height - 1 - widths.length);
-  return widths.map((width, index) => ({
-    column: rect.column + 2,
-    row: firstRow + index,
-    width: Math.min(width, inner),
-    height: 1,
-  }));
+  return modalActionRects(rect, widths, gap).rects;
 }
 
 interface PaintedStyle {

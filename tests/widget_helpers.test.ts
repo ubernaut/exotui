@@ -2627,3 +2627,45 @@ function createFakeTui(): Tui {
   };
   return root as unknown as Tui;
 }
+
+Deno.test("modalActionRects spreads one row when it fits and stacks when narrow", async () => {
+  const { modalActionRects } = await import("../src/components/modal.ts");
+  const wide = modalActionRects({ column: 10, row: 5, width: 50, height: 8 }, [10, 8]);
+  assertEquals(wide.stacked, false);
+  assertEquals(wide.rects.length, 2);
+  assertEquals(wide.rects[0]!.row, wide.rects[1]!.row, "one bottom row");
+  assertEquals(wide.rects[0]!.column, 12);
+  assertEquals(wide.rects[1]!.column > wide.rects[0]!.column + 10, true, "slack spreads the buttons");
+
+  // Too narrow for [10, 10, 13] + gaps: the buttons stack vertically so a
+  // destructive choice is never an adjacent mis-hit target.
+  const narrow = modalActionRects({ column: 0, row: 0, width: 20, height: 8 }, [10, 10, 13]);
+  assertEquals(narrow.stacked, true);
+  const rows = narrow.rects.map((rect) => rect.row);
+  assertEquals(new Set(rows).size, 3, "one row per button");
+  assertEquals(rows, [...rows].sort((a, b) => a - b), "stacked top to bottom");
+  assertEquals(narrow.rects[0]!.column, 2);
+});
+
+Deno.test("ModalController arrows a stacked modal with up/down", async () => {
+  const { ModalController } = await import("../src/components/modal.ts");
+  const modal = new ModalController({
+    title: "End session?",
+    actions: [
+      { id: "cancel", label: "Cancel" },
+      { id: "detach", label: "Detach", default: true },
+      { id: "terminate", label: "Terminate", destructive: true },
+    ],
+  });
+  try {
+    modal.open();
+    assertEquals(modal.selectedAction()?.id, "detach");
+    modal.handleKeyPress({ key: "down" });
+    assertEquals(modal.selectedAction()?.id, "terminate");
+    modal.handleKeyPress({ key: "up" });
+    modal.handleKeyPress({ key: "up" });
+    assertEquals(modal.selectedAction()?.id, "cancel");
+  } finally {
+    modal.dispose();
+  }
+});

@@ -3,6 +3,7 @@ import type { TextRectangle } from "../canvas/text.ts";
 import { Component, type ComponentOptions } from "../component.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { cropToWidth, textWidth } from "../utils/strings.ts";
+import type { Rectangle } from "../types.ts";
 import { Box } from "./box.ts";
 import { Frame } from "./frame.ts";
 import { drawTextChild } from "./text_children.ts";
@@ -155,8 +156,10 @@ export class ModalController {
   ): ModalAction | ModalInspection | undefined {
     if (!this.openState.peek() || ctrl || meta) return undefined;
     if (key === "escape" && this.closeOnEscape.peek()) return this.close();
-    if (key === "left" || (key === "tab" && shift)) return this.moveAction(-1);
-    if (key === "right" || key === "tab") return this.moveAction(1);
+    // Up/down mirror left/right so a narrow modal whose buttons stacked
+    // vertically (see `modalActionRects`) still arrows naturally.
+    if (key === "left" || key === "up" || (key === "tab" && shift)) return this.moveAction(-1);
+    if (key === "right" || key === "down" || key === "tab") return this.moveAction(1);
     if (key === "return" || key === "space") return this.activateAction();
     return undefined;
   }
@@ -184,6 +187,52 @@ export class ModalController {
     this.selectedActionIndex.dispose();
     this.closeOnEscape.dispose();
   }
+}
+
+/** Geometry for one modal's action buttons. */
+export interface ModalActionRectsResult {
+  rects: Rectangle[];
+  /** True when the box was too narrow for one row and the buttons stacked. */
+  stacked: boolean;
+}
+
+/**
+ * Lays a modal's action buttons inside its box: one bottom row with the slack
+ * spread between them when they fit, and a vertical stack up from the bottom
+ * border when the box is too narrow — so a destructive choice next to a safe
+ * one never collapses into an adjacent mis-hit target. `widths` are the
+ * rendered button widths in visual order; rects come back in the same order.
+ */
+export function modalActionRects(
+  rect: Rectangle,
+  widths: readonly number[],
+  gap = 2,
+): ModalActionRectsResult {
+  const inner = Math.max(1, rect.width - 4);
+  const spread = widths.reduce((sum, width) => sum + Math.min(width, inner), 0) + gap * (widths.length - 1);
+  if (widths.length <= 1 || spread <= inner) {
+    const buttonRow = rect.row + Math.max(1, rect.height - 2);
+    const slack = widths.length > 1 ? Math.max(0, Math.floor((inner - spread) / (widths.length - 1))) : 0;
+    let column = rect.column + 2;
+    const rects = widths.map((width) => {
+      const fitted = Math.min(width, inner);
+      const button = { column, row: buttonRow, width: fitted, height: 1 };
+      column += fitted + gap + slack;
+      return button;
+    });
+    return { rects, stacked: false };
+  }
+  // Stack up from just above the bottom border, first button at the top.
+  const firstRow = rect.row + Math.max(1, rect.height - 1 - widths.length);
+  return {
+    rects: widths.map((width, index) => ({
+      column: rect.column + 2,
+      row: firstRow + index,
+      width: Math.min(width, inner),
+      height: 1,
+    })),
+    stacked: true,
+  };
 }
 
 /** Renders modal Rows into deterministic text rows. */

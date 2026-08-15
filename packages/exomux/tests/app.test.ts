@@ -4825,3 +4825,50 @@ Deno.test("Exomux hides CRT shader settings when not in Ghostty", async () => {
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux kill and quit modals arrow their actions like a real Modal", async () => {
+  const initial = session("kill-arrows", "kill arrows", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+
+    // Kill modal: the selection starts on the destructive default (Kill);
+    // arrowing left to Cancel and pressing Enter must NOT kill the session.
+    controller.requestKillSession("kill-arrows");
+    await mounted.whenIdle();
+    assertEquals(controller.pendingKillSessionId.peek(), "kill-arrows");
+    await harness.pilot.press("left");
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+    assertEquals(controller.pendingKillSessionId.peek(), undefined);
+    assertEquals(client.killed.length, 0, "cancel must not kill");
+
+    // Quit modal: default is Detach; arrow left to Cancel and Enter keeps the
+    // app alive with the modal closed.
+    controller.openQuitModal();
+    await mounted.whenIdle();
+    assertEquals(controller.quitModalVisible.peek(), true);
+    await harness.pilot.press("left");
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+    assertEquals(controller.quitModalVisible.peek(), false);
+    assertEquals(client.shutdownCalls, 0, "cancel must not shut the host down");
+
+    // Enter with no arrowing still confirms the kill (the default action).
+    controller.requestKillSession("kill-arrows");
+    await mounted.whenIdle();
+    await harness.pilot.press("return");
+    await waitForCondition(() => client.killed.length === 1, 2_000);
+    assertEquals(client.killed, ["kill-arrows"]);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
