@@ -73,10 +73,29 @@ export interface LayoutCalcTerm {
  * `calc` carries a bounded additive term list in {@linkcode LayoutLengthValue.terms}.
  */
 export interface LayoutLengthValue {
-  unit: "auto" | "cell" | "percent" | "fr" | "vw" | "vh" | "pw" | "ph" | "calc";
+  unit:
+    | "auto"
+    | "cell"
+    | "percent"
+    | "fr"
+    | "vw"
+    | "vh"
+    | "pw"
+    | "ph"
+    | "calc"
+    | "min-content"
+    | "max-content"
+    | "fit-content";
   value: number;
   /** Additive `calc()` terms; present only when `unit` is `"calc"`. */
   terms?: readonly LayoutCalcTerm[];
+}
+
+/** True for the content-derived sizing keywords a solver must measure for. */
+export function isIntrinsicLayoutLengthUnit(
+  unit: LayoutLengthValue["unit"],
+): unit is "min-content" | "max-content" | "fit-content" {
+  return unit === "min-content" || unit === "max-content" || unit === "fit-content";
 }
 
 /** Sizes a bounded `calc()` expression may not exceed. */
@@ -91,6 +110,15 @@ export interface LayoutLengthResolutionContext {
   viewportHeight?: number;
   parentWidth?: number;
   parentHeight?: number;
+  /**
+   * Content-derived bounds for the axis being resolved, supplied by a solver
+   * that measured the node: `min-content` resolves to `intrinsicMin`,
+   * `max-content` to `intrinsicMax`, and `fit-content` clamps the available
+   * size between them. Without them the keywords resolve to the fallback,
+   * behaving as `auto`.
+   */
+  intrinsicMin?: number;
+  intrinsicMax?: number;
 }
 
 /** Public interface describing a one-dimensional CSS-grid placement. */
@@ -337,6 +365,18 @@ export function resolveLayoutLength(
     );
     return Math.max(0, Math.floor(sum));
   }
+  if (value.unit === "min-content") {
+    return context?.intrinsicMin === undefined ? safeFallback : Math.max(0, Math.floor(context.intrinsicMin));
+  }
+  if (value.unit === "max-content") {
+    return context?.intrinsicMax === undefined ? safeFallback : Math.max(0, Math.floor(context.intrinsicMax));
+  }
+  if (value.unit === "fit-content") {
+    if (context?.intrinsicMin === undefined || context.intrinsicMax === undefined) return safeFallback;
+    const lower = Math.max(0, Math.floor(context.intrinsicMin));
+    const upper = Math.max(lower, Math.floor(context.intrinsicMax));
+    return Math.min(upper, Math.max(lower, safeAvailable));
+  }
   return Math.max(0, Math.floor(value.value));
 }
 
@@ -366,6 +406,9 @@ export function parseLayoutLength(
 function tryParseLayoutLength(value: string): LayoutLengthValue | undefined {
   const trimmed = value.trim().toLowerCase();
   if (trimmed === "auto") return autoLength();
+  if (trimmed === "min-content" || trimmed === "max-content" || trimmed === "fit-content") {
+    return { unit: trimmed, value: 0 };
+  }
   if (trimmed.startsWith("calc(")) return tryParseCalcLength(trimmed);
   const match = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)(%|fr|ch|cells?|vw|vh|w|h)?$/);
   if (!match) return undefined;

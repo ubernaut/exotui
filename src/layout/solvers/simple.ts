@@ -3,11 +3,16 @@ import type { WidgetHitRegion } from "../../components/interaction.ts";
 import type { Rectangle } from "../../types.ts";
 import { insetRectangleByEdges, normalizeRectangle } from "../../utils/rectangles.ts";
 import { SIMPLE_LAYOUT_SOLVER_CAPABILITIES } from "../capabilities.ts";
-import { LayoutMeasurementCache, measureTerminalTextIntrinsic } from "../measurement.ts";
+import {
+  LayoutMeasurementCache,
+  measureTerminalTextIntrinsic,
+  measureTerminalTextMinContentWidth,
+} from "../measurement.ts";
 import { type FlexDirection, type FlexItem, flexRects } from "../flex_layout.ts";
 import {
   type BoxEdges,
   type ComputedLayoutStyle,
+  isIntrinsicLayoutLengthUnit,
   type LayoutJustifyContent,
   type LayoutLengthResolutionContext,
   type LayoutLengthValue,
@@ -221,8 +226,16 @@ export class SimpleLayoutSolver implements LayoutSolver {
         this.#intrinsicMeasurementCache,
       );
       const basis = borderBoxBasis + mainMargins;
-      const minimum = resolveFlexMinimum(child, bounds, direction) + mainMargins;
-      const resolvedMaximum = resolveFlexMaximum(child, bounds, direction);
+      const minimum =
+        resolveFlexMinimum(child, bounds, direction, this.#defaultTextHeight, this.#intrinsicMeasurementCache) +
+        mainMargins;
+      const resolvedMaximum = resolveFlexMaximum(
+        child,
+        bounds,
+        direction,
+        this.#defaultTextHeight,
+        this.#intrinsicMeasurementCache,
+      );
       const maximum = resolvedMaximum === undefined ? undefined : resolvedMaximum + mainMargins;
       const max = child.style.flexGrow === 0 ? Math.max(minimum, Math.min(maximum ?? basis, basis)) : maximum;
       items[index] = {
@@ -944,6 +957,78 @@ function shrinkByMargin(rect: Rectangle, margin: ComputedLayoutStyle["margin"]):
   };
 }
 
+/** Wide enough that no terminal line wraps: the max-content measuring width. */
+const MAX_CONTENT_MEASURE_WIDTH = 4096;
+
+interface IntrinsicSizePair {
+  min: number;
+  max: number;
+}
+
+/** True when any of the axis lengths needs a content measurement to resolve. */
+function needsIntrinsicPair(...lengths: readonly LayoutLengthValue[]): boolean {
+  return lengths.some((length) => isIntrinsicLayoutLengthUnit(length.unit));
+}
+
+/**
+ * Content-only min-content width: the widest unbreakable unit in the subtree
+ * (longest word for text, sum/max over children for row-flex/other
+ * containers), using the numeric spacing subset for child extras.
+ */
+function nodeMinContentWidth(
+  node: LayoutNode,
+  defaultTextHeight: number,
+  measurementCache?: LayoutMeasurementCache,
+  depth = 0,
+): number {
+  if (node.intrinsic?.width !== undefined) return Math.max(1, Math.floor(node.intrinsic.width));
+  if (node.text) {
+    return measureTerminalTextMinContentWidth(node.text, {
+      breakWords: node.style.overflowWrap === "anywhere" || node.style.overflowWrap === "break-word",
+    });
+  }
+  if (node.children.length === 0 || depth > 32) return 1;
+  const row = node.style.display === "flex" && flexAxisDirection(node.style.flexDirection) === "row";
+  const gap = Math.max(0, node.style.columnGap || node.style.gap);
+  let total = 0;
+  let widest = 1;
+  let count = 0;
+  for (const child of node.children) {
+    if (!participatesInLayout(child)) continue;
+    const extras = child.style.border.left + child.style.border.right +
+      child.style.padding.left + child.style.padding.right;
+    const childMin = nodeMinContentWidth(child, defaultTextHeight, measurementCache, depth + 1) + extras;
+    total += childMin;
+    widest = Math.max(widest, childMin);
+    count += 1;
+  }
+  return row ? total + Math.max(0, count - 1) * gap : widest;
+}
+
+/** The width-axis content bounds: longest word up to the unwrapped line. */
+function widthIntrinsicPair(
+  node: LayoutNode,
+  defaultTextHeight: number,
+  measurementCache?: LayoutMeasurementCache,
+): IntrinsicSizePair {
+  const min = nodeMinContentWidth(node, defaultTextHeight, measurementCache);
+  const max = measureNodeIntrinsic(node, MAX_CONTENT_MEASURE_WIDTH, defaultTextHeight, measurementCache).width;
+  return { min, max: Math.max(min, max) };
+}
+
+/** Content bounds for one flex axis: exact width pair, wrapped-height subset. */
+function flexIntrinsicPair(
+  node: LayoutNode,
+  bounds: Rectangle,
+  axis: "width" | "height",
+  defaultTextHeight: number,
+  measurementCache?: LayoutMeasurementCache,
+): IntrinsicSizePair {
+  if (axis === "width") return widthIntrinsicPair(node, defaultTextHeight, measurementCache);
+  const height = measureNodeIntrinsic(node, Math.max(1, bounds.width), defaultTextHeight, measurementCache).height;
+  return { min: height, max: height };
+}
+
 function resolveNodeRect(
   node: LayoutNode,
   allocated: Rectangle,
@@ -959,13 +1044,37 @@ function resolveNodeRect(
   const boxSizing = style.boxSizing ?? "border-box";
   const widthSpecified = style.width.unit !== "auto";
   const heightSpecified = style.height.unit !== "auto";
-  let width = resolveOuterSize(style.width, allocated.width, allocated.width, horizontalExtras, boxSizing);
-  width = clampOuterSize(width, allocated.width, style.minWidth, style.maxWidth, horizontalExtras, boxSizing);
+  const widthPair = needsIntrinsicPair(style.width, style.minWidth, style.maxWidth)
+    ? widthIntrinsicPair(node, defaultTextHeight, measurementCache)
+    : undefined;
+  let width = resolveOuterSize(style.width, allocated.width, allocated.width, horizontalExtras, boxSizing, widthPair);
+  width = clampOuterSize(
+    width,
+    allocated.width,
+    style.minWidth,
+    style.maxWidth,
+    horizontalExtras,
+    boxSizing,
+    widthPair,
+  );
   const measurementWidth = Math.max(1, width - horizontalExtras);
   const intrinsic = measureNodeIntrinsic(node, measurementWidth, defaultTextHeight, measurementCache);
+  // Height-axis content bounds are the wrapped height at the resolved width —
+  // the documented terminal subset (min and max coincide).
+  const heightPair = needsIntrinsicPair(style.height, style.minHeight, style.maxHeight)
+    ? { min: intrinsic.height, max: intrinsic.height }
+    : undefined;
   const fallbackHeight = isRoot || fillAllocated ? allocated.height : intrinsic.height + verticalExtras;
-  let height = resolveOuterSize(style.height, allocated.height, fallbackHeight, verticalExtras, boxSizing);
-  height = clampOuterSize(height, allocated.height, style.minHeight, style.maxHeight, verticalExtras, boxSizing);
+  let height = resolveOuterSize(style.height, allocated.height, fallbackHeight, verticalExtras, boxSizing, heightPair);
+  height = clampOuterSize(
+    height,
+    allocated.height,
+    style.minHeight,
+    style.maxHeight,
+    verticalExtras,
+    boxSizing,
+    heightPair,
+  );
 
   const ratio = validAspectRatio(style.aspectRatio);
   if (ratio !== undefined && widthSpecified !== heightSpecified) {
@@ -973,18 +1082,42 @@ function resolveNodeRect(
       const ratioWidth = boxSizing === "border-box" ? width : Math.max(0, width - horizontalExtras);
       const ratioHeight = Math.floor(ratioWidth / ratio);
       height = boxSizing === "border-box" ? ratioHeight : ratioHeight + verticalExtras;
-      height = clampOuterSize(height, allocated.height, style.minHeight, style.maxHeight, verticalExtras, boxSizing);
+      height = clampOuterSize(
+        height,
+        allocated.height,
+        style.minHeight,
+        style.maxHeight,
+        verticalExtras,
+        boxSizing,
+        heightPair,
+      );
     } else {
       const ratioHeight = boxSizing === "border-box" ? height : Math.max(0, height - verticalExtras);
       const ratioWidth = Math.floor(ratioHeight * ratio);
       width = boxSizing === "border-box" ? ratioWidth : ratioWidth + horizontalExtras;
-      width = clampOuterSize(width, allocated.width, style.minWidth, style.maxWidth, horizontalExtras, boxSizing);
+      width = clampOuterSize(
+        width,
+        allocated.width,
+        style.minWidth,
+        style.maxWidth,
+        horizontalExtras,
+        boxSizing,
+        widthPair,
+      );
     }
   } else if (ratio !== undefined && !widthSpecified && !heightSpecified && !isRoot && !fillAllocated) {
     const ratioWidth = boxSizing === "border-box" ? width : Math.max(0, width - horizontalExtras);
     const ratioHeight = Math.floor(ratioWidth / ratio);
     height = boxSizing === "border-box" ? ratioHeight : ratioHeight + verticalExtras;
-    height = clampOuterSize(height, allocated.height, style.minHeight, style.maxHeight, verticalExtras, boxSizing);
+    height = clampOuterSize(
+      height,
+      allocated.height,
+      style.minHeight,
+      style.maxHeight,
+      verticalExtras,
+      boxSizing,
+      heightPair,
+    );
   }
   return {
     column: allocated.column,
@@ -1000,10 +1133,18 @@ function resolveOuterSize(
   fallbackOuter: number,
   extras: number,
   boxSizing: NonNullable<ComputedLayoutStyle["boxSizing"]>,
+  intrinsic?: IntrinsicSizePair,
 ): number {
   if (length.unit === "auto") return Math.max(0, Math.floor(fallbackOuter));
-  const authored = resolveLayoutLength(length, available, 0, activeLengthContext());
-  return authored + (boxSizing === "content-box" ? extras : 0);
+  // An unmeasured intrinsic keyword behaves as auto rather than as zero.
+  if (isIntrinsicLayoutLengthUnit(length.unit) && !intrinsic) return Math.max(0, Math.floor(fallbackOuter));
+  const context = intrinsic
+    ? { ...activeLengthContext(), intrinsicMin: intrinsic.min, intrinsicMax: intrinsic.max }
+    : activeLengthContext();
+  const authored = resolveLayoutLength(length, available, 0, context);
+  // Intrinsic keywords are content sizes, so the border box always adds extras.
+  const addExtras = boxSizing === "content-box" || isIntrinsicLayoutLengthUnit(length.unit);
+  return authored + (addExtras ? extras : 0);
 }
 
 function clampOuterSize(
@@ -1013,11 +1154,12 @@ function clampOuterSize(
   max: LayoutLengthValue,
   extras: number,
   boxSizing: NonNullable<ComputedLayoutStyle["boxSizing"]>,
+  intrinsic?: IntrinsicSizePair,
 ): number {
-  const lower = resolveOuterSize(min, available, 0, extras, boxSizing);
+  const lower = resolveOuterSize(min, available, 0, extras, boxSizing, intrinsic);
   const upper = max.unit === "auto"
     ? Number.MAX_SAFE_INTEGER
-    : resolveOuterSize(max, available, available, extras, boxSizing);
+    : resolveOuterSize(max, available, available, extras, boxSizing, intrinsic);
   return Math.min(Math.max(0, Math.floor(available)), Math.max(lower, Math.min(upper, Math.max(0, Math.floor(size)))));
 }
 
@@ -1028,11 +1170,12 @@ function clampOuterSizeWithoutAllocation(
   max: LayoutLengthValue,
   extras: number,
   boxSizing: NonNullable<ComputedLayoutStyle["boxSizing"]>,
+  intrinsic?: IntrinsicSizePair,
 ): number {
-  const lower = resolveOuterSize(min, available, 0, extras, boxSizing);
+  const lower = resolveOuterSize(min, available, 0, extras, boxSizing, intrinsic);
   const upper = max.unit === "auto"
     ? Number.MAX_SAFE_INTEGER
-    : resolveOuterSize(max, available, available, extras, boxSizing);
+    : resolveOuterSize(max, available, available, extras, boxSizing, intrinsic);
   return Math.max(lower, Math.min(upper, Math.max(0, Math.floor(size))));
 }
 
@@ -1166,10 +1309,16 @@ function preferredFlexBasis(
     ? padding.left + padding.right + node.style.border.left + node.style.border.right
     : padding.top + padding.bottom + node.style.border.top + node.style.border.bottom;
   const boxSizing = node.style.boxSizing ?? "border-box";
-  if (node.style.flexBasis.unit !== "auto") {
+  const mainAxis = direction === "row" ? "width" as const : "height" as const;
+  if (node.style.flexBasis.unit !== "auto" && !isIntrinsicLayoutLengthUnit(node.style.flexBasis.unit)) {
     return resolveOuterSize(node.style.flexBasis, mainAvailable, 0, extras, boxSizing);
   }
-  if (mainLength.unit !== "auto") return resolveOuterSize(mainLength, mainAvailable, 0, extras, boxSizing);
+  if (mainLength.unit !== "auto") {
+    const pair = isIntrinsicLayoutLengthUnit(mainLength.unit)
+      ? flexIntrinsicPair(node, bounds, mainAxis, defaultTextHeight, measurementCache)
+      : undefined;
+    return resolveOuterSize(mainLength, mainAvailable, 0, extras, boxSizing, pair);
+  }
   const crossLength = direction === "row" ? node.style.height : node.style.width;
   if (validAspectRatio(node.style.aspectRatio) !== undefined && crossLength.unit !== "auto") {
     const preferred = preferredBlockChildSize(node, bounds, defaultTextHeight, measurementCache);
@@ -1194,8 +1343,12 @@ function preferredFlexCrossSize(
     ? padding.top + padding.bottom + node.style.border.top + node.style.border.bottom
     : padding.left + padding.right + node.style.border.left + node.style.border.right;
   const boxSizing = node.style.boxSizing ?? "border-box";
+  const crossAxis = direction === "row" ? "height" as const : "width" as const;
   if (crossLength.unit !== "auto") {
-    return resolveOuterSize(crossLength, crossAvailable, 0, extras, boxSizing);
+    const pair = isIntrinsicLayoutLengthUnit(crossLength.unit)
+      ? flexIntrinsicPair(node, bounds, crossAxis, defaultTextHeight, measurementCache)
+      : undefined;
+    return resolveOuterSize(crossLength, crossAvailable, 0, extras, boxSizing, pair);
   }
   const mainLength = direction === "row" ? node.style.width : node.style.height;
   if (validAspectRatio(node.style.aspectRatio) !== undefined && mainLength.unit !== "auto") {
@@ -1206,35 +1359,61 @@ function preferredFlexCrossSize(
   const fallback = (direction === "row" ? intrinsic.height : intrinsic.width) + extras;
   const min = direction === "row" ? node.style.minHeight : node.style.minWidth;
   const max = direction === "row" ? node.style.maxHeight : node.style.maxWidth;
-  return clampOuterSize(Math.max(1, fallback), crossAvailable, min, max, extras, boxSizing);
+  const clampPair = needsIntrinsicPair(min, max)
+    ? flexIntrinsicPair(node, bounds, crossAxis, defaultTextHeight, measurementCache)
+    : undefined;
+  return clampOuterSize(Math.max(1, fallback), crossAvailable, min, max, extras, boxSizing, clampPair);
 }
 
-function resolveFlexMinimum(node: LayoutNode, bounds: Rectangle, direction: FlexDirection): number {
+function resolveFlexMinimum(
+  node: LayoutNode,
+  bounds: Rectangle,
+  direction: FlexDirection,
+  defaultTextHeight: number,
+  measurementCache?: LayoutMeasurementCache,
+): number {
+  const length = direction === "row" ? node.style.minWidth : node.style.minHeight;
   const padding = resolveBoxEdges(authoredLengths(node.style)?.padding, node.style.padding, bounds.width);
   const extras = direction === "row"
     ? padding.left + padding.right + node.style.border.left + node.style.border.right
     : padding.top + padding.bottom + node.style.border.top + node.style.border.bottom;
+  // min-width: min-content is the content-derived minimum: the item refuses
+  // to shrink below its widest unbreakable content.
+  const pair = isIntrinsicLayoutLengthUnit(length.unit)
+    ? flexIntrinsicPair(node, bounds, direction === "row" ? "width" : "height", defaultTextHeight, measurementCache)
+    : undefined;
   return resolveOuterSize(
-    direction === "row" ? node.style.minWidth : node.style.minHeight,
+    length,
     mainSize(bounds, direction),
     0,
     extras,
     node.style.boxSizing ?? "border-box",
+    pair,
   );
 }
 
-function resolveFlexMaximum(node: LayoutNode, bounds: Rectangle, direction: FlexDirection): number | undefined {
+function resolveFlexMaximum(
+  node: LayoutNode,
+  bounds: Rectangle,
+  direction: FlexDirection,
+  defaultTextHeight: number,
+  measurementCache?: LayoutMeasurementCache,
+): number | undefined {
   const length = direction === "row" ? node.style.maxWidth : node.style.maxHeight;
   const padding = resolveBoxEdges(authoredLengths(node.style)?.padding, node.style.padding, bounds.width);
   const extras = direction === "row"
     ? padding.left + padding.right + node.style.border.left + node.style.border.right
     : padding.top + padding.bottom + node.style.border.top + node.style.border.bottom;
+  const pair = isIntrinsicLayoutLengthUnit(length.unit)
+    ? flexIntrinsicPair(node, bounds, direction === "row" ? "width" : "height", defaultTextHeight, measurementCache)
+    : undefined;
   return length.unit === "auto" ? undefined : resolveOuterSize(
     length,
     mainSize(bounds, direction),
     mainSize(bounds, direction),
     extras,
     node.style.boxSizing ?? "border-box",
+    pair,
   );
 }
 

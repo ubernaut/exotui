@@ -276,7 +276,7 @@ Acceptance:
       offsets.
 - [ ] Add logical start/end edges and direction/RTL only if terminal ordering and hit testing can share one clear model.
 - [x] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
-- [ ] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
+- [x] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
       measured widgets.
 - [ ] Verify grow/shrink/basis, wrapping, gaps, min/max constraints, intrinsic basis, and one-cell remainder allocation
       across nested and overflowing containers.
@@ -295,6 +295,16 @@ units, and the intrinsic-measurement cache key now varies with the viewport so v
 across resizes. Missing axes degrade to the local available size, never zero. The Yoga adapter leaves the new units
 unset instead of misreading them as cells, and all four capability profiles classify them (Simple supported,
 Yoga/Taffy-protocol unsupported); `inspectTuiCssSupport()` and the layout docs were updated.
+
+Completed intrinsic-sizing slice Aug 15, 2026: `min-content`, `max-content`, and `fit-content` are length units resolved
+through the same context contract (`intrinsicMin`/`intrinsicMax` supplied by a measuring solver; without them the
+keywords behave as `auto`, never zero). The Simple solver measures a width-axis pair per node — longest unbreakable word
+(respecting `overflow-wrap`) up to the unwrapped line, recursively over children with row-flex summing — and threads it
+through outer-size resolution and min/max clamping, including flex bases, cross sizes, and flex minimums, so
+`min-width: min-content` is the content-derived minimum that holds under shrink pressure. The height axis uses the
+measured wrapped height (documented terminal subset, min and max coincide); grid tracks and `flex-basis` treat the
+keywords as `auto` per the capability notes. Intrinsic keywords are content sizes, so border-box resolution always adds
+padding/border extras.
 
 Completed sizing slice July 16, 2026: the Simple solver preserves legacy numeric spacing fields while carrying strict,
 serializable authored percentage/auto metadata; resolves percentage margins and padding against the containing inline

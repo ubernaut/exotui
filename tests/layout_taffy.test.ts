@@ -40,6 +40,9 @@ function capabilities(): LayoutSolverCapabilities {
       pw: "unsupported",
       ph: "unsupported",
       calc: "unsupported",
+      "min-content": "unsupported",
+      "max-content": "unsupported",
+      "fit-content": "unsupported",
     },
     invariants: {
       "cell-rounding": { support: "supported", detail: "Adapter snaps absolute edges to terminal cells." },

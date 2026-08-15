@@ -311,6 +311,9 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       pw: "supported",
       ph: "supported",
       calc: "supported",
+      "min-content": "partial",
+      "max-content": "partial",
+      "fit-content": "partial",
     },
     invariants: {
       "cell-rounding": invariant(
@@ -374,6 +377,7 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       "Percentage Flex sizing and one-cell remainder allocation remain explicit L1 conformance work.",
       "vw/vh resolve against the solve bounds and w/h (pw/ph) against the containing block; where an axis is not threaded they degrade to the local available size, never to zero.",
       "calc() is a bounded additive model: at most 8 signed cell/%/vw/vh/w/h terms, no nesting, multiplication, or fr.",
+      "min-content/max-content/fit-content are exact on the width axis (longest word / unwrapped line) and a terminal subset on the height axis (the measured wrapped height); in grid tracks and flex-basis they behave as auto.",
     ],
   }),
 );
@@ -392,6 +396,9 @@ export const YOGA_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freezeC
       pw: "unsupported",
       ph: "unsupported",
       calc: "unsupported",
+      "min-content": "unsupported",
+      "max-content": "unsupported",
+      "fit-content": "unsupported",
     },
     invariants: {
       "cell-rounding": invariant(
@@ -479,6 +486,9 @@ export const TAFFY_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freeze
       pw: "unsupported",
       ph: "unsupported",
       calc: "unsupported",
+      "min-content": "unsupported",
+      "max-content": "unsupported",
+      "fit-content": "unsupported",
     },
     invariants: {
       "cell-rounding": invariant("unsupported", "No Taffy adapter is implemented; L2 must define this mapping."),
@@ -528,6 +538,9 @@ export function unknownLayoutSolverCapabilities(solverId: string): LayoutSolverC
       pw: "unknown",
       ph: "unknown",
       calc: "unknown",
+      "min-content": "unknown",
+      "max-content": "unknown",
+      "fit-content": "unknown",
     },
     invariants: {
       "cell-rounding": invariant("unknown", "The solver did not publish capability metadata."),

@@ -105,6 +105,27 @@ export function measureTerminalTextIntrinsic(
   return { width, height: Math.max(fallbackHeight, height) };
 }
 
+/**
+ * The narrowest width the text can occupy without overflowing: the widest
+ * whitespace-delimited word, or the widest single cluster when arbitrary
+ * word breaking is allowed.
+ */
+export function measureTerminalTextMinContentWidth(
+  text: string,
+  options: TerminalTextIntrinsicMeasurementOptions = {},
+): number {
+  if (options.breakWords ?? true) {
+    let widest = 1;
+    for (const char of text) widest = Math.max(widest, textWidth(char));
+    return widest;
+  }
+  let widest = 1;
+  for (const word of text.split(/\s+/)) {
+    if (word) widest = Math.max(widest, textWidth(word));
+  }
+  return widest;
+}
+
 function measureWrappedTerminalLineHeight(line: string, wrapWidth: number, breakWords: boolean): number {
   const wrappedLine = line.trimEnd();
   if (!wrappedLine) return 1;
