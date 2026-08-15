@@ -122,3 +122,14 @@ Deno.test("preset stepping: only preset backgrounds answer, and both keys reach 
   };
   assertEquals(exomuxBackgroundHasPresets(withPresets), true);
 });
+
+Deno.test("control opacity: half the window's transparency, clamped", async () => {
+  const { exomuxControlOpacity } = await import("../model.ts");
+  // controlOpacity = ((100 − windowOpacity) / 2) + windowOpacity
+  assertEquals(exomuxControlOpacity(0.5), 0.75);
+  assertEquals(exomuxControlOpacity(0.33), 0.665);
+  assertEquals(exomuxControlOpacity(1), 1);
+  assertEquals(exomuxControlOpacity(0), 0.5);
+  assertEquals(exomuxControlOpacity(Number.NaN), 1);
+  assertEquals(exomuxControlOpacity(4), 1);
+});

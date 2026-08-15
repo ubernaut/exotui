@@ -1,8 +1,11 @@
 # Transparent Window Stacking — show windows behind other transparent windows
 
-Status: specified Aug 14 2026 (user direction); not started. Scheduled immediately after the widget-sync program
-([031](./031-exomux-exotui-widget-sync.md)); its scene-ground seam is also what WS-003's composited Sessions `List`
-needs for its "ground-blend against the desktop" adoption step, so landing 031 first pays into this directly.
+Status: **landed Aug 15 2026** — the scene-ground compositor (per-window commit batches so a window only blends
+against the scene below it; deposits hook `DesktopPainter.cell()`/`fill()`/`rawCell()`) and the control-opacity rule
+(window chrome + the settings window's control surface at `exomuxControlOpacity`) are in, with N-deep stacking,
+off-overlap, and chrome-blend covered by deterministic tests. Remaining: the phase-2 ghost-glyph idea stays out of
+scope; promoting the scene-ground contract into exotui rides WS-013 (031 follow-up); and the compositor perf budget
+still wants a manual pass on the user's strict Intel laptop.
 
 ## Motivation (user direction, Aug 14 2026)
 

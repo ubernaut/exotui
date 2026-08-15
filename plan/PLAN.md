@@ -27,7 +27,7 @@ highest-leverage additions to the library. Active todo files are numbered in pla
    clearest wins — and the mouse/cursor surface has grown well past the Aug 12 audit (block-cursor blink, resize-edge
    glyph, any-motion tracking, scroll/wheel-under-pointer routing, pincushion mouse warp), so refresh
    `docs/exomux-component-audit.md` before executing.
-2. **`032` Transparent window stacking (P0, next up).** Show windows behind other transparent windows using the
+2. **`032` Transparent window stacking (P0, landed Aug 15 2026; manual perf pass on the user's laptop outstanding).** Show windows behind other transparent windows using the
    circuit-backdrop technique generalized to the whole scene: per-cell ink-coverage color reduction of everything
    painted beneath, deposited in z-order and blended per cell. Its scene-ground seam is also what WS-003's composited
    Sessions `List` needs.

@@ -71,6 +71,7 @@ import type { TailnetStatusResult } from "../tailnet.ts";
 import { exomuxTerminalForegroundRgb } from "../terminal_palette.ts";
 import { EXOMUX_METABALL_LEVELS, ExomuxMetaballField } from "../metaball_background.ts";
 import { mixExomuxRgb } from "../background.ts";
+import { exomuxControlOpacity } from "../model.ts";
 
 Deno.test("Exomux metaballs are deterministic, pointer-attracted, window-averse, and quantized", () => {
   const bounds = { column: 0, row: 2, width: 64, height: 20 } as const;
@@ -4993,6 +4994,12 @@ Deno.test("Exomux transparent windows show the windows beneath them, stacking pe
       !cellText(40, 12).includes(`48;2;${oneDeep.join(";")}`),
       "outside the overlap the ground comes from the field, not the red block",
     );
+
+    // Chrome is a control surface: the top window's title bar blends at half
+    // the window's transparency (0.5 → 0.75) against the scene beneath it —
+    // the middle window's already-blended cells.
+    const chromeExpected = mixExomuxRgb(oneDeep, theme.accent, exomuxControlOpacity(0.5));
+    assertStringIncludes(cellText(26, 10), `48;2;${chromeExpected.join(";")}`);
   } finally {
     harness.destroy();
     await controller.dispose();

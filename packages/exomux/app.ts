@@ -64,6 +64,7 @@ import {
   exomuxBackgroundSettingsFor,
   type ExomuxBorderGlyphs,
   exomuxBorderGlyphs,
+  exomuxControlOpacity,
   exomuxResolvedOpacity,
   exomuxResolvedScrollLines,
   type ExomuxRgb,
@@ -3439,6 +3440,86 @@ const exomuxSceneGround = new ExomuxSceneGround();
 type ExomuxGround = (column: number, row: number) => ExomuxRgb;
 
 /**
+ * Ground for a control cell: blends the cell's own base colour against the
+ * scene at the window's *control* opacity — half the window's transparency
+ * (user rule, 032) — so what the user reads and clicks stays more legible
+ * than the body it sits on.
+ */
+type ExomuxControlGround = (column: number, row: number, base: ExomuxRgb) => ExomuxRgb;
+
+/** Control ground for one window, or undefined when controls render opaque. */
+function exomuxControlGroundFor(
+  backdrop: ExomuxBackdrop | undefined,
+  windowOpacity: number,
+): ExomuxControlGround | undefined {
+  const controlOpacity = exomuxControlOpacity(windowOpacity);
+  if (!backdrop || controlOpacity >= 1) return undefined;
+  return (column, row, base) => mixExomuxRgb(backdrop(column, row), base, controlOpacity);
+}
+
+/**
+ * Blits one composited control cell. With a control ground, the cell's own
+ * background blends against the scene at control opacity; without one it
+ * lands verbatim. Wide-glyph follower cells ("") are skipped — the glyph to
+ * their left already covers them.
+ */
+function blitControlCell(
+  painter: DesktopPainter,
+  column: number,
+  row: number,
+  cell: string | Uint8Array | undefined,
+  theme: ExomuxThemeSpec,
+  controlGround?: ExomuxControlGround,
+): void {
+  if (cell === undefined) return;
+  if (!controlGround) {
+    painter.rawCell(column, row, cell);
+    return;
+  }
+  const data = widgetSurfaceCellData(cell);
+  if (!data) {
+    painter.rawCell(column, row, cell);
+    return;
+  }
+  if (data.glyph === "") return;
+  const base = data.background ?? theme.surfaceStrong;
+  painter.write(column, row, data.glyph, {
+    foreground: data.foreground ?? theme.text,
+    background: controlGround(column, row, base),
+    bold: data.bold,
+  });
+}
+
+/** Draws a box frame like `DesktopPainter.borderBox`, on a per-cell ground. */
+function borderBoxOnGround(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  glyphs: ExomuxBorderGlyphs,
+  foreground: ExomuxRgb,
+  ground: ExomuxGround,
+  bold: boolean,
+): void {
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const right = rect.column + rect.width - 1;
+  const bottom = rect.row + rect.height - 1;
+  const cellOn = (column: number, row: number, glyph: string) => {
+    painter.cell(column, row, glyph, { foreground, background: ground(column, row), bold });
+  };
+  for (let column = rect.column + 1; column < right; column += 1) {
+    cellOn(column, rect.row, glyphs.top);
+    cellOn(column, bottom, glyphs.bottom);
+  }
+  for (let row = rect.row + 1; row < bottom; row += 1) {
+    cellOn(rect.column, row, glyphs.left);
+    cellOn(right, row, glyphs.right);
+  }
+  cellOn(rect.column, rect.row, glyphs.topLeft);
+  cellOn(right, rect.row, glyphs.topRight);
+  cellOn(rect.column, bottom, glyphs.bottomLeft);
+  cellOn(right, bottom, glyphs.bottomRight);
+}
+
+/**
  * Ground for a window body at a given opacity.
  *
  * The sessions and network panels used to fill their body with `theme.surface`
@@ -4015,30 +4096,42 @@ function paintWindow(
   networkTreeView?: ExomuxNetworkTree,
 ): void {
   const theme = controller.theme.peek();
+  const global = controller.globalSettings.peek();
+  const sessionId = exomuxSessionIdFromWindow(window.id);
+  // Panels carry no per-window override, so they follow the desktop setting;
+  // terminals resolve their own.
+  const windowOpacity = sessionId
+    ? exomuxResolvedOpacity(global, controller.windowSettingsFor(sessionId))
+    : exomuxResolvedOpacity(global);
+  // Chrome is a control surface: it blends at half the window's transparency
+  // (032), so the border, title, and buttons stay more legible than the body.
+  const chromeOpacity = exomuxControlOpacity(windowOpacity);
+  const chromeGround = (base: ExomuxRgb): ExomuxGround =>
+    backdrop && chromeOpacity < 1 ? (x, y) => mixExomuxRgb(backdrop(x, y), base, chromeOpacity) : () => base;
   const border = window.active ? theme.accent : theme.border;
   painter.fill(window.rect, " ", { foreground: theme.text, background: theme.surface });
   // Focus reads through colour and weight, so both states share one frame
   // vocabulary rather than swapping the glyphs out underneath the window.
-  painter.borderBox(window.rect, exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle), {
-    foreground: border,
-    background: theme.surfaceStrong,
-    bold: window.active,
-  });
-  painter.fill(window.titleBarRect, " ", {
-    foreground: window.active ? theme.background : theme.text,
-    background: window.active ? theme.accent : theme.surfaceStrong,
-    bold: window.active,
-  });
+  borderBoxOnGround(
+    painter,
+    window.rect,
+    exomuxBorderGlyphs(global.borderStyle),
+    border,
+    chromeGround(theme.surfaceStrong),
+    window.active,
+  );
+  const titleBarGround = chromeGround(window.active ? theme.accent : theme.surfaceStrong);
+  fillWithGround(painter, window.titleBarRect, theme, titleBarGround);
   const firstControl = window.controls.reduce(
     (minimum, control) => Math.min(minimum, control.rect.column),
     window.titleBarRect.column + window.titleBarRect.width,
   );
   const titleWidth = Math.max(0, firstControl - window.titleBarRect.column - 2);
-  const sessionId = exomuxSessionIdFromWindow(window.id);
   const runtime = sessionId ? controller.runtime(sessionId) : undefined;
   // Status tags ([SCROLL], [NO MOUSE]) arrive on the projection first-class.
   const adornments = window.titleAdornments.map((tag) => ` ${tag}`).join("");
-  painter.write(
+  writeOnGround(
+    painter,
     window.titleBarRect.column + 1,
     window.titleBarRect.row,
     fitText(
@@ -4049,23 +4142,19 @@ function paintWindow(
     ),
     {
       foreground: window.active ? theme.background : theme.text,
-      background: window.active ? theme.accent : theme.surfaceStrong,
       bold: window.active,
     },
+    titleBarGround,
   );
   for (const control of window.controls) {
     const toneColor = exomuxTitlebarToneColor(theme, control.tone);
-    painter.write(control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
+    writeOnGround(painter, control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
       foreground: toneColor ?? (window.active ? theme.background : theme.text),
-      background: window.active ? theme.accent : theme.surfaceStrong,
       bold: control.tone === "danger" || window.active,
-    });
+    }, titleBarGround);
   }
-  // These two carry no per-window override of their own, so they follow the
-  // desktop setting.
-  const panelOpacity = exomuxResolvedOpacity(controller.globalSettings.peek());
-  const ground = exomuxWindowGround(theme, panelOpacity, backdrop);
-  if (panelOpacity < 1 && backdrop) fillWithGround(painter, window.clientRect, theme, ground);
+  const ground = exomuxWindowGround(theme, windowOpacity, backdrop);
+  if (windowOpacity < 1 && backdrop) fillWithGround(painter, window.clientRect, theme, ground);
   else painter.fill(window.clientRect, " ", { foreground: theme.text, background: theme.surface });
   if (window.id === EXOMUX_SESSIONS_WINDOW_ID) {
     paintSessionManager(
@@ -4093,6 +4182,8 @@ function paintWindow(
       settingsPickers,
       settingsOptions,
       sessionNameField,
+      backdrop,
+      windowOpacity,
     );
     return;
   }
@@ -5052,12 +5143,19 @@ function paintBackgroundConfigModal(
 }
 
 /** Composites one real button's styled cells into its window rect. */
-function blitSettingsButtonCells(painter: DesktopPainter, rect: Rectangle, snapshot: ExomuxSettingsButtonCells): void {
+function blitSettingsButtonCells(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  snapshot: ExomuxSettingsButtonCells,
+  theme?: ExomuxThemeSpec,
+  controlGround?: ExomuxControlGround,
+): void {
   const width = Math.min(rect.width, snapshot.width);
   for (let index = 0; index < width; index += 1) {
     const cell = snapshot.cells[index];
     if (cell === undefined) continue;
-    painter.rawCell(rect.column + index, rect.row, cell);
+    if (theme && controlGround) blitControlCell(painter, rect.column + index, rect.row, cell, theme, controlGround);
+    else painter.rawCell(rect.column + index, rect.row, cell);
   }
 }
 
@@ -5067,12 +5165,18 @@ function blitPickerRegion(
   region: Rectangle,
   clientRect: Rectangle,
   surface: ExomuxSettingsSurface,
+  theme?: ExomuxThemeSpec,
+  controlGround?: ExomuxControlGround,
 ): void {
   for (let row = 0; row < region.height; row += 1) {
     for (let column = 0; column < region.width; column += 1) {
       const cell = surface.cellAt(region.row - clientRect.row + row, region.column - clientRect.column + column);
       if (cell === undefined) continue;
-      painter.rawCell(region.column + column, region.row + row, cell);
+      if (theme && controlGround) {
+        blitControlCell(painter, region.column + column, region.row + row, cell, theme, controlGround);
+      } else {
+        painter.rawCell(region.column + column, region.row + row, cell);
+      }
     }
   }
 }
@@ -5085,8 +5189,16 @@ function paintGlobalSettingsWindow(
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
   sessionNameField?: ExomuxInputField,
+  backdrop?: ExomuxBackdrop,
+  windowOpacity = 1,
 ): void {
   const theme = controller.theme.peek();
+  // Every row here is a control, so the whole surface renders at control
+  // opacity — half the window's transparency (032). Opaque windows keep the
+  // exact constant grounds they had.
+  const controlGround = exomuxControlGroundFor(backdrop, windowOpacity);
+  const g = (base: ExomuxRgb): ExomuxGround =>
+    controlGround ? (x, y) => controlGround(x, y, base) : () => base;
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
   const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
   const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex, controller.shaderOptionRows().length);
@@ -5102,16 +5214,13 @@ function paintGlobalSettingsWindow(
     ? (editing ? "Session ↵ save · Esc cancel: " : "Session (click to rename): ")
     : "Session: ";
   const nameRect = layout.sessionNameRect;
-  painter.fill(nameRect, " ", {
-    foreground: editing ? theme.background : theme.muted,
-    background: editing ? theme.accent : theme.surfaceStrong,
-  });
+  const nameBase = editing ? theme.accent : theme.surfaceStrong;
+  fillWithGround(painter, nameRect, theme, g(nameBase));
   const labelWidth = Math.min(nameRect.width, textWidth(nameLabel));
-  painter.write(nameRect.column, nameRect.row, fitText(nameLabel, labelWidth), {
+  writeOnGround(painter, nameRect.column, nameRect.row, fitText(nameLabel, labelWidth), {
     foreground: editing ? theme.background : theme.accent,
-    background: editing ? theme.accent : theme.surfaceStrong,
     bold: editing,
-  });
+  }, g(nameBase));
   // The value after the label is a real exotui Input while editing (composited
   // over the region), falling back to a hand-drawn draft until it renders; when
   // not editing it is the plain current name.
@@ -5128,45 +5237,40 @@ function paintGlobalSettingsWindow(
   });
   if (editing && sessionNameField?.ready()) {
     for (let column = 0; column < valueWidth; column += 1) {
-      const cell = sessionNameField.cellAt(0, column);
-      if (cell !== undefined) painter.rawCell(valueColumn + column, nameRect.row, cell);
+      blitControlCell(painter, valueColumn + column, nameRect.row, sessionNameField.cellAt(0, column), theme, controlGround);
     }
   } else {
-    painter.write(
+    writeOnGround(
+      painter,
       valueColumn,
       nameRect.row,
       fitText(editing ? `${draft}▏` : controller.sessionName.peek(), valueWidth),
       {
         foreground: editing ? theme.background : theme.accent,
-        background: editing ? theme.accent : theme.surfaceStrong,
         bold: editing,
       },
+      g(nameBase),
     );
   }
 
   const columnWidth = themeRows[0]?.rect.width ?? Math.max(8, Math.floor((rect.width - 3) / 2));
   const headerRow = rect.row + 1;
   const header = (column: number, text: string, focused: boolean) => {
-    painter.write(column, headerRow, fitText(text, columnWidth), {
+    writeOnGround(painter, column, headerRow, fitText(text, columnWidth), {
       foreground: focused ? theme.accent : theme.muted,
-      background: theme.surfaceStrong,
       bold: focused,
-    });
+    }, g(theme.surfaceStrong));
   };
   header(rect.column + 1, "Theme", pane === "theme");
   header(rect.column + 2 + columnWidth, "Background", pane === "background");
 
   const paintRow = (rowRect: Rectangle, label: string, selected: boolean, focused: boolean) => {
-    painter.fill(rowRect, " ", {
-      foreground: selected ? theme.background : theme.text,
-      background: selected ? (focused ? theme.accent : theme.surface) : theme.surfaceStrong,
-      bold: selected,
-    });
-    painter.write(rowRect.column, rowRect.row, fitText(`${selected ? ">" : " "} ${label}`, rowRect.width), {
+    const rowBase = selected ? (focused ? theme.accent : theme.surface) : theme.surfaceStrong;
+    fillWithGround(painter, rowRect, theme, g(rowBase));
+    writeOnGround(painter, rowRect.column, rowRect.row, fitText(`${selected ? ">" : " "} ${label}`, rowRect.width), {
       foreground: selected ? (focused ? theme.background : theme.accent) : theme.text,
-      background: selected ? (focused ? theme.accent : theme.surface) : theme.surfaceStrong,
       bold: selected,
-    });
+    }, g(rowBase));
   };
   for (const row of themeRows) {
     paintRow(row.rect, EXOMUX_THEMES[row.index]!.label, row.index === themeIndex, pane === "theme");
@@ -5209,8 +5313,8 @@ function paintGlobalSettingsWindow(
       },
     );
     if (settingsPickers.ready()) {
-      blitPickerRegion(painter, layout.themeListRect, rect, settingsPickers);
-      blitPickerRegion(painter, layout.backgroundListRect, rect, settingsPickers);
+      blitPickerRegion(painter, layout.themeListRect, rect, settingsPickers, theme, controlGround);
+      blitPickerRegion(painter, layout.backgroundListRect, rect, settingsPickers, theme, controlGround);
     }
   }
 
@@ -5290,43 +5394,38 @@ function paintGlobalSettingsWindow(
       ? controlColumn
       : rowRect.column + Math.max(0, rowRect.width - textWidth(entry.value) - 1);
 
-    painter.fill(rowRect, " ", {
-      foreground: focused ? theme.background : theme.text,
-      background: focused ? theme.accent : theme.surfaceStrong,
-      bold: focused,
-    });
-    painter.write(
+    const rowBase = focused ? theme.accent : theme.surfaceStrong;
+    fillWithGround(painter, rowRect, theme, g(rowBase));
+    writeOnGround(
+      painter,
       rowRect.column,
       rowRect.row,
       fitText(`${focused ? ">" : " "} ${entry.label}`, Math.max(0, valueColumn - rowRect.column - 1)),
       {
         foreground: focused ? theme.background : theme.text,
-        background: focused ? theme.accent : theme.surfaceStrong,
         bold: focused,
       },
+      g(rowBase),
     );
     if (cells) {
       for (let column = 0; column < Math.min(controlWidth, cells.width); column += 1) {
-        const cell = cells.cells[column];
-        if (cell !== undefined) painter.rawCell(controlColumn + column, rowRect.row, cell);
+        blitControlCell(painter, controlColumn + column, rowRect.row, cells.cells[column], theme, controlGround);
       }
     } else {
-      painter.write(valueColumn, rowRect.row, entry.value, {
+      writeOnGround(painter, valueColumn, rowRect.row, entry.value, {
         foreground: focused ? theme.background : theme.accent,
-        background: focused ? theme.accent : theme.surfaceStrong,
         bold: true,
-      });
+      }, g(rowBase));
     }
   }
 
-  painter.write(
+  writeOnGround(
+    painter,
     rect.column + 1,
     rect.row + rect.height - 1,
     fitText(" * overgrows idle windows ", Math.max(0, layout.backgroundConfigRect.column - rect.column - 2)),
-    {
-      foreground: theme.muted,
-      background: theme.surfaceStrong,
-    },
+    { foreground: theme.muted },
+    g(theme.surfaceStrong),
   );
   // The background-config button is the doorway to a whole second settings
   // surface, so it wears the theme's warning hue — derived from the theme but
@@ -5353,23 +5452,21 @@ function paintGlobalSettingsWindow(
   ];
   const backgroundCells = settingsWidgets?.cellsFor(buttonSpecs, "background");
   if (backgroundCells) {
-    blitSettingsButtonCells(painter, layout.backgroundConfigRect, backgroundCells);
+    blitSettingsButtonCells(painter, layout.backgroundConfigRect, backgroundCells, theme, controlGround);
   } else {
-    painter.write(layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
+    writeOnGround(painter, layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
       foreground: theme.background,
-      background: theme.warning,
       bold: true,
-    });
+    }, g(theme.warning));
   }
   const closeCells = settingsWidgets?.cellsFor(buttonSpecs, "close");
   if (closeCells) {
-    blitSettingsButtonCells(painter, closeRect, closeCells);
+    blitSettingsButtonCells(painter, closeRect, closeCells, theme, controlGround);
   } else {
-    painter.write(closeRect.column, closeRect.row, "[ Close ]", {
+    writeOnGround(painter, closeRect.column, closeRect.row, "[ Close ]", {
       foreground: theme.background,
-      background: theme.accent,
       bold: true,
-    });
+    }, g(theme.accent));
   }
 }
 
