@@ -3337,6 +3337,104 @@ function exomuxBackdropColor(cell: ExomuxBackgroundCell | undefined, theme: Exom
 /** Reads the desktop background colour behind one absolute desktop cell. */
 type ExomuxBackdrop = (column: number, row: number) => ExomuxRgb;
 
+/**
+ * The colour impression one painted cell leaves for whatever renders above it:
+ * its background carrying the foreground by the glyph's ink coverage — the
+ * same reduction the circuit backdrop uses, applied to windows as scene
+ * content. A blank cell is pure ground; ink-free glyphs must not tint it.
+ */
+function exomuxDepositColor(glyph: string, foreground: ExomuxRgb, background: ExomuxRgb): ExomuxRgb {
+  if (glyph === " " || glyph === "") return background;
+  const coverage = BACKDROP_COVERAGE[glyph] ?? DEFAULT_BACKDROP_COVERAGE;
+  return mixExomuxRgb(background, foreground, coverage);
+}
+
+/**
+ * Per-frame record of the colour impression every painted window cell leaves,
+ * so a translucent window higher in the stack blends against the real scene
+ * beneath it — background field *and* windows — instead of the bare field.
+ *
+ * Two layers keep a window from blending against itself: deposits land in a
+ * pending layer while the window paints, and `commitWindow()` publishes them
+ * once it is done, so sampling during a window's own paint only ever sees the
+ * scene *below* it. Buffers are generation-stamped and reused across frames.
+ */
+class ExomuxSceneGround {
+  #originColumn = 0;
+  #originRow = 0;
+  #width = 0;
+  #height = 0;
+  #committed = new Uint32Array(0);
+  #committedStamp = new Uint32Array(0);
+  #pending = new Uint32Array(0);
+  #pendingStamp = new Uint32Array(0);
+  #pendingIndices: number[] = [];
+  #generation = 0;
+  /** Monotonic per-commit batch id, so each window's deposits enqueue afresh. */
+  #batch = 0;
+
+  /** Starts a frame: adopts the desktop bounds and invalidates old deposits. */
+  reset(bounds: Rectangle): void {
+    this.#originColumn = bounds.column;
+    this.#originRow = bounds.row;
+    this.#width = Math.max(0, bounds.width);
+    this.#height = Math.max(0, bounds.height);
+    const size = this.#width * this.#height;
+    if (this.#committed.length < size) {
+      this.#committed = new Uint32Array(size);
+      this.#committedStamp = new Uint32Array(size);
+      this.#pending = new Uint32Array(size);
+      this.#pendingStamp = new Uint32Array(size);
+    }
+    this.#pendingIndices.length = 0;
+    this.#generation += 1;
+    this.#batch += 1;
+  }
+
+  #index(column: number, row: number): number {
+    const localColumn = column - this.#originColumn;
+    const localRow = row - this.#originRow;
+    if (localColumn < 0 || localColumn >= this.#width || localRow < 0 || localRow >= this.#height) return -1;
+    return localRow * this.#width + localColumn;
+  }
+
+  /** Records one painted cell's colour impression (pending until commit). */
+  deposit(column: number, row: number, color: ExomuxRgb): void {
+    const index = this.#index(column, row);
+    if (index < 0) return;
+    // The dedupe stamp is per commit batch, not per frame: a later window
+    // repainting a cell an earlier one already covered must enqueue it again,
+    // or its deposit would silently never publish.
+    if (this.#pendingStamp[index] !== this.#batch) {
+      this.#pendingStamp[index] = this.#batch;
+      this.#pendingIndices.push(index);
+    }
+    this.#pending[index] = (color[0] << 16) | (color[1] << 8) | color[2];
+  }
+
+  /** Publishes the finished window's deposits to windows painted after it. */
+  commitWindow(): void {
+    const generation = this.#generation;
+    for (const index of this.#pendingIndices) {
+      this.#committed[index] = this.#pending[index]!;
+      this.#committedStamp[index] = generation;
+    }
+    this.#pendingIndices.length = 0;
+    this.#batch += 1;
+  }
+
+  /** The scene colour beneath a cell, when any window below has painted it. */
+  sample(column: number, row: number): ExomuxRgb | undefined {
+    const index = this.#index(column, row);
+    if (index < 0 || this.#committedStamp[index] !== this.#generation) return undefined;
+    const packed = this.#committed[index]!;
+    return [(packed >> 16) & 0xff, (packed >> 8) & 0xff, packed & 0xff];
+  }
+}
+
+/** Reused across frames; the desktop renders on one thread. */
+const exomuxSceneGround = new ExomuxSceneGround();
+
 /** Resolves a window cell's ground: its surface, or the desktop showing through. */
 type ExomuxGround = (column: number, row: number) => ExomuxRgb;
 
@@ -3455,8 +3553,13 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   const metaballLevels = backgroundGrid ? undefined : options.metaballs.rasterize(body, EXOMUX_METABALL_LEVELS);
   const metaballPalette = metaballLevels ? exomuxMetaballPalette(theme) : undefined;
   // Transparent windows read the same source the backdrop is painted from, so
-  // what shows through a window is exactly what surrounds it.
+  // what shows through a window is exactly what surrounds it. Windows painted
+  // earlier deposit their own colour impressions into the scene ground, so a
+  // translucent window shows the windows beneath it, not just the field (032).
+  exomuxSceneGround.reset(bounds);
   const backdrop: ExomuxBackdrop = (column, row) => {
+    const scene = exomuxSceneGround.sample(column, row);
+    if (scene) return scene;
     if (backgroundGrid) {
       return exomuxBackdropColor(backgroundGrid[row - body.row]?.[column - body.column], theme);
     }
@@ -3472,6 +3575,11 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     }
   }
 
+  // Deposits are on only while windows (and their separators) paint: overlays,
+  // modals, and the cursor sit above every window and must not tint grounds.
+  // Each window commits before the next paints, so a window never blends
+  // against its own cells — only against the scene below it.
+  painter.beginGroundDeposits(exomuxSceneGround, theme.surface);
   for (const window of projection.tiledWindows) {
     paintWindow(
       painter,
@@ -3487,6 +3595,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionListScrollTop,
       options.networkTreeView,
     );
+    exomuxSceneGround.commitWindow();
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
   for (const separator of projection.separators) {
@@ -3496,6 +3605,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       { foreground: theme.border, background: theme.background },
     );
   }
+  exomuxSceneGround.commitWindow();
   for (const window of projection.floatingWindows) {
     paintWindow(
       painter,
@@ -3511,7 +3621,9 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionListScrollTop,
       options.networkTreeView,
     );
+    exomuxSceneGround.commitWindow();
   }
+  painter.endGroundDeposits();
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
   if (options.backgroundField && exomuxBackgroundHasOverlay(options.backgroundField)) {
@@ -5594,10 +5706,28 @@ function paintedStyle(spec: PaintedStyle): Style {
 
 class DesktopPainter {
   readonly rows: string[][];
+  /** While set, every painted cell also deposits its scene-ground impression. */
+  #depositGround?: ExomuxSceneGround;
+  /** Ground deposited for a blitted cell whose colours cannot be decoded. */
+  #depositFallback: ExomuxRgb = [0, 0, 0];
 
   constructor(readonly bounds: Rectangle, readonly theme: ExomuxThemeSpec) {
     const width = Math.max(0, bounds.width);
     this.rows = Array.from({ length: Math.max(0, bounds.height) }, () => new Array<string>(width).fill(" "));
+  }
+
+  /**
+   * Turns on scene-ground deposits: while enabled (the window paint phase),
+   * every painted cell records the colour impression it leaves so translucent
+   * windows painted later blend against the real scene beneath them.
+   */
+  beginGroundDeposits(ground: ExomuxSceneGround, fallback: ExomuxRgb): void {
+    this.#depositGround = ground;
+    this.#depositFallback = fallback;
+  }
+
+  endGroundDeposits(): void {
+    this.#depositGround = undefined;
   }
 
   cell(column: number, row: number, char: string, style: PaintedStyle): void {
@@ -5612,12 +5742,14 @@ class DesktopPainter {
     this.#retireWideGlyphAt(target, localColumn);
     if (exomuxGlyphColumns(glyph) === 1) {
       target[localColumn] = paint(glyph);
+      this.#depositGround?.deposit(column, row, exomuxDepositColor(glyph, style.foreground, style.background));
       return;
     }
     // A double-width glyph on the final column has nowhere to put its follower,
     // so it degrades to a blank rather than spilling past the desktop edge.
     if (localColumn + 1 >= this.bounds.width) {
       target[localColumn] = paint(" ");
+      this.#depositGround?.deposit(column, row, style.background);
       return;
     }
     // The follower is left empty so the sink emits nothing for it and the real
@@ -5625,6 +5757,12 @@ class DesktopPainter {
     this.#retireWideGlyphAt(target, localColumn + 1);
     target[localColumn] = paint(glyph);
     target[localColumn + 1] = EXOMUX_WIDE_GLYPH_FOLLOWER;
+    if (this.#depositGround) {
+      // A wide glyph covers both columns, so both take its impression.
+      const impression = exomuxDepositColor(glyph, style.foreground, style.background);
+      this.#depositGround.deposit(column, row, impression);
+      this.#depositGround.deposit(column + 1, row, impression);
+    }
   }
 
   write(column: number, row: number, text: string, style: PaintedStyle): void {
@@ -5647,6 +5785,17 @@ class DesktopPainter {
     const target = this.rows[localRow]!;
     this.#retireWideGlyphAt(target, localColumn);
     target[localColumn] = typeof cell === "string" ? cell : exomuxCellDecoder.decode(cell);
+    if (this.#depositGround) {
+      // Structured decode instead of SGR string surgery; a cell that cannot be
+      // decoded still deposits the window's nominal ground so nothing stale
+      // survives beneath a blitted widget.
+      const data = widgetSurfaceCellData(target[localColumn]);
+      const background = data?.background ?? this.#depositFallback;
+      const impression = data
+        ? exomuxDepositColor(data.glyph, data.foreground ?? background, background)
+        : this.#depositFallback;
+      this.#depositGround.deposit(column, row, impression);
+    }
   }
 
   /** Blanks whichever half of a straddling double-width glyph touches `column`. */
@@ -5676,6 +5825,10 @@ class DesktopPainter {
       const lastRow = Math.min(this.rows.length, Math.floor(rowEnd - this.bounds.row));
       const firstColumn = Math.max(0, Math.floor(rect.column - this.bounds.column));
       const lastColumn = Math.min(this.bounds.width, Math.floor(columnEnd - this.bounds.column));
+      // One impression serves the whole rect: same glyph, same style.
+      const impression = this.#depositGround
+        ? exomuxDepositColor(char || " ", style.foreground, style.background)
+        : undefined;
       for (let row = firstRow; row < lastRow; row += 1) {
         const target = this.rows[row]!;
         for (let column = firstColumn; column < lastColumn; column += 1) {
@@ -5683,6 +5836,9 @@ class DesktopPainter {
           // survive underneath and desynchronise the rest of the row.
           this.#retireWideGlyphAt(target, column);
           target[column] = painted;
+          if (impression) {
+            this.#depositGround!.deposit(this.bounds.column + column, this.bounds.row + row, impression);
+          }
         }
       }
       return;

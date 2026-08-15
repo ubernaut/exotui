@@ -70,6 +70,7 @@ import { EXOMUX_PROTOCOL_LIMITS } from "../protocol.ts";
 import type { TailnetStatusResult } from "../tailnet.ts";
 import { exomuxTerminalForegroundRgb } from "../terminal_palette.ts";
 import { EXOMUX_METABALL_LEVELS, ExomuxMetaballField } from "../metaball_background.ts";
+import { mixExomuxRgb } from "../background.ts";
 
 Deno.test("Exomux metaballs are deterministic, pointer-attracted, window-averse, and quantized", () => {
   const bounds = { column: 0, row: 2, width: 64, height: 20 } as const;
@@ -4930,6 +4931,67 @@ Deno.test("Exomux start menu arrows its commands and renders the composited dang
     assertStringIncludes(
       cellText(quit.rect.column + 2, quit.rect.row),
       `38;2;${theme.danger.join(";")}`,
+    );
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux transparent windows show the windows beneath them, stacking per cell", async () => {
+  const under = session("stack-under", "under", 0);
+  const over = session("stack-over", "over", 1);
+  const top = session("stack-top", "top", 2);
+  // The lower terminal paints an explicit red block; explicit backgrounds stay
+  // opaque and deposit their exact colour into the scene ground.
+  const redRow = "\x1b[48;2;200;30;40m" + " ".repeat(60);
+  const client = new FakeExomuxClient([under, over, top], {
+    "stack-under": [{ sessionId: "stack-under", sequence: 1, data: Array(10).fill(redRow).join("\r\n") }],
+  });
+  const controller = await createExomuxController({ client, initialSessions: [under, over, top] });
+  controller.globalSettings.value = { ...controller.globalSettings.peek(), opacity: 0.5 };
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 90, rows: 26 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    const place = (id: string, rect: Rectangle) => {
+      controller.windowHost.execute(
+        { kind: "set-placement", id: exomuxWindowId(id), placement: "floating", rect },
+        mounted.bodyRect.peek(),
+      );
+    };
+    place("stack-under", { column: 5, row: 5, width: 30, height: 10 });
+    place("stack-over", { column: 20, row: 8, width: 30, height: 8 });
+    place("stack-top", { column: 24, row: 10, width: 14, height: 6 });
+    // Focus order fixes the z-order: under < over < top.
+    for (const id of ["stack-under", "stack-over", "stack-top"]) {
+      controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(id) }, mounted.bodyRect.peek());
+    }
+    await harness.pilot.settle();
+
+    const theme = controller.theme.peek();
+    const cellText = (column: number, row: number): string => {
+      const value = harness.canvas.frameBuffer[row]?.[column] ?? "";
+      return typeof value === "string" ? value : new TextDecoder().decode(value);
+    };
+    const red: readonly [number, number, number] = [200, 30, 40];
+    const oneDeep = mixExomuxRgb(red, theme.surface, 0.5);
+    const twoDeep = mixExomuxRgb(oneDeep, theme.surface, 0.5);
+
+    // The middle window's ground over the red block blends the block, not the
+    // bare field: mix(red, surface, opacity).
+    assertStringIncludes(cellText(22, 9), `48;2;${oneDeep.join(";")}`);
+    // The top window blends the middle window's already-blended colour again.
+    assertStringIncludes(cellText(26, 11), `48;2;${twoDeep.join(";")}`);
+    // Off the lower window, the same middle window blends the field instead.
+    assert(
+      !cellText(40, 12).includes(`48;2;${oneDeep.join(";")}`),
+      "outside the overlap the ground comes from the field, not the red block",
     );
   } finally {
     harness.destroy();

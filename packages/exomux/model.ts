@@ -340,6 +340,18 @@ export function exomuxResolvedOpacity(global: ExomuxGlobalSettings, window?: Exo
   return Number.isFinite(resolved) ? Math.min(1, Math.max(0, resolved)) : 1;
 }
 
+/**
+ * Opacity for a window's controls (chrome, buttons, inputs, option rows):
+ * half the window's transparency, so what the user reads and clicks stays more
+ * legible than the body it sits on. `controlOpacity = ((100 − windowOpacity)
+ * / 2) + windowOpacity` — a 50% window renders its controls at 75%, a 33%
+ * window at ~66%, an opaque window keeps opaque controls.
+ */
+export function exomuxControlOpacity(windowOpacity: number): number {
+  const clamped = Number.isFinite(windowOpacity) ? Math.min(1, Math.max(0, windowOpacity)) : 1;
+  return (1 + clamped) / 2;
+}
+
 /** Identity of one configurable per-window setting. */
 export type ExomuxWindowSettingId = keyof ExomuxWindowSettings;
 
