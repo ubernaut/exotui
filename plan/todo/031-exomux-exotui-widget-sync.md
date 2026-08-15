@@ -1,6 +1,7 @@
 # Exomux ↔ exotui Widget Sync
 
-Status: specified Aug 12 2026; not started. Turns the control-by-control audit in `docs/exomux-component-audit.md` into
+Status: in progress Aug 14 2026 (WS-001 and WS-006 done, WS-003 library half landed). Turns the control-by-control
+audit in `docs/exomux-component-audit.md` into
 an executable back-feed ledger. The audit found that exomux hand-rolls several controls that already exist in exotui,
 and carries bespoke richness that should flow **upstream** into the library. This plan is the "make exotui richer, then
 adopt it in exomux" program.
@@ -11,7 +12,7 @@ anchors. This file is the actionable roadmap.
 ## Reprioritization (user, Aug 14 2026)
 
 This is now the **P0 strategic program** for the library: exomux is the proving ground, and back-feeding its richness
-into exotui is the highest-leverage path to a robust library — ahead of the broad 023/024 parity backlogs. The user
+into exotui is the highest-leverage path to a robust library — ahead of the broad 035/036 parity backlogs. The user
 called out **windowing and mouse/cursor** as the clearest new-component candidates.
 
 The audit is **stale** — it predates the mouse/cursor work landed Aug 13–14, which should be folded into the ledger

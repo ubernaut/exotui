@@ -1,6 +1,6 @@
 # World-Class TUI Feature Program
 
-Status: active follow-on to [023-textual-opentui-feature-parity.md](./023-textual-opentui-feature-parity.md), authorized
+Status: active follow-on to [035-textual-opentui-feature-parity.md](./035-textual-opentui-feature-parity.md), authorized
 July 16, 2026. This document contains exactly 200 implementation-grade features that extend the current repository and
 the 023 roadmap. They are executed as dependency-ordered, verified batches rather than one unreviewable change.
 

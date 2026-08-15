@@ -1,9 +1,11 @@
 # Production Demo Application Showcase Program
 
-Status: implementation in progress, specified July 17 and updated July 18, 2026. This roadmap turns the ten approved
+Status: **on hiatus as of Aug 14 2026** (user decision) — parked until the widget-sync program (031) has landed the
+components these showcases would build on. Previously: implementation in progress, specified July 17 and updated July
+18, 2026. This roadmap turns the ten approved
 demo concepts into credible applications that exercise the library as a system instead of presenting isolated widget
-toys. It is a companion to [023-textual-opentui-feature-parity.md](./023-textual-opentui-feature-parity.md) and
-[024-world-class-tui-features.md](./024-world-class-tui-features.md); it does not silently mark open work in either
+toys. It is a companion to [035-textual-opentui-feature-parity.md](../035-textual-opentui-feature-parity.md) and
+[036-world-class-tui-features.md](../036-world-class-tui-features.md); it does not silently mark open work in either
 roadmap as complete.
 
 ## Scope And Evidence Rules
