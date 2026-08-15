@@ -1050,3 +1050,66 @@ Deno.test("floorWaveColor leaves a near-black wave colour black", () => {
   assertEquals(floorWaveColor(0, 0, 0), [0, 0, 0]);
   assertEquals(floorWaveColor(1e-4, 0, 0), [1e-4, 0, 0]);
 });
+
+Deno.test("butterchurn: motion vectors and borders seed the GPU draw list only", () => {
+  const preset = new ExomuxButterchurnPreset(
+    source({
+      baseVals: {
+        mv_a: 0.2,
+        mv_x: 8,
+        mv_y: 6,
+        mv_r: 0.35,
+        mv_g: 0.36,
+        mv_b: 0.37,
+        ob_size: 0.02,
+        ob_a: 0.8,
+        ob_r: 1,
+        ib_size: 0.04,
+        ib_a: 1,
+        ib_r: 0.1,
+      },
+    }),
+    { random: () => 0.5 },
+  );
+  preset.setSize(40, 12);
+  preset.advance(silentAudio(), 0, 0, 8);
+
+  // The software renderer's ink budget must not see the seed geometry.
+  assertEquals(preset.prims.length, 0);
+
+  // The GPU list draws motion vectors first and the two border frames last.
+  const gpu = preset.gpuPrims;
+  assertEquals(gpu.length, 3);
+  const [vectors, outer, inner] = gpu;
+  assertEquals(vectors!.vertexCount, 8 * 6 * 6, "one thin quad per grid trail");
+  assertEquals(vectors!.kind, "triangles");
+  assertEquals(vectors!.textured, false);
+  // Vertex colours carry mv_r/g/b/a.
+  assertAlmostEquals(vectors!.vertices[4]!, 0.35, 1e-6);
+  assertAlmostEquals(vectors!.vertices[7]!, 0.2, 1e-6);
+  assertEquals(outer!.vertexCount, 24, "four strips of two triangles");
+  assertEquals(inner!.vertexCount, 24);
+  // The outer frame hugs the screen edge; the inner starts where it ends.
+  assertAlmostEquals(outer!.vertices[0]!, -1, 1e-6);
+  assertAlmostEquals(inner!.vertices[0]!, 0.02 * 2 - 1, 1e-6);
+});
+
+Deno.test("butterchurn: hidden motion vectors and borders draw nothing", () => {
+  const preset = new ExomuxButterchurnPreset(
+    // mv_a defaults to 0 and both border sizes default to 0.
+    source({ baseVals: {} }),
+    { random: () => 0.5 },
+  );
+  preset.setSize(40, 12);
+  preset.advance(silentAudio(), 0, 0, 8);
+  assertEquals(preset.gpuPrims.length, 0);
+
+  // Per-frame equations can turn them on: the values are read post-frame.
+  const animated = new ExomuxButterchurnPreset(
+    source({ frame: "mv_a = 0.5;" }),
+    { random: () => 0.5 },
+  );
+  animated.setSize(40, 12);
+  animated.advance(silentAudio(), 0, 0, 8);
+  assertEquals(animated.gpuPrims.length, 1, "an animated mv_a shows the grid");
+});

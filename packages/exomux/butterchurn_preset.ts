@@ -361,6 +361,9 @@ export class ExomuxButterchurnPreset {
   readonly #waves: PrimState[] = [];
   readonly #shapes: PrimState[] = [];
   #prims: ExomuxButterchurnPrim[] = [];
+  #seedPrimsBefore: ExomuxButterchurnPrim[] = [];
+  #seedPrimsAfter: ExomuxButterchurnPrim[] = [];
+  #gpuPrims: ExomuxButterchurnPrim[] = [];
   readonly #timeArray = new Float32Array(MAX_WAVE_SAMPLES);
   readonly #freqArray = new Float32Array(MAX_WAVE_SAMPLES);
   readonly #pointData = new Float32Array(MAX_WAVE_SAMPLES);
@@ -485,16 +488,157 @@ export class ExomuxButterchurnPreset {
     return this.#prims;
   }
 
+  /**
+   * The full GPU draw list: motion vectors under the custom prims, screen
+   * borders over them. The seeds stay out of `prims` so the software
+   * renderer's ink budget is untouched.
+   */
+  get gpuPrims(): readonly ExomuxButterchurnPrim[] {
+    return this.#gpuPrims;
+  }
+
   #buildPrims(audio: ExomuxButterchurnAudio): void {
     this.#prims = [];
-    if (this.#waves.length === 0 && this.#shapes.length === 0) return;
-
-    // MilkDrop draws shapes under waves.
-    for (const shape of this.#shapes) this.#buildShape(shape);
-    if (this.#waves.length > 0) {
-      this.#prepareWaveAudio(audio);
-      for (const wave of this.#waves) this.#buildCustomWave(wave);
+    this.#seedPrimsBefore = [];
+    this.#seedPrimsAfter = [];
+    // MilkDrop layers each frame bottom-up: motion vectors first, then custom
+    // shapes under custom waves, and the screen borders on top. The motion
+    // vectors and borders are constant per-frame ink — for feedback-driven
+    // presets (a warp that only recirculates, a comp that only amplifies) they
+    // are the seed the whole picture grows from, so a renderer that skips them
+    // stays black forever on exactly those presets. They are kept out of
+    // `prims`: the software renderer splats prims from a fixed ink budget, and
+    // thousands of seed vertices would dilute it — only the faithful GPU path
+    // draws them (`gpuPrims`).
+    this.#buildMotionVectors();
+    if (this.#waves.length > 0 || this.#shapes.length > 0) {
+      for (const shape of this.#shapes) this.#buildShape(shape);
+      if (this.#waves.length > 0) {
+        this.#prepareWaveAudio(audio);
+        for (const wave of this.#waves) this.#buildCustomWave(wave);
+      }
     }
+    // Approximation: MilkDrop draws borders after the basic waveform; the prim
+    // pass runs just before it, which only matters where the wave crosses a
+    // border strip.
+    this.#buildBorders();
+    this.#gpuPrims = [...this.#seedPrimsBefore, ...this.#prims, ...this.#seedPrimsAfter];
+  }
+
+  /**
+   * MilkDrop's motion-vector grid: up to 64×48 short trails in screen space,
+   * drawn whenever `mv_a` is above zero. Real MilkDrop follows the warp field
+   * backwards to shape each trail; a fixed short segment keeps the same ink
+   * footprint without that readback, which is what both the visible overlay
+   * and the feedback seeding need.
+   */
+  #buildMotionVectors(): void {
+    const alpha = this.#get("mv_a");
+    const countX = Math.min(64, Math.floor(this.#get("mv_x")));
+    const countY = Math.min(48, Math.floor(this.#get("mv_y")));
+    if (!(alpha > 0) || countX < 1 || countY < 1) return;
+    const r = this.#get("mv_r");
+    const g = this.#get("mv_g");
+    const b = this.#get("mv_b");
+    const dx = this.#get("mv_dx");
+    const dy = this.#get("mv_dy");
+    // Trail length and thickness in clip units; `mv_l` scales the length the
+    // way it scales MilkDrop's warp-derived trails.
+    const length = Math.max(0.008, this.#get("mv_l") * 0.06);
+    const thickness = 0.02;
+    const vertices = new Float32Array(countX * countY * 6 * PRIM_STRIDE);
+    let at = 0;
+    const emit = (x: number, y: number): void => {
+      vertices[at] = x;
+      vertices[at + 1] = y;
+      vertices[at + 4] = r;
+      vertices[at + 5] = g;
+      vertices[at + 6] = b;
+      vertices[at + 7] = alpha;
+      at += PRIM_STRIDE;
+    };
+    for (let j = 0; j < countY; j += 1) {
+      for (let i = 0; i < countX; i += 1) {
+        // Screen-space grid (no aspect correction — it spans the frame).
+        const x = ((i + 0.25) / countX + dx) * 2 - 1;
+        const y = 1 - ((j + 0.25) / countY + dy) * 2;
+        emit(x, y);
+        emit(x + length, y);
+        emit(x, y - thickness);
+        emit(x + length, y);
+        emit(x + length, y - thickness);
+        emit(x, y - thickness);
+      }
+    }
+    this.#seedPrimsBefore.push({
+      kind: "triangles",
+      additive: false,
+      textured: false,
+      vertices,
+      vertexCount: countX * countY * 6,
+    });
+  }
+
+  /**
+   * MilkDrop's outer and inner screen borders: two nested frames whose
+   * thickness is a fraction of the screen, drawn every frame while their
+   * alpha and size are above zero. The inner border starts where the outer
+   * one ends.
+   */
+  #buildBorders(): void {
+    const outerSize = this.#get("ob_size");
+    const outerAlpha = this.#get("ob_a");
+    const innerSize = this.#get("ib_size");
+    const innerAlpha = this.#get("ib_a");
+    const outer = outerSize > 0 && outerAlpha > 0;
+    const inner = innerSize > 0 && innerAlpha > 0;
+    if (!outer && !inner) return;
+    if (outer) {
+      this.#pushBorderFrame(0, outerSize, this.#get("ob_r"), this.#get("ob_g"), this.#get("ob_b"), outerAlpha);
+    }
+    if (inner) {
+      this.#pushBorderFrame(
+        outerSize,
+        innerSize,
+        this.#get("ib_r"),
+        this.#get("ib_g"),
+        this.#get("ib_b"),
+        innerAlpha,
+      );
+    }
+  }
+
+  /** One rectangular frame of `thickness`, inset from the screen edge. */
+  #pushBorderFrame(inset: number, thickness: number, r: number, g: number, b: number, a: number): void {
+    const clampedInset = Math.min(0.5, Math.max(0, inset));
+    const outerEdge = Math.min(0.5, clampedInset + Math.min(0.5, Math.max(0, thickness)));
+    if (outerEdge <= clampedInset) return;
+    const vertices = new Float32Array(4 * 6 * PRIM_STRIDE);
+    let at = 0;
+    const quad = (x0: number, y0: number, x1: number, y1: number): void => {
+      const emit = (x: number, y: number): void => {
+        vertices[at] = x * 2 - 1;
+        vertices[at + 1] = 1 - y * 2;
+        vertices[at + 4] = r;
+        vertices[at + 5] = g;
+        vertices[at + 6] = b;
+        vertices[at + 7] = a;
+        at += PRIM_STRIDE;
+      };
+      emit(x0, y0);
+      emit(x1, y0);
+      emit(x0, y1);
+      emit(x1, y0);
+      emit(x1, y1);
+      emit(x0, y1);
+    };
+    const i0 = clampedInset;
+    const i1 = outerEdge;
+    quad(i0, i0, 1 - i0, i1); // top strip
+    quad(i0, 1 - i1, 1 - i0, 1 - i0); // bottom strip
+    quad(i0, i1, i1, 1 - i1); // left strip
+    quad(1 - i1, i1, 1 - i0, 1 - i1); // right strip
+    this.#seedPrimsAfter.push({ kind: "triangles", additive: false, textured: false, vertices, vertexCount: 24 });
   }
 
   /** Time and spectrum arrays at MilkDrop's scales: signed bytes, FFT bins. */
