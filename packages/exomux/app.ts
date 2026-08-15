@@ -8,9 +8,12 @@ import {
   createAnsiStyle,
   DrawObject,
   encodeTerminalKeyPress,
+  clampContextMenuSelection,
+  contextMenuPlacement,
   listWindowFromTop,
   modalActionRects,
   ModalController,
+  shiftContextMenuSelection,
   type PointerInputEvent,
   type Rectangle,
   resolveTerminalCellStyle,
@@ -91,6 +94,7 @@ import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
 import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
 import { ExomuxNetworkTree } from "./network_tree.ts";
+import { ExomuxStartMenu } from "./start_menu.ts";
 import { widgetSurfaceCellData } from "./widget_surface.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
@@ -326,12 +330,11 @@ export function exomuxStartMenuLayout(
   const width = Math.min(Math.max(18, labelWidth + 4), Math.max(4, bounds.width));
   const height = Math.min(entries.length + 2, Math.max(3, bounds.height - 1));
   // Docked under the start button by default; a right-click anchors it at the
-  // cursor, clamped so the whole panel stays on screen.
-  const column = anchor
-    ? Math.max(bounds.column, Math.min(anchor.column, bounds.column + bounds.width - width))
-    : bounds.column;
-  const row = anchor ? Math.max(bounds.row, Math.min(anchor.row, bounds.row + bounds.height - height)) : bounds.row + 1;
-  const panelRect: Rectangle = { column, row, width, height };
+  // cursor, clamped on screen by the library's context-menu placement rule.
+  const panelRect: Rectangle = contextMenuPlacement(bounds, width, height, anchor, {
+    column: bounds.column,
+    row: bounds.row + 1,
+  });
   const items = entries.map((item, index) => ({
     id: item.id,
     label: item.label,
@@ -1040,6 +1043,13 @@ export function mountExomuxDesktop(
       ],
     }),
   );
+  // The start-menu dropdown as a real composited ContextMenu (WS-007), with
+  // keyboard selection the hand-drawn menu never had.
+  const startMenuView = own(new ExomuxStartMenu(bumpSettingsWidgets));
+  const startMenuSelection = own(new Signal(0));
+  controller.startMenuVisible.subscribe(() => {
+    if (controller.startMenuVisible.peek()) startMenuSelection.value = 0;
+  }, subscriptions.signal);
   const openModalAtDefault = (modal: ModalController) => {
     modal.open();
     const actions = modal.actions.peek();
@@ -1285,6 +1295,7 @@ export function mountExomuxDesktop(
         // interaction even when the background is static (a picture) and no
         // longer forces a repaint every animation tick.
         controller.startMenuVisible.value,
+        startMenuSelection.value,
         controller.startMenuAnchor.value?.column,
         controller.startMenuAnchor.value?.row,
         controller.sessionName.value,
@@ -1365,6 +1376,8 @@ export function mountExomuxDesktop(
         networkTreeView,
         killModalSelection: killModal.selectedAction()?.id,
         quitModalSelection: quitModal.selectedAction()?.id,
+        startMenuView,
+        startMenuSelection: startMenuSelection.peek(),
         blockCursor: exomuxBlockCursorRender(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
@@ -2569,7 +2582,27 @@ export function mountExomuxDesktop(
       return;
     }
     if (controller.startMenuVisible.peek()) {
-      if (event.key === "escape" || event.key.toLowerCase() === "q") controller.closeStartMenu();
+      if (event.key === "escape" || event.key.toLowerCase() === "q") {
+        controller.closeStartMenu();
+        return;
+      }
+      const menuItems = exomuxStartMenuItems(controller);
+      if (event.key === "up" || event.key === "down") {
+        startMenuSelection.value = shiftContextMenuSelection(
+          menuItems,
+          startMenuSelection.peek(),
+          event.key === "up" ? -1 : 1,
+        );
+        return;
+      }
+      if (event.key === "return" || event.key === "space") {
+        const item = menuItems[clampContextMenuSelection(menuItems, startMenuSelection.peek())];
+        if (item) {
+          controller.closeStartMenu();
+          await performMenu(item.id);
+        }
+        return;
+      }
       return;
     }
     if (controller.helpVisible.peek()) {
@@ -3268,6 +3301,10 @@ interface RenderExomuxDesktopOptions {
   killModalSelection?: string;
   /** Selected action id of the end-session modal's ModalController. */
   quitModalSelection?: string;
+  /** Hosts the start menu's rows as a real composited ContextMenu. */
+  startMenuView?: ExomuxStartMenu;
+  /** Keyboard selection inside the start menu. */
+  startMenuSelection?: number;
   /** Sessions viewport top set by the wheel; -1 follows the selection. */
   sessionListScrollTop?: number;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
@@ -3516,7 +3553,9 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     });
   }
   if (projection.switcher) paintSwitcher(painter, projection, theme);
-  if (controller.startMenuVisible.peek()) paintStartMenu(painter, bounds, theme, controller);
+  if (controller.startMenuVisible.peek()) {
+    paintStartMenu(painter, bounds, theme, controller, options.startMenuView, options.startMenuSelection ?? 0);
+  }
   if (controller.helpVisible.peek()) paintHelp(painter, projection, theme);
   if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme, options.quitModalSelection);
   const scpRequest = controller.pendingScp.peek();
@@ -3571,18 +3610,44 @@ function paintStartMenu(
   bounds: Rectangle,
   theme: ExomuxThemeSpec,
   controller: ExomuxController,
+  startMenuView?: ExomuxStartMenu,
+  selectedIndex = 0,
 ): void {
-  const { panelRect, items } = exomuxStartMenuLayout(
-    bounds,
-    controller.startMenuAnchor.peek(),
-    exomuxStartMenuItems(controller),
-  );
+  const entries = exomuxStartMenuItems(controller);
+  const { panelRect, items } = exomuxStartMenuLayout(bounds, controller.startMenuAnchor.peek(), entries);
   painter.fill(panelRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.borderBox(panelRect, exomuxBorderGlyphs("thin"), {
     foreground: theme.accent,
     background: theme.surfaceStrong,
     bold: true,
   });
+  const inner: Rectangle = {
+    column: panelRect.column + 1,
+    row: panelRect.row + 1,
+    width: Math.max(0, panelRect.width - 2),
+    height: Math.max(0, panelRect.height - 2),
+  };
+  startMenuView?.sync({
+    width: Math.max(1, inner.width),
+    height: Math.max(1, inner.height),
+    items: entries.map((item) => ({ id: item.id, label: item.label, danger: item.danger ?? false })),
+    selectedIndex,
+    foreground: theme.text,
+    background: theme.surfaceStrong,
+    dangerForeground: theme.danger,
+    selectedForeground: theme.background,
+    selectedBackground: theme.accent,
+  });
+  if (startMenuView?.ready()) {
+    for (let row = 0; row < inner.height; row += 1) {
+      for (let column = 0; column < inner.width; column += 1) {
+        const cell = startMenuView.cellAt(row, column);
+        if (cell !== undefined && cell !== "") painter.rawCell(inner.column + column, inner.row + row, cell);
+      }
+    }
+    return;
+  }
+  // Hand-drawn fallback until the composited snapshot lands.
   for (const item of items) {
     if (item.rect.row >= panelRect.row + panelRect.height - 1) break;
     painter.write(item.rect.column, item.rect.row, fitText(item.label, item.rect.width), {

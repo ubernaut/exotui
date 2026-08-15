@@ -4,6 +4,10 @@ import type { KeyPressEvent } from "../input_reader/types.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
 import { drawTextRows } from "./text_children.ts";
+import { TextObject, type TextRectangle } from "../canvas/text.ts";
+import type { Rectangle } from "../types.ts";
+import type { Style } from "../theme.ts";
+import { padListRow } from "./list.ts";
 
 /** Public interface describing a context Menu Item. */
 export interface ContextMenuItem {
@@ -11,12 +15,48 @@ export interface ContextMenuItem {
   label: string;
   disabled?: boolean;
   separatorBefore?: boolean;
+  /** Marks a destructive command (delete, quit); renderers give it the danger tone. */
+  danger?: boolean;
 }
+
+/** Chooses the style for one menu row; falls back to the component's base. */
+export type ContextMenuItemStyle = (item: ContextMenuItem, selected: boolean) => Style | undefined;
+
+/** Resolves the one-character leading marker for a menu row. */
+export type ContextMenuRowMarker = (item: ContextMenuItem, selected: boolean) => string;
 
 /** Options for configuring context Menu. */
 export interface ContextMenuOptions extends ComponentOptions, ContextMenuControllerOptions {
   controller?: ContextMenuController;
   onSelect?: (item: ContextMenuItem) => void | Promise<void>;
+  /** Per-item style (danger tone, selection block); falls back to the base theme. */
+  itemStyle?: ContextMenuItemStyle;
+  /** Per-item leading marker (default `>` for the selected row). */
+  markerFor?: ContextMenuRowMarker;
+}
+
+/**
+ * Places a context menu at a pointer anchor, clamped so the whole panel stays
+ * on screen; without an anchor the caller-provided docked position is used
+ * (itself clamped). This is the "open at the cursor, never off the edge" rule
+ * a right-click menu needs.
+ */
+export function contextMenuPlacement(
+  bounds: Rectangle,
+  width: number,
+  height: number,
+  anchor?: { readonly column: number; readonly row: number },
+  docked: { readonly column: number; readonly row: number } = { column: bounds.column, row: bounds.row },
+): Rectangle {
+  const fittedWidth = Math.min(Math.max(1, width), Math.max(1, bounds.width));
+  const fittedHeight = Math.min(Math.max(1, height), Math.max(1, bounds.height));
+  const at = anchor ?? docked;
+  return {
+    column: Math.max(bounds.column, Math.min(at.column, bounds.column + bounds.width - fittedWidth)),
+    row: Math.max(bounds.row, Math.min(at.row, bounds.row + bounds.height - fittedHeight)),
+    width: fittedWidth,
+    height: fittedHeight,
+  };
 }
 
 /** Options for configuring context Menu Controller. */
@@ -181,10 +221,14 @@ export class ContextMenuController {
 
 /** Public class implementing a context Menu. */
 export class ContextMenu extends Component {
+  declare drawnObjects: { styledRows?: TextObject[] };
   items: Signal<ContextMenuItem[]>;
   selectedIndex: Signal<number>;
   readonly controller: ContextMenuController;
   readonly #rows: Computed<string[]>;
+  readonly #itemStyle?: ContextMenuItemStyle;
+  readonly #markerFor?: ContextMenuRowMarker;
+  #styledRows: TextObject[] = [];
 
   constructor(private readonly options: ContextMenuOptions) {
     super(options);
@@ -196,6 +240,8 @@ export class ContextMenu extends Component {
       });
     this.items = this.controller.items;
     this.selectedIndex = this.controller.selectedIndex;
+    this.#itemStyle = options.itemStyle;
+    this.#markerFor = options.markerFor;
     this.#rows = new Computed(() =>
       renderContextMenuRows(this.items.value, this.selectedIndex.value, this.rectangle.value.height)
     );
@@ -214,6 +260,58 @@ export class ContextMenu extends Component {
 
   override draw(): void {
     super.draw();
-    drawTextRows(this, this.#rows);
+    // Per-item styling (a danger tone, a selection block) needs per-row styled
+    // objects; without it the uniform cached text path is kept.
+    if (this.#itemStyle || this.#markerFor) this.#drawStyledRows();
+    else drawTextRows(this, this.#rows);
+  }
+
+  /** One styled TextObject per viewport row, reused across scrolls and redraws. */
+  #drawStyledRows(): void {
+    const height = Math.max(0, Math.floor(this.rectangle.peek().height));
+    const rows = this.drawnObjects.styledRows ??= this.#styledRows;
+    const rowAt = (offset: number) => {
+      const visible = visibleContextMenuItems(
+        this.items.value,
+        this.selectedIndex.value,
+        Math.max(0, Math.floor(this.rectangle.value.height)),
+      );
+      return visible[offset];
+    };
+    while (rows.length < height) {
+      const offset = rows.length;
+      const object = new TextObject({
+        canvas: this.tui.canvas,
+        view: this.view,
+        zIndex: this.zIndex,
+        overwriteRectangle: true,
+        rectangle: new Computed<TextRectangle>(() => {
+          const rect = this.rectangle.value;
+          return { column: rect.column, row: rect.row + offset, width: Math.max(0, rect.width) };
+        }),
+        value: new Computed(() => {
+          const rect = this.rectangle.value;
+          const row = rowAt(offset);
+          if (!row) return "";
+          if (row.item.separatorBefore) {
+            return padListRow("─".repeat(Math.max(1, rect.width)), Math.max(0, rect.width));
+          }
+          const marker = this.#markerFor
+            ? this.#markerFor(row.item, row.selected)
+            : row.selected
+            ? ">"
+            : " ";
+          const label = row.item.disabled ? `(${row.label})` : row.label;
+          return padListRow(`${marker} ${label}`, Math.max(0, rect.width));
+        }),
+        style: new Computed(() => {
+          const row = rowAt(offset);
+          if (!row) return this.style.value;
+          return this.#itemStyle?.(row.item, row.selected) ?? this.style.value;
+        }),
+      });
+      object.draw();
+      rows.push(object);
+    }
   }
 }

@@ -2669,3 +2669,69 @@ Deno.test("ModalController arrows a stacked modal with up/down", async () => {
     modal.dispose();
   }
 });
+
+Deno.test("contextMenuPlacement anchors at the cursor and clamps on screen", async () => {
+  const { contextMenuPlacement } = await import("../src/components/context_menu.ts");
+  const bounds = { column: 0, row: 0, width: 80, height: 24 };
+  // Anchored well inside: the menu opens at the cursor.
+  assertEquals(contextMenuPlacement(bounds, 20, 8, { column: 30, row: 10 }), {
+    column: 30,
+    row: 10,
+    width: 20,
+    height: 8,
+  });
+  // Anchored at the bottom-right corner: clamped fully on screen.
+  assertEquals(contextMenuPlacement(bounds, 20, 8, { column: 75, row: 22 }), {
+    column: 60,
+    row: 16,
+    width: 20,
+    height: 8,
+  });
+  // No anchor: the caller's docked position, itself clamped.
+  assertEquals(contextMenuPlacement(bounds, 20, 8, undefined, { column: 0, row: 1 }), {
+    column: 0,
+    row: 1,
+    width: 20,
+    height: 8,
+  });
+});
+
+Deno.test("ContextMenu renders danger items and selection through itemStyle", async () => {
+  const { ContextMenu } = await import("../src/components/context_menu.ts");
+  const { WidgetSurface, widgetSurfaceCellData } = await import("../mod.app.ts");
+  const { createAnsiStyle } = await import("../src/theme.ts");
+  const base = createAnsiStyle({ foreground: [220, 220, 220], background: [20, 22, 30] });
+  const danger = createAnsiStyle({ foreground: [240, 60, 60], background: [20, 22, 30], bold: true });
+  const selected = createAnsiStyle({ foreground: [0, 0, 0], background: [120, 180, 250], bold: true });
+  const surface = new WidgetSurface(20, 4);
+  try {
+    surface.mount((tui) => [
+      new ContextMenu({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 20, height: 4 },
+        theme: { base },
+        items: [
+          { id: "new", label: "New terminal" },
+          { id: "help", label: "Help" },
+          { id: "quit", label: "Quit", danger: true },
+        ],
+        itemStyle: (item, isSelected) => isSelected ? selected : item.danger ? danger : base,
+      }),
+    ]);
+    await surface.render();
+    // Row 0 is the selection block, row 2 the danger-toned Quit.
+    const selectedCell = widgetSurfaceCellData(surface.cellAt(0, 3));
+    assertEquals(selectedCell?.background, [120, 180, 250]);
+    const dangerCell = widgetSurfaceCellData(surface.cellAt(2, 3));
+    assertEquals(dangerCell?.foreground, [240, 60, 60]);
+    assertEquals(dangerCell?.bold, true);
+    let quitRow = "";
+    for (let column = 0; column < 20; column += 1) {
+      quitRow += widgetSurfaceCellData(surface.cellAt(2, column))?.glyph ?? " ";
+    }
+    assertEquals(quitRow.includes("Quit"), true);
+  } finally {
+    surface.dispose();
+  }
+});

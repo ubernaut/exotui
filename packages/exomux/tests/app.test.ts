@@ -4872,3 +4872,67 @@ Deno.test("Exomux kill and quit modals arrow their actions like a real Modal", a
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux start menu arrows its commands and renders the composited danger tone", async () => {
+  const initial = session("menu-shell", "menu shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    await harness.pilot.click(1, 0);
+    await mounted.whenIdle();
+    assertEquals(controller.startMenuVisible.peek(), true);
+
+    // Arrow down to the second command and activate it with Enter.
+    const items = exomuxStartMenuItems(controller);
+    await harness.pilot.press("down");
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+    assertEquals(controller.startMenuVisible.peek(), false);
+    // The second entry is the settings command in the default menu.
+    if (items[1]?.id === "config") {
+      assertEquals(controller.globalConfigVisible.peek(), true);
+      controller.closeGlobalConfig();
+      await mounted.whenIdle();
+    }
+
+    // Reopen and wait for the composited ContextMenu: the danger Quit row
+    // renders in the theme's danger tone through the real component.
+    await harness.pilot.click(1, 0);
+    await mounted.whenIdle();
+    const theme = controller.theme.peek();
+    const layout = exomuxStartMenuLayout(
+      harness.app.tui.rectangle.peek(),
+      controller.startMenuAnchor.peek(),
+      exomuxStartMenuItems(controller),
+    );
+    const quit = layout.items.find((item) => item.id === "quit");
+    assert(quit);
+    const cellText = (column: number, row: number): string => {
+      const value = harness.canvas.frameBuffer[row]?.[column] ?? "";
+      return typeof value === "string" ? value : new TextDecoder().decode(value);
+    };
+    // Pump settle until the composited snapshot lands (the marker column of the
+    // selected first row is only painted by the real ContextMenu).
+    const selectedRowY = layout.panelRect.row + 1;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (stripAnsi(cellText(layout.panelRect.column + 1, selectedRowY)).includes(">")) break;
+      await harness.pilot.settle();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assertStringIncludes(stripAnsi(cellText(layout.panelRect.column + 1, selectedRowY)), ">");
+    assertStringIncludes(
+      cellText(quit.rect.column + 2, quit.rect.row),
+      `38;2;${theme.danger.join(";")}`,
+    );
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
