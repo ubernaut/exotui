@@ -1,8 +1,8 @@
 # Exomux Network Menu Program (formerly "Tailnet")
 
-Status: **complete through the MVP + TSM-006/010/011/012/013/014 (incl. OSC 7 cwd) as of Aug 15 2026.** Only the
-Phase 2/3 ledgers below remain open. Fleshes out the original notes in `plan/tailscale-integration.md`; this
-document is the authoritative plan and supersedes those notes.
+Status: **complete through the MVP + TSM-006/010/011/012/013/014 (incl. OSC 7 cwd) as of Aug 15 2026.** Only the Phase
+2/3 ledgers below remain open. Fleshes out the original notes in `plan/tailscale-integration.md`; this document is the
+authoritative plan and supersedes those notes.
 
 ## Direction updates (user, July 21 2026)
 
@@ -25,29 +25,29 @@ document is the authoritative plan and supersedes those notes.
   is the remote home directory; OSC 7 remote-cwd tracking (D4) remains open.
 - **TSM-010 landed Aug 15 2026:** every saved host and tailnet device grows an `Actions` subtree — System monitor
   (`ssh -t` with a remote `btop → htop → top` probe, one command string resolved by the remote shell), Ping (bounded
-  argv-only local `ping -c 1 -W 3` through the injectable `TailnetCommandRunner`, result in the status line), and
-  Copy IPv4 / Copy MagicDNS / Copy address (OSC 52 through the hosting terminal's stdout via the library's
-  `terminalClipboardSequence`; a status-line confirmation names what was copied). The Details modal from the ledger
-  row was deferred — it was not in the acceptance criteria.
+  argv-only local `ping -c 1 -W 3` through the injectable `TailnetCommandRunner`, result in the status line), and Copy
+  IPv4 / Copy MagicDNS / Copy address (OSC 52 through the hosting terminal's stdout via the library's
+  `terminalClipboardSequence`; a status-line confirmation names what was copied). The Details modal from the ledger row
+  was deferred — it was not in the acceptance criteria.
 - **TSM-012/013 landed Aug 15 2026:** every machine grows a lazily-probed `Sessions` node — expanding it runs one
   batched `ssh -o BatchMode=yes` command (tmux tab-separated rows, a `--exomux--` marker, then exomux's own session
-  table) through the bounded injectable runner, cached per target with a 30s TTL and force-refreshed by `r`.
-  Discovered rows render as `tmux: main (3) · attached` / `exomux: default (2)`; Enter attaches over
+  table) through the bounded injectable runner, cached per target with a 30s TTL and force-refreshed by `r`. Discovered
+  rows render as `tmux: main (3) · attached` / `exomux: default (2)`; Enter attaches over
   `ssh -t <target> tmux attach -t <name>` (or `exomux -a <name>`) in a new window, re-activating focuses the window
   already attached to that machine+session, and Shift-Enter forces a second attachment. Hostile probe lines and
   non-conservative session names are dropped before argv.
-- **Fuzzy filter landed Aug 15 2026** (the TSM-006 remainder): `/` in the network panel starts a vim-search-style
-  filter — printable keys narrow (case-insensitive in-order subsequence across machine names, DNS names, OS tags,
-  and discovered remote-session names), survivors auto-expand, arrows/Enter keep their meaning, backspace-on-empty
-  or Escape clears. While editing, the panel owns all typing (`r` refresh works only when no filter is active).
-- **TSM-011 + OSC 7 cwd landed Aug 15 2026:** `EXOMUX_PERMISSION_MANIFESTS` declares every subprocess/network class
-  up front (host daemon + shells required; tailscale, ssh, ping, scp optional, one adapter each for provenance) with
+- **Fuzzy filter landed Aug 15 2026** (the TSM-006 remainder): `/` in the network panel starts a vim-search-style filter
+  — printable keys narrow (case-insensitive in-order subsequence across machine names, DNS names, OS tags, and
+  discovered remote-session names), survivors auto-expand, arrows/Enter keep their meaning, backspace-on-empty or Escape
+  clears. While editing, the panel owns all typing (`r` refresh works only when no filter is active).
+- **TSM-011 + OSC 7 cwd landed Aug 15 2026:** `EXOMUX_PERMISSION_MANIFESTS` declares every subprocess/network class up
+  front (host daemon + shells required; tailscale, ssh, ping, scp optional, one adapter each for provenance) with
   `exomuxPermissionReport()` aggregating them; the provider now reports a live `network.tailscale` capability that
-  follows the poller's availability (unavailable → degraded → available without restart), and the app manifest
-  lists it as optional. The library's `TerminalScreenController` tracks OSC 7 `file://host/path` working-directory
-  reports (malformed payloads never clear a good one), and the scp cwd capture uses the reported directory before
-  falling back to the `pwd` probe — so shells with OSC 7 integration get exact destinations even mid-command or
-  under a full-screen app. D4 resolved: OSC 7 when the shell emits it, probe → home fallback otherwise.
+  follows the poller's availability (unavailable → degraded → available without restart), and the app manifest lists it
+  as optional. The library's `TerminalScreenController` tracks OSC 7 `file://host/path` working-directory reports
+  (malformed payloads never clear a good one), and the scp cwd capture uses the reported directory before falling back
+  to the `pwd` probe — so shells with OSC 7 integration get exact destinations even mid-command or under a full-screen
+  app. D4 resolved: OSC 7 when the shell emits it, probe → home fallback otherwise.
 
 This roadmap adds first-class Tailscale awareness to the Exomux terminal-multiplexer showcase: a `[ Tailnet ]` menu-bar
 entry beside `[ New ]` that opens a floating, TOC-style tree panel on the left edge of the desktop, from which tailnet
@@ -219,23 +219,23 @@ machines can be inspected, opened as SSH terminal sessions, monitored, and used 
 
 ## Feature ledger
 
-| ID      | Feature                                                                                               | Acceptance                                                                                                                                                                                                                  | Label   |
-| ------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| TSM-001 | `[ Tailnet ]` menu entry + `ExomuxMenuId`                                                             | Entry renders beside `[ New ]`, toggles panel, muted-but-present when unavailable; pointer + keyboard activation covered by pilot test                                                                                      | Compose |
-| TSM-002 | `TailscaleStatusSource` (CLI exec, deadline, byte cap, strict parse, secret stripping)                | Fixture tests: valid status, oversized output, malformed JSON, missing binary, NeedsLogin; no key material survives parsing                                                                                                 | Host    |
-| TSM-003 | `TailnetDevice`/`TailnetRemoteSession` model + controller signals + snapshot cache                    | Normalizers reject hostile fields; cache round-trips through terminal store; stale badge deterministic under fake clock                                                                                                     | Core    |
-| TSM-004 | Floating tree panel window (left-docked default, persistent geometry/visibility/expansion)            | Opens at default rect on first run, restores persisted state on relaunch, resizes within min/max, closes with focus return                                                                                                  | Compose |
-| TSM-005 | Tree composition on the existing tree widget: groups, machine rows, glyph+color status, detail toggle | Snapshot tests across at least two themes; color-blind-safe glyph/text pairing asserted; offline group collapsed by default                                                                                                 | Compose |
-| TSM-006 | Keyboard nav + expand/collapse + fuzzy filter + manual refresh                                        | Pilot test drives `↑/↓ j/k ←/→ Tab / r Esc Enter` end-to-end with fixture data                                                                                                                                              | Compose |
-| TSM-007 | SSH shell spawn (default + as-user) with argv validation and title propagation                        | Spawn request captured in host test carries expected argv/title; hostile hostname rejected before spawn                                                                                                                     | Host    |
-| TSM-008 | Degraded/unavailable panel states with actionable hints (`install tailscale`, `tailscale up`)         | Each state renders its hint; no polling in `unavailable`; recovery to `ready` without restart                                                                                                                               | Core    |
-| TSM-009 | Poll scheduler (jitter, backoff, visibility-gated, task-group supervised)                             | Fake-clock tests prove cadence, backoff ceiling, zero subprocess spawns while hidden, clean cancellation on dispose                                                                                                         | Core    |
-| TSM-010 | Per-machine Actions nodes: system monitor, ping, copy IPv4/DNS (OSC 52), details modal                | Monitor spawns configured argv over `ssh -t`; ping result/timeout in status line; copy emits OSC 52 payload in pilot capture                                                                                                | Compose |
-| TSM-011 | Permission manifest + provider capability reporting                                                   | Activation report lists tailscale/ssh/scp subprocess grants with provenance; capability transitions available→degraded→available under fixture control                                                                      | Host    |
-| TSM-012 | Remote session discovery (tmux + exomux probe over SSH, TTL cache, lazy on expand)                    | Fixture-driven probe parser tests incl. hostile/truncated output; empty-state and offline rows render; no probe for collapsed nodes                                                                                         | Host    |
-| TSM-013 | Session attach with focus-if-open                                                                     | Activating a listed session spawns attach argv; re-activating focuses the existing window; `Shift-Enter` forces a duplicate; map survives window close                                                                      | Compose |
-| TSM-014 | Paste/drop → scp with OSC 7 cwd tracking and confirm modal                                            | Path paste on a tailnet SSH window offers Send/Paste path/Cancel; OSC 7 dir used when present, home fallback labeled; plain text never intercepted; transfer progress + failure surfaced; deterministic tests with fake scp | Host    |
-| TSM-015 | Docs + showcase roadmap sync (this file, hiatus/025 ledger, api-reference if any public surface moves)       | `deno task exomux:check` and repo gates pass; hiatus/025 references the TSM block                                                                                                                                                  | Gap     |
+| ID      | Feature                                                                                                | Acceptance                                                                                                                                                                                                                  | Label   |
+| ------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| TSM-001 | `[ Tailnet ]` menu entry + `ExomuxMenuId`                                                              | Entry renders beside `[ New ]`, toggles panel, muted-but-present when unavailable; pointer + keyboard activation covered by pilot test                                                                                      | Compose |
+| TSM-002 | `TailscaleStatusSource` (CLI exec, deadline, byte cap, strict parse, secret stripping)                 | Fixture tests: valid status, oversized output, malformed JSON, missing binary, NeedsLogin; no key material survives parsing                                                                                                 | Host    |
+| TSM-003 | `TailnetDevice`/`TailnetRemoteSession` model + controller signals + snapshot cache                     | Normalizers reject hostile fields; cache round-trips through terminal store; stale badge deterministic under fake clock                                                                                                     | Core    |
+| TSM-004 | Floating tree panel window (left-docked default, persistent geometry/visibility/expansion)             | Opens at default rect on first run, restores persisted state on relaunch, resizes within min/max, closes with focus return                                                                                                  | Compose |
+| TSM-005 | Tree composition on the existing tree widget: groups, machine rows, glyph+color status, detail toggle  | Snapshot tests across at least two themes; color-blind-safe glyph/text pairing asserted; offline group collapsed by default                                                                                                 | Compose |
+| TSM-006 | Keyboard nav + expand/collapse + fuzzy filter + manual refresh                                         | Pilot test drives `↑/↓ j/k ←/→ Tab / r Esc Enter` end-to-end with fixture data                                                                                                                                              | Compose |
+| TSM-007 | SSH shell spawn (default + as-user) with argv validation and title propagation                         | Spawn request captured in host test carries expected argv/title; hostile hostname rejected before spawn                                                                                                                     | Host    |
+| TSM-008 | Degraded/unavailable panel states with actionable hints (`install tailscale`, `tailscale up`)          | Each state renders its hint; no polling in `unavailable`; recovery to `ready` without restart                                                                                                                               | Core    |
+| TSM-009 | Poll scheduler (jitter, backoff, visibility-gated, task-group supervised)                              | Fake-clock tests prove cadence, backoff ceiling, zero subprocess spawns while hidden, clean cancellation on dispose                                                                                                         | Core    |
+| TSM-010 | Per-machine Actions nodes: system monitor, ping, copy IPv4/DNS (OSC 52), details modal                 | Monitor spawns configured argv over `ssh -t`; ping result/timeout in status line; copy emits OSC 52 payload in pilot capture                                                                                                | Compose |
+| TSM-011 | Permission manifest + provider capability reporting                                                    | Activation report lists tailscale/ssh/scp subprocess grants with provenance; capability transitions available→degraded→available under fixture control                                                                      | Host    |
+| TSM-012 | Remote session discovery (tmux + exomux probe over SSH, TTL cache, lazy on expand)                     | Fixture-driven probe parser tests incl. hostile/truncated output; empty-state and offline rows render; no probe for collapsed nodes                                                                                         | Host    |
+| TSM-013 | Session attach with focus-if-open                                                                      | Activating a listed session spawns attach argv; re-activating focuses the existing window; `Shift-Enter` forces a duplicate; map survives window close                                                                      | Compose |
+| TSM-014 | Paste/drop → scp with OSC 7 cwd tracking and confirm modal                                             | Path paste on a tailnet SSH window offers Send/Paste path/Cancel; OSC 7 dir used when present, home fallback labeled; plain text never intercepted; transfer progress + failure surfaced; deterministic tests with fake scp | Host    |
+| TSM-015 | Docs + showcase roadmap sync (this file, hiatus/025 ledger, api-reference if any public surface moves) | `deno task exomux:check` and repo gates pass; hiatus/025 references the TSM block                                                                                                                                           | Gap     |
 
 ### Phase 2 (after MVP verified)
 

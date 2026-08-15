@@ -1,7 +1,8 @@
 # Butterchurn GPU render fidelity — closing the GPU-vs-CPU gap
 
-Status: in progress; third systematic fix (MilkDrop motion vectors + screen borders as GPU seed geometry) landed
-Aug 15 2026 — regression 58 → 36. The residual echo-amplifier class is characterised below. Driven by user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
+Status: in progress; third systematic fix (MilkDrop motion vectors + screen borders as GPU seed geometry) landed Aug 15
+2026 — regression 58 → 36. The residual echo-amplifier class is characterised below. Driven by user direction: "GPU
+curation isn't really ideal. it'd be better to fix the broken presets."
 
 ## The real numbers (measured, not guessed)
 
@@ -19,9 +20,9 @@ than the CPU," which came from comparing two audit scripts with different thresh
 | — of those dim (0.5–3%)                     | 15       | 9*                   | 7                           |
 
 \* The Aug 15 re-measurement of the pre-seed state (same sandbox, same thresholds, fresh run) — run-to-run variance
-against the Aug 14 numbers comes from audio-driven warmup differences. The before/after pair in the last two columns
-is same-day, same-environment: the motion-vector/border seeding cut the regression **58 → 36** and lifted total GPU
-renders 311 → 357 of 472.
+against the Aug 14 numbers comes from audio-driven warmup differences. The before/after pair in the last two columns is
+same-day, same-environment: the motion-vector/border seeding cut the regression **58 → 36** and lifted total GPU renders
+311 → 357 of 472.
 
 Head to head, the GPU renders **more** of the catalog than the CPU (347 vs 269 after the fixes). The "GPU is worse"
 framing was wrong. The genuine regression is the narrow "CPU renders, GPU black" set — 69, now 46.
@@ -67,27 +68,27 @@ Intel) is expensive. They stay out of the auto-cycle rotation (so no strobe) and
 ### Aug 15 2026 findings (the three candidate steps, worked)
 
 - **Uniform coverage — audited, not the cause.** `scale1..3`/`bias1..3` are all written (1/0 for all three), which is
-  self-consistent with the unnormalized blur chain; the nine-tap gaussian weights sum to 1.0 (brightness-preserving).
-  No `shade()` uniform a black preset reads is missing. The fixed 0..1 blur range does clip >1 energies a real
-  butterchurn would range-compress (dimmer blooms), but that cannot produce black.
-- **WGSL diff — translation intact.** `Goody - The Wild Vort`'s translated warp (`blur1·scale1 + bias1 − main`) and
-  comp (the video-echo mix, ×2.4 gamma, then squared) carry every term of the author's shader; nothing is dropped or
+  self-consistent with the unnormalized blur chain; the nine-tap gaussian weights sum to 1.0 (brightness-preserving). No
+  `shade()` uniform a black preset reads is missing. The fixed 0..1 blur range does clip >1 energies a real butterchurn
+  would range-compress (dimmer blooms), but that cannot produce black.
+- **WGSL diff — translation intact.** `Goody - The Wild Vort`'s translated warp (`blur1·scale1 + bias1 − main`) and comp
+  (the video-echo mix, ×2.4 gamma, then squared) carry every term of the author's shader; nothing is dropped or
   const-folded. The blackness is loop dynamics, not translation.
 - **Seed the feedback loop — root cause found and fixed.** The black set's real seed in MilkDrop is geometry we never
-  drew on *either* renderer: the **motion-vector trail grid** (`mv_x/y/dx/dy/l/r/g/b/a`, up to 64×48, drawn every
-  frame — `Goody` sets `mv_a 0.2`) and the **inner/outer screen borders** (`ib_*`/`ob_*`). Both are now built by
+  drew on _either_ renderer: the **motion-vector trail grid** (`mv_x/y/dx/dy/l/r/g/b/a`, up to 64×48, drawn every frame
+  — `Goody` sets `mv_a 0.2`) and the **inner/outer screen borders** (`ib_*`/`ob_*`). Both are now built by
   `ExomuxButterchurnPreset` per frame (per-frame-equation animatable) into a GPU-only draw list (`gpuPrims`: vectors
-  under the custom prims, borders over them) — kept away from the software renderer's fixed ink budget so CPU output
-  is unchanged. Unit-tested; spot measurement on the regression set immediately lit a dozen formerly-0% presets
-  (several at 50–100% coverage).
+  under the custom prims, borders over them) — kept away from the software renderer's fixed ink budget so CPU output is
+  unchanged. Unit-tested; spot measurement on the regression set immediately lit a dozen formerly-0% presets (several at
+  50–100% coverage).
 
 ### What still stays black
 
 `Goody - The Wild Vort`-class presets whose picture is an **echo amplifier**: the warp is a pure high-pass
-(`blur1 − main`) and the additive full-screen textured shape re-injects only ~0.75× of the previous frame, so with
-our pipeline the loop settles near 0.03 luminance — below the cell rasterizer's `MIN_INK` (0.1) — while real
-butterchurn reaches saturation. Diagnosing needs a pixel-level readback probe of the intermediate passes (what does
-`main` hold after 100 frames?), not more shader reading; tracked as the next step.
+(`blur1 − main`) and the additive full-screen textured shape re-injects only ~0.75× of the previous frame, so with our
+pipeline the loop settles near 0.03 luminance — below the cell rasterizer's `MIN_INK` (0.1) — while real butterchurn
+reaches saturation. Diagnosing needs a pixel-level readback probe of the intermediate passes (what does `main` hold
+after 100 frames?), not more shader reading; tracked as the next step.
 
 ## Verification
 

@@ -4,7 +4,11 @@ import { createExomuxTerminalOptions, type ExomuxAppMountRef, exomuxStartMenuLay
 import { createExomuxController, EXOMUX_SESSIONS_WINDOW_ID, EXOMUX_SETTINGS_WINDOW_ID } from "../controller.ts";
 import { FakeExomuxClient, session } from "./app.test.ts";
 
-function snapshot(harness: { canvas: { frameBuffer: (string | Uint8Array)[][] } }, cols: number, rows: number): string[] {
+function snapshot(
+  harness: { canvas: { frameBuffer: (string | Uint8Array)[][] } },
+  cols: number,
+  rows: number,
+): string[] {
   const out: string[] = [];
   for (let r = 0; r < rows; r++) {
     let line = "";
@@ -17,7 +21,11 @@ function snapshot(harness: { canvas: { frameBuffer: (string | Uint8Array)[][] } 
   return out;
 }
 
-async function stabilize(harness: { pilot: { settle: () => Promise<unknown> }; canvas: { frameBuffer: (string | Uint8Array)[][] } }, cols: number, rows: number): Promise<string[]> {
+async function stabilize(
+  harness: { pilot: { settle: () => Promise<unknown> }; canvas: { frameBuffer: (string | Uint8Array)[][] } },
+  cols: number,
+  rows: number,
+): Promise<string[]> {
   let prev = snapshot(harness, cols, rows).join("\n");
   for (let i = 0; i < 40; i++) {
     await harness.pilot.settle();
@@ -115,7 +123,9 @@ Deno.test("interactive corner resize min->max leaves no ghosts in the frame or t
           mismatches++;
           if (samples.length < 8) {
             samples.push(
-              `(${c},${r}) term="${termGlyph}"/${JSON.stringify(termBg)} fb="${fb.glyph}"/${JSON.stringify(fb.background)}`,
+              `(${c},${r}) term="${termGlyph}"/${JSON.stringify(termBg)} fb="${fb.glyph}"/${
+                JSON.stringify(fb.background)
+              }`,
             );
           }
         }

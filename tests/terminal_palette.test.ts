@@ -10,10 +10,7 @@ import {
   terminalReadableForegroundRgb,
   type TerminalRgb,
 } from "../src/runtime/terminal_palette.ts";
-import {
-  encodeTerminalIndexedColor,
-  encodeTerminalRgbColor,
-} from "../src/runtime/terminal_color.ts";
+import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "../src/runtime/terminal_color.ts";
 import { TerminalScreenController } from "../src/runtime/terminal_screen.ts";
 import { TerminalScreen } from "../src/components/terminal_screen.ts";
 import { WidgetSurface, widgetSurfaceCellData } from "../mod.app.ts";

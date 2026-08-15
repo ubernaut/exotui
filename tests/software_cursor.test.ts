@@ -1,11 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
-import {
-  createAnyMotionTracking,
-  softwareCursorRender,
-  windowResizeGlyphAt,
-} from "../src/app/software_cursor.ts";
+import { createAnyMotionTracking, softwareCursorRender, windowResizeGlyphAt } from "../src/app/software_cursor.ts";
 import type { WorkbenchWindowHostProjection } from "../src/app/workbench_window_host.ts";
 import {
   animatedBackgroundHasPresets,
@@ -83,7 +79,10 @@ Deno.test("animated background guards narrow capabilities and release idle field
   assertEquals(animatedBackgroundIsDisposable(owning), true);
   assertEquals(animatedBackgroundHasPresets(preset), true);
 
-  const fields = new Map<string, typeof plain>([["a", plain], ["b", owning], ["keep", { ...plain, dispose: () => disposed++ }]]);
+  const fields = new Map<string, typeof plain>([["a", plain], ["b", owning], ["keep", {
+    ...plain,
+    dispose: () => disposed++,
+  }]]);
   releaseIdleAnimatedBackgrounds(fields, "keep");
   assertEquals(disposed, 1);
   assertEquals([...fields.keys()], ["a", "keep"]);

@@ -15,4 +15,4 @@ export type ExomuxWidgetCell = WidgetSurfaceCell;
 export { WidgetSurface as ExomuxWidgetSurface };
 
 /** Structured decode of one surface cell (glyph + truecolor attributes). */
-export { widgetSurfaceCellData, type WidgetSurfaceCellData } from "@ubernaut/deno-tui/app";
+export { type WidgetSurfaceCellData, widgetSurfaceCellData } from "@ubernaut/deno-tui/app";

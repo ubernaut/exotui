@@ -143,6 +143,12 @@
     "exclude": ["docs/screenshots", "docs/assets", "docs/api-stable-baseline.json"],
     "lineWidth": 120
   },
+  // Exomux is a standalone package with its own config and import map; root
+  // test discovery must not type-check it against this file's imports (the
+  // health gate's bare `deno test -A` step relies on this).
+  "test": {
+    "exclude": ["packages"]
+  },
   // `docs/assets` holds generated bundles; linting them buries the handful of
   // real findings under thousands of diagnostics from emitted code.
   "lint": {

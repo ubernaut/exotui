@@ -1,11 +1,11 @@
 # Transparent Window Stacking — show windows behind other transparent windows
 
-Status: **landed Aug 15 2026** — the scene-ground compositor (per-window commit batches so a window only blends
-against the scene below it; deposits hook `DesktopPainter.cell()`/`fill()`/`rawCell()`) and the control-opacity rule
-(window chrome + the settings window's control surface at `exomuxControlOpacity`) are in, with N-deep stacking,
-off-overlap, and chrome-blend covered by deterministic tests. Remaining: the phase-2 ghost-glyph idea stays out of
-scope; promoting the scene-ground contract into exotui rides WS-013 (031 follow-up); and the compositor perf budget
-still wants a manual pass on the user's strict Intel laptop.
+Status: **landed Aug 15 2026** — the scene-ground compositor (per-window commit batches so a window only blends against
+the scene below it; deposits hook `DesktopPainter.cell()`/`fill()`/`rawCell()`) and the control-opacity rule (window
+chrome + the settings window's control surface at `exomuxControlOpacity`) are in, with N-deep stacking, off-overlap, and
+chrome-blend covered by deterministic tests. Remaining: the phase-2 ghost-glyph idea stays out of scope; promoting the
+scene-ground contract into exotui rides WS-013 (031 follow-up); and the compositor perf budget still wants a manual pass
+on the user's strict Intel laptop.
 
 ## Motivation (user direction, Aug 14 2026)
 
@@ -23,14 +23,16 @@ pipeline (`circuit_background.ts` + `exomuxBackdropColor` in `app.ts`):
 
 1. **Rasterize the scene behind into structured cells** (`char` + `foreground`), not styled strings — the circuit
    field's `rasterizeCells` cell grid.
-2. **Reduce each glyph cell to one representative color by ink coverage**: `mix(theme.background, cell.foreground,
-   BACKDROP_COVERAGE[glyph])`, where `░ ▒ ▓ █` map to 0.25/0.5/0.75/1 and everything else to 0.55. A busy cell reads
-   as a strong color impression, a sparse one as a faint tint — no glyph noise bleeds through.
+2. **Reduce each glyph cell to one representative color by ink coverage**:
+   `mix(theme.background, cell.foreground,
+   BACKDROP_COVERAGE[glyph])`, where `░ ▒ ▓ █` map to 0.25/0.5/0.75/1 and
+   everything else to 0.55. A busy cell reads as a strong color impression, a sparse one as a faint tint — no glyph
+   noise bleeds through.
 3. **Blend the window's ground per cell**: `mix(backdropColor(x, y), theme.surface, opacity)` — every cell of the
    transparent window carries its own sampled ground.
 
 This roadmap applies the identical pipeline to **windows as scene content**: what sits beneath a transparent window is
-no longer just the background field but *everything already painted below it in z-order* — field, tiled windows, and
+no longer just the background field but _everything already painted below it in z-order_ — field, tiled windows, and
 lower floating windows — each reduced to its per-cell color impression and blended up through however many transparent
 layers stack.
 
@@ -46,17 +48,17 @@ layers stack.
 
 ### Deposit seam (painter-level, not call-site-level)
 
-`paintWindow` paints through many helpers (`fillWithGround`, `writeOnGround`, `paintTerminal`, widget-surface
-`rawCell` blits), so instrument `DesktopPainter` once instead of every call site:
+`paintWindow` paints through many helpers (`fillWithGround`, `writeOnGround`, `paintTerminal`, widget-surface `rawCell`
+blits), so instrument `DesktopPainter` once instead of every call site:
 
 - Add an optional deposit mode to `DesktopPainter`. While enabled, `cell()`/`write()`/`fill()` also write the painted
   cell's representative color into the scene ground: `mix(style.background, style.foreground, coverage(glyph))` — the
   exact circuit reduction, reusing the `BACKDROP_COVERAGE` table (export the helper; do not duplicate the table).
 - **Enable deposits only around the two window loops** (tiled, then floating) in `renderExomuxDesktop`. The top bar,
-  separators, post-window overlays, modals, switcher, and block cursor never deposit — they either paint before
-  windows (and are legitimately occluded) or after (and must not tint grounds retroactively).
-- Painting order is already back-to-front (tiled → floating in z-order), so each window's ground blend sees exactly
-  the scene beneath it, and N stacked transparent windows compose correctly with no extra passes.
+  separators, post-window overlays, modals, switcher, and block cursor never deposit — they either paint before windows
+  (and are legitimately occluded) or after (and must not tint grounds retroactively).
+- Painting order is already back-to-front (tiled → floating in z-order), so each window's ground blend sees exactly the
+  scene beneath it, and N stacked transparent windows compose correctly with no extra passes.
 
 ### `rawCell` (composited widget surfaces)
 
@@ -92,9 +94,9 @@ re-grounding, the modal/button fills), derive the control ground from the same b
 - **Opaque windows** deposit like any other (they are scene content for whatever floats above them); their own ground
   stays `theme.surface` exactly as today (`opacity >= 1` short-circuit unchanged).
 - **Terminal body cells**: `paintTerminal`'s per-cell blend (~`app.ts:3895`) already computes a final background per
-  cell; in deposit mode that final background (mixed with the glyph's foreground by coverage) is what lands in the
-  scene ground, so a transparent window over a terminal shows the terminal's actual content impression — bright
-  prompt lines, dark body — not a flat surface tint.
+  cell; in deposit mode that final background (mixed with the glyph's foreground by coverage) is what lands in the scene
+  ground, so a transparent window over a terminal shows the terminal's actual content impression — bright prompt lines,
+  dark body — not a flat surface tint.
 - **Perf**: deposits are O(painted window cells) with pure arithmetic per cell; no extra full-desktop pass. Reuse the
   buffer across frames (clear by generation stamp, not reallocation), mirroring the circuit field's reused scratch
   discipline.
@@ -114,9 +116,9 @@ re-grounding, the modal/button fills), derive the control ground from the same b
   `mix(mix(lowerBg, lowerFg, coverage), surface, 0.5)` and the non-overlap ground still equals the field blend.
 - Three-deep stack test: field → transparent A → transparent B; assert B's ground composes A's already-blended color,
   not the raw field.
-- Wide-glyph deposit test: lower window paints a double-width glyph under the upper window's edge; both columns read
-  the same deposited color.
+- Wide-glyph deposit test: lower window paints a double-width glyph under the upper window's edge; both columns read the
+  same deposited color.
 - Opaque-over-transparent ordering test: an opaque window above a transparent one deposits `theme.surface`-grounded
   cells and is itself unaffected.
-- Manual: the existing opacity setting over stacked terminals, on the circuit and butterchurn backgrounds, on the
-  user's strict Intel laptop (GPU paths are unaffected, but the compositor perf budget check belongs there).
+- Manual: the existing opacity setting over stacked terminals, on the circuit and butterchurn backgrounds, on the user's
+  strict Intel laptop (GPU paths are unaffected, but the compositor perf budget check belongs there).

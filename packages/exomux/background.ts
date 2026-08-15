@@ -11,9 +11,9 @@
 
 import {
   type AnimatedBackground,
+  animatedBackgroundAcceptsPicks,
   type AnimatedBackgroundAdvanceOptions,
   type AnimatedBackgroundCell,
-  animatedBackgroundAcceptsPicks,
   animatedBackgroundHasOverlay,
   animatedBackgroundHasPresets,
   type AnimatedBackgroundOverlayCell,

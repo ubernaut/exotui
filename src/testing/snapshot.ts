@@ -80,10 +80,12 @@ export function canvasSnapshot(canvas: Canvas): string {
   return frameBufferToSnapshot(canvas.frameBuffer);
 }
 
-/** Public helper for canvas Row Text. */
+/** Public helper for canvas Row Text. Styling is stripped: the row as plain text. */
 export function canvasRowText(canvas: Canvas, row: number, width: number = canvas.size.peek().columns): string {
-  return Array.from({ length: Math.max(0, width) }, (_, column) => String(canvas.frameBuffer[row]?.[column] ?? " "))
-    .join("");
+  return stripAnsi(
+    Array.from({ length: Math.max(0, width) }, (_, column) => String(canvas.frameBuffer[row]?.[column] ?? " "))
+      .join(""),
+  );
 }
 
 /** Public interface describing a terminal Snapshot Mismatch. */

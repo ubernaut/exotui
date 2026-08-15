@@ -296,11 +296,7 @@ export class ContextMenu extends Component {
           if (row.item.separatorBefore) {
             return padListRow("─".repeat(Math.max(1, rect.width)), Math.max(0, rect.width));
           }
-          const marker = this.#markerFor
-            ? this.#markerFor(row.item, row.selected)
-            : row.selected
-            ? ">"
-            : " ";
+          const marker = this.#markerFor ? this.#markerFor(row.item, row.selected) : row.selected ? ">" : " ";
           const label = row.item.disabled ? `(${row.label})` : row.label;
           return padListRow(`${marker} ${label}`, Math.max(0, rect.width));
         }),

@@ -1,13 +1,13 @@
 # Production Demo Application Showcase Program
 
-> **Ledger note (Aug 15 2026):** the network/Tailscale feature block graduated into its own plan and shipped —
-> see `plan/todo/035-exomux-network-menu.md` (TSM-001..015).
+> **Ledger note (Aug 15 2026):** the network/Tailscale feature block graduated into its own plan and shipped — see
+> `plan/todo/035-exomux-network-menu.md` (TSM-001..015).
 
 Status: **on hiatus as of Aug 14 2026** (user decision) — parked until the widget-sync program (031) has landed the
 components these showcases would build on. Previously: implementation in progress, specified July 17 and updated July
-18, 2026. This roadmap turns the ten approved
-demo concepts into credible applications that exercise the library as a system instead of presenting isolated widget
-toys. It is a companion to [036-textual-opentui-feature-parity.md](../036-textual-opentui-feature-parity.md) and
+18, 2026. This roadmap turns the ten approved demo concepts into credible applications that exercise the library as a
+system instead of presenting isolated widget toys. It is a companion to
+[036-textual-opentui-feature-parity.md](../036-textual-opentui-feature-parity.md) and
 [037-world-class-tui-features.md](../037-world-class-tui-features.md); it does not silently mark open work in either
 roadmap as complete.
 

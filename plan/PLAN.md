@@ -20,26 +20,26 @@ and its compositing surface, windowing, mouse/cursor, terminal rendering, and ba
 highest-leverage additions to the library. Active todo files are numbered in planned implementation order (`031`–`037`);
 `025` production demo showcases moved to `todo/hiatus/` on Aug 14 2026.
 
-1. **`031` Exomux ↔ exotui widget sync (P0, complete Aug 14 2026; WS-013/WS-014 follow-ups tracked in its file).** Promote the compositing surface (`WidgetSurface`), then
-   richer `List`/`Tree`/`Modal`/`Input`/`ContextMenu`, a real `TerminalScreen`, window-host niceties, and the
-   animated-background + software-cursor/any-motion helpers into exotui, and have exomux consume them instead of
-   hand-drawing. Concrete and bounded versus the broad aspirational backlogs. Windowing and mouse/cursor are the
-   clearest wins — and the mouse/cursor surface has grown well past the Aug 12 audit (block-cursor blink, resize-edge
-   glyph, any-motion tracking, scroll/wheel-under-pointer routing, pincushion mouse warp), so refresh
-   `docs/exomux-component-audit.md` before executing.
-2. **`032` Transparent window stacking (P0, landed Aug 15 2026; manual perf pass on the user's laptop outstanding).** Show windows behind other transparent windows using the
-   circuit-backdrop technique generalized to the whole scene: per-cell ink-coverage color reduction of everything
-   painted beneath, deposited in z-order and blended per cell. Its scene-ground seam is also what WS-003's composited
-   Sessions `List` needs.
+1. **`031` Exomux ↔ exotui widget sync (P0, complete Aug 14 2026; WS-013/WS-014 follow-ups tracked in its file).**
+   Promote the compositing surface (`WidgetSurface`), then richer `List`/`Tree`/`Modal`/`Input`/`ContextMenu`, a real
+   `TerminalScreen`, window-host niceties, and the animated-background + software-cursor/any-motion helpers into exotui,
+   and have exomux consume them instead of hand-drawing. Concrete and bounded versus the broad aspirational backlogs.
+   Windowing and mouse/cursor are the clearest wins — and the mouse/cursor surface has grown well past the Aug 12 audit
+   (block-cursor blink, resize-edge glyph, any-motion tracking, scroll/wheel-under-pointer routing, pincushion mouse
+   warp), so refresh `docs/exomux-component-audit.md` before executing.
+2. **`032` Transparent window stacking (P0, landed Aug 15 2026; manual perf pass on the user's laptop outstanding).**
+   Show windows behind other transparent windows using the circuit-backdrop technique generalized to the whole scene:
+   per-cell ink-coverage color reduction of everything painted beneath, deposited in z-order and blended per cell. Its
+   scene-ground seam is also what WS-003's composited Sessions `List` needs.
 3. **`033` Exomux butterchurn GPU fidelity (P2, in progress).** Three systematic fixes landed (wave colour floor,
-   waveform ribbon, and MilkDrop motion-vector/border seed geometry on Aug 15), lifting the GPU auto-cycle rotation
-   306 → 373 of 472 and cutting the CPU-renders-GPU-black regression to 36; the residual echo-amplifier class is
+   waveform ribbon, and MilkDrop motion-vector/border seed geometry on Aug 15), lifting the GPU auto-cycle rotation 306
+   → 373 of 472 and cutting the CPU-renders-GPU-black regression to 36; the residual echo-amplifier class is
    characterised for a readback-probe pass.
 4. **`034` exomux UX + multi-client hardening (P0, next).** User field reports, Aug 15: the settings-window resize
    ghosting (repro in hand — corner-resize min → max), responsive stacked pickers on narrow screens with the
-   background-config button under its listbox, settings/sessions/network behaving as regular windows (no forced
-   top), titlebar text/controls in the main theme foreground for contrast, ✕ kills exited windows, the sessions
-   panel listing host exomux sessions with switching, and live multi-client window sync.
+   background-config button under its listbox, settings/sessions/network behaving as regular windows (no forced top),
+   titlebar text/controls in the main theme foreground for contrast, ✕ kills exited windows, the sessions panel listing
+   host exomux sessions with switching, and live multi-client window sync.
 5. **`035` exomux network menu (P2).** MVP shipped; Phase 2 (OSC 7 cwd tracking, capability/provider manifest, remote
    session discovery) is exomux-specific polish, not library-building.
 6. **`036` / `037` library feature parity (P1, reference backlog).** Textual/OpenTUI parity and the 200-feature program

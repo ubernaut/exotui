@@ -207,7 +207,13 @@ Deno.test("VHS distortion registers with five independent intensities (UX-010)",
   );
 
   // Chosen values bake into the generated GLSL as constants.
-  const glsl = generateExomuxShader("vhs", { tracking: 0.6, chromaBleed: 0.4, staticSnow: 0.1, jitterWave: 0.3, lumaNoise: 0.55 });
+  const glsl = generateExomuxShader("vhs", {
+    tracking: 0.6,
+    chromaBleed: 0.4,
+    staticSnow: 0.1,
+    jitterWave: 0.3,
+    lumaNoise: 0.55,
+  });
   assertStringIncludes(glsl, "float tracking = 0.6;");
   assertStringIncludes(glsl, "float chromaBleed = 0.4;");
   assertStringIncludes(glsl, "float staticSnow = 0.1;");
