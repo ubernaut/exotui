@@ -221,7 +221,7 @@ Deno.test("VHS distortion registers with five independent intensities (UX-010)",
   });
   assertEquals(config.effects.vhs.enabled, true);
   assertEquals(config.effects.vhs.params.tracking, 1);
-  assertEquals(config.effects.vhs.params.chromaBleed, 0.25);
+  assertEquals(config.effects.vhs.params.chromaBleed, 0.1);
 });
 
 Deno.test("custom shader entries persist, order, and reach the Ghostty config (UX-009 model)", async () => {

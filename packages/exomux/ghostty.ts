@@ -88,12 +88,13 @@ export const EXOMUX_SHADER_PARAMS: Readonly<Record<ExomuxShaderEffect, readonly 
     { id: "magnitude", label: "Distortion", min: 0, max: 1, step: 0.025, default: 0.025 },
   ]),
   // Five independent VHS artifacts, mixable per-effect (UX-010).
+  // Every artifact defaults to a subtle 10% (user direction, Aug 15 2026).
   vhs: Object.freeze([
-    { id: "tracking", label: "Tracking errors", min: 0, max: 1, step: 0.05, default: 0.2 },
-    { id: "chromaBleed", label: "Color bleeding", min: 0, max: 1, step: 0.05, default: 0.25 },
-    { id: "staticSnow", label: "Static and snow", min: 0, max: 1, step: 0.05, default: 0.15 },
-    { id: "jitterWave", label: "Jitter and wavy lines", min: 0, max: 1, step: 0.05, default: 0.15 },
-    { id: "lumaNoise", label: "Luma noise", min: 0, max: 1, step: 0.05, default: 0.2 },
+    { id: "tracking", label: "Tracking errors", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { id: "chromaBleed", label: "Color bleeding", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { id: "staticSnow", label: "Static and snow", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { id: "jitterWave", label: "Jitter and wavy lines", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { id: "lumaNoise", label: "Luma noise", min: 0, max: 1, step: 0.05, default: 0.1 },
   ]),
 });
 
@@ -300,8 +301,13 @@ export function generateExomuxShader(
       "// Note: jitter/tracking displace the display horizontally and are",
       "// time-varying, so no static pointer-transform can mirror them — keep",
       "// them modest if pointer accuracy matters (see plan/todo/034 UX-010).",
+      "// Sinless hash (Hoskins hash12): sin-based hashes lose float precision",
+      "// at large pixel coordinates, so on big windows the static collapses",
+      "// into a correlated weave. This one stays uniform at any resolution.",
       "float vhsHash(vec2 p) {",
-      "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);",
+      "  vec3 p3 = fract(vec3(p.xyx) * 0.1031);",
+      "  p3 += dot(p3, p3.yzx + 33.33);",
+      "  return fract((p3.x + p3.y) * p3.z);",
       "}",
       "",
       "void mainImage(out vec4 fragColor, in vec2 fragCoord) {",
