@@ -232,24 +232,25 @@ export function buildExomuxNetworkNodes(
         expanded: expansion.has(id),
       };
     })
-    : [{ id: "note:hosts-empty", label: "No saved hosts · SSH once to remember" }];
+    : [{ id: "note:hosts-empty", label: "No saved hosts · SSH once to remember", note: true }];
   const tailscaleChildren: TreeNode[] = [];
   if (!status) {
-    tailscaleChildren.push({ id: "note:ts-loading", label: "Checking tailscaled…" });
+    tailscaleChildren.push({ id: "note:ts-loading", label: "Checking tailscaled…", note: true });
   } else if (!status.snapshot || status.availability === "unavailable") {
-    tailscaleChildren.push({ id: "note:ts-detail", label: status.detail });
+    tailscaleChildren.push({ id: "note:ts-detail", label: status.detail, note: true });
   } else {
     if (status.availability === "degraded") {
-      tailscaleChildren.push({ id: "note:ts-detail", label: status.detail });
+      tailscaleChildren.push({ id: "note:ts-detail", label: status.detail, note: true });
     }
     if (status.snapshot.devices.length === 0) {
-      tailscaleChildren.push({ id: "note:ts-empty", label: "No devices in this tailnet." });
+      tailscaleChildren.push({ id: "note:ts-empty", label: "No devices in this tailnet.", note: true });
     }
     for (const device of status.snapshot.devices) {
       const id = `dev:${device.id}`;
       tailscaleChildren.push({
         id,
         label: exomuxNetworkDeviceLabel(device),
+        status: device.online ? "online" : "offline",
         children: [
           { id: `act:shell:${device.id}`, label: "Open shell" },
           ...shellsForTargets([device.dnsName || undefined, device.ipv4]),

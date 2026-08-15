@@ -88,6 +88,7 @@ import { ExomuxSessionNameField } from "./session_name_field.ts";
 import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
 import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
+import { ExomuxNetworkTree } from "./network_tree.ts";
 import { widgetSurfaceCellData } from "./widget_surface.ts";
 import {
   exomuxPointerCancellationEvent as pointerCancellationEvent,
@@ -1005,6 +1006,13 @@ export function mountExomuxDesktop(
   // scrolls this viewport top without touching the selection; -1 re-follows it.
   const sessionList = own(new ExomuxSessionList(bumpSettingsWidgets));
   const sessionListScrollTop = own(new Signal(-1));
+  // The network panel's hierarchy as a real composited Tree (WS-004). A tree
+  // rebuild (tailnet status, saved hosts) repaints the desktop, which was
+  // otherwise only repainted by interaction-driven signals.
+  const networkTreeView = own(new ExomuxNetworkTree(bumpSettingsWidgets));
+  controller.networkTree.nodes.subscribe(() => {
+    settingsWidgetRevision.value += 1;
+  }, subscriptions.signal);
   const sessionListViewportHeight = (): number => {
     const manager = windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
     return Math.max(1, (manager?.clientRect.height ?? 1) - SESSION_LIST_START);
@@ -1311,6 +1319,7 @@ export function mountExomuxDesktop(
         windowConfigOptionControls,
         sessionList,
         sessionListScrollTop: sessionListScrollTop.peek(),
+        networkTreeView,
         blockCursor: exomuxBlockCursorRender(
           controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
           mousePointer.peek(),
@@ -3171,6 +3180,8 @@ interface RenderExomuxDesktopOptions {
   windowConfigOptionControls?: ExomuxSettingsOptions;
   /** Hosts the sessions panel's rows as a real composited List. */
   sessionList?: ExomuxSessionList;
+  /** Hosts the network panel's hierarchy as a real composited Tree. */
+  networkTreeView?: ExomuxNetworkTree;
   /** Sessions viewport top set by the wheel; -1 follows the selection. */
   sessionListScrollTop?: number;
   /** When the block cursor is enabled, the mouse cell to draw it at. */
@@ -3370,6 +3381,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionNameField,
       options.sessionList,
       options.sessionListScrollTop,
+      options.networkTreeView,
     );
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
@@ -3393,6 +3405,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionNameField,
       options.sessionList,
       options.sessionListScrollTop,
+      options.networkTreeView,
     );
   }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
@@ -3753,6 +3766,7 @@ function paintWindow(
   sessionNameField?: ExomuxSessionNameField,
   sessionList?: ExomuxSessionList,
   sessionListScrollTop = -1,
+  networkTreeView?: ExomuxNetworkTree,
 ): void {
   const theme = controller.theme.peek();
   const border = window.active ? theme.accent : theme.border;
@@ -3823,7 +3837,7 @@ function paintWindow(
     return;
   }
   if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
-    paintNetworkPanel(painter, window.clientRect, controller, window.active, ground);
+    paintNetworkPanel(painter, window.clientRect, controller, window.active, ground, networkTreeView);
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
@@ -3859,6 +3873,7 @@ function paintNetworkPanel(
   controller: ExomuxController,
   active: boolean,
   ground: ExomuxGround = () => controller.theme.peek().surface,
+  networkTreeView?: ExomuxNetworkTree,
 ): void {
   const theme = controller.theme.peek();
   writeOnGround(
@@ -3871,6 +3886,47 @@ function paintNetworkPanel(
   );
   const tree = controller.networkTree;
   const height = Math.max(0, rect.height - NETWORK_LIST_START);
+  networkTreeView?.sync({
+    width: Math.max(1, rect.width),
+    height: Math.max(1, height),
+    nodes: tree.nodes.peek(),
+    selectedIndex: tree.selectedIndex.peek(),
+    active,
+    foreground: theme.text,
+    mutedForeground: theme.muted,
+    headingForeground: theme.accent,
+    background: theme.surface,
+    selectedForeground: theme.background,
+    selectedBackground: theme.accent,
+    scrollbarTrack: theme.surfaceStrong,
+    scrollbarThumb: theme.muted,
+  });
+  if (networkTreeView?.ready()) {
+    // Blit the real Tree's cells, re-grounding cells that kept the base
+    // surface background so a translucent panel shows the desktop through its
+    // rows; deliberate colour (the accent selection, the scrollbar) stays.
+    for (let visibleIndex = 0; visibleIndex < height; visibleIndex += 1) {
+      const row = rect.row + NETWORK_LIST_START + visibleIndex;
+      for (let column = 0; column < rect.width; column += 1) {
+        const x = rect.column + column;
+        const cell = widgetSurfaceCellData(networkTreeView.cellAt(visibleIndex, column));
+        if (!cell || cell.glyph === "") {
+          painter.write(x, row, " ", { foreground: theme.text, background: ground(x, row) });
+          continue;
+        }
+        const keepBackground = cell.background !== undefined &&
+          !exomuxRgbEquals(cell.background, theme.surface);
+        painter.write(x, row, cell.glyph, {
+          foreground: cell.foreground ?? theme.text,
+          background: keepBackground ? cell.background! : ground(x, row),
+          bold: cell.bold,
+        });
+        column += Math.max(0, exomuxGlyphColumns(cell.glyph) - 1);
+      }
+    }
+    return;
+  }
+  // Hand-drawn fallback until the composited snapshot lands.
   const visible = tree.visible(height);
   const selected = tree.selected();
   for (let visibleIndex = 0; visibleIndex < visible.length; visibleIndex += 1) {
@@ -3878,9 +3934,9 @@ function paintNetworkPanel(
     const paintRow = rect.row + NETWORK_LIST_START + visibleIndex;
     const width = Math.max(0, rect.width - 2);
     const isSelected = active && selected?.index === row.index;
-    const note = row.id.startsWith("note:");
+    const note = row.node.note === true;
     const heading = row.depth === 0;
-    const offline = controller.networkDevice(row.id)?.online === false;
+    const offline = row.node.status === "offline";
     const foreground = isSelected
       ? theme.background
       : heading

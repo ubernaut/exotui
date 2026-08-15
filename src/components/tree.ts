@@ -3,7 +3,8 @@ import { Component, type ComponentOptions } from "../component.ts";
 import { clampSelectionIndex, selectionWindow } from "../selection.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
-import { List } from "./list.ts";
+import { List, type ListScrollbar } from "./list.ts";
+import type { Style } from "../theme.ts";
 
 /** Public interface describing a tree Node. */
 export interface TreeNode {
@@ -11,11 +12,37 @@ export interface TreeNode {
   label: string;
   children?: readonly TreeNode[];
   expanded?: boolean;
+  /** Free-form state tag a renderer can colour by (e.g. "online"/"offline"). */
+  status?: string;
+  /** Marks an annotation row (a hint or detail line), not a real item. */
+  note?: boolean;
+  /** Arbitrary caller data carried on the node and surfaced on its rows. */
+  meta?: Readonly<Record<string, unknown>>;
+  /**
+   * Pluggable activation: invoked by `selectActive` (Enter/click) instead of
+   * the controller-wide `onSelect`, so one tree can mix behaviours per node —
+   * open a session here, spawn a shell there, connect over SSH elsewhere.
+   */
+  activate?: (row: TreeRow) => void | Promise<void>;
 }
+
+/** Chooses the style for one tree row, given the row and whether it is selected. */
+export type TreeRowStyle = (row: TreeRow, selected: boolean) => Style | undefined;
+
+/** Resolves the one-character leading marker for a tree row. */
+export type TreeRowMarker = (row: TreeRow, selected: boolean) => string;
 
 /** Options for configuring tree. */
 export interface TreeOptions extends ComponentOptions, TreeControllerOptions {
   controller?: TreeController;
+  /** Per-row style (state colour, note dimming); falls back to the base theme. */
+  rowStyle?: TreeRowStyle;
+  /** Per-row leading marker (default `>` for the selected row). */
+  markerFor?: TreeRowMarker;
+  /** Full-width highlight for the selected row, drawn over the base rows. */
+  selectedStyle?: Style;
+  /** One-column scrollbar down the right edge. */
+  scrollbar?: ListScrollbar;
 }
 
 /** Public interface describing a tree Row. */
@@ -47,6 +74,8 @@ export interface TreeRowInspection {
   hasChildren: boolean;
   expanded: boolean;
   text: string;
+  status?: string;
+  note?: boolean;
 }
 
 /** Serializable inspection snapshot for tree. */
@@ -105,7 +134,23 @@ export function inspectTreeRow(row: TreeRow): TreeRowInspection {
     hasChildren: row.hasChildren,
     expanded: row.expanded,
     text: row.text,
+    ...(row.node.status !== undefined ? { status: row.node.status } : {}),
+    ...(row.node.note !== undefined ? { note: row.node.note } : {}),
   };
+}
+
+/**
+ * Nodes with their `activate` callbacks stripped, so inspection stays
+ * clone-safe. `meta` passes through and must itself be structured-cloneable.
+ */
+function inspectableTreeNodes(nodes: readonly TreeNode[]): TreeNode[] {
+  return nodes.map((node) => {
+    const { activate: _activate, ...rest } = node;
+    return {
+      ...rest,
+      ...(node.children ? { children: inspectableTreeNodes(node.children) } : {}),
+    };
+  });
 }
 
 /** State controller for tree behavior. */
@@ -193,7 +238,10 @@ export class TreeController {
   selectActive(): TreeRow | undefined {
     const row = this.selected();
     if (row) {
-      void this.#onSelect?.(row, row.index);
+      // A node-level activation wins over the controller-wide handler, so one
+      // tree can mix behaviours per node.
+      if (row.node.activate) void row.node.activate(row);
+      else void this.#onSelect?.(row, row.index);
     }
     return row;
   }
@@ -285,7 +333,7 @@ export class TreeController {
       inspectedRows[index] = inspectTreeRow(rows[index]!);
     }
     return {
-      nodes: structuredClone(this.nodes.peek()),
+      nodes: structuredClone(inspectableTreeNodes(this.nodes.peek())),
       rows: inspectedRows,
       rowCount: rows.length,
       selectedIndex,
@@ -316,6 +364,10 @@ export class Tree extends Component {
   nodes: Signal<TreeNode[]>;
   selectedIndex: Signal<number>;
   readonly controller: TreeController;
+  readonly #rowStyle?: TreeRowStyle;
+  readonly #markerFor?: TreeRowMarker;
+  readonly #selectedStyle?: Style;
+  readonly #scrollbar?: ListScrollbar;
 
   constructor(options: TreeOptions) {
     super(options);
@@ -329,6 +381,10 @@ export class Tree extends Component {
       });
     this.nodes = this.controller.nodes;
     this.selectedIndex = this.controller.selectedIndex;
+    this.#rowStyle = options.rowStyle;
+    this.#markerFor = options.markerFor;
+    this.#selectedStyle = options.selectedStyle;
+    this.#scrollbar = options.scrollbar;
     this.on("keyPress", (event) => {
       this.controller.handleKeyPress(event, this.rectangle.peek().height);
     });
@@ -338,6 +394,10 @@ export class Tree extends Component {
   override draw(): void {
     super.draw();
 
+    // Row-level options address tree rows; the backing List sees flat indices,
+    // so each adapter resolves the row before delegating.
+    const rowStyle = this.#rowStyle;
+    const markerFor = this.#markerFor;
     const list = new List({
       parent: this,
       theme: this.theme,
@@ -346,6 +406,24 @@ export class Tree extends Component {
       selectedIndex: this.selectedIndex,
       rectangle: this.rectangle,
       visible: this.visible,
+      ...(rowStyle
+        ? {
+          rowStyle: (index: number, selected: boolean) => {
+            const row = this.controller.visibleRows()[index];
+            return row ? rowStyle(row, selected) : undefined;
+          },
+        }
+        : {}),
+      ...(markerFor
+        ? {
+          markerFor: (index: number, selected: boolean) => {
+            const row = this.controller.visibleRows()[index];
+            return row ? markerFor(row, selected) : selected ? ">" : " ";
+          },
+        }
+        : {}),
+      ...(this.#selectedStyle ? { selectedStyle: this.#selectedStyle } : {}),
+      ...(this.#scrollbar ? { scrollbar: this.#scrollbar } : {}),
     });
     list.subComponentOf = this;
     this.subComponents.list = list;

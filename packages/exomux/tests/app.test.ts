@@ -2372,6 +2372,108 @@ Deno.test("Exomux quit modal terminate shuts down the detached host before exiti
   }
 });
 
+Deno.test("Exomux network panel renders as a composited Tree with status colours", async () => {
+  const initial = session("nettree-shell", "net shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const tailnetResult: TailnetStatusResult = {
+    availability: "available",
+    detail: "tailscale is running",
+    snapshot: {
+      backendState: "Running",
+      devices: [
+        {
+          id: "self",
+          shortName: "workshop",
+          dnsName: "workshop.tail.net",
+          os: "linux",
+          online: true,
+          self: true,
+          relayed: false,
+          tags: [],
+          ipv4: "100.64.0.1",
+        },
+        {
+          id: "peer-off",
+          shortName: "cellar",
+          dnsName: "cellar.tail.net",
+          os: "linux",
+          online: false,
+          self: false,
+          relayed: false,
+          tags: [],
+        },
+      ],
+      capturedAt: 1,
+    },
+  };
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    tailnetSource: { fetchStatus: () => Promise.resolve(tailnetResult) },
+    tailnetPollIntervalMs: 300_000,
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    // The floating sessions manager would overlap the left-docked panel.
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    await clickStartMenuItem(harness, mounted, "network");
+    await mounted.whenIdle();
+    await waitForCondition(
+      () => controller.networkTree.visibleRows().some((row) => row.id === "dev:peer-off"),
+      2_000,
+    );
+    const panel = mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_NETWORK_WINDOW_ID);
+    assert(panel);
+    const theme = controller.theme.peek();
+    const cellText = (column: number, row: number): string => {
+      const value = harness.canvas.frameBuffer[row]?.[column] ?? "";
+      return typeof value === "string" ? value : new TextDecoder().decode(value);
+    };
+    const plainRow = (offset: number): string => {
+      let text = "";
+      for (let column = 0; column < panel.clientRect.width; column += 1) {
+        text += stripAnsi(cellText(panel.clientRect.column + column, panel.clientRect.row + 1 + offset));
+      }
+      return text;
+    };
+    // The composited Tree puts the selection marker in the panel's first
+    // column (the hand-drawn fallback has none); pump settle until the real
+    // snapshot lands — the harness has no free-running render loop.
+    const selectedRowY = panel.clientRect.row + 1;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (stripAnsi(cellText(panel.clientRect.column, selectedRowY)).includes(">")) break;
+      await harness.pilot.settle();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assertStringIncludes(stripAnsi(cellText(panel.clientRect.column, selectedRowY)), ">");
+    assertStringIncludes(plainRow(0), "HOSTS");
+
+    // The offline device's row recedes to the muted tone through the Tree's
+    // rowStyle; its status flag rides the controller-built TreeNode itself.
+    const rows = controller.networkTree.visibleRows();
+    const offlineIndex = rows.findIndex((row) => row.id === "dev:peer-off");
+    assert(offlineIndex >= 0);
+    assertEquals(rows[offlineIndex]!.node.status, "offline");
+    const offlineText = plainRow(offlineIndex);
+    assertStringIncludes(offlineText, "cellar");
+    const glyphColumn = offlineText.search(/\S/);
+    assertStringIncludes(
+      cellText(panel.clientRect.column + glyphColumn, panel.clientRect.row + 1 + offlineIndex),
+      `38;2;${theme.muted.join(";")}`,
+    );
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux network panel lists hosts and tailnet devices, opens SSH, and forgets hosts", async () => {
   const initial = session("net-shell", "net shell", 0);
   const client = new FakeExomuxClient([initial]);
