@@ -2,30 +2,30 @@
 
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/deno-tui/app";
 import {
+  clampContextMenuSelection,
   Component,
   type ComponentOptions,
   Computed,
+  contextMenuPlacement,
   createAnsiStyle,
+  createAnyMotionTracking,
   DrawObject,
   encodeTerminalKeyPress,
-  clampContextMenuSelection,
-  contextMenuPlacement,
-  createAnyMotionTracking,
-  softwareCursorRender,
-  windowResizeGlyphAt,
   listWindowFromTop,
   modalActionRects,
   ModalController,
-  shiftContextMenuSelection,
   type PointerInputEvent,
   type Rectangle,
   resolveTerminalCellStyle,
   selectionWindow,
-  type TerminalCellStyleOptions,
+  shiftContextMenuSelection,
   Signal,
   type SignalOfObject,
+  softwareCursorRender,
   type Style,
+  type TerminalCellStyleOptions,
   type TreeRow,
+  windowResizeGlyphAt,
   type WorkbenchWindowChromeProjection,
   type WorkbenchWindowHostCommand,
   type WorkbenchWindowHostProjection,
@@ -84,7 +84,7 @@ import {
   exomuxOvergrowthVisible,
 } from "./overgrowth.ts";
 import { ExomuxOperationQueue } from "./operation_queue.ts";
-import { createExomuxDebugLogger, type ExomuxDebugLogger, exomuxDebugLog } from "./debug_log.ts";
+import { createExomuxDebugLogger, exomuxDebugLog, type ExomuxDebugLogger } from "./debug_log.ts";
 import { exomuxPincushionMagnitude, exomuxPincushionSource, isRunningInGhostty } from "./ghostty.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
@@ -1091,6 +1091,19 @@ export function mountExomuxDesktop(
   // stable when the settings window or background modal is open in the same
   // frame — one shared host would thrash re-renders between spec sets.
   const windowConfigOptionControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
+  // The shader manager modal (UX-009) renders its rows through its own control
+  // host (snapshot signatures stay stable against the settings window's), and
+  // its add-a-shader path prompt is a real composited Input.
+  const shaderManagerControls = own(new ExomuxSettingsOptions(bumpSettingsWidgets));
+  const shaderPathField = own(
+    new ExomuxInputField({
+      requestRepaint: bumpSettingsWidgets,
+      onChange: (text) => controller.setShaderPathDraft(text),
+      onSubmit: () => {
+        controller.commitShaderPathDraft();
+      },
+    }),
+  );
   // The sessions panel's rows as a real composited List (WS-003). The wheel
   // scrolls this viewport top without touching the selection; -1 re-follows it.
   const sessionList = own(new ExomuxSessionList(bumpSettingsWidgets));
@@ -1408,6 +1421,10 @@ export function mountExomuxDesktop(
         quitModal.selectedActionIndex.value,
         controller.networkTree.selectedIndex.value,
         controller.backgroundConfigVisible.value,
+        controller.shaderManagerVisible.value,
+        controller.shaderManagerIndex.value,
+        controller.shaderPathDraft.value,
+        JSON.stringify(controller.shaderConfig.value),
         controller.backgroundConfigPane.value,
         controller.backgroundConfigOptionIndex.value,
         controller.backgroundConfigListIndex.value,
@@ -1468,6 +1485,8 @@ export function mountExomuxDesktop(
         backgroundOptionControls,
         backgroundButtons,
         windowConfigOptionControls,
+        shaderManagerControls,
+        shaderPathField,
         sessionList,
         sessionListScrollTop: sessionListScrollTop.peek(),
         networkTreeView,
@@ -1504,6 +1523,7 @@ export function mountExomuxDesktop(
     controller.quitModalVisible.peek() || controller.pendingScp.peek() !== undefined ||
     controller.configSessionId.peek() !== undefined ||
     controller.backgroundConfigVisible.peek() ||
+    controller.shaderManagerVisible.peek() ||
     controller.startMenuVisible.peek();
 
   let exitRequested = false;
@@ -1646,14 +1666,13 @@ export function mountExomuxDesktop(
     if (!clientRect || !controller.globalConfigVisible.peek()) return false;
     const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-    const layout = exomuxGlobalConfigLayout(
-      clientRect,
-      themeIndex,
-      backgroundIndex,
-      controller.shaderOptionRows().length,
-    );
+    const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.sessionNameRect, column, row)) {
       controller.beginSessionRename();
+      return true;
+    }
+    if (controller.ghosttyDetected.peek() && contains(layout.shadersRect, column, row)) {
+      controller.openShaderManager();
       return true;
     }
     if (contains(layout.backgroundConfigRect, column, row)) {
@@ -1785,12 +1804,7 @@ export function mountExomuxDesktop(
     if (!clientRect || !controller.globalConfigVisible.peek()) return true;
     const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-    const layout = exomuxGlobalConfigLayout(
-      clientRect,
-      themeIndex,
-      backgroundIndex,
-      controller.shaderOptionRows().length,
-    );
+    const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.themeListRect, column, row)) settingsPickers.handleScroll("theme", delta);
     else if (contains(layout.backgroundListRect, column, row)) settingsPickers.handleScroll("background", delta);
     return true;
@@ -1852,6 +1866,25 @@ export function mountExomuxDesktop(
       if (contains(layout.terminateRect, column, row)) requestClientExit(true);
       else if (contains(layout.detachRect, column, row)) requestClientExit(false);
       else if (contains(layout.cancelRect, column, row)) controller.cancelQuitModal();
+      return true;
+    }
+    if (controller.shaderManagerVisible.peek()) {
+      const rows = controller.shaderManagerRows();
+      const layout = exomuxShaderManagerLayout(windowProjection.peek().bounds, rows.length);
+      if (contains(layout.closeRect, column, row) || !contains(layout.rect, column, row)) {
+        controller.closeShaderManager();
+        return true;
+      }
+      if (contains(layout.addRect, column, row)) {
+        if (controller.shaderPathDraft.peek() === undefined) controller.beginAddCustomShader();
+        else controller.commitShaderPathDraft();
+        return true;
+      }
+      const hit = layout.rowRects.findIndex((candidate) => contains(candidate, column, row));
+      if (hit >= 0 && rows[hit] && rows[hit]!.kind !== "note") {
+        controller.shaderManagerIndex.value = hit;
+        controller.cycleShaderManagerRow(hit, exomuxOptionCycleDirection(layout.rowRects[hit]!, column));
+      }
       return true;
     }
     if (controller.backgroundConfigVisible.peek()) {
@@ -2739,6 +2772,51 @@ export function mountExomuxDesktop(
       }
       return;
     }
+    if (controller.shaderManagerVisible.peek()) {
+      // While the path input is active it owns typing; Enter (via the field's
+      // onSubmit) commits, Escape backs out to the manager.
+      if (controller.shaderPathDraft.peek() !== undefined) {
+        if (event.key === "escape") {
+          controller.cancelShaderPathDraft();
+        } else {
+          const shifted = !event.ctrl && !event.meta && event.shift && event.key.length === 1;
+          shaderPathField.handleKey({
+            key: shifted ? event.key.toUpperCase() : event.key,
+            ctrl: event.ctrl,
+            meta: event.meta,
+            shift: event.shift,
+          });
+        }
+        return;
+      }
+      const index = controller.shaderManagerIndex.peek();
+      const row = controller.shaderManagerRows()[index];
+      if (event.key === "escape" || event.key.toLowerCase() === "q") {
+        controller.closeShaderManager();
+      } else if (event.key === "up") {
+        controller.moveShaderManagerSelection(-1);
+      } else if (event.key === "down") {
+        controller.moveShaderManagerSelection(1);
+      } else if (event.key === "left") {
+        controller.cycleShaderManagerRow(index, -1);
+      } else if (event.key === "right" || event.key === "return" || event.key === "space") {
+        controller.cycleShaderManagerRow(index, 1);
+      } else if (event.key.toLowerCase() === "a") {
+        controller.beginAddCustomShader();
+      } else if ((event.key === "delete" || event.key === "backspace") && row?.kind === "custom") {
+        controller.removeCustomShader(row.customIndex);
+      } else if (event.key === "[" && row?.kind === "custom" && row.customIndex > 0) {
+        // Selection follows the entry it just moved.
+        controller.moveCustomShader(row.customIndex, -1);
+        controller.shaderManagerIndex.value = index - 1;
+      } else if (event.key === "]" && row?.kind === "custom") {
+        if (row.customIndex < controller.shaderConfig.peek().customShaders.length - 1) {
+          controller.moveCustomShader(row.customIndex, 1);
+          controller.shaderManagerIndex.value = index + 1;
+        }
+      }
+      return;
+    }
     if (controller.backgroundConfigVisible.peek()) {
       const specs = EXOMUX_BACKGROUND_SETTING_SPECS[controller.backgroundId.peek()] ?? [];
       const list = exomuxBackgroundConfigList(controller);
@@ -2839,6 +2917,8 @@ export function mountExomuxDesktop(
         controller.cycleSettingsOption(optionIndex, 1);
       } else if (event.key.toLowerCase() === "b") {
         controller.openBackgroundConfig();
+      } else if (event.key.toLowerCase() === "s") {
+        controller.openShaderManager();
       }
       return;
     }
@@ -3337,7 +3417,8 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
     if (controller.sessionNameDraft.peek() !== undefined) return true;
     return event.key === "up" || event.key === "down" || event.key === "left" || event.key === "right" ||
       event.key === "return" || event.key === "space" || event.key === "tab" || event.key === "escape" ||
-      event.key.toLowerCase() === "q" || event.key.toLowerCase() === "b";
+      event.key.toLowerCase() === "q" || event.key.toLowerCase() === "b" ||
+      (event.key.toLowerCase() === "s" && controller.ghosttyDetected.peek());
   }
   if (activeWindowId !== EXOMUX_SESSIONS_WINDOW_ID) return false;
   return event.key === "up" || event.key === "down" || event.key === "return" || event.key === "space" ||
@@ -3373,6 +3454,10 @@ interface RenderExomuxDesktopOptions {
   backgroundButtons?: ExomuxSettingsWidgets;
   /** Hosts the per-window config modal's value rows as real Cyclers/CheckBoxes. */
   windowConfigOptionControls?: ExomuxSettingsOptions;
+  /** Hosts the shader manager modal's rows as real Cyclers/CheckBoxes. */
+  shaderManagerControls?: ExomuxSettingsOptions;
+  /** Hosts the shader manager's add-a-shader path prompt as a real Input. */
+  shaderPathField?: ExomuxInputField;
   /** Hosts the sessions panel's rows as a real composited List. */
   sessionList?: ExomuxSessionList;
   /** Hosts the network panel's hierarchy as a real composited Tree. */
@@ -3856,6 +3941,16 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       buttons: options.backgroundButtons,
     });
   }
+  if (controller.shaderManagerVisible.peek()) {
+    paintShaderManagerModal(
+      painter,
+      projection,
+      theme,
+      controller,
+      options.shaderManagerControls,
+      options.shaderPathField,
+    );
+  }
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) {
     paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection);
@@ -4212,9 +4307,7 @@ function paintWindow(
     window.titleBarRect.column + 1,
     window.titleBarRect.row,
     fitText(
-      `${window.placement === "floating" ? "~" : "="} ${
-        runtime?.summary.peek().title ?? window.title
-      }${adornments}`,
+      `${window.placement === "floating" ? "~" : "="} ${runtime?.summary.peek().title ?? window.title}${adornments}`,
       titleWidth,
     ),
     {
@@ -4412,7 +4505,11 @@ function paintSessionManager(
   // attachable host session reads as live.
   const rows: ExomuxSessionListRow[] = managerRows.map((row) => ({
     label: row.label,
-    running: row.kind === "terminal" ? row.running : row.kind === "host-session" ? row.attachable && !row.current : false,
+    running: row.kind === "terminal"
+      ? row.running
+      : row.kind === "host-session"
+      ? row.attachable && !row.current
+      : false,
   }));
   sessionList?.sync({
     width: Math.max(1, rect.width),
@@ -4823,6 +4920,8 @@ export interface ExomuxGlobalConfigLayout {
   readonly closeRect: Rectangle;
   /** Opens the background config modal for the selected background. */
   readonly backgroundConfigRect: Rectangle;
+  /** Opens the Ghostty shader manager (UX-009); only painted/hit under Ghostty. */
+  readonly shadersRect: Rectangle;
   /** The editable session-name field at the top of the window. */
   readonly sessionNameRect: Rectangle;
   /** "Theme" column header. */
@@ -4915,6 +5014,12 @@ export function exomuxGlobalConfigLayout(
     width: Math.max(1, Math.min(9, rect.width)),
     height: 1,
   };
+  const backgroundConfigRect: Rectangle = {
+    column: Math.max(rect.column, closeRect.column - 23),
+    row: closeRect.row,
+    width: Math.max(1, Math.min(22, closeRect.column - rect.column - 1)),
+    height: 1,
+  };
   return {
     rect,
     themeRows,
@@ -4929,10 +5034,11 @@ export function exomuxGlobalConfigLayout(
     optionRows,
     closeRect,
     sessionNameRect,
-    backgroundConfigRect: {
-      column: Math.max(rect.column, closeRect.column - 23),
+    backgroundConfigRect,
+    shadersRect: {
+      column: Math.max(rect.column, backgroundConfigRect.column - 15),
       row: closeRect.row,
-      width: Math.max(1, Math.min(22, closeRect.column - rect.column - 1)),
+      width: Math.max(1, Math.min(14, backgroundConfigRect.column - rect.column - 1)),
       height: 1,
     },
     themeHeaderRect: { column: rect.column + 1, row: rect.row + 1, width: columnWidth, height: 1 },
@@ -5007,6 +5113,12 @@ function stackedGlobalConfigLayout(
     closeRect,
     sessionNameRect,
     backgroundConfigRect,
+    shadersRect: {
+      column: Math.max(rect.column, closeRect.column - 15),
+      row: closeRect.row,
+      width: Math.max(1, Math.min(14, closeRect.column - rect.column - 1)),
+      height: 1,
+    },
     themeHeaderRect: { column: innerColumn, row: rect.row + 1, width: innerWidth, height: 1 },
     backgroundHeaderRect: { column: innerColumn, row: backgroundHeaderRow, width: innerWidth, height: 1 },
     stacked: true,
@@ -5363,11 +5475,10 @@ function paintGlobalSettingsWindow(
   // opacity — half the window's transparency (032). Opaque windows keep the
   // exact constant grounds they had.
   const controlGround = exomuxControlGroundFor(backdrop, windowOpacity);
-  const g = (base: ExomuxRgb): ExomuxGround =>
-    controlGround ? (x, y) => controlGround(x, y, base) : () => base;
+  const g = (base: ExomuxRgb): ExomuxGround => controlGround ? (x, y) => controlGround(x, y, base) : () => base;
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
   const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
-  const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex, controller.shaderOptionRows().length);
+  const layout = exomuxGlobalConfigLayout(rect, themeIndex, backgroundIndex);
   const { themeRows, backgroundRows, optionRows, closeRect } = layout;
   const pane = controller.globalConfigPane.peek();
   const settings = controller.globalSettings.peek();
@@ -5403,7 +5514,14 @@ function paintGlobalSettingsWindow(
   });
   if (editing && sessionNameField?.ready()) {
     for (let column = 0; column < valueWidth; column += 1) {
-      blitControlCell(painter, valueColumn + column, nameRect.row, sessionNameField.cellAt(0, column), theme, controlGround);
+      blitControlCell(
+        painter,
+        valueColumn + column,
+        nameRect.row,
+        sessionNameField.cellAt(0, column),
+        theme,
+        controlGround,
+      );
     }
   } else {
     writeOnGround(
@@ -5482,66 +5600,38 @@ function paintGlobalSettingsWindow(
     }
   }
 
-  // The options pane lists the global settings followed by the shader rows
-  // (only present under Ghostty), all navigated by one option index.
-  const shaderRows = controller.shaderOptionRows();
-  const optionEntries: { label: string; value: string }[] = [
-    ...EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => ({ label: spec.label, value: spec.format(settings[spec.id]) })),
-    ...shaderRows.map((row) => ({ label: row.label, value: row.value })),
-  ];
-  // Every option — the global settings and the Ghostty shader rows alike — is
-  // rendered by a real exotui control composited over the value column: a
-  // CheckBox for booleans/toggles, a `< value >` Cycler for discrete-value
-  // settings and shader parameters. The existing option routing drives the
-  // changes; adjusting a shader control cycles it, which rewrites Ghostty's
-  // shader config.
-  const globalCount = EXOMUX_GLOBAL_SETTING_SPECS.length;
+  // The options pane lists the global settings; the Ghostty shader rows moved
+  // to the shader manager window (UX-009), opened by the Shaders button below.
+  const optionEntries: { label: string; value: string }[] = EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => ({
+    label: spec.label,
+    value: spec.format(settings[spec.id]),
+  }));
+  // Every option is rendered by a real exotui control composited over the value
+  // column: a CheckBox for booleans, a `< value >` Cycler for discrete values.
   const cyclerWidth = Math.min(16, Math.max(6, (optionRows[0]?.width ?? 16) - 4));
   const controlSpecs: ExomuxOptionControlSpec[] = optionEntries.map((_entry, index) => {
     const focused = pane === "options" && index === optionIndex;
     const foreground = focused ? theme.background : theme.accent;
     const background = focused ? theme.accent : theme.surfaceStrong;
-    if (index < globalCount) {
-      const spec = EXOMUX_GLOBAL_SETTING_SPECS[index]!;
-      if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
-        return {
-          kind: "checkbox",
-          key: spec.id,
-          width: 3,
-          foreground,
-          background,
-          checked: Boolean(settings[spec.id]),
-        };
-      }
-      return {
-        kind: "cycler",
-        key: spec.id,
-        width: cyclerWidth,
-        foreground,
-        background,
-        options: spec.values.map((value) => spec.format(value)),
-        activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
-      };
-    }
-    const shaderRow = shaderRows[index - globalCount]!;
-    if (shaderRow.control.kind === "checkbox") {
+    const spec = EXOMUX_GLOBAL_SETTING_SPECS[index]!;
+    if (spec.values.length > 0 && typeof spec.values[0] === "boolean") {
       return {
         kind: "checkbox",
-        key: shaderRow.id,
+        key: spec.id,
         width: 3,
         foreground,
         background,
-        checked: shaderRow.control.checked,
+        checked: Boolean(settings[spec.id]),
       };
     }
     return {
       kind: "cycler",
-      key: shaderRow.id,
+      key: spec.id,
       width: cyclerWidth,
       foreground,
       background,
-      options: [...shaderRow.control.options],
-      activeIndex: shaderRow.control.activeIndex,
+      options: spec.values.map((value) => spec.format(value)),
+      activeIndex: Math.max(0, spec.values.findIndex((value) => value === settings[spec.id])),
     };
   });
   const controlCells = settingsOptions?.cellsFor(controlSpecs) ?? [];
@@ -5583,11 +5673,13 @@ function paintGlobalSettingsWindow(
     }
   }
 
+  const showShaders = controller.ghosttyDetected.peek();
+  const hintLimit = showShaders && !layout.stacked ? layout.shadersRect.column : layout.backgroundConfigRect.column;
   writeOnGround(
     painter,
     rect.column + 1,
     rect.row + rect.height - 1,
-    fitText(" * overgrows idle windows ", Math.max(0, layout.backgroundConfigRect.column - rect.column - 2)),
+    fitText(" * overgrows idle windows ", Math.max(0, hintLimit - rect.column - 2)),
     { foreground: theme.muted },
     g(theme.surfaceStrong),
   );
@@ -5606,6 +5698,17 @@ function paintGlobalSettingsWindow(
       foreground: theme.background,
       background: theme.warning,
     },
+    ...(showShaders
+      ? [
+        {
+          key: "shaders",
+          label: "s Shaders",
+          width: layout.shadersRect.width,
+          foreground: theme.background,
+          background: theme.warning,
+        } satisfies ExomuxSettingsButtonSpec,
+      ]
+      : []),
     {
       key: "close",
       label: "Close",
@@ -5614,14 +5717,34 @@ function paintGlobalSettingsWindow(
       background: theme.accent,
     },
   ];
+  // The shader manager button only exists under Ghostty — the shaders it
+  // manages are Ghostty custom-shader config entries.
+  if (showShaders) {
+    const shaderCells = settingsWidgets?.cellsFor(buttonSpecs, "shaders");
+    if (shaderCells) {
+      blitSettingsButtonCells(painter, layout.shadersRect, shaderCells, theme, controlGround);
+    } else {
+      writeOnGround(painter, layout.shadersRect.column, layout.shadersRect.row, "[ s Shaders ]", {
+        foreground: theme.background,
+        bold: true,
+      }, g(theme.warning));
+    }
+  }
   const backgroundCells = settingsWidgets?.cellsFor(buttonSpecs, "background");
   if (backgroundCells) {
     blitSettingsButtonCells(painter, layout.backgroundConfigRect, backgroundCells, theme, controlGround);
   } else {
-    writeOnGround(painter, layout.backgroundConfigRect.column, layout.backgroundConfigRect.row, "[ b Background config ]", {
-      foreground: theme.background,
-      bold: true,
-    }, g(theme.warning));
+    writeOnGround(
+      painter,
+      layout.backgroundConfigRect.column,
+      layout.backgroundConfigRect.row,
+      "[ b Background config ]",
+      {
+        foreground: theme.background,
+        bold: true,
+      },
+      g(theme.warning),
+    );
   }
   const closeCells = settingsWidgets?.cellsFor(buttonSpecs, "close");
   if (closeCells) {
@@ -5761,6 +5884,195 @@ function paintWindowConfigModal(
     background: theme.surfaceStrong,
   });
   painter.write(resetRect.column, resetRect.row, "[ Reset ]", {
+    foreground: theme.text,
+    background: theme.surface,
+    bold: true,
+  });
+  painter.write(closeRect.column, closeRect.row, "[ Close ]", {
+    foreground: theme.background,
+    background: theme.accent,
+    bold: true,
+  });
+}
+
+/** Layout for the shader manager modal; exported for deterministic pointer tests. */
+export interface ExomuxShaderManagerLayout {
+  readonly rect: Rectangle;
+  /** One hit row per entry in `controller.shaderManagerRows()`, in order. */
+  readonly rowRects: readonly Rectangle[];
+  /** The add-a-shader path prompt (doubles as the hint line when idle). */
+  readonly pathRect: Rectangle;
+  readonly addRect: Rectangle;
+  readonly closeRect: Rectangle;
+}
+
+/** Layout for the shader manager modal; exported for deterministic pointer tests. */
+export function exomuxShaderManagerLayout(bounds: Rectangle, rowCount: number): ExomuxShaderManagerLayout {
+  const width = fitModalSpan(bounds.width, 44, 76, 6);
+  // Frame + blank + rows + path/hint row + buttons + frame.
+  const height = Math.min(rowCount + 5, fitModalSpan(bounds.height, 9, bounds.height, 2));
+  const rect = centeredRect(bounds, width, height);
+  const firstRow = rect.row + 2;
+  const usableRows = Math.max(0, rect.height - 5);
+  const rowRects: Rectangle[] = [];
+  for (let index = 0; index < Math.min(rowCount, usableRows); index += 1) {
+    rowRects.push({ column: rect.column + 2, row: firstRow + index, width: Math.max(0, rect.width - 4), height: 1 });
+  }
+  const buttonRow = rect.row + Math.max(1, rect.height - 2);
+  return {
+    rect,
+    rowRects,
+    pathRect: { column: rect.column + 2, row: buttonRow - 1, width: Math.max(0, rect.width - 4), height: 1 },
+    addRect: { column: rect.column + 2, width: 16, row: buttonRow, height: 1 },
+    closeRect: {
+      column: Math.max(rect.column + 1, rect.column + rect.width - 10),
+      width: Math.max(1, Math.min(9, rect.width - 2)),
+      row: buttonRow,
+      height: 1,
+    },
+  };
+}
+
+function paintShaderManagerModal(
+  painter: DesktopPainter,
+  projection: WorkbenchWindowHostProjection,
+  theme: ExomuxThemeSpec,
+  controller: ExomuxController,
+  optionControls?: ExomuxSettingsOptions,
+  pathField?: ExomuxInputField,
+): void {
+  const rows = controller.shaderManagerRows();
+  const { rect, rowRects, pathRect, addRect, closeRect } = exomuxShaderManagerLayout(projection.bounds, rows.length);
+  const selected = controller.shaderManagerIndex.peek();
+  painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
+  painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
+  painter.write(rect.column + 2, rect.row, fitText(" Ghostty shaders ", Math.max(0, rect.width - 4)), {
+    foreground: theme.background,
+    background: theme.accent,
+    bold: true,
+  });
+  // Each actionable row is rendered by a real Cycler/CheckBox composited over
+  // the value column, the same host pattern every settings surface uses.
+  const controlWidth = Math.min(18, Math.max(6, (rowRects[0]?.width ?? 18) - 4));
+  const controlSpecs: ExomuxOptionControlSpec[] = rowRects.map((_rowRect, index) => {
+    const row = rows[index]!;
+    const active = index === selected && row.kind !== "note";
+    const foreground = active ? theme.background : theme.accent;
+    const background = active ? theme.accent : theme.surfaceStrong;
+    if (row.control.kind === "checkbox") {
+      return { kind: "checkbox", key: row.id, width: 3, foreground, background, checked: row.control.checked };
+    }
+    return {
+      kind: "cycler",
+      key: row.id,
+      width: controlWidth,
+      foreground,
+      background,
+      options: [...row.control.options],
+      activeIndex: row.control.activeIndex,
+    };
+  });
+  const controlCells = optionControls?.cellsFor(controlSpecs) ?? [];
+  for (let index = 0; index < rowRects.length; index += 1) {
+    const rowRect = rowRects[index]!;
+    const row = rows[index]!;
+    if (row.kind === "note") {
+      painter.fill(rowRect, " ", { foreground: theme.muted, background: theme.surfaceStrong });
+      painter.write(rowRect.column, rowRect.row, fitText(row.label, rowRect.width), {
+        foreground: theme.muted,
+        background: theme.surfaceStrong,
+      });
+      continue;
+    }
+    const active = index === selected;
+    const cells = controlCells[index];
+    const width = controlSpecs[index]!.width;
+    const controlColumn = rowRect.column + Math.max(0, rowRect.width - width);
+    const valueColumn = cells ? controlColumn : rowRect.column + Math.max(0, rowRect.width - textWidth(row.value) - 1);
+    painter.fill(rowRect, " ", {
+      foreground: active ? theme.background : theme.text,
+      background: active ? theme.accent : theme.surfaceStrong,
+      bold: active,
+    });
+    painter.write(
+      rowRect.column,
+      rowRect.row,
+      fitText(`${active ? ">" : " "} ${row.label}`, Math.max(0, valueColumn - rowRect.column - 1)),
+      {
+        foreground: active ? theme.background : theme.text,
+        background: active ? theme.accent : theme.surfaceStrong,
+        bold: active,
+      },
+    );
+    if (cells) {
+      for (let column = 0; column < Math.min(width, cells.width); column += 1) {
+        const cell = cells.cells[column];
+        if (cell !== undefined) painter.rawCell(controlColumn + column, rowRect.row, cell);
+      }
+    } else {
+      painter.write(valueColumn, rowRect.row, row.value, {
+        foreground: active ? theme.background : theme.accent,
+        background: active ? theme.accent : theme.surfaceStrong,
+        bold: true,
+      });
+    }
+  }
+  // The path prompt is a real composited Input while adding; otherwise the row
+  // carries the key hints.
+  const draft = controller.shaderPathDraft.peek();
+  const adding = draft !== undefined;
+  painter.fill(pathRect, " ", { foreground: theme.text, background: adding ? theme.accent : theme.surfaceStrong });
+  if (adding) {
+    const label = "GLSL path: ";
+    const labelWidth = Math.min(pathRect.width, textWidth(label));
+    painter.write(pathRect.column, pathRect.row, fitText(label, labelWidth), {
+      foreground: theme.background,
+      background: theme.accent,
+      bold: true,
+    });
+    const valueWidth = Math.max(0, pathRect.width - labelWidth);
+    pathField?.sync(true, draft, {
+      column: 0,
+      row: 0,
+      width: Math.max(1, valueWidth),
+      foreground: theme.background,
+      background: theme.accent,
+      cursorForeground: theme.accent,
+      cursorBackground: theme.background,
+    });
+    if (pathField?.ready()) {
+      for (let column = 0; column < valueWidth; column += 1) {
+        const cell = pathField.cellAt(0, column);
+        if (cell !== undefined) painter.rawCell(pathRect.column + labelWidth + column, pathRect.row, cell);
+      }
+    } else {
+      painter.write(pathRect.column + labelWidth, pathRect.row, fitText(`${draft}\u258f`, valueWidth), {
+        foreground: theme.background,
+        background: theme.accent,
+        bold: true,
+      });
+    }
+  } else {
+    pathField?.sync(false, "", {
+      column: 0,
+      row: 0,
+      width: 1,
+      foreground: theme.background,
+      background: theme.accent,
+      cursorForeground: theme.accent,
+      cursorBackground: theme.background,
+    });
+    painter.write(
+      pathRect.column,
+      pathRect.row,
+      fitText(
+        "\u2191\u2193 choose \u00b7 \u2190\u2192 change \u00b7 a add \u00b7 Del remove \u00b7 [ ] reorder",
+        pathRect.width,
+      ),
+      { foreground: theme.muted, background: theme.surfaceStrong },
+    );
+  }
+  painter.write(addRect.column, addRect.row, adding ? "[ \u21b5 Add path ]" : "[ a Add shader ]", {
     foreground: theme.text,
     background: theme.surface,
     bold: true,

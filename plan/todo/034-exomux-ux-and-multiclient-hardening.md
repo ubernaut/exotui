@@ -1,8 +1,8 @@
 # Exomux UX + Multi-Client Hardening
 
-Status: **UX-001 through UX-008 landed Aug 15 2026**; UX-009 (Ghostty shader manager window) and UX-010 (VHS
-distortion shader) remain — the next slice. Needs the user's live confirmation on the resize-ghost fix (the corner
-drag recipe) and the session switcher.
+Status: **UX-001 through UX-010 landed Aug 15 2026 — plan complete.** Still needs the user's live confirmation on
+the resize-ghost fix (the corner drag recipe), the session switcher, and the Ghostty visual pass for the VHS shader
+and manager window.
 
 ## UX-001 — Resize ghosting in the settings window (P0 bug) — **fixed Aug 15 2026**
 
@@ -90,7 +90,15 @@ file instead of vanishing (or corrupting the full-screen TUI). This is also the 
 user's machine. Every filesystem touch stays guarded (missing `--allow-write` degrades to a no-op), and the status
 line should say where the log went when the toggle turns on.
 
-## UX-009 — Ghostty shader manager window (P2 feature, user, Aug 15)
+## UX-009 — Ghostty shader manager window (P2 feature, user, Aug 15) — **done Aug 15 2026** (own modal off a settings `[ s Shaders ]` button: builtin toggles + params, custom GLSL entries with enable/disable, Del remove, `[ ]` reorder, composited path input)
+
+> **Landed:** the settings options pane carries global settings only again; a Ghostty-gated `[ s Shaders ]` button
+> (bottom row, or next to Close when stacked) and the `s` key open a dedicated manager modal. It lists the builtin
+> effect toggles and their param Cyclers (via `shaderManagerRows()`), then the custom `custom-shader` entries in
+> chain order — Enter/←→ toggles or cycles, `a` opens a composited path Input (Enter adds enabled, Escape cancels),
+> Del removes, `[`/`]` reorder with the selection following, and the heading row is skipped by navigation. All
+> mutations flow through the same `#setShaderConfig` → `onShadersChanged` → `applyExomuxShaders` pipeline, so the
+> GLSL files and `ghostty.conf` rewrite on every change. Non-Ghostty hides the button and inerts every entry point.
 
 Break the Ghostty-specific shader settings out of the global settings window into **their own window, launched from a
 button in settings** (the way "Background config" opens its own surface). The inline shader rows the settings options

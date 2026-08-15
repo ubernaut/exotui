@@ -32,13 +32,13 @@ import {
   defaultExomuxShaderConfig,
   EXOMUX_SHADER_EFFECTS,
   EXOMUX_SHADER_PARAMS,
+  type ExomuxCustomShaderEntry,
   exomuxEnabledShaderEffects,
   exomuxFormatShaderValue,
-  type ExomuxCustomShaderEntry,
-  exomuxShaderEffectLabel,
   type ExomuxShaderConfig,
   type ExomuxShaderEffect,
   type ExomuxShaderEffectConfig,
+  exomuxShaderEffectLabel,
   exomuxShaderParamValue,
 } from "./ghostty.ts";
 import {
@@ -315,6 +315,15 @@ export interface ExomuxShaderOptionRow {
   readonly control: ExomuxShaderRowControl;
 }
 
+/** One row of the shader manager window (UX-009). */
+export type ExomuxShaderManagerRow =
+  & ExomuxShaderOptionRow
+  & (
+    | { readonly kind: "builtin" }
+    | { readonly kind: "note" }
+    | { readonly kind: "custom"; readonly customIndex: number }
+  );
+
 /** The durable preference subset shared across sessions via the config file. */
 export interface ExomuxPreferences {
   readonly themeId: ExomuxThemeId;
@@ -459,6 +468,11 @@ export class ExomuxController {
   readonly ghosttyDetected = new Signal(false);
   /** The current GLSL shader configuration, applied when inside Ghostty. */
   readonly shaderConfig = new Signal<ExomuxShaderConfig>(defaultExomuxShaderConfig());
+  /** The shader manager window (UX-009): visibility, selection, add-input. */
+  readonly shaderManagerVisible = new Signal(false);
+  readonly shaderManagerIndex = new Signal(0);
+  /** The path being typed for a new custom shader; undefined = not adding. */
+  readonly shaderPathDraft = new Signal<string | undefined>(undefined);
   readonly status = new Signal("Connecting to local Exomux host…");
   readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
   readonly savedHosts = new Signal<readonly string[]>([]);
@@ -718,6 +732,141 @@ export class ExomuxController {
       }
     }
     return rows;
+  }
+
+  /** Rows the shader manager window shows: built-ins, then custom entries. */
+  shaderManagerRows(): readonly ExomuxShaderManagerRow[] {
+    const rows: ExomuxShaderManagerRow[] = this.shaderOptionRows().map((row) => ({ ...row, kind: "builtin" }));
+    const customs = this.shaderConfig.peek().customShaders;
+    rows.push({
+      kind: "note",
+      id: "custom-heading",
+      label: customs.length > 0 ? "Custom shaders (in order)" : "Custom shaders — a to add",
+      value: "",
+      control: { kind: "checkbox", checked: false },
+    });
+    customs.forEach((entry, index) => {
+      rows.push({
+        kind: "custom",
+        id: `custom:${index}`,
+        label: `  ${entry.path}`,
+        value: entry.enabled ? "On" : "Off",
+        control: { kind: "checkbox", checked: entry.enabled },
+        customIndex: index,
+      });
+    });
+    return rows;
+  }
+
+  openShaderManager(): boolean {
+    if (this.#disposed || !this.ghosttyDetected.peek()) return false;
+    this.shaderManagerIndex.value = 0;
+    this.shaderPathDraft.value = undefined;
+    this.shaderManagerVisible.value = true;
+    this.status.value = "Shaders · ↑↓ choose · ←→/Enter change · a add · Del remove · [ ] reorder · Esc close";
+    return true;
+  }
+
+  closeShaderManager(): void {
+    this.shaderManagerVisible.value = false;
+    this.shaderPathDraft.value = undefined;
+  }
+
+  /** Moves the manager selection, skipping heading rows. */
+  moveShaderManagerSelection(delta: number): void {
+    const rows = this.shaderManagerRows();
+    if (rows.length === 0) return;
+    let index = Math.min(Math.max(0, this.shaderManagerIndex.peek()), rows.length - 1);
+    const step = delta < 0 ? -1 : 1;
+    for (let hop = 0; hop < rows.length; hop += 1) {
+      index = (index + step + rows.length) % rows.length;
+      if (rows[index]!.kind !== "note") break;
+    }
+    this.shaderManagerIndex.value = index;
+  }
+
+  /** Starts (or keeps) the add-a-shader path input. */
+  beginAddCustomShader(): void {
+    if (!this.shaderManagerVisible.peek()) return;
+    this.shaderPathDraft.value = this.shaderPathDraft.peek() ?? "";
+  }
+
+  /** Mirrors typing from the composited path input; inert unless adding. */
+  setShaderPathDraft(text: string): void {
+    if (this.shaderPathDraft.peek() !== undefined) this.shaderPathDraft.value = text;
+  }
+
+  /** Enter on the path input: adds the entry and leaves input mode on success. */
+  commitShaderPathDraft(): boolean {
+    const draft = this.shaderPathDraft.peek();
+    if (draft === undefined || !this.addCustomShader(draft)) return false;
+    this.shaderPathDraft.value = undefined;
+    const rows = this.shaderManagerRows();
+    this.shaderManagerIndex.value = Math.max(0, rows.length - 1);
+    return true;
+  }
+
+  cancelShaderPathDraft(): void {
+    this.shaderPathDraft.value = undefined;
+  }
+
+  /** Applies the selected manager row's action (toggle/cycle). */
+  cycleShaderManagerRow(index: number, direction: number): void {
+    const row = this.shaderManagerRows()[index];
+    if (!row || row.kind === "note") return;
+    if (row.kind === "custom") {
+      this.toggleCustomShader(row.customIndex);
+      return;
+    }
+    this.cycleShaderRow(row.id, direction);
+  }
+
+  toggleCustomShader(index: number): void {
+    const config = this.shaderConfig.peek();
+    const entry = config.customShaders[index];
+    if (!entry) return;
+    const customShaders = config.customShaders.map((candidate, at) =>
+      at === index ? { ...candidate, enabled: !candidate.enabled } : candidate
+    );
+    this.#setShaderConfig({ ...config, customShaders });
+  }
+
+  removeCustomShader(index: number): void {
+    const config = this.shaderConfig.peek();
+    if (!config.customShaders[index]) return;
+    const customShaders = config.customShaders.filter((_entry, at) => at !== index);
+    this.#setShaderConfig({ ...config, customShaders });
+    const rows = this.shaderManagerRows();
+    this.shaderManagerIndex.value = Math.min(this.shaderManagerIndex.peek(), Math.max(0, rows.length - 1));
+  }
+
+  /** Moves one custom entry within the chain; Ghostty applies them in order. */
+  moveCustomShader(index: number, delta: number): void {
+    const config = this.shaderConfig.peek();
+    const target = index + Math.sign(delta);
+    if (!config.customShaders[index] || !config.customShaders[target]) return;
+    const customShaders = [...config.customShaders];
+    [customShaders[index], customShaders[target]] = [customShaders[target]!, customShaders[index]!];
+    this.#setShaderConfig({ ...config, customShaders });
+  }
+
+  /** Adds a custom shader path (enabled), returning false on junk or dupes. */
+  addCustomShader(pathValue: string): boolean {
+    if (this.#disposed || !this.ghosttyDetected.peek()) return false;
+    const path = pathValue.trim();
+    if (path.length === 0 || path.length > 1024) {
+      this.status.value = "A shader entry needs a path to a GLSL file.";
+      return false;
+    }
+    const config = this.shaderConfig.peek();
+    if (config.customShaders.some((entry) => entry.path === path)) {
+      this.status.value = "That shader is already in the chain.";
+      return false;
+    }
+    const entry: ExomuxCustomShaderEntry = Object.freeze({ path, enabled: true });
+    this.#setShaderConfig({ ...config, customShaders: [...config.customShaders, entry] });
+    this.status.value = `Added ${path} · reload Ghostty's config to apply.`;
+    return true;
   }
 
   /** Applies one settings-row action: toggle an effect, or nudge a parameter. */
@@ -1018,20 +1167,18 @@ export class ExomuxController {
     }
   }
 
-  /** Total settings-pane option rows: the global specs plus any shader rows. */
+  /**
+   * Total settings-pane option rows. Shader rows moved to their own manager
+   * window (UX-009), so this is the global specs alone.
+   */
   settingsOptionCount(): number {
-    return EXOMUX_GLOBAL_SETTING_SPECS.length + this.shaderOptionRows().length;
+    return EXOMUX_GLOBAL_SETTING_SPECS.length;
   }
 
-  /** Cycles the option at a combined index — a global spec or a shader row. */
+  /** Cycles the option at a settings-pane index. */
   cycleSettingsOption(index: number, direction: number): void {
-    const specs = EXOMUX_GLOBAL_SETTING_SPECS;
-    if (index < specs.length) {
-      this.cycleGlobalSetting(specs[index]!.id, direction);
-      return;
-    }
-    const shaderRow = this.shaderOptionRows()[index - specs.length];
-    if (shaderRow) this.cycleShaderRow(shaderRow.id, direction);
+    const spec = EXOMUX_GLOBAL_SETTING_SPECS[index];
+    if (spec) this.cycleGlobalSetting(spec.id, direction);
   }
 
   /** Cycles one desktop-wide setting and persists it. */
@@ -1763,13 +1910,15 @@ export class ExomuxController {
         const probes = await this.#hostSessionsSource!.probe();
         if (this.#disposed) return;
         const current = this.sessionName.peek();
-        this.hostSessions.value = probes.map((probe) => Object.freeze({
-          name: probe.name,
-          state: probe.state,
-          ...(probe.upMs !== undefined ? { upMs: probe.upMs } : {}),
-          terminalCount: probe.terminals.length,
-          current: probe.name === current,
-        }));
+        this.hostSessions.value = probes.map((probe) =>
+          Object.freeze({
+            name: probe.name,
+            state: probe.state,
+            ...(probe.upMs !== undefined ? { upMs: probe.upMs } : {}),
+            terminalCount: probe.terminals.length,
+            current: probe.name === current,
+          })
+        );
       } catch {
         // A failed probe keeps the previous listing; the next refresh retries.
       } finally {
@@ -2422,6 +2571,9 @@ export class ExomuxController {
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
     this.hostSessions.dispose();
+    this.shaderManagerVisible.dispose();
+    this.shaderManagerIndex.dispose();
+    this.shaderPathDraft.dispose();
     this.startMenuVisible.dispose();
     this.startMenuPreset.dispose();
     this.#tailnetPoller?.dispose();

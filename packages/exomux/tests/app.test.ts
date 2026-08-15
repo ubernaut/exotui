@@ -4842,7 +4842,150 @@ Deno.test("Exomux hides CRT shader settings when not in Ghostty", async () => {
     // Toggling is inert without Ghostty.
     controller.cycleShaderRow("shader-toggle:scanline", 1);
     assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, false);
+    // The shader manager (UX-009) is Ghostty-only too.
+    assertEquals(controller.openShaderManager(), false);
+    assertEquals(controller.addCustomShader("glow.glsl"), false);
+    assertEquals(controller.shaderManagerVisible.peek(), false);
   } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux shader manager manages custom Ghostty shaders in order", async () => {
+  const applied: string[][] = [];
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    ghosttyDetected: true,
+    onShadersChanged: (config) => {
+      applied.push(config.customShaders.map((entry) => `${entry.path}:${entry.enabled ? "on" : "off"}`));
+    },
+  });
+  try {
+    // The manager lists the built-in effect rows first, then the custom section.
+    let rows = controller.shaderManagerRows();
+    assertEquals(rows.length, 4); // 3 builtin toggles + the custom heading
+    assertEquals(rows[3]!.kind, "note");
+    // The settings pane no longer inlines shader rows — they moved here (UX-009).
+    assertEquals(controller.settingsOptionCount(), EXOMUX_GLOBAL_SETTING_SPECS.length);
+
+    assert(controller.openShaderManager());
+    assertEquals(controller.shaderManagerVisible.peek(), true);
+
+    // Add two custom entries; duplicates are refused.
+    assert(controller.addCustomShader("~/shaders/glow.glsl"));
+    assert(!controller.addCustomShader("~/shaders/glow.glsl"));
+    assert(controller.addCustomShader("crt-extra.glsl"));
+    rows = controller.shaderManagerRows();
+    assertEquals(rows.length, 6);
+    assertEquals(rows[4]!.kind, "custom");
+    assertEquals(applied.at(-1), ["~/shaders/glow.glsl:on", "crt-extra.glsl:on"]);
+
+    // Disable the second entry without removing it.
+    controller.toggleCustomShader(1);
+    assertEquals(applied.at(-1), ["~/shaders/glow.glsl:on", "crt-extra.glsl:off"]);
+    assertEquals(controller.shaderManagerRows()[5]!.value, "Off");
+
+    // Reorder: the chain order is exactly what Ghostty applies.
+    controller.moveCustomShader(1, -1);
+    assertEquals(applied.at(-1), ["crt-extra.glsl:off", "~/shaders/glow.glsl:on"]);
+    controller.moveCustomShader(0, -1); // the top entry cannot move further
+    assertEquals(applied.at(-1), ["crt-extra.glsl:off", "~/shaders/glow.glsl:on"]);
+
+    // The selection skips the heading row between builtins and customs.
+    controller.shaderManagerIndex.value = 2;
+    controller.moveShaderManagerSelection(1);
+    assertEquals(controller.shaderManagerIndex.peek(), 4);
+    controller.moveShaderManagerSelection(-1);
+    assertEquals(controller.shaderManagerIndex.peek(), 2);
+
+    // The add-path draft round-trip trims and appends enabled.
+    controller.beginAddCustomShader();
+    assertEquals(controller.shaderPathDraft.peek(), "");
+    controller.setShaderPathDraft("  vhs-extra.glsl  ");
+    assert(controller.commitShaderPathDraft());
+    assertEquals(controller.shaderPathDraft.peek(), undefined);
+    assertEquals(controller.shaderConfig.peek().customShaders.at(-1)!.path, "vhs-extra.glsl");
+
+    // Removing clamps the selection back into range.
+    controller.shaderManagerIndex.value = controller.shaderManagerRows().length - 1;
+    controller.removeCustomShader(2);
+    assertEquals(controller.shaderConfig.peek().customShaders.length, 2);
+    assert(controller.shaderManagerIndex.peek() < controller.shaderManagerRows().length);
+
+    controller.closeShaderManager();
+    assertEquals(controller.shaderManagerVisible.peek(), false);
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux opens the shader manager from settings and adds a shader by path", async () => {
+  const applied: string[][] = [];
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    ghosttyDetected: true,
+    onShadersChanged: (config) => {
+      applied.push(config.customShaders.filter((entry) => entry.enabled).map((entry) => entry.path));
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 34 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.openGlobalConfig();
+    await mounted.whenIdle();
+
+    // Under Ghostty the settings window carries a Shaders button; clicking it
+    // opens the manager modal.
+    const clientRect = mounted.windowProjection.peek().windows.find(
+      (window) => window.id === EXOMUX_SETTINGS_WINDOW_ID,
+    )!.clientRect;
+    const settingsLayout = exomuxGlobalConfigLayout(clientRect, 0, 0);
+    await harness.pilot.click(settingsLayout.shadersRect.column + 1, settingsLayout.shadersRect.row);
+    await mounted.whenIdle();
+    assertEquals(controller.shaderManagerVisible.peek(), true);
+
+    // Enter toggles the selected builtin row (CRT scanlines).
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+    assertEquals(controller.shaderConfig.peek().effects.scanline.enabled, true);
+
+    // "a" opens the path prompt; typing + Enter adds the entry enabled.
+    await harness.pilot.press("a");
+    await mounted.whenIdle();
+    assertEquals(controller.shaderPathDraft.peek(), "");
+    const typeChar = (char: string) => harness.pilot.press(char as Key, { buffer: new TextEncoder().encode(char) });
+    for (const char of "glow.glsl") await typeChar(char);
+    await mounted.whenIdle();
+    assertEquals(controller.shaderPathDraft.peek(), "glow.glsl");
+    await harness.pilot.press("return");
+    await mounted.whenIdle();
+    assertEquals(controller.shaderPathDraft.peek(), undefined);
+    assertEquals(controller.shaderConfig.peek().customShaders, [{ path: "glow.glsl", enabled: true }]);
+    assertEquals(applied.at(-1), ["glow.glsl"]);
+
+    // Del removes the selected custom entry (the commit selected it).
+    const rows = controller.shaderManagerRows();
+    assertEquals(rows[controller.shaderManagerIndex.peek()]!.kind, "custom");
+    await harness.pilot.press("delete");
+    await mounted.whenIdle();
+    assertEquals(controller.shaderConfig.peek().customShaders.length, 0);
+
+    // Escape closes the manager; settings stays open beneath it.
+    await harness.pilot.press("escape");
+    await mounted.whenIdle();
+    assertEquals(controller.shaderManagerVisible.peek(), false);
+    assertEquals(controller.globalConfigVisible.peek(), true);
+  } finally {
+    harness.destroy();
     await controller.dispose();
   }
 });
