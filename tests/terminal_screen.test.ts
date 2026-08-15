@@ -172,6 +172,28 @@ Deno.test("TerminalScreenController preserves split UTF-8 and control sequences 
   assertEquals(screen.inspect().title, "split title");
 });
 
+Deno.test("TerminalScreenController tracks the OSC 7 working directory", () => {
+  const screen = new TerminalScreenController({ columns: 20, rows: 2 });
+  assertEquals(screen.inspect().workingDirectory, undefined);
+
+  screen.write("\x1b]7;file://host/home/cos/projects\x07");
+  assertEquals(screen.inspect().workingDirectory, "/home/cos/projects");
+
+  // Percent-encoded paths decode; the host part is irrelevant.
+  screen.write("\x1b]7;file:///tmp/with%20space\x1b\\");
+  assertEquals(screen.inspect().workingDirectory, "/tmp/with space");
+
+  // Malformed or foreign payloads never clear the last good report.
+  screen.write("\x1b]7;http://evil.example/\x07");
+  screen.write("\x1b]7;file:\x07");
+  screen.write("\x1b]7;\x07");
+  assertEquals(screen.inspect().workingDirectory, "/tmp/with space");
+
+  // A full reset clears it with the rest of the retained state.
+  screen.write("\x1bc");
+  assertEquals(screen.inspect().workingDirectory, undefined);
+});
+
 Deno.test("TerminalScreenController tracks 256-color truecolor and bright SGR styles", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 2 });
 
@@ -515,6 +537,7 @@ Deno.test("TerminalScreenController supports ESC c reset", () => {
     scrollbackRows: 0,
     alternate: false,
     title: undefined,
+    workingDirectory: undefined,
   });
   assertEquals(screen.cellRows()[0]![0], { char: "p" });
   assertEquals(screen.textRows(), ["plain", ""]);

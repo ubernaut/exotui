@@ -48,6 +48,7 @@ import {
   exomuxFuzzyMatch,
   exomuxNetworkNodeAction,
   exomuxNetworkNodeRemoteSession,
+  exomuxPermissionReport,
   exomuxPingSummary,
   type ExomuxPreferences,
   parseExomuxRemoteSessions,
@@ -5829,6 +5830,104 @@ Deno.test("Exomux network filter narrows machines and auto-expands survivors (TS
     await harness.pilot.press("escape");
     await mounted.whenIdle();
     assertEquals(controller.networkFilter.peek(), undefined);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux permission report lists every subprocess grant with provenance (TSM-011)", () => {
+  const report = exomuxPermissionReport();
+  const spawnTargets = (level: "required" | "optional") =>
+    (level === "required" ? report.required : report.optional)
+      .filter((entry) => entry.kind === "subprocess")
+      .map((entry) => ({ target: entry.target, by: [...entry.requiredBy, ...entry.optionalBy] }));
+
+  // The host's own processes are required; every network tool is optional.
+  const required = spawnTargets("required");
+  assert(required.some((entry) => entry.target.includes("host daemon") && entry.by.includes("exomux-host")));
+  assert(required.some((entry) => entry.target.includes("terminal shells")));
+
+  const optional = spawnTargets("optional");
+  const byTool = (needle: string) => optional.find((entry) => entry.target.includes(needle));
+  assertEquals(byTool("tailscale")?.by, ["exomux-tailnet-discovery"]);
+  assertEquals(byTool("ssh")?.by, ["exomux-network-panel"]);
+  assertEquals(byTool("ping")?.by, ["exomux-network-panel"]);
+  assertEquals(byTool("scp")?.by, ["exomux-file-transfer"]);
+});
+
+Deno.test("Exomux provider capability follows tailnet availability without restart (TSM-011)", async () => {
+  const client = new FakeExomuxClient([]);
+  let result: TailnetStatusResult = { availability: "unavailable", detail: "tailscale binary not found" };
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    tailnetSource: { fetchStatus: () => Promise.resolve(result) },
+    tailnetPollIntervalMs: 300_000,
+  });
+  try {
+    assertEquals(controller.networkCapability().status, "unavailable");
+
+    await controller.refreshNetwork();
+    assertEquals(controller.networkCapability().status, "unavailable");
+    assertEquals(controller.networkCapability().reason, "tailscale binary not found");
+
+    result = { availability: "degraded", detail: "tailscaled is stopped" };
+    await controller.refreshNetwork();
+    assertEquals(controller.networkCapability().status, "degraded");
+
+    result = {
+      availability: "available",
+      detail: "tailscale is running",
+      snapshot: { backendState: "Running", devices: [], capturedAt: 1 },
+    };
+    await controller.refreshNetwork();
+    assertEquals(controller.networkCapability().status, "available");
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux scp targets the OSC 7 working directory without probing (035 D4)", async () => {
+  const initial = session("osc7-shell", "osc7 shell", 0, "ssh studio.tail.net");
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    tailnetSource: {
+      fetchStatus: () => Promise.resolve({ availability: "unavailable", detail: "off" } as TailnetStatusResult),
+    },
+    tailnetPollIntervalMs: 300_000,
+    statFile: () => Promise.resolve(true),
+    scpCwdTimeoutMs: 2_000,
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.sessionHosts.value = Object.freeze({ [initial.id]: "studio.tail.net" });
+    // The remote shell reported its cwd through OSC 7 at some earlier point.
+    client.emitOutput({
+      sessionId: initial.id,
+      sequence: 1,
+      data: "\x1b]7;file://studio/srv/deploys\x07",
+    });
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(initial.id) }, mounted.bodyRect.peek());
+
+    harness.app.tui.emit("paste", { key: "paste", text: "/tmp/report.pdf", buffer: new Uint8Array() });
+    await waitForCondition(() => controller.pendingScp.peek()?.remoteDir !== undefined, 2_000);
+    assertEquals(controller.pendingScp.peek()!.remoteDir, "/srv/deploys");
+    // The OSC 7 report made the pwd probe unnecessary.
+    assert(!client.inputs.some((input) => input.data.includes("pwd")), "no pwd probe typed into the shell");
+
+    await harness.pilot.press("return");
+    await waitForCondition(() => client.spawned.some((options) => options.command === "scp"), 2_000);
+    const scpSpawn = client.spawned.find((options) => options.command === "scp")!;
+    assertEquals(scpSpawn.args!.at(-1), "studio.tail.net:/srv/deploys/");
   } finally {
     harness.destroy();
     await controller.dispose();

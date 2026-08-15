@@ -55,6 +55,8 @@ export interface TerminalScreenInspection {
   scrollbackRows: number;
   alternate: boolean;
   title?: string;
+  /** The shell's cwd as last reported through OSC 7 (`file://host/path`). */
+  workingDirectory?: string;
 }
 
 interface TerminalScreenState {
@@ -111,6 +113,7 @@ export class TerminalScreenController {
   #style: Omit<TerminalScreenCell, "char"> = {};
   #savedCursor?: TerminalScreenCursor;
   #title?: string;
+  #workingDirectory?: string;
   #hyperlink?: string;
   #scrollRegion: TerminalScreenScrollRegion;
   #cursorVisible = true;
@@ -282,6 +285,7 @@ export class TerminalScreenController {
       scrollbackRows: this.#scrollback.length,
       alternate: this.alternate,
       title: this.#title,
+      workingDirectory: this.#workingDirectory,
     };
   }
 
@@ -610,7 +614,32 @@ export class TerminalScreenController {
       this.#title = payload.slice(separator + 1);
       return;
     }
+    if (code === "7") {
+      this.#applyWorkingDirectory(payload.slice(separator + 1));
+      return;
+    }
     if (code === "8") this.#applyHyperlink(payload.slice(separator + 1));
+  }
+
+  /**
+   * OSC 7 reports the shell's working directory as a `file://host/path` URI.
+   * Only well-formed file URIs with an absolute path are accepted; malformed
+   * or foreign-scheme payloads never clear a previously reported directory.
+   */
+  #applyWorkingDirectory(uri: string): void {
+    if (uri.length === 0 || uri.length > 4096 || !uri.startsWith("file:")) return;
+    try {
+      const parsed = new URL(uri);
+      if (parsed.protocol !== "file:") return;
+      const path = decodeURIComponent(parsed.pathname);
+      if (!path.startsWith("/")) return;
+      // `new URL("file:")` normalizes to a bare "/"; only accept a root
+      // report when the URI actually spelled a path out.
+      if (path === "/" && !/^file:\/\/[^/]*\//.test(uri)) return;
+      this.#workingDirectory = path;
+    } catch {
+      // Unparseable URI: keep the last good report.
+    }
   }
 
   #applyHyperlink(payload: string): void {
@@ -913,6 +942,7 @@ export class TerminalScreenController {
     this.#style = {};
     this.#savedCursor = undefined;
     this.#title = undefined;
+    this.#workingDirectory = undefined;
     this.#hyperlink = undefined;
     this.#cursorVisible = true;
     this.#cursorStyle = { shape: "block", blinking: true };

@@ -3,8 +3,12 @@
 import {
   type AsyncStore,
   Computed,
+  createRuntimePermissionActivationReport,
+  createRuntimePermissionManifest,
   type DiagnosticsCollector,
   type Rectangle,
+  type RuntimePermissionActivationReport,
+  type RuntimePermissionManifest,
   Signal,
   TerminalScreenController,
   TerminalScrollbackController,
@@ -19,6 +23,7 @@ import {
   type ShowcaseProvider,
   type ShowcaseProviderActivationContext,
   type ShowcaseProviderActivationResult,
+  type ShowcaseProviderCapability,
 } from "@showcase/kit";
 import {
   createTailscaleStatusSource,
@@ -264,6 +269,48 @@ export function exomuxNetworkNodeRemoteSession(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Every subprocess and network class Exomux may use, declared up front so
+ * activation reports stay honest (SEC-001 / 035 TSM-011). Targets are
+ * descriptive host-policy inputs, not authority; argv-only execution and the
+ * conservative charset gates are enforced at each call site.
+ */
+export const EXOMUX_PERMISSION_MANIFESTS: readonly RuntimePermissionManifest[] = Object.freeze([
+  createRuntimePermissionManifest({
+    adapterId: "exomux-host",
+    required: [
+      { kind: "subprocess", operation: "spawn", target: "exomux host daemon (detached, loopback-only)" },
+      { kind: "subprocess", operation: "spawn", target: "terminal shells (pty or pipe backend)" },
+      { kind: "network", operation: "connect", target: "loopback websocket to the exomux host" },
+    ],
+  }),
+  createRuntimePermissionManifest({
+    adapterId: "exomux-tailnet-discovery",
+    optional: [
+      { kind: "subprocess", operation: "spawn", target: "tailscale status --json / tailscale version" },
+      { kind: "read", operation: "content", target: "tailscaled LocalAPI unix socket" },
+    ],
+  }),
+  createRuntimePermissionManifest({
+    adapterId: "exomux-network-panel",
+    optional: [
+      { kind: "subprocess", operation: "spawn", target: "ssh (remote shells, monitors, session probes, attaches)" },
+      { kind: "subprocess", operation: "spawn", target: "ping -c 1 (reachability probe)" },
+    ],
+  }),
+  createRuntimePermissionManifest({
+    adapterId: "exomux-file-transfer",
+    optional: [
+      { kind: "subprocess", operation: "spawn", target: "scp (paste-to-scp, argv-only)" },
+    ],
+  }),
+]);
+
+/** Aggregated provenance report over every Exomux permission manifest. */
+export function exomuxPermissionReport(): RuntimePermissionActivationReport {
+  return createRuntimePermissionActivationReport(EXOMUX_PERMISSION_MANIFESTS);
 }
 
 /** One human line from ping output: the reply line or the loss/rtt summary, bounded. */
@@ -711,6 +758,7 @@ export class ExomuxController {
   readonly clipboardCopy = new Signal<{ readonly text: string; readonly nonce: number } | undefined>(undefined);
   #clipboardNonce = 0;
   readonly #networkProbeRunner: TailnetCommandRunner;
+  #provider!: ExomuxClientProvider;
   /** Remote-session discovery cache, keyed by SSH target (TSM-012). */
   readonly remoteSessions = new Signal<Readonly<Record<string, ExomuxRemoteSessionProbe>>>({});
   /** Live network-panel fuzzy filter; undefined = off, "" = editing and empty. */
@@ -823,6 +871,7 @@ export class ExomuxController {
     for (const session of initialSessions) this.#runtimes.set(session.id, createTerminalRuntime(session));
 
     const provider = new ExomuxClientProvider(this.client);
+    this.#provider = provider;
     this.kernel = new ShowcaseKernel({
       manifest: EXOMUX_MANIFEST,
       provider,
@@ -890,6 +939,11 @@ export class ExomuxController {
       this.remoteSessions.peek(),
       this.networkFilter.peek() ?? "",
     );
+  }
+
+  /** The live `network.tailscale` capability the provider reports (TSM-011). */
+  networkCapability(): ShowcaseProviderCapability {
+    return this.#provider.capabilities.find((capability) => capability.id === "network.tailscale")!;
   }
 
   /** Resolves a tailnet device referenced by a network tree node id. */
@@ -2073,6 +2127,10 @@ export class ExomuxController {
     const runtime = this.#runtimes.get(sessionId);
     if (!runtime || !runtime.attached.peek() || !runtime.summary.peek().running) return undefined;
     const inspection = runtime.screen.inspect();
+    // A shell that reports OSC 7 (035 D4) hands over its cwd with no probe at
+    // all — and keeps working even mid-command or under a full-screen app.
+    const reported = inspection.workingDirectory;
+    if (reported && reported.length <= 510 && /^\/[A-Za-z0-9._/@+-]*$/.test(reported)) return reported;
     if (inspection.alternate) return undefined;
     const cursorLine = runtime.screen.textRows()[inspection.cursor.row] ?? "";
     const beforeCursor = cursorLine.slice(0, inspection.cursor.column).trimEnd();
@@ -2188,6 +2246,7 @@ export class ExomuxController {
     this.#tailnetPoller ??= new TailnetPoller({
       source: this.#tailnetSource,
       onResult: (result) => {
+        this.#provider.setNetworkCapability(result.availability, result.detail);
         if (this.#disposed) return;
         this.networkStatus.value = result;
       },
@@ -3035,18 +3094,35 @@ export class ExomuxController {
   }
 }
 
+const EXOMUX_STATIC_CAPABILITIES: readonly ShowcaseProviderCapability[] = Object.freeze([
+  Object.freeze({ id: "terminal.multiplex", status: "available" as const }),
+  Object.freeze({ id: "window.advanced", status: "available" as const }),
+  Object.freeze({ id: "terminal.pty", status: "available" as const }),
+  Object.freeze({ id: "terminal.replay", status: "available" as const }),
+]);
+
 class ExomuxClientProvider implements ShowcaseProvider {
   readonly id = "exomux-local-host";
   readonly label = "Exomux local detached terminal host";
-  readonly capabilities = Object.freeze([
-    Object.freeze({ id: "terminal.multiplex", status: "available" as const }),
-    Object.freeze({ id: "window.advanced", status: "available" as const }),
-    Object.freeze({ id: "terminal.pty", status: "available" as const }),
-    Object.freeze({ id: "terminal.replay", status: "available" as const }),
-  ]);
+  // Tailnet reachability is a live fact (TSM-011): the poller's results keep
+  // this capability current, so a stopped tailscaled reads as degraded and a
+  // missing binary as unavailable — recovery needs no restart.
+  #networkTailscale: ShowcaseProviderCapability = Object.freeze({
+    id: "network.tailscale",
+    status: "unavailable" as const,
+    reason: "The tailnet has not been probed yet.",
+  });
   #disposed = false;
 
   constructor(readonly client: ExomuxClientPort) {}
+
+  get capabilities(): readonly ShowcaseProviderCapability[] {
+    return Object.freeze([...EXOMUX_STATIC_CAPABILITIES, this.#networkTailscale]);
+  }
+
+  setNetworkCapability(status: ShowcaseProviderCapability["status"], reason: string): void {
+    this.#networkTailscale = Object.freeze({ id: "network.tailscale", status, reason });
+  }
 
   activate(_context: ShowcaseProviderActivationContext): ShowcaseProviderActivationResult {
     if (this.#disposed || !this.client.connected) return { status: "degraded", message: "Client is disconnected." };

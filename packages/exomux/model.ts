@@ -927,7 +927,7 @@ export const EXOMUX_MANIFEST = defineShowcaseManifest({
   ],
   initialRouteId: "workspace",
   requiredCapabilities: ["terminal.multiplex", "window.advanced"],
-  optionalCapabilities: ["terminal.pty", "terminal.replay"],
+  optionalCapabilities: ["terminal.pty", "terminal.replay", "network.tailscale"],
   hosts: { terminal: true, browser: false },
 });
 

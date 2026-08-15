@@ -1,7 +1,8 @@
 # Exomux Network Menu Program (formerly "Tailnet")
 
-Status: MVP implementation in progress as of July 21, 2026. Fleshes out the original notes in
-`plan/tailscale-integration.md`; this document is the authoritative plan and supersedes those notes.
+Status: **complete through the MVP + TSM-006/010/011/012/013/014 (incl. OSC 7 cwd) as of Aug 15 2026.** Only the
+Phase 2/3 ledgers below remain open. Fleshes out the original notes in `plan/tailscale-integration.md`; this
+document is the authoritative plan and supersedes those notes.
 
 ## Direction updates (user, July 21 2026)
 
@@ -39,8 +40,14 @@ Status: MVP implementation in progress as of July 21, 2026. Fleshes out the orig
   filter — printable keys narrow (case-insensitive in-order subsequence across machine names, DNS names, OS tags,
   and discovered remote-session names), survivors auto-expand, arrows/Enter keep their meaning, backspace-on-empty
   or Escape clears. While editing, the panel owns all typing (`r` refresh works only when no filter is active).
-- Still tracked below (unchanged): remaining OSC 7 cwd targeting for scp (a `pwd`-probe capture already landed),
-  capability/provider manifest integration (TSM-011).
+- **TSM-011 + OSC 7 cwd landed Aug 15 2026:** `EXOMUX_PERMISSION_MANIFESTS` declares every subprocess/network class
+  up front (host daemon + shells required; tailscale, ssh, ping, scp optional, one adapter each for provenance) with
+  `exomuxPermissionReport()` aggregating them; the provider now reports a live `network.tailscale` capability that
+  follows the poller's availability (unavailable → degraded → available without restart), and the app manifest
+  lists it as optional. The library's `TerminalScreenController` tracks OSC 7 `file://host/path` working-directory
+  reports (malformed payloads never clear a good one), and the scp cwd capture uses the reported directory before
+  falling back to the `pwd` probe — so shells with OSC 7 integration get exact destinations even mid-command or
+  under a full-screen app. D4 resolved: OSC 7 when the shell emits it, probe → home fallback otherwise.
 
 This roadmap adds first-class Tailscale awareness to the Exomux terminal-multiplexer showcase: a `[ Tailnet ]` menu-bar
 entry beside `[ New ]` that opens a floating, TOC-style tree panel on the left edge of the desktop, from which tailnet
