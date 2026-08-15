@@ -92,7 +92,6 @@ import {
 } from "./settings_widgets.ts";
 import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
-import { ExomuxSessionNameField } from "./session_name_field.ts";
 import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
 import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
@@ -970,16 +969,19 @@ export function mountExomuxDesktop(
   );
   // The session-name field is a real exotui Input while a rename is edited; it
   // pushes the draft to the controller and Enter routes through to commit.
+  // Directly the reusable ExomuxInputField (WS-010): the session-name alphabet
+  // is a validator, and the controller re-applies the same filter on commit.
   const sessionNameField = own(
-    new ExomuxSessionNameField(
-      () => {
+    new ExomuxInputField({
+      requestRepaint: () => {
         settingsWidgetRevision.value += 1;
       },
-      (text) => controller.setSessionRenameDraft(text),
-      () => {
+      onChange: (text) => controller.setSessionRenameDraft(text),
+      onSubmit: () => {
         void controller.commitSessionRename().then(() => syncWindows());
       },
-    ),
+      validator: /[A-Za-z0-9._-]/,
+    }),
   );
   // The SCP modal's password prompt is a real, composited Input (masked) — the
   // first interactive field migrated off hand-drawn paint onto the reusable
@@ -3261,7 +3263,7 @@ interface RenderExomuxDesktopOptions {
   /** Hosts the settings window's option controls as real composited Cyclers/CheckBoxes. */
   settingsOptions?: ExomuxSettingsOptions;
   /** Hosts the session-name editor as a real composited Input while renaming. */
-  sessionNameField?: ExomuxSessionNameField;
+  sessionNameField?: ExomuxInputField;
   /** Hosts the SCP modal's password prompt as a real composited (masked) Input. */
   scpPasswordField?: ExomuxInputField;
   /** Hosts the background-config modal's list pane as a real composited List. */
@@ -3895,7 +3897,7 @@ function paintWindow(
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
-  sessionNameField?: ExomuxSessionNameField,
+  sessionNameField?: ExomuxInputField,
   sessionList?: ExomuxSessionList,
   sessionListScrollTop = -1,
   networkTreeView?: ExomuxNetworkTree,
@@ -4970,7 +4972,7 @@ function paintGlobalSettingsWindow(
   settingsWidgets?: ExomuxSettingsWidgets,
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
-  sessionNameField?: ExomuxSessionNameField,
+  sessionNameField?: ExomuxInputField,
 ): void {
   const theme = controller.theme.peek();
   const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));

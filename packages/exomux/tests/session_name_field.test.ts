@@ -1,10 +1,10 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals } from "./deps.ts";
-import { ExomuxSessionNameField, type ExomuxSessionNameSpec } from "../session_name_field.ts";
+import { ExomuxInputField, type ExomuxInputFieldSpec } from "../input_field.ts";
 
 const SGR = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
-function plain(field: ExomuxSessionNameField, width: number): string {
+function plain(field: ExomuxInputField, width: number): string {
   let text = "";
   for (let column = 0; column < width; column += 1) {
     const cell = field.cellAt(0, column);
@@ -19,7 +19,7 @@ async function settle(pending: () => boolean, limit = 60) {
   }
 }
 
-const SPEC: ExomuxSessionNameSpec = {
+const SPEC: ExomuxInputFieldSpec = {
   column: 0,
   row: 0,
   width: 20,
@@ -32,18 +32,21 @@ const SPEC: ExomuxSessionNameSpec = {
 Deno.test("session-name field edits through a real Input and submits", async () => {
   const drafts: string[] = [];
   let submits = 0;
-  const field = new ExomuxSessionNameField(
-    () => {},
-    (text) => {
+  // The session-name editor is the reusable ExomuxInputField with the
+  // session-name alphabet as its validator (WS-010).
+  const field = new ExomuxInputField({
+    requestRepaint: () => {},
+    onChange: (text) => {
       drafts.push(text);
     },
-    () => {
+    onSubmit: () => {
       submits += 1;
     },
-  );
+    validator: /[A-Za-z0-9._-]/,
+  });
   try {
     field.sync(true, "ab", SPEC);
-    assert(field.editing, "the field is editing after sync(true)");
+    assert(field.active, "the field is editing after sync(true)");
     await settle(() => !field.ready());
     assert(field.ready(), "the Input renders a snapshot");
     assert(plain(field, 20).includes("ab"), "the seeded draft renders");
@@ -69,7 +72,7 @@ Deno.test("session-name field edits through a real Input and submits", async () 
 
     // Leaving edit mode tears the Input down.
     field.sync(false, "", SPEC);
-    assert(!field.editing, "the field stops editing after sync(false)");
+    assert(!field.active, "the field stops editing after sync(false)");
     assertEquals(field.ready(), false);
   } finally {
     field.dispose();

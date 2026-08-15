@@ -20,14 +20,14 @@ and its compositing surface, windowing, mouse/cursor, terminal rendering, and ba
 highest-leverage additions to the library. Active todo files are numbered in planned implementation order (`031`–`036`);
 `025` production demo showcases moved to `todo/hiatus/` on Aug 14 2026.
 
-1. **`031` Exomux ↔ exotui widget sync (P0, in progress).** Promote the compositing surface (`WidgetSurface`), then
+1. **`031` Exomux ↔ exotui widget sync (P0, complete Aug 14 2026; WS-013/WS-014 follow-ups tracked in its file).** Promote the compositing surface (`WidgetSurface`), then
    richer `List`/`Tree`/`Modal`/`Input`/`ContextMenu`, a real `TerminalScreen`, window-host niceties, and the
    animated-background + software-cursor/any-motion helpers into exotui, and have exomux consume them instead of
    hand-drawing. Concrete and bounded versus the broad aspirational backlogs. Windowing and mouse/cursor are the
    clearest wins — and the mouse/cursor surface has grown well past the Aug 12 audit (block-cursor blink, resize-edge
    glyph, any-motion tracking, scroll/wheel-under-pointer routing, pincushion mouse warp), so refresh
    `docs/exomux-component-audit.md` before executing.
-2. **`032` Transparent window stacking (P0, next after 031).** Show windows behind other transparent windows using the
+2. **`032` Transparent window stacking (P0, next up).** Show windows behind other transparent windows using the
    circuit-backdrop technique generalized to the whole scene: per-cell ink-coverage color reduction of everything
    painted beneath, deposited in z-order and blended per cell. Its scene-ground seam is also what WS-003's composited
    Sessions `List` needs.

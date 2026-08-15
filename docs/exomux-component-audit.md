@@ -155,24 +155,24 @@ adopt an exotui component **and** hand it new capabilities on the way up.
 1. **`WidgetSurface` / `CompositeSurface` in exotui** ⭐⭐ — **done Aug 14 2026 (WS-001)**: `WidgetSurface` in
    `src/app/widget_surface.ts`, exported from `mod.app.ts`, built on `Canvas.rerenderAll()`; exomux consumes it via a
    thin alias. *Foundational — unblocked everything below.*
-2. **`TerminalScreen` component + `terminal_palette` utilities** 🆕⭐ — a real PTY cell-grid renderer with xterm-256,
+2. **`TerminalScreen` component + `terminal_palette` utilities** 🆕⭐ — **done Aug 14 2026 (WS-002).** a real PTY cell-grid renderer with xterm-256,
    WCAG contrast lift, dim-inactive, transparency, cursor. exotui only has line-level `TerminalOutput` today. Biggest
    net-new capability.
-3. **Richer `List` / `Table`** ⭐ — *library half done Aug 14 2026*: `List.rowStyle` (per-row reactive
+3. **Richer `List` / `Table`** ⭐ — **done Aug 14 2026 (WS-003).** *library half done Aug 14 2026*: `List.rowStyle` (per-row reactive
    foreground/background tracking the scroll window) landed in `src/components/list.ts`. Remaining: **convert the
    Sessions panel to a composited `List`/`Table`** — which *also fixes wheel-changes-selection* for free — including
    per-cell ground-blend against the desktop backdrop for reduced-opacity windows.
-4. **Richer `Tree`** ⭐ — per-node status (online/offline), metadata, `note` rows, pluggable activation. Then
+4. **Richer `Tree`** ⭐ — **done Aug 14 2026 (WS-004).** per-node status (online/offline), metadata, `note` rows, pluggable activation. Then
    **convert the Network panel to a composited `Tree`.**
-5. **`Modal` upgrades + migrate the dialogs** ⭐🔧 — add responsive button stacking (`modalButtonRects`), then move
+5. **`Modal` upgrades + migrate the dialogs** ⭐🔧 — **done Aug 14 2026 (WS-005/WS-011/WS-012).** add responsive button stacking (`modalButtonRects`), then move
    Kill / Quit / SCP / Help / Window-config onto `Modal` + `ModalController`. The **SCP password field → `Input`
    (password)** proof point is **done Aug 14 2026 (WS-006)** via the reusable `ExomuxInputField`; next, migrate the
    session-name editor onto it and delete `session_name_field.ts` (WS-010).
-6. **`ContextMenu` upgrades + migrate the start menu** ⭐🔧 — destructive-item tone + cursor-anchored clamped
+6. **`ContextMenu` upgrades + migrate the start menu** ⭐🔧 — **done Aug 14 2026 (WS-007).** destructive-item tone + cursor-anchored clamped
    placement, then composite the start menu on it.
-7. **Window-host niceties** ⭐ — double-click-to-maximize, title "status adornments", honoring `control.tone` on the
+7. **Window-host niceties** ⭐ — **done Aug 14 2026 (WS-008).** double-click-to-maximize, title "status adornments", honoring `control.tone` on the
    titlebar buttons (a bug in exomux today), configurable border style.
-8. **`AnimatedBackground` family + `SoftwareCursor` / any-motion helper** 🆕⭐ — package exomux's fields (incl. the
+8. **`AnimatedBackground` family + `SoftwareCursor` / any-motion helper** 🆕⭐ — **contract + cursor done Aug 14 2026 (WS-009); field relocation tracked as WS-013.** package exomux's fields (incl. the
    butterchurn GPU pipeline) and the drawn cursor (2 Hz blink + contextual resize/move glyph via `resizeGlyphAt`) +
    mode-1003 enable/keepalive/teardown as reusable exotui features. Consider the **wheel-under-pointer** routing
    contract alongside the richer `List`.
