@@ -1,7 +1,7 @@
 # Exomux UX + Multi-Client Hardening
 
 Status: specified Aug 15 2026 from user field reports (screenshots on file); **P0 — the next work block**, ahead of
-035–037. Eight items, ordered by the user's pain: the resize ghosting first, then window-behavior and contrast fixes,
+035–037. Ten items, ordered by the user's pain: the resize ghosting first, then window-behavior and contrast fixes,
 then the two session-model features.
 
 ## UX-001 — Resize ghosting in the settings window (P0 bug, repro in hand)
@@ -82,6 +82,42 @@ file instead of vanishing (or corrupting the full-screen TUI). This is also the 
 user's machine. Every filesystem touch stays guarded (missing `--allow-write` degrades to a no-op), and the status
 line should say where the log went when the toggle turns on.
 
+## UX-009 — Ghostty shader manager window (P2 feature, user, Aug 15)
+
+Break the Ghostty-specific shader settings out of the global settings window into **their own window, launched from a
+button in settings** (the way "Background config" opens its own surface). The inline shader rows the settings options
+pane carries today (CRT scanlines: depth/flicker/pulse; CRT pincushion: distortion — surfaced via
+`controller.shaderOptionRows()`, Ghostty-only) move into it. The window must support:
+
+- **Add or remove custom shaders** — Ghostty `custom-shader` config entries pointing at user GLSL files; order is
+  preserved since Ghostty applies shaders in sequence.
+- **Enable or disable existing shaders** individually without removing them.
+- **Tweak settings for shaders that have hooks** — shaders registered with parameters (the `EXOMUX_SHADER_PARAMS`
+  machinery in `packages/exomux/ghostty.ts`, e.g. pincushion `magnitude`) get value controls; hookless shaders get
+  only the enable toggle.
+
+Build on the proven composited-surface pattern (`ExomuxSettingsOptions`/`ExomuxSettingsWidgets`/list hosts, as the
+background-config modal does), and route config changes through the existing Ghostty config rewriting in
+`ghostty.ts`. Note the pincushion pointer-warp precedent (`exomuxPincushionSource`): any shader that displaces the
+display may need a matching pointer-transform hook.
+
+## UX-010 — VHS distortion shader with per-effect intensities (P2 feature, user, Aug 15)
+
+Ship a VHS distortion shader for Ghostty, registered through `EXOMUX_SHADER_EFFECTS`/`EXOMUX_SHADER_PARAMS` so the
+shader manager (UX-009) and the param system pick it up automatically. **One intensity setting per effect**, mixable
+independently:
+
+1. **Tracking errors** — horizontal bands of noise, tearing, or jumping images (tape/video-head misalignment).
+2. **Color bleeding (chroma shift)** — red/green/blue channels separating and bleeding past the edges of objects.
+3. **Static and snow** — random white and black flecks or fuzz layered over the video signal.
+4. **Jitter and wavy lines** — horizontal shifting or warping of the top and bottom of the frame.
+5. **Luma noise** — grainy or sandy texture in the dark areas of the picture.
+
+The shader ships as a GLSL file exomux writes and points Ghostty at, the same mechanism the CRT scanline/pincushion
+shaders use; intensities flow through shader params into the Ghostty config. The jitter/wavy-line displacement is a
+display distortion — evaluate whether it needs a pointer-transform hook like the pincushion's before enabling it by
+default.
+
 ## Verification
 
 - UX-001: headless corner-drag repro test (frame-buffer scan per tick), plus the user's live confirm; the fix gets a
@@ -92,3 +128,7 @@ line should say where the log went when the toggle turns on.
   an exited session removes it).
 - UX-006/007: host protocol tests with two fake clients (session list contents; topology-change broadcast observed
   by the second client).
+- UX-009: shader-window tests under a fake Ghostty environment — add/remove/enable round-trips the config file,
+  param edits rewrite the shader values, non-Ghostty hides the launcher button.
+- UX-010: the five intensity params register, persist, and rewrite the shader config; the GLSL compiles under
+  Ghostty's shader contract (manual check on the user's machine for the visual pass).
