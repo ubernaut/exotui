@@ -750,3 +750,45 @@ function mouse(drag: boolean, release: boolean, x: number, y: number) {
     button: release ? undefined : 0 as const,
   };
 }
+
+Deno.test("workbench window host projects title adornments and owns double-click maximize", () => {
+  const workspace = new TiledWorkspaceController();
+  const host = createHost(workspace);
+  try {
+    // Adornments arrive first-class on the chrome projection.
+    const projection = host.project(BOUNDS, {
+      titleAdornments: (id) => (id === "normal" ? ["[SCROLL]", "[NO MOUSE]"] : []),
+    });
+    const normal = projection.floatingWindows.find((window) => window.id === "normal");
+    assert(normal);
+    assertEquals(normal.titleAdornments, ["[SCROLL]", "[NO MOUSE]"]);
+    assertEquals(projection.tiledWindows[0]?.titleAdornments, []);
+
+    // Two quick primary mouse downs on the bare title bar toggle maximize.
+    const options = { doubleClickMaximizeMs: 400 };
+    const barColumn = normal.titleBarRect.column + 2;
+    const barRow = normal.titleBarRect.row;
+    const first = host.handlePointer(pointer("down", barColumn, barRow, 10), BOUNDS, options);
+    assert(first.handled);
+    host.handlePointer(pointer("up", barColumn, barRow, 11), BOUNDS, options);
+    const second = host.handlePointer(pointer("down", barColumn, barRow, 12), BOUNDS, options);
+    assertEquals(second.command, { kind: "toggle-maximize", id: "normal" });
+    assertEquals(
+      host.project(BOUNDS).windows.find((window) => window.id === "normal")?.state,
+      "maximized",
+    );
+
+    // Slow clicks (outside the window) never double: restore first, then click
+    // twice with a large timestamp gap.
+    host.execute({ kind: "toggle-maximize", id: "normal" }, BOUNDS);
+    const again = host.project(BOUNDS).floatingWindows.find((window) => window.id === "normal")!;
+    const slowColumn = again.titleBarRect.column + 2;
+    host.handlePointer(pointer("down", slowColumn, again.titleBarRect.row, 100), BOUNDS, options);
+    host.handlePointer(pointer("up", slowColumn, again.titleBarRect.row, 101), BOUNDS, options);
+    const slow = host.handlePointer(pointer("down", slowColumn, again.titleBarRect.row, 700), BOUNDS, options);
+    assert(slow.command?.kind !== "toggle-maximize");
+  } finally {
+    host.dispose();
+    workspace.dispose();
+  }
+});

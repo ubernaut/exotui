@@ -25,6 +25,32 @@ export const FrameUnicodeCharacters = {
     horizontal: "─",
     vertical: "│",
   },
+  // The configurable window-border vocabulary the exomux workbench proved out:
+  // heavier and plainer looks, selectable per app or per user setting.
+  double: {
+    topLeft: "╔",
+    topRight: "╗",
+    bottomLeft: "╚",
+    bottomRight: "╝",
+    horizontal: "═",
+    vertical: "║",
+  },
+  thick: {
+    topLeft: "┏",
+    topRight: "┓",
+    bottomLeft: "┗",
+    bottomRight: "┛",
+    horizontal: "━",
+    vertical: "┃",
+  },
+  ascii: {
+    topLeft: "+",
+    topRight: "+",
+    bottomLeft: "+",
+    bottomRight: "+",
+    horizontal: "-",
+    vertical: "|",
+  },
 };
 
 /** Public type alias for a frame Unicode Characters Type. */

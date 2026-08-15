@@ -164,7 +164,30 @@ export interface WorkbenchWindowChromeProjection {
   groupId?: string;
   zIndex: number;
   controls: WorkbenchWindowChromeControl[];
+  /** Live status tags for the title bar (from options.titleAdornments). */
+  titleAdornments: readonly string[];
   semantic: WorkbenchWindowSemanticNode;
+}
+
+/** The window whose bare title bar (not a control) covers one cell, topmost first. */
+function bareTitleBarWindowAt(
+  projection: WorkbenchWindowHostProjection,
+  x: number,
+  y: number,
+): string | undefined {
+  const windows = [...projection.tiledWindows, ...projection.floatingWindows];
+  for (let index = windows.length - 1; index >= 0; index -= 1) {
+    const window = windows[index]!;
+    if (!containsCell(window.rect, x, y)) continue;
+    // The topmost window owns the cell: only its own title row counts, never
+    // its client area or a titlebar control (those carry their own actions).
+    if (y !== window.rect.row || containsCell(window.clientRect, x, y)) return undefined;
+    for (const control of window.controls) {
+      if (containsCell(control.hitRect, x, y)) return undefined;
+    }
+    return window.id;
+  }
+  return undefined;
 }
 
 /** Minimized-window task-shelf item. */
@@ -223,6 +246,17 @@ export interface WorkbenchWindowHostProjection {
 /** Projection options used by both terminal and browser renderers. */
 export interface WorkbenchWindowHostProjectionOptions extends ProjectMarkupWindowsOptions {
   shelfBounds?: Rectangle;
+  /**
+   * Host-owned double-click-to-maximize: two primary downs on a window's bare
+   * title bar (off its controls) within this many milliseconds toggle
+   * maximize/restore. Off when unset, so existing consumers are unchanged.
+   */
+  doubleClickMaximizeMs?: number;
+  /**
+   * Live status adornments for a window's title (e.g. "[SCROLL]",
+   * "[NO MOUSE]"), projected first-class so every renderer can show them.
+   */
+  titleAdornments?: (windowId: string) => readonly string[];
 }
 
 /** Explicit result returned by command and pointer host paths. */
@@ -320,6 +354,8 @@ export class WorkbenchWindowHostController<TId extends string = string> {
   readonly #ownsCapture: boolean;
   readonly #input: InputEnvelopeFactory;
   readonly #commandStep: number;
+  /** Pending first title-bar click for host-owned double-click-to-maximize. */
+  #lastTitleBarClick?: { windowId: string; at: number };
   readonly #titlebarLayouts = new Map<string, WorkbenchTitlebarLayout>();
   readonly #titlebarCommands = new Map<
     string,
@@ -440,6 +476,7 @@ export class WorkbenchWindowHostController<TId extends string = string> {
         pane.rect,
         tiledZIndex++,
         window,
+        options.titleAdornments?.(window.id) ?? [],
       );
       tiledWindows.push(chrome);
       windows.push(chrome);
@@ -454,6 +491,7 @@ export class WorkbenchWindowHostController<TId extends string = string> {
         projected.rect,
         projected.zIndex,
         window,
+        options.titleAdornments?.(window.id) ?? [],
       );
       floatingWindows.push(chrome);
       windows.push(chrome);
@@ -653,6 +691,23 @@ export class WorkbenchWindowHostController<TId extends string = string> {
         for (let index = projection.shelf.length - 1; index >= 0; index -= 1) {
           const item = projection.shelf[index]!;
           if (item.rect && containsCell(item.rect, point.x, point.y)) return this.execute(item.command, bounds);
+        }
+      }
+      // Host-owned double-click-to-maximize (opt-in): two quick primary mouse
+      // downs on a bare title bar toggle maximize/restore before a move
+      // gesture can claim the second click. Mouse only — a touch down is as
+      // likely to begin a drag as a tap, so two quick touch drags must not
+      // read as a double-tap. Timestamps come from the input envelope, so the
+      // host needs no clock of its own.
+      if (primaryActivation && event.device === "mouse" && options.doubleClickMaximizeMs !== undefined) {
+        const id = bareTitleBarWindowAt(projection, point.x, point.y);
+        if (id !== undefined) {
+          const at = event.timestamp;
+          const last = this.#lastTitleBarClick;
+          const doubleClicked = last?.windowId === id && at >= last.at &&
+            at - last.at <= options.doubleClickMaximizeMs;
+          this.#lastTitleBarClick = doubleClicked ? undefined : { windowId: id, at };
+          if (doubleClicked) return this.execute({ kind: "toggle-maximize", id }, bounds);
         }
       }
       // Floating windows paint above the tiled separator layer. Route them
@@ -887,6 +942,7 @@ export class WorkbenchWindowHostController<TId extends string = string> {
     rect: Rectangle,
     zIndex: number,
     window: MarkupWindowControllerInspection["windows"][number],
+    titleAdornments: readonly string[] = [],
   ): WorkbenchWindowChromeProjection {
     const layout = this.#titlebarLayouts.get(id) ?? createWorkbenchTitlebarLayout();
     this.#titlebarLayouts.set(id, layout);
@@ -946,6 +1002,7 @@ export class WorkbenchWindowHostController<TId extends string = string> {
       groupId: window.groupId,
       zIndex,
       controls,
+      titleAdornments,
       semantic: { id: `${id}:window`, role: "window", label: title, description, selected: window.active },
     };
   }

@@ -837,15 +837,34 @@ export function mountExomuxDesktop(
       return { column, row: 0, width: Math.max(1, available), height: 1 };
     }),
   );
+  // Live titlebar status tags, projected first-class by the window host
+  // (WS-008) instead of being baked into the painted title by hand.
+  const windowTitleAdornments = (windowId: string): readonly string[] => {
+    const sessionId = exomuxSessionIdFromWindow(windowId);
+    if (!sessionId) return [];
+    const runtime = controller.runtime(sessionId);
+    // Read through .value so the cached projection Computed recomputes when a
+    // window enters copy mode or its settings change — the callback runs
+    // inside that Computed's evaluation.
+    runtime?.renderRevision.value;
+    controller.windowSettings.value;
+    const adornments: string[] = [];
+    if (runtime?.scrollback.mode === "copy") adornments.push("[SCROLL]");
+    if (!controller.windowSettingsFor(sessionId).mouseReporting) adornments.push("[NO MOUSE]");
+    return adornments;
+  };
   const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
     separatorHitSize: 3,
     shelfBounds: shelfBounds.peek(),
+    doubleClickMaximizeMs: EXOMUX_DOUBLE_CLICK_MS,
+    titleAdornments: windowTitleAdornments,
   });
   const windowProjection = own(
     new Computed(() =>
       controller.windowHost.project(bodyRect.value, {
         separatorHitSize: 3,
         shelfBounds: shelfBounds.value,
+        titleAdornments: windowTitleAdornments,
       })
     ),
   );
@@ -1832,9 +1851,6 @@ export function mountExomuxDesktop(
     }).then(() => handled);
   };
 
-  // Tracks the previous title-bar press so a quick second one reads as a
-  // double-click. Cleared once a double-click fires so a triple starts fresh.
-  let lastTitleBarClick: { readonly windowId: string; readonly at: number } | undefined;
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
     // Map the OS pointer through the pincushion distortion first, so the block
     // cursor and every hit-test below act on the cell the user visually points at.
@@ -1909,26 +1925,8 @@ export function mountExomuxDesktop(
         return true;
       }
     }
-    // Double-clicking a window's title bar toggles maximize/restore, the way a
-    // desktop does. The first click still focuses (and begins a no-op move
-    // gesture); the second, if quick and on the same title bar, is caught here
-    // before the host can treat it as a move.
-    if (!event.drag && !event.release && event.button === 0) {
-      const titleBarWindowId = titleBarWindowAt(projectionBefore, event.x, event.y);
-      if (titleBarWindowId) {
-        const now = performance.now();
-        const doubleClicked = lastTitleBarClick?.windowId === titleBarWindowId &&
-          now - lastTitleBarClick.at <= EXOMUX_DOUBLE_CLICK_MS;
-        lastTitleBarClick = doubleClicked ? undefined : { windowId: titleBarWindowId, at: now };
-        if (doubleClicked) {
-          await enqueue(() => {
-            cancelActiveWindowGesture(undefined, event);
-            return runWindowCommand({ kind: "toggle-maximize", id: titleBarWindowId }, false);
-          });
-          return true;
-        }
-      }
-    }
+    // Double-click-to-maximize on title bars is host-owned now (WS-008): the
+    // window host detects it from envelope timestamps inside handlePointer.
     const clientWindow = clientWindowAt(projectionBefore, event.x, event.y);
     // Bare desktop: the background gets first refusal, which is how ripe ivy
     // fruit is picked. It only claims the click when something was actually
@@ -3943,17 +3941,15 @@ function paintWindow(
   const titleWidth = Math.max(0, firstControl - window.titleBarRect.column - 2);
   const sessionId = exomuxSessionIdFromWindow(window.id);
   const runtime = sessionId ? controller.runtime(sessionId) : undefined;
-  const copyMode = runtime?.scrollback.mode === "copy" ? " [SCROLL]" : "";
-  // Mouse reporting off is otherwise invisible and looks exactly like broken
-  // passthrough, so the window says so rather than leaving you to guess.
-  const noMouse = sessionId && !controller.windowSettingsFor(sessionId).mouseReporting ? " [NO MOUSE]" : "";
+  // Status tags ([SCROLL], [NO MOUSE]) arrive on the projection first-class.
+  const adornments = window.titleAdornments.map((tag) => ` ${tag}`).join("");
   painter.write(
     window.titleBarRect.column + 1,
     window.titleBarRect.row,
     fitText(
       `${window.placement === "floating" ? "~" : "="} ${
         runtime?.summary.peek().title ?? window.title
-      }${copyMode}${noMouse}`,
+      }${adornments}`,
       titleWidth,
     ),
     {
@@ -6024,26 +6020,6 @@ function exomuxBlockCursorRender(
  * the window's top row off its client area and off its titlebar controls, so a
  * double-click there can toggle maximize without stealing a button's own click.
  */
-function titleBarWindowAt(
-  projection: WorkbenchWindowHostProjection,
-  column: number,
-  row: number,
-): string | undefined {
-  const windows = [...projection.tiledWindows, ...projection.floatingWindows];
-  for (let index = windows.length - 1; index >= 0; index -= 1) {
-    const window = windows[index]!;
-    if (!contains(window.rect, column, row)) continue;
-    // The topmost window owns the cell: only its own title row counts, never its
-    // client area or a titlebar control (those carry their own actions).
-    if (row !== window.rect.row || contains(window.clientRect, column, row)) return undefined;
-    for (const control of window.controls) {
-      if (contains(control.hitRect, column, row)) return undefined;
-    }
-    return window.id;
-  }
-  return undefined;
-}
-
 function touchWindowCommandAt(
   projection: WorkbenchWindowHostProjection,
   column: number,
