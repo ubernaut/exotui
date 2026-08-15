@@ -159,6 +159,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   readonly #flowControlledReplay: boolean;
   readonly #pending = new Map<number, PendingRequest>();
   readonly #attachments = new Map<string, ClientAttachment>();
+  readonly #sessionListeners = new Set<(session: ExomuxSessionSummary) => void>();
   readonly #latestSequences = new Map<string, number>();
   /** Authentication completion is a result so late consumers cannot orphan a rejection. */
   readonly #readyResult: Promise<Error | undefined>;
@@ -379,6 +380,13 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     return true;
   }
 
+  subscribeSessions(listener: (session: ExomuxSessionSummary) => void): () => void {
+    this.#sessionListeners.add(listener);
+    return () => {
+      this.#sessionListeners.delete(listener);
+    };
+  }
+
   async kill(sessionId: string): Promise<boolean> {
     const response = await this.#request({ version: 1, type: "kill", sessionId }, ["ack"]);
     assertAck(response, "kill", sessionId);
@@ -492,6 +500,13 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
       const session = sessionSummary(message.session);
       this.#rememberSession(session);
       this.#attachments.get(message.session.id)?.onSession?.(session);
+      for (const listener of [...this.#sessionListeners]) {
+        try {
+          listener(session);
+        } catch {
+          // One listener's failure must not starve the rest.
+        }
+      }
       return;
     }
     if (message.type === "error") {

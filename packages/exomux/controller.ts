@@ -499,6 +499,11 @@ export class ExomuxController {
   #terminalOrdinal = 1;
   #disposed = false;
   #disposePromise?: Promise<void>;
+  /** Serializes adopted-session window reconciliation (UX-007). */
+  #adoptionQueue: Promise<void> = Promise.resolve();
+  /** The in-flight local spawn, so adoption never races its reconciliation. */
+  #spawnFlight?: Promise<void>;
+  #unsubscribeSessions?: () => void;
   #lastBounds: Rectangle = { column: 0, row: 0, width: 120, height: 36 };
   readonly #networkExpansion = new Set<string>(["hosts", "tailscale"]);
   #tailnetPoller?: TailnetPoller;
@@ -572,6 +577,10 @@ export class ExomuxController {
     this.networkStatus.subscribe(() => this.#rebuildNetworkTree());
     this.sessionHosts.subscribe(() => this.#rebuildNetworkTree());
     this.sessions.subscribe(() => this.#rebuildNetworkTree());
+    // Adopt terminals other clients of this host open or close (UX-007).
+    this.#unsubscribeSessions = this.client.subscribeSessions?.((session) => {
+      this.#acceptBroadcastSession(session);
+    });
     this.ready = this.#initialize();
   }
 
@@ -1601,6 +1610,10 @@ export class ExomuxController {
       rows: clampDimension(options.rows, 24, EXOMUX_MAX_ROWS),
     };
     this.status.value = `Launching ${options.title ?? applicationCommandName(spawnOptions.command)}…`;
+    let resolveFlight: (() => void) | undefined;
+    this.#spawnFlight = new Promise<void>((resolve) => {
+      resolveFlight = resolve;
+    });
     try {
       const session = normalizeSession(await this.client.spawn(spawnOptions));
       const runtime = createTerminalRuntime(session);
@@ -1655,6 +1668,9 @@ export class ExomuxController {
     } catch {
       this.status.value = "The local host rejected the terminal launch.";
       return undefined;
+    } finally {
+      this.#spawnFlight = undefined;
+      resolveFlight?.();
     }
   }
 
@@ -1701,6 +1717,56 @@ export class ExomuxController {
   }
 
   /** Explicitly destroys one host-owned process and removes its window. */
+  /**
+   * A session-state broadcast from the host, possibly for a terminal this
+   * client never opened. Known ids ride the per-attachment update path;
+   * unknown running ids are adopted so a window another client opened appears
+   * here live instead of on the next reconnect (UX-007).
+   */
+  #acceptBroadcastSession(value: ExomuxSessionSummary): void {
+    if (this.#disposed) return;
+    const summary = normalizeSession(value);
+    const runtime = this.#runtimes.get(summary.id);
+    if (runtime) {
+      // Attached runtimes get the same update through their attachment; an
+      // unattached one still wants the freshest summary (e.g. exit state).
+      if (!runtime.attached.peek() && summary.updatedAt >= runtime.summary.peek().updatedAt) {
+        runtime.summary.value = summary;
+        this.#publishSessions();
+      }
+      return;
+    }
+    if (!summary.running) return;
+    this.#adoptionQueue = this.#adoptionQueue
+      .then(() => this.#adoptBroadcastSession(summary))
+      .catch(() => {
+        // A failed adoption must not wedge the queue; the next broadcast for
+        // the same session retries.
+      });
+  }
+
+  async #adoptBroadcastSession(summary: ExomuxSessionSummary): Promise<void> {
+    // A local spawn's own session-state echo must never race the spawn's
+    // window reconciliation.
+    while (this.#spawnFlight) await this.#spawnFlight;
+    if (this.#disposed || this.#runtimes.has(summary.id)) return;
+    if (this.#runtimes.size >= EXOMUX_MAX_SESSIONS) return;
+    const runtime = createTerminalRuntime(summary);
+    const candidates = new Map(this.#runtimes);
+    candidates.set(summary.id, runtime);
+    const reconciliation = await this.#reconcileWindows(this.#windowDescriptors(candidates));
+    if (!windowReconciliationApplied(reconciliation)) {
+      disposeTerminalRuntime(runtime);
+      return;
+    }
+    this.#runtimes.set(summary.id, runtime);
+    this.#publishSessions();
+    // Visible but never focus-stealing: someone else opened this window.
+    this.windowHost.execute({ kind: "restore", id: exomuxWindowId(summary.id) }, this.#lastBounds);
+    await this.#attachRuntime(runtime);
+    this.status.value = this.#statusSummary();
+  }
+
   async killSession(sessionId: string): Promise<boolean> {
     this.#assertActive();
     const pending = this.#killFlights.get(sessionId);
@@ -1919,6 +1985,8 @@ export class ExomuxController {
 
   /** Detaches every client view, persists layout, and leaves daemon PTYs alive. */
   dispose(): Promise<void> {
+    this.#unsubscribeSessions?.();
+    this.#unsubscribeSessions = undefined;
     this.#disposePromise ??= this.#dispose();
     return this.#disposePromise;
   }

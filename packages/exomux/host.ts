@@ -564,6 +564,8 @@ export class ExomuxHostController {
         session: this.#descriptor(session),
       });
       session.ready = true;
+      // Tell every other client about the new terminal immediately.
+      this.#broadcastState(session);
       for (const chunk of pendingOutput.splice(0)) this.#appendOutput(session, chunk);
       void handle.closed.then((inspection) => this.#observeClosed(session, inspection)).catch(() => {
         this.#observeClosed(session, undefined);
@@ -739,7 +741,13 @@ export class ExomuxHostController {
       type: "session-state",
       session: this.#descriptor(session),
     };
-    for (const client of session.clients) client.enqueue(message);
+    // Every authenticated client hears terminal lifecycle, not only the ones
+    // attached to this terminal: a second client of the same exomux session
+    // must see windows the first opens or closes without reconnecting
+    // (UX-007). Attach-scoped delivery starved exactly that.
+    for (const client of this.#connections.values()) {
+      if (client.authenticated) client.enqueue(message);
+    }
   }
 
   async #terminate(session: HostSession): Promise<void> {
@@ -775,6 +783,10 @@ export class ExomuxHostController {
     }
     session.terminated = true;
     session.terminating = false;
+    // A final not-running state reaches every client before the session is
+    // dropped, so other attached desktops see the terminal exit instead of
+    // keeping a silently frozen window.
+    this.#broadcastState(session);
     this.#sessions.delete(session.id);
     for (const client of session.clients) {
       client.cancelReplay(session.id);

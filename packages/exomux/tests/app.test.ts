@@ -2798,6 +2798,7 @@ export class FakeExomuxClient implements ExomuxClientPort {
   readonly #replay = new Map<string, ExomuxOutputFrame[]>();
   readonly #listeners = new Map<string, (frame: ExomuxOutputFrame) => void>();
   readonly #sessionListeners = new Map<string, (session: ExomuxSessionSummary) => void>();
+  readonly #broadcastListeners = new Set<(session: ExomuxSessionSummary) => void>();
   readonly #pendingInputAcks: Array<() => void> = [];
   #ordinal = 1;
 
@@ -2811,6 +2812,19 @@ export class FakeExomuxClient implements ExomuxClientPort {
 
   list(): Promise<readonly ExomuxSessionSummary[]> {
     return Promise.resolve(this.listSnapshot());
+  }
+
+  subscribeSessions(listener: (session: ExomuxSessionSummary) => void): () => void {
+    this.#broadcastListeners.add(listener);
+    return () => {
+      this.#broadcastListeners.delete(listener);
+    };
+  }
+
+  /** Simulates the host's all-clients session-state broadcast (UX-007). */
+  broadcastSession(summary: ExomuxSessionSummary): void {
+    this.#sessions.set(summary.id, summary);
+    for (const listener of [...this.#broadcastListeners]) listener(summary);
   }
 
   listSnapshot(): ExomuxSessionSummary[] {
@@ -5100,4 +5114,48 @@ Deno.test("Exomux settings layout stacks the pickers on narrow windows (UX-002)"
     row.rect.row < narrow.backgroundListRect.row + narrow.backgroundListRect.height));
   // The options block still fits above the bottom row.
   assert(narrow.optionRows.every((row) => row.row > narrow.backgroundConfigRect.row && row.row < 25));
+});
+
+Deno.test("Exomux adopts windows another client opens, without stealing focus (UX-007)", async () => {
+  const initial = session("local-shell", "local", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId("local-shell") }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const activeBefore = controller.windowHost.controller.inspect().activeWindowId;
+
+    // Another client of the same host opens a terminal: the host broadcasts
+    // its session-state and this desktop adopts the window live.
+    client.broadcastSession(session("remote-shell", "opened elsewhere", 5));
+    await waitForCondition(
+      () => mounted.windowProjection.peek().windows.some((w) => w.id === exomuxWindowId("remote-shell")),
+      2_000,
+    );
+    await mounted.whenIdle();
+    assertEquals(
+      controller.windowHost.controller.inspect().activeWindowId,
+      activeBefore,
+      "an adopted window must not steal focus",
+    );
+    assertEquals(controller.runtime("remote-shell")?.attached.peek(), true, "the adopted terminal attaches");
+    assert(controller.sessions.peek().some((s) => s.id === "remote-shell"));
+
+    // A broadcast for a known, running session is not adopted twice.
+    client.broadcastSession(session("remote-shell", "opened elsewhere", 6));
+    await harness.pilot.settle();
+    assertEquals(
+      mounted.windowProjection.peek().windows.filter((w) => w.id === exomuxWindowId("remote-shell")).length,
+      1,
+    );
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
 });

@@ -1480,3 +1480,37 @@ Deno.test("exomux host acknowledges rename as a no-op without a relocator", asyn
   assert(ack?.type === "ack" && ack.operation === "rename");
   await host.shutdown();
 });
+
+Deno.test("exomux broadcasts terminal lifecycle to every authenticated client (UX-007)", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+  const peerA = new FakePeer();
+  const peerB = new FakePeer();
+  const clientA = host.connect(peerA);
+  const clientB = host.connect(peerB);
+  await authenticate(clientA);
+  await authenticate(clientB);
+
+  // A spawns; B — attached to nothing — still hears about the new terminal.
+  await clientA.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "shared-shell" }));
+  await drain();
+  const spawned = peerA.messages().find((message) => message.type === "spawned");
+  assert(spawned?.type === "spawned");
+  const seenByB = peerB.messages().filter((message) =>
+    message.type === "session-state" && message.session.id === spawned.session.id
+  );
+  assert(seenByB.length >= 1, "the second client hears the spawn");
+
+  // A kills; B hears a final not-running state before the session vanishes.
+  await clientA.receive(wire({ version: 1, type: "kill", requestId: 2, sessionId: spawned.session.id }));
+  await drain();
+  const finalStates = peerB.messages().filter((message) =>
+    message.type === "session-state" && message.session.id === spawned.session.id &&
+    message.session.running === false
+  );
+  assert(finalStates.length >= 1, "the second client hears the terminal end");
+
+  await host.shutdown();
+  clientA.disconnect();
+  clientB.disconnect();
+});

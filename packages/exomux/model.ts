@@ -232,6 +232,13 @@ export interface ExomuxClientPort {
   resize(sessionId: string, columns: number, rows: number): Promise<boolean>;
   kill(sessionId: string): Promise<boolean>;
   shutdownHost(): Promise<boolean>;
+  /**
+   * Subscribes to every session-state broadcast the host sends — including
+   * terminals this client never attached — so a desktop can adopt windows
+   * another client opened (UX-007). Returns the unsubscribe. Optional: fakes
+   * and older transports without topology broadcasts simply omit it.
+   */
+  subscribeSessions?(listener: (session: ExomuxSessionSummary) => void): () => void;
   dispose(): Promise<void>;
 }
 
