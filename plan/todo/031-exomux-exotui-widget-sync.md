@@ -13,7 +13,7 @@ anchors. This file is the actionable roadmap.
 ## Reprioritization (user, Aug 14 2026)
 
 This is now the **P0 strategic program** for the library: exomux is the proving ground, and back-feeding its richness
-into exotui is the highest-leverage path to a robust library — ahead of the broad 035/036 parity backlogs. The user
+into exotui is the highest-leverage path to a robust library — ahead of the broad parity backlogs (now 036/037). The user
 called out **windowing and mouse/cursor** as the clearest new-component candidates.
 
 The audit is **stale** — it predates the mouse/cursor work landed Aug 13–14, which should be folded into the ledger
@@ -121,6 +121,10 @@ Legend for verdict tags: ✅ exotui-driven · 🔧 hack (component exists) · �
 - exomux suite and the exotui library suite stay green; CHANGELOG updated on both sides.
 
 ## Open bug: picker ghost rows on click/resize (user report, Aug 14 2026)
+
+> **Aug 15: repro found and the bug is now tracked as [034 UX-001](./034-exomux-ux-and-multiclient-hardening.md)** —
+> corner-resize the settings window to its minimum, release, then to its maximum. The notes below are the Aug 14
+> investigation record.
 
 The user's live Ghostty session shows stale selection bars in the settings pickers — multiple `T2 Neural Steel` /
 `butterchurn` highlight rows in **previous themes' accent colours**, some horizontally shifted, some outside the

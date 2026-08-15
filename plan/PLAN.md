@@ -17,7 +17,7 @@ The web parity, GitHub Pages, windowing/workbench, forms, theming, performance, 
 plan has shipped (see `todo/done/001`–`022`, and `027` active backgrounds). The strategic focus now is **back-feeding
 exomux's proven, battle-tested richness into exotui as first-class components**: exomux has become the proving ground,
 and its compositing surface, windowing, mouse/cursor, terminal rendering, and background families are the
-highest-leverage additions to the library. Active todo files are numbered in planned implementation order (`031`–`036`);
+highest-leverage additions to the library. Active todo files are numbered in planned implementation order (`031`–`037`);
 `025` production demo showcases moved to `todo/hiatus/` on Aug 14 2026.
 
 1. **`031` Exomux ↔ exotui widget sync (P0, complete Aug 14 2026; WS-013/WS-014 follow-ups tracked in its file).** Promote the compositing surface (`WidgetSurface`), then
@@ -31,18 +31,24 @@ highest-leverage additions to the library. Active todo files are numbered in pla
    circuit-backdrop technique generalized to the whole scene: per-cell ink-coverage color reduction of everything
    painted beneath, deposited in z-order and blended per cell. Its scene-ground seam is also what WS-003's composited
    Sessions `List` needs.
-3. **`033` Exomux butterchurn GPU fidelity (P2, in progress).** Two systematic fixes landed (wave colour floor +
-   waveform ribbon), lifting the GPU auto-cycle rotation 306 → 369 of 472; a residual ~28 shader-heavy presets remain
-   black and are characterised for a later pass.
-4. **`034` exomux network menu (P2).** MVP shipped; Phase 2 (OSC 7 cwd tracking, capability/provider manifest, remote
+3. **`033` Exomux butterchurn GPU fidelity (P2, in progress).** Three systematic fixes landed (wave colour floor,
+   waveform ribbon, and MilkDrop motion-vector/border seed geometry on Aug 15), lifting the GPU auto-cycle rotation
+   306 → 373 of 472 and cutting the CPU-renders-GPU-black regression to 36; the residual echo-amplifier class is
+   characterised for a readback-probe pass.
+4. **`034` exomux UX + multi-client hardening (P0, next).** User field reports, Aug 15: the settings-window resize
+   ghosting (repro in hand — corner-resize min → max), responsive stacked pickers on narrow screens with the
+   background-config button under its listbox, settings/sessions/network behaving as regular windows (no forced
+   top), titlebar text/controls in the main theme foreground for contrast, ✕ kills exited windows, the sessions
+   panel listing host exomux sessions with switching, and live multi-client window sync.
+5. **`035` exomux network menu (P2).** MVP shipped; Phase 2 (OSC 7 cwd tracking, capability/provider manifest, remote
    session discovery) is exomux-specific polish, not library-building.
-5. **`035` / `036` library feature parity (P1, reference backlog).** Textual/OpenTUI parity and the 200-feature program
+6. **`036` / `037` library feature parity (P1, reference backlog).** Textual/OpenTUI parity and the 200-feature program
    are the durable backlog; pull specific items forward when 031/032 or a demo needs them rather than running
    top-to-bottom.
-6. **Top-level research plans (P3, opportunistic).** `html-css-layout-engine.md` (partial),
-   `kitty-graphics-integration.md` (not started). `tailscale-integration.md` is superseded by `034` and can be archived
-   once 034 completes.
-7. **On hiatus.** `todo/hiatus/025` production demo showcases — parked Aug 14 2026 until the widget-sync program has
+7. **Top-level research plans (P3, opportunistic).** `html-css-layout-engine.md` (partial),
+   `kitty-graphics-integration.md` (not started). `tailscale-integration.md` is superseded by `035` and can be archived
+   once 035 completes.
+8. **On hiatus.** `todo/hiatus/025` production demo showcases — parked Aug 14 2026 until the widget-sync program has
    landed the components the showcases would build on.
 
 ## Completion Standard
