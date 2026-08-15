@@ -45,6 +45,7 @@ import {
   EXOMUX_SETTINGS_WINDOW_ID,
   EXOMUX_WARNING_TTL_MS,
   type ExomuxController,
+  exomuxFuzzyMatch,
   exomuxNetworkNodeAction,
   exomuxNetworkNodeRemoteSession,
   exomuxPingSummary,
@@ -5727,6 +5728,107 @@ Deno.test("Exomux network Sessions node probes lazily, attaches, and focuses if 
     await pressOn(rowId, true);
     await waitForCondition(() => client.spawned.length === 2, 2_000);
     assertEquals(client.spawned[1]!.args, ["-t", "studio.tail.net", "tmux attach -t main"]);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux fuzzy match is a case-insensitive in-order subsequence", () => {
+  assert(exomuxFuzzyMatch("sd", "Studio"));
+  assert(exomuxFuzzyMatch("STU", "studio.tail.net"));
+  assert(exomuxFuzzyMatch("", "anything"));
+  assert(!exomuxFuzzyMatch("ds", "studio"));
+  assert(!exomuxFuzzyMatch("z", "studio"));
+});
+
+Deno.test("Exomux network filter narrows machines and auto-expands survivors (TSM-006)", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    tailnetSource: {
+      fetchStatus: () =>
+        Promise.resolve(
+          {
+            availability: "available",
+            detail: "tailscale is running",
+            snapshot: {
+              backendState: "Running",
+              devices: [
+                {
+                  id: "peer-1",
+                  shortName: "studio",
+                  dnsName: "studio.tail.net",
+                  ipv4: "100.64.0.2",
+                  os: "linux",
+                  online: true,
+                  self: false,
+                  relayed: false,
+                  tags: [],
+                },
+                {
+                  id: "peer-2",
+                  shortName: "cellar",
+                  dnsName: "cellar.tail.net",
+                  os: "linux",
+                  online: true,
+                  self: false,
+                  relayed: false,
+                  tags: [],
+                },
+              ],
+              capturedAt: 1,
+            },
+          } satisfies TailnetStatusResult,
+        ),
+    },
+    tailnetPollIntervalMs: 300_000,
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.rememberHost("cos@backup.local");
+    await clickStartMenuItem(harness, mounted, "network");
+    await mounted.whenIdle();
+    await waitForCondition(
+      () => controller.networkTree.visibleRows().some((row) => row.id === "dev:peer-2"),
+      2_000,
+    );
+
+    // "/stu" keeps only the studio device; survivors auto-expand.
+    await harness.pilot.press("/");
+    for (const char of "stu") await harness.pilot.press(char as Key);
+    await mounted.whenIdle();
+    assertEquals(controller.networkFilter.peek(), "stu");
+    assertStringIncludes(controller.status.peek(), "Filter: stu");
+    const ids = controller.networkTree.visibleRows().map((row) => row.id);
+    assert(ids.includes("dev:peer-1"), "studio survives the filter");
+    assert(!ids.includes("dev:peer-2"), "cellar is filtered out");
+    assert(!ids.some((id) => id.startsWith("host:")), "the non-matching saved host is filtered out");
+    assert(ids.includes("act:shell:peer-1"), "the surviving machine auto-expands");
+
+    // Backspacing to empty then once more turns the filter off and restores.
+    for (let i = 0; i < 4; i += 1) await harness.pilot.press("backspace");
+    await mounted.whenIdle();
+    assertEquals(controller.networkFilter.peek(), undefined);
+    const restored = controller.networkTree.visibleRows().map((row) => row.id);
+    assert(restored.includes("dev:peer-2"), "clearing the filter restores every machine");
+
+    // Escape also clears an active filter.
+    await harness.pilot.press("/");
+    await harness.pilot.press("z" as Key);
+    await mounted.whenIdle();
+    assert(!controller.networkTree.visibleRows().some((row) => row.id.startsWith("dev:")));
+    await harness.pilot.press("escape");
+    await mounted.whenIdle();
+    assertEquals(controller.networkFilter.peek(), undefined);
   } finally {
     harness.destroy();
     await controller.dispose();

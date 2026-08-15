@@ -35,8 +35,12 @@ Status: MVP implementation in progress as of July 21, 2026. Fleshes out the orig
   `ssh -t <target> tmux attach -t <name>` (or `exomux -a <name>`) in a new window, re-activating focuses the window
   already attached to that machine+session, and Shift-Enter forces a second attachment. Hostile probe lines and
   non-conservative session names are dropped before argv.
+- **Fuzzy filter landed Aug 15 2026** (the TSM-006 remainder): `/` in the network panel starts a vim-search-style
+  filter — printable keys narrow (case-insensitive in-order subsequence across machine names, DNS names, OS tags,
+  and discovered remote-session names), survivors auto-expand, arrows/Enter keep their meaning, backspace-on-empty
+  or Escape clears. While editing, the panel owns all typing (`r` refresh works only when no filter is active).
 - Still tracked below (unchanged): remaining OSC 7 cwd targeting for scp (a `pwd`-probe capture already landed),
-  capability/provider manifest integration (TSM-011), fuzzy filter.
+  capability/provider manifest integration (TSM-011).
 
 This roadmap adds first-class Tailscale awareness to the Exomux terminal-multiplexer showcase: a `[ Tailnet ]` menu-bar
 entry beside `[ New ]` that opens a floating, TOC-style tree panel on the left edge of the desktop, from which tailnet

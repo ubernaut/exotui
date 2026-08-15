@@ -227,6 +227,19 @@ export function parseExomuxRemoteSessions(output: string): ExomuxRemoteSession[]
   return rows;
 }
 
+/** Case-insensitive subsequence match: every query char appears in order. */
+export function exomuxFuzzyMatch(query: string, text: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  const lowerText = text.toLowerCase();
+  let at = 0;
+  for (const char of lowerQuery) {
+    at = lowerText.indexOf(char, at);
+    if (at < 0) return false;
+    at += 1;
+  }
+  return true;
+}
+
 /** Extracts the SSH target from a `grp:ses:` sessions-group node id. */
 export function exomuxNetworkSessionsGroupTarget(nodeId: string): string | undefined {
   if (!nodeId.startsWith("grp:ses:")) return undefined;
@@ -344,7 +357,18 @@ export function buildExomuxNetworkNodes(
   sessions: readonly ExomuxSessionSummary[] = [],
   sessionHosts: Readonly<Record<string, string>> = {},
   remoteSessions: Readonly<Record<string, ExomuxRemoteSessionProbe>> = {},
+  filter = "",
 ): TreeNode[] {
+  // The fuzzy filter (TSM-006): a machine survives when its own name — or any
+  // of its discovered remote sessions — matches; survivors auto-expand so the
+  // matches are visible without extra keystrokes.
+  const filtering = filter.length > 0;
+  const machineMatches = (text: string, target: string | undefined): boolean => {
+    if (!filtering) return true;
+    if (exomuxFuzzyMatch(filter, text)) return true;
+    const probe = target ? remoteSessions[target] : undefined;
+    return probe?.rows.some((row) => exomuxFuzzyMatch(filter, row.name)) ?? false;
+  };
   // The Sessions subtree per machine (TSM-012): lazily probed on expand, so an
   // unexpanded node costs zero SSH connections.
   const sessionsGroup = (target: string): TreeNode => {
@@ -383,8 +407,9 @@ export function buildExomuxNetworkNodes(
     }
     return nodes;
   };
-  const hostChildren: TreeNode[] = savedHosts.length > 0
-    ? savedHosts.map((target) => {
+  const filteredHosts = savedHosts.filter((target) => machineMatches(target, target));
+  const hostChildren: TreeNode[] = filteredHosts.length > 0
+    ? filteredHosts.map((target) => {
       const id = exomuxNetworkHostNodeId(target);
       const actionsId = `grp:act-host:${target}`;
       return {
@@ -405,10 +430,14 @@ export function buildExomuxNetworkNodes(
           sessionsGroup(target),
           ...shellsForTargets([target]),
         ],
-        expanded: expansion.has(id),
+        expanded: filtering || expansion.has(id),
       };
     })
-    : [{ id: "note:hosts-empty", label: "No saved hosts · SSH once to remember", note: true }];
+    : [{
+      id: "note:hosts-empty",
+      label: filtering ? "No matching hosts" : "No saved hosts · SSH once to remember",
+      note: true,
+    }];
   const tailscaleChildren: TreeNode[] = [];
   if (!status) {
     tailscaleChildren.push({ id: "note:ts-loading", label: "Checking tailscaled…", note: true });
@@ -418,10 +447,17 @@ export function buildExomuxNetworkNodes(
     if (status.availability === "degraded") {
       tailscaleChildren.push({ id: "note:ts-detail", label: status.detail, note: true });
     }
-    if (status.snapshot.devices.length === 0) {
-      tailscaleChildren.push({ id: "note:ts-empty", label: "No devices in this tailnet.", note: true });
+    const devices = status.snapshot.devices.filter((device) =>
+      machineMatches(`${device.shortName} ${device.dnsName} ${device.os}`, device.dnsName || device.ipv4)
+    );
+    if (devices.length === 0) {
+      tailscaleChildren.push({
+        id: "note:ts-empty",
+        label: filtering ? "No matching devices" : "No devices in this tailnet.",
+        note: true,
+      });
     }
-    for (const device of status.snapshot.devices) {
+    for (const device of devices) {
       const id = `dev:${device.id}`;
       const actionsId = `grp:act:${device.id}`;
       tailscaleChildren.push({
@@ -444,13 +480,18 @@ export function buildExomuxNetworkNodes(
           ...(device.dnsName || device.ipv4 ? [sessionsGroup(device.dnsName || device.ipv4!)] : []),
           ...shellsForTargets([device.dnsName || undefined, device.ipv4]),
         ],
-        expanded: expansion.has(id),
+        expanded: filtering || expansion.has(id),
       });
     }
   }
   return [
-    { id: "hosts", label: "HOSTS", children: hostChildren, expanded: expansion.has("hosts") },
-    { id: "tailscale", label: "TAILSCALE", children: tailscaleChildren, expanded: expansion.has("tailscale") },
+    { id: "hosts", label: "HOSTS", children: hostChildren, expanded: filtering || expansion.has("hosts") },
+    {
+      id: "tailscale",
+      label: "TAILSCALE",
+      children: tailscaleChildren,
+      expanded: filtering || expansion.has("tailscale"),
+    },
   ];
 }
 /** Stable left-docked network panel window listing saved hosts and tailnet devices. */
@@ -672,6 +713,8 @@ export class ExomuxController {
   readonly #networkProbeRunner: TailnetCommandRunner;
   /** Remote-session discovery cache, keyed by SSH target (TSM-012). */
   readonly remoteSessions = new Signal<Readonly<Record<string, ExomuxRemoteSessionProbe>>>({});
+  /** Live network-panel fuzzy filter; undefined = off, "" = editing and empty. */
+  readonly networkFilter = new Signal<string | undefined>(undefined);
   readonly #remoteSessionFlights = new Set<string>();
   /** `kind\u0000target\u0000name` → local session id, powering focus-if-open (TSM-013). */
   readonly #remoteAttachMap = new Map<string, string>();
@@ -824,6 +867,7 @@ export class ExomuxController {
       },
     });
     this.remoteSessions.subscribe(() => this.#rebuildNetworkTree());
+    this.networkFilter.subscribe(() => this.#rebuildNetworkTree());
     this.savedHosts.subscribe(() => this.#rebuildNetworkTree());
     this.networkStatus.subscribe(() => this.#rebuildNetworkTree());
     this.sessionHosts.subscribe(() => this.#rebuildNetworkTree());
@@ -844,6 +888,7 @@ export class ExomuxController {
       this.sessions.peek(),
       this.sessionHosts.peek(),
       this.remoteSessions.peek(),
+      this.networkFilter.peek() ?? "",
     );
   }
 
@@ -1763,6 +1808,43 @@ export class ExomuxController {
     if (!bounded) return;
     this.clipboardCopy.value = { text: bounded, nonce: ++this.#clipboardNonce };
     this.status.value = `Copied ${label}: ${bounded}`;
+  }
+
+  /** Starts (or restarts) the network panel's fuzzy filter. */
+  beginNetworkFilter(): void {
+    this.#assertActive();
+    this.networkFilter.value = "";
+    this.#announceNetworkFilter();
+  }
+
+  appendNetworkFilter(char: string): void {
+    const current = this.networkFilter.peek();
+    if (this.#disposed || current === undefined || char.length !== 1) return;
+    if (current.length >= 64) return;
+    this.networkFilter.value = current + char;
+    this.#announceNetworkFilter();
+  }
+
+  /** Deletes the last filter char; a backspace on an empty filter turns it off. */
+  backspaceNetworkFilter(): void {
+    const current = this.networkFilter.peek();
+    if (this.#disposed || current === undefined) return;
+    if (current.length === 0) {
+      this.clearNetworkFilter();
+      return;
+    }
+    this.networkFilter.value = current.slice(0, -1);
+    this.#announceNetworkFilter();
+  }
+
+  clearNetworkFilter(): void {
+    if (this.#disposed || this.networkFilter.peek() === undefined) return;
+    this.networkFilter.value = undefined;
+    this.status.value = this.#statusSummary();
+  }
+
+  #announceNetworkFilter(): void {
+    this.status.value = `Filter: ${this.networkFilter.peek() ?? ""}▏ · type to narrow · Enter opens · Esc clears`;
   }
 
   /** Probes tmux/exomux sessions on one target over SSH; TTL-cached per target. */
@@ -2933,6 +3015,7 @@ export class ExomuxController {
     this.hostSessions.dispose();
     this.clipboardCopy.dispose();
     this.remoteSessions.dispose();
+    this.networkFilter.dispose();
     this.shaderManagerVisible.dispose();
     this.shaderManagerIndex.dispose();
     this.shaderPathDraft.dispose();

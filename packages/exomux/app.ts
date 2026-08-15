@@ -2752,7 +2752,29 @@ export function mountExomuxDesktop(
   const handleNetworkKey = async (event: KeyPressEvent): Promise<boolean> => {
     if (controller.windowHost.controller.inspect().activeWindowId !== EXOMUX_NETWORK_WINDOW_ID) return false;
     const tree = controller.networkTree;
-    if (event.key.toLowerCase() === "r" && !event.ctrl && !event.meta) {
+    // The fuzzy filter (TSM-006): while active it owns printable typing, so
+    // `r` refreshes only when no filter is being edited (vim-search style).
+    const activeFilter = controller.networkFilter.peek();
+    if (activeFilter !== undefined) {
+      if (event.key === "escape") {
+        controller.clearNetworkFilter();
+        return true;
+      }
+      if (event.key === "backspace") {
+        controller.backspaceNetworkFilter();
+        return true;
+      }
+      if (!event.ctrl && !event.meta && event.key.length === 1 && event.key !== "/") {
+        controller.appendNetworkFilter(event.shift ? event.key.toUpperCase() : event.key);
+        return true;
+      }
+      // Arrows, Enter, and Del keep their normal meaning below.
+    }
+    if (event.key === "/" && !event.ctrl && !event.meta) {
+      controller.beginNetworkFilter();
+      return true;
+    }
+    if (activeFilter === undefined && event.key.toLowerCase() === "r" && !event.ctrl && !event.meta) {
       void controller.refreshNetwork().catch(() => undefined);
       return true;
     }
@@ -3504,9 +3526,12 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
   if (event.meta || controller.windowHost.inspect().switcherOpen) return true;
   const activeWindowId = controller.windowHost.controller.inspect().activeWindowId;
   if (activeWindowId === EXOMUX_NETWORK_WINDOW_ID) {
+    // An active fuzzy filter captures all typing until Escape.
+    if (controller.networkFilter.peek() !== undefined) return true;
     return event.key === "up" || event.key === "down" || event.key === "left" || event.key === "right" ||
       event.key === "return" || event.key === "space" || event.key === "delete" || event.key === "pageup" ||
-      event.key === "pagedown" || event.key === "home" || event.key === "end" || event.key.toLowerCase() === "r";
+      event.key === "pagedown" || event.key === "home" || event.key === "end" ||
+      event.key.toLowerCase() === "r" || event.key === "/";
   }
   if (activeWindowId === EXOMUX_SETTINGS_WINDOW_ID) {
     // While editing the session name the field captures every printable key.
