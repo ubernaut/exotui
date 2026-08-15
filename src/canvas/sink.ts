@@ -41,6 +41,13 @@ export interface CanvasCellSink {
     stats: CanvasRenderStats,
     updates: readonly CanvasCellUpdate[],
   ): void;
+  /**
+   * True when the last flush could not deliver every byte (a saturated or
+   * non-blocking terminal); reading clears the flag. The canvas responds by
+   * forcing a full repaint, so a truncated frame heals instead of leaving
+   * stale cells the diff will never touch again.
+   */
+  takeFlushDegraded?(): boolean;
 }
 
 /** Options for configuring ansi Canvas Sink. */
@@ -49,20 +56,80 @@ export interface AnsiCanvasSinkOptions {
   flushLimit?: number;
 }
 
+/** Writes a real terminal may refuse mid-frame; how long one flush may stall. */
+const MAX_WRITE_STALL_MS = 40;
+/** One bounded synchronous pause while a saturated terminal drains. */
+const WRITE_STALL_SLICE_MS = 2;
+
+/** True for the errors a non-blocking tty raises when its buffer is full. */
+function isWouldBlockError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.name === "WouldBlock" ||
+    (error as { code?: string }).code === "EAGAIN";
+}
+
 /** Terminal sink that converts dirty canvas cells into cursor-addressed ANSI writes. */
 export class AnsiCanvasSink implements CanvasCellSink {
   readonly requiresCellUpdates = false;
 
   readonly #stdout: CanvasStdout;
   readonly #flushLimit: number;
+  #degraded = false;
 
   constructor(options: AnsiCanvasSinkOptions) {
     this.#stdout = options.stdout;
     this.#flushLimit = options.flushLimit ?? defaultAnsiFlushLimit();
   }
 
+  takeFlushDegraded(): boolean {
+    const degraded = this.#degraded;
+    this.#degraded = false;
+    return degraded;
+  }
+
+  /**
+   * Writes a whole sequence, surviving the two ways a real tty drops bytes:
+   * short writes (`writeSync` returning less than it was given) and
+   * `WouldBlock`/`EAGAIN` (raw-mode stdin shares the tty's non-blocking flag,
+   * so stdout inherits it). Both are invisible on an in-memory stdout, which
+   * is why they only ever bite on real terminals — as stale "ghost" cells the
+   * diff renderer then believes were already painted. Progress is retried
+   * with brief bounded pauses; if the terminal stays saturated past the
+   * stall budget the rest of this frame is dropped and `#degraded` is set,
+   * which makes the canvas force a clean full repaint next render.
+   */
+  #write(sequence: string): void {
+    if (sequence.length === 0) return;
+    const bytes = textEncoder.encode(sequence);
+    let offset = 0;
+    let stalledSince: number | undefined;
+    while (offset < bytes.length) {
+      let written = 0;
+      try {
+        written = this.#stdout.writeSync(offset === 0 ? bytes : bytes.subarray(offset));
+      } catch (error) {
+        if (!isWouldBlockError(error)) throw error;
+      }
+      if (written > 0) {
+        offset += written;
+        stalledSince = undefined;
+        continue;
+      }
+      const now = performance.now();
+      stalledSince ??= now;
+      if (now - stalledSince > MAX_WRITE_STALL_MS) {
+        this.#degraded = true;
+        return;
+      }
+      // Busy-wait one slice; the terminal is draining on its own schedule and
+      // this synchronous path has no way to yield without tearing the frame.
+      const resume = now + WRITE_STALL_SLICE_MS;
+      while (performance.now() < resume) { /* draining */ }
+    }
+  }
+
   resize(_columns: number, _rows: number): void {
-    this.#stdout.writeSync(textEncoder.encode(`${moveCursor(0, 0)}${CLEAR_SCREEN}`));
+    this.#write(`${moveCursor(0, 0)}${CLEAR_SCREEN}`);
   }
 
   flush(updates: readonly CanvasCellUpdate[], _stats?: CanvasRenderStats): void {
@@ -72,7 +139,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
       drawSequence += moveCursor(span.row, span.column);
 
       if (drawSequence.length + span.text.length > this.#flushLimit) {
-        this.#stdout.writeSync(textEncoder.encode(drawSequence));
+        this.#write(drawSequence);
         drawSequence = moveCursor(span.row, span.column);
       }
 
@@ -80,9 +147,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
       index += span.cells;
     }
 
-    if (drawSequence.length > 0) {
-      this.#stdout.writeSync(textEncoder.encode(drawSequence));
-    }
+    this.#write(drawSequence);
   }
 
   flushRanges(ranges: readonly CanvasRowRangeUpdate[], _stats: CanvasRenderStats): void {
@@ -91,15 +156,13 @@ export class AnsiCanvasSink implements CanvasCellSink {
       drawSequence += moveCursor(range.row, range.startColumn);
       const text = compactAnsiCellRange(range.values);
       if (drawSequence.length + text.length > this.#flushLimit) {
-        this.#stdout.writeSync(textEncoder.encode(drawSequence));
+        this.#write(drawSequence);
         drawSequence = moveCursor(range.row, range.startColumn);
       }
       drawSequence += text;
     }
 
-    if (drawSequence.length > 0) {
-      this.#stdout.writeSync(textEncoder.encode(drawSequence));
-    }
+    this.#write(drawSequence);
   }
 }
 

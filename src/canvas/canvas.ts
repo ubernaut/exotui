@@ -448,6 +448,10 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
       } else {
         this.sink.flush(cellUpdates, this.lastRenderStats);
       }
+      // A saturated terminal may have swallowed part of this frame; the diff
+      // would then never repaint those cells. Force a clean full repaint so a
+      // truncated frame heals on the next render instead of ghosting forever.
+      if (this.sink.takeFlushDegraded?.()) this.rerenderAll();
     }
 
     this.emit("render");
