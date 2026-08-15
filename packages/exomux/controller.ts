@@ -324,6 +324,23 @@ export interface ExomuxPreferences {
 }
 
 /** Construction options after the detached client has connected. */
+/** One probed exomux session as the sessions panel lists it (UX-006). */
+export interface ExomuxHostSessionProbe {
+  readonly name: string;
+  readonly state: "attachable" | "unresponsive" | "stopped";
+  readonly upMs?: number;
+  readonly terminals: readonly { readonly title: string; readonly running: boolean }[];
+}
+
+/** One host-session row derived for the panel. */
+export interface ExomuxHostSessionRow {
+  readonly name: string;
+  readonly state: "attachable" | "unresponsive" | "stopped";
+  readonly upMs?: number;
+  readonly terminalCount: number;
+  readonly current: boolean;
+}
+
 export interface ExomuxControllerOptions {
   readonly client: ExomuxClientPort;
   readonly initialSessions?: readonly ExomuxSessionSummary[];
@@ -349,6 +366,14 @@ export interface ExomuxControllerOptions {
   readonly onShadersChanged?: (config: ExomuxShaderConfig) => void;
   /** Performs a live session rename; returns the accepted name or an error. */
   readonly onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
+  /**
+   * Lists the exomux sessions on this host for the sessions panel (UX-006).
+   * The launcher injects the real filesystem/WebSocket prober; tests inject
+   * fixtures. Absent, the panel shows only this session's terminals.
+   */
+  readonly hostSessionsSource?: { probe(): Promise<readonly ExomuxHostSessionProbe[]> };
+  /** Switches this client to another exomux session; wired by the launcher. */
+  readonly onSwitchSession?: (name: string) => void;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
   readonly tailnetPollIntervalMs?: number;
   /** Injectable local-file existence probe for paste-to-scp interception. */
@@ -515,6 +540,11 @@ export class ExomuxController {
   readonly #onPreferencesChanged?: (preferences: ExomuxPreferences) => void;
   readonly #onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
   readonly #onShadersChanged?: (config: ExomuxShaderConfig) => void;
+  readonly #hostSessionsSource?: { probe(): Promise<readonly ExomuxHostSessionProbe[]> };
+  readonly #onSwitchSession?: (name: string) => void;
+  /** Exomux sessions on this host, for the sessions panel (UX-006). */
+  readonly hostSessions = new Signal<readonly ExomuxHostSessionRow[]>([]);
+  #hostSessionsRefresh?: Promise<void>;
   #scpCwdCapture?: Promise<string | undefined>;
 
   constructor(options: ExomuxControllerOptions) {
@@ -522,6 +552,8 @@ export class ExomuxController {
     this.#initialPreferences = options.initialPreferences;
     this.#onPreferencesChanged = options.onPreferencesChanged;
     this.#onRenameSession = options.onRenameSession;
+    this.#hostSessionsSource = options.hostSessionsSource;
+    this.#onSwitchSession = options.onSwitchSession;
     this.#onShadersChanged = options.onShadersChanged;
     if (options.initialSessionName) this.sessionName.value = options.initialSessionName;
     if (options.ghosttyDetected) this.ghosttyDetected.value = true;
@@ -1718,6 +1750,60 @@ export class ExomuxController {
 
   /** Explicitly destroys one host-owned process and removes its window. */
   /**
+   * Refreshes the host-session listing for the sessions panel. Coalesced: a
+   * refresh already in flight is shared. Errors leave the last listing.
+   */
+  refreshHostSessions(): Promise<void> {
+    if (this.#disposed || !this.#hostSessionsSource) return Promise.resolve();
+    if (this.#hostSessionsRefresh) return this.#hostSessionsRefresh;
+    const flight = (async () => {
+      try {
+        const probes = await this.#hostSessionsSource!.probe();
+        if (this.#disposed) return;
+        const current = this.sessionName.peek();
+        this.hostSessions.value = probes.map((probe) => Object.freeze({
+          name: probe.name,
+          state: probe.state,
+          ...(probe.upMs !== undefined ? { upMs: probe.upMs } : {}),
+          terminalCount: probe.terminals.length,
+          current: probe.name === current,
+        }));
+      } catch {
+        // A failed probe keeps the previous listing; the next refresh retries.
+      } finally {
+        this.#hostSessionsRefresh = undefined;
+      }
+    })();
+    this.#hostSessionsRefresh = flight;
+    return flight;
+  }
+
+  /** True when the panel can offer switching at all. */
+  get canSwitchSessions(): boolean {
+    return this.#onSwitchSession !== undefined;
+  }
+
+  /**
+   * Switches this client to another exomux session on the host. The launcher
+   * owns the actual teardown/reconnect; this validates and hands the name over.
+   */
+  switchToSession(name: string): boolean {
+    if (this.#disposed || !this.#onSwitchSession) return false;
+    if (name === this.sessionName.peek()) {
+      this.status.value = `Already attached to "${name}".`;
+      return false;
+    }
+    const row = this.hostSessions.peek().find((candidate) => candidate.name === name);
+    if (row && row.state !== "attachable") {
+      this.status.value = `Session "${name}" is ${row.state}; it cannot be attached.`;
+      return false;
+    }
+    this.status.value = `Switching to session "${name}"…`;
+    this.#onSwitchSession(name);
+    return true;
+  }
+
+  /**
    * A session-state broadcast from the host, possibly for a terminal this
    * client never opened. Known ids ride the per-attachment update path;
    * unknown running ids are adopted so a window another client opened appears
@@ -2333,6 +2419,7 @@ export class ExomuxController {
     this.helpVisible.dispose();
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
+    this.hostSessions.dispose();
     this.startMenuVisible.dispose();
     this.startMenuPreset.dispose();
     this.#tailnetPoller?.dispose();

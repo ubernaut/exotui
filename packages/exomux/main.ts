@@ -231,6 +231,27 @@ export async function runExomuxClient(
   configDirectory: string = options.configDirectory ?? defaultExomuxConfigDirectory(),
   configPath: string = exomuxConfigFilePath(configDirectory),
 ): Promise<void> {
+  // The sessions panel can switch this client between exomux sessions
+  // (UX-006): each pass runs one attachment; a requested switch tears the
+  // desktop down cleanly and re-runs against the chosen session.
+  let attachOverride: string | undefined;
+  for (;;) {
+    const next = await runExomuxClientSession(
+      attachOverride ? { ...options, attachSession: attachOverride, newSession: false } : options,
+      configDirectory,
+      configPath,
+    );
+    if (!next) return;
+    attachOverride = next;
+  }
+}
+
+/** One client attachment; resolves with a switch target or undefined to exit. */
+async function runExomuxClientSession(
+  options: ExomuxShowcaseLaunchOptions,
+  configDirectory: string,
+  configPath: string,
+): Promise<string | undefined> {
   const stateRoot = options.stateDirectory ?? defaultExomuxStateDirectory();
   if (options.listSessions) {
     console.log(formatExomuxSessionList(await probeExomuxSessions({ stateRoot })));
@@ -307,9 +328,26 @@ export async function runExomuxClient(
     persistLayout: options.persistLayout,
     diagnostics,
   });
+  let requestedSwitch: string | undefined;
+  let liveRuntime: ExomuxTerminalAppRuntime | undefined;
   const controller = await createExomuxController({
     client: connection.client,
     store: retargetableStore,
+    hostSessionsSource: {
+      probe: async () =>
+        (await probeExomuxSessions({ stateRoot })).map((probe) => ({
+          name: probe.name,
+          state: probe.state,
+          ...(probe.upMs !== undefined ? { upMs: probe.upMs } : {}),
+          terminals: probe.terminals.map((terminal) => ({ title: terminal.title, running: terminal.running })),
+        })),
+    },
+    onSwitchSession: (name) => {
+      requestedSwitch = name;
+      // Destroying the runtime detaches the client; the host and its PTYs
+      // live on, and the loop above reattaches to the chosen session.
+      void liveRuntime?.destroy().catch(() => undefined);
+    },
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
     initialPreferences: exomuxConfigToPreferences(config),
@@ -344,8 +382,22 @@ export async function runExomuxClient(
   }
   await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
   const runtime = await createExomuxTerminalApp({ controller });
-  bindAwaitedExomuxClientShutdown(runtime);
+  liveRuntime = runtime;
+  bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
   runtime.start();
+  if (!bindingsAreLoopAware()) return undefined;
+  // Wait out this attachment: the tui's destroy fires on quit and on switch.
+  await new Promise<void>((resolve) => {
+    runtime.app.tui.on("destroy", () => resolve());
+  });
+  if (!requestedSwitch) return undefined;
+  await runtime.destroy().catch(() => undefined);
+  return requestedSwitch;
+}
+
+/** The client loop needs the destroy event; always true today, seam for tests. */
+function bindingsAreLoopAware(): boolean {
+  return true;
 }
 
 /** An AsyncStore proxy whose backing store can be swapped on a live rename. */
@@ -659,7 +711,10 @@ export function createExomuxDaemonFatalHandler(
   };
 }
 
-function bindAwaitedExomuxClientShutdown(runtime: ExomuxTerminalAppRuntime): void {
+function bindAwaitedExomuxClientShutdown(
+  runtime: ExomuxTerminalAppRuntime,
+  switching: () => boolean = () => false,
+): void {
   const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
   let shutdown: Promise<void> | undefined;
   const removeSignals = () => {
@@ -672,6 +727,12 @@ function bindAwaitedExomuxClientShutdown(runtime: ExomuxTerminalAppRuntime): voi
     }
   };
   const requestShutdown = () => {
+    // A session switch tears the desktop down without ending the process; the
+    // client loop reattaches to the chosen session instead of exiting.
+    if (switching()) {
+      removeSignals();
+      return;
+    }
     shutdown ??= (async () => {
       removeSignals();
       // Bounded: teardown that hangs — a host handshake, a wedged PTY — must

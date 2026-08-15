@@ -21,6 +21,7 @@ import {
   type ExomuxAppMountRef,
   exomuxGlobalConfigLayout,
   exomuxGlyphColumns,
+  exomuxManagerRows,
   exomuxMetaballBackgroundVisible,
   exomuxMetaballGradientColors,
   exomuxMetaballsMayAdvance,
@@ -5154,6 +5155,74 @@ Deno.test("Exomux adopts windows another client opens, without stealing focus (U
       mounted.windowProjection.peek().windows.filter((w) => w.id === exomuxWindowId("remote-shell")).length,
       1,
     );
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux sessions panel lists host sessions and switches on click (UX-006)", async () => {
+  const initial = session("here-shell", "here", 0);
+  const client = new FakeExomuxClient([initial]);
+  const switches: string[] = [];
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    initialSessionName: "main",
+    hostSessionsSource: {
+      probe: () =>
+        Promise.resolve([
+          { name: "main", state: "attachable" as const, upMs: 60_000, terminals: [{ title: "here", running: true }] },
+          {
+            name: "work",
+            state: "attachable" as const,
+            upMs: 7_200_000,
+            terminals: [{ title: "vim", running: true }, { title: "build", running: true }],
+          },
+          { name: "stale", state: "stopped" as const, terminals: [] },
+        ]),
+    },
+    onSwitchSession: (name) => {
+      switches.push(name);
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    await controller.refreshHostSessions();
+    await harness.pilot.settle();
+
+    // The combined row model: terminals first, then the host-session section.
+    const rows = exomuxManagerRows(controller);
+    assertEquals(rows[0]?.kind, "terminal");
+    const headingAt = rows.findIndex((row) => row.kind === "heading");
+    assert(headingAt > 0, "a heading separates the host sessions");
+    const work = rows.find((row) => row.kind === "host-session" && row.name === "work");
+    assert(work && work.kind === "host-session");
+    assertStringIncludes(work.label, "work");
+    assertStringIncludes(work.label, "2 terms");
+    const current = rows.find((row) => row.kind === "host-session" && row.name === "main");
+    assert(current && current.kind === "host-session" && current.current, "the current session is marked");
+
+    // Guards: switching to the current or a stopped session refuses.
+    assertEquals(controller.switchToSession("main"), false);
+    assertEquals(controller.switchToSession("stale"), false);
+    assertEquals(switches, []);
+
+    // Clicking the "work" row switches.
+    controller.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const manager = mounted.windowProjection.peek().windows.find((w) => w.id === EXOMUX_SESSIONS_WINDOW_ID);
+    assert(manager);
+    const workIndex = rows.findIndex((row) => row.kind === "host-session" && row.name === "work");
+    const rowY = manager.clientRect.row + 3 + workIndex; // SESSION_LIST_START + index (viewport from 0)
+    await harness.pilot.click(manager.clientRect.column + 2, rowY);
+    await mounted.whenIdle();
+    assertEquals(switches, ["work"]);
   } finally {
     harness.destroy();
     await controller.dispose();

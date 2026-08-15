@@ -97,6 +97,7 @@ import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_
 import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
 import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
+import { formatExomuxUptime } from "./sessions.ts";
 import { ExomuxNetworkTree } from "./network_tree.ts";
 import { ExomuxStartMenu } from "./start_menu.ts";
 import { widgetSurfaceCellData } from "./widget_surface.ts";
@@ -460,9 +461,63 @@ interface ExomuxPointerMoveSlot {
   started: boolean;
 }
 
-interface ExomuxManagerSessionHit {
-  readonly session: ExomuxSessionSummary;
-  readonly index: number;
+type ExomuxManagerSessionHit =
+  | { readonly kind: "terminal"; readonly session: ExomuxSessionSummary; readonly index: number }
+  | { readonly kind: "host-session"; readonly name: string };
+
+/** One row of the sessions panel: a terminal, a heading, or a host session. */
+export type ExomuxManagerRow =
+  | {
+    readonly kind: "terminal";
+    readonly session: ExomuxSessionSummary;
+    readonly label: string;
+    readonly running: boolean;
+  }
+  | { readonly kind: "heading"; readonly label: string }
+  | {
+    readonly kind: "host-session";
+    readonly name: string;
+    readonly label: string;
+    readonly attachable: boolean;
+    readonly current: boolean;
+  };
+
+/**
+ * The sessions panel's combined rows: this session's terminals first, then —
+ * when the host has other exomux sessions — a heading and one row per host
+ * session with liveness, uptime, and terminal count (UX-006). Terminals come
+ * first so `selectedSessionIndex` keeps indexing them directly.
+ */
+export function exomuxManagerRows(controller: ExomuxController): ExomuxManagerRow[] {
+  const rows: ExomuxManagerRow[] = controller.sessions.peek().map((session) => {
+    const attached = controller.runtime(session.id)?.attached.peek() ?? false;
+    const status = session.running ? (attached ? "LIVE" : "HOLD") : session.status.toUpperCase();
+    return {
+      kind: "terminal",
+      session,
+      label: `[${status}] ${session.title} :: ${session.commandLine}`,
+      running: session.running,
+    };
+  });
+  const hostSessions = controller.hostSessions.peek();
+  if (hostSessions.some((row) => !row.current)) {
+    rows.push({
+      kind: "heading",
+      label: controller.canSwitchSessions ? "HOST SESSIONS · click to switch" : "HOST SESSIONS",
+    });
+    for (const row of hostSessions) {
+      const up = row.upMs !== undefined ? `up ${formatExomuxUptime(row.upMs)}` : row.state;
+      const terms = `${row.terminalCount} term${row.terminalCount === 1 ? "" : "s"}`;
+      rows.push({
+        kind: "host-session",
+        name: row.name,
+        label: `${row.current ? "· " : ""}${row.name} · ${up} · ${terms}`,
+        attachable: row.state === "attachable",
+        current: row.current,
+      });
+    }
+  }
+  return rows;
 }
 
 /**
@@ -1040,6 +1095,18 @@ export function mountExomuxDesktop(
   // scrolls this viewport top without touching the selection; -1 re-follows it.
   const sessionList = own(new ExomuxSessionList(bumpSettingsWidgets));
   const sessionListScrollTop = own(new Signal(-1));
+  // Host-session listing (UX-006): probe once at mount and re-probe (gently
+  // throttled) whenever the sessions panel takes focus.
+  let lastHostSessionsProbe = 0;
+  const maybeRefreshHostSessions = (): void => {
+    if (controller.windowHost.controller.inspect().activeWindowId !== EXOMUX_SESSIONS_WINDOW_ID) return;
+    const now = Date.now();
+    if (now - lastHostSessionsProbe < 5_000) return;
+    lastHostSessionsProbe = now;
+    void controller.refreshHostSessions();
+  };
+  controller.windowHost.viewRevision.subscribe(maybeRefreshHostSessions, subscriptions.signal);
+  void controller.refreshHostSessions();
   // The network panel's hierarchy as a real composited Tree (WS-004). A tree
   // rebuild (tailnet status, saved hosts) repaints the desktop, which was
   // otherwise only repainted by interaction-driven signals.
@@ -1318,6 +1385,7 @@ export function mountExomuxDesktop(
         controller.status.value,
         selectedSessionIndex.value,
         sessionListScrollTop.value,
+        controller.hostSessions.value.map((row) => `${row.name}:${row.state}:${row.terminalCount}`).join(","),
         controller.windowHost.viewRevision.value,
         controller.windowHost.commitRevision.value,
         // Every input-driven modal and menu state, so the desktop repaints on
@@ -1620,6 +1688,10 @@ export function mountExomuxDesktop(
   };
 
   const activateManagerHit = async (hit: ExomuxManagerSessionHit): Promise<void> => {
+    if (hit.kind === "host-session") {
+      controller.switchToSession(hit.name);
+      return;
+    }
     selectedSessionIndex.value = hit.index;
     await controller.openSession(hit.session.id, bodyRect.peek());
     await syncWindows();
@@ -1649,18 +1721,18 @@ export function mountExomuxDesktop(
   const scrollClientWindow = (windowId: string, delta: number): boolean => {
     if (!Number.isFinite(delta) || delta === 0 || modalOpen()) return modalOpen();
     if (windowId === EXOMUX_SESSIONS_WINDOW_ID) {
-      const sessions = controller.sessions.peek();
-      if (sessions.length === 0) return true;
+      const managerRowCount = exomuxManagerRows(controller).length;
+      if (managerRowCount === 0) return true;
       // A proper listbox wheel: the viewport scrolls one row per notch and the
       // selection stays put; the next arrow key re-anchors the window on it.
       const height = sessionListViewportHeight();
       const currentTop = exomuxSessionListWindowStart(
-        sessions.length,
+        managerRowCount,
         selectedSessionIndex.peek(),
         height,
         sessionListScrollTop.peek(),
       );
-      const maxTop = Math.max(0, sessions.length - height);
+      const maxTop = Math.max(0, managerRowCount - height);
       sessionListScrollTop.value = Math.max(
         0,
         Math.min(currentTop + listScrollStep(windowId, delta), maxTop),
@@ -4322,8 +4394,8 @@ function paintSessionManager(
   writeOnGround(painter, rect.column + 1, rect.row + 1, fitText("Enter attach | Del kill", headerWidth), {
     foreground: theme.muted,
   }, ground);
-  const sessions = controller.sessions.peek();
-  if (sessions.length === 0) {
+  const managerRows = exomuxManagerRows(controller);
+  if (managerRows.length === 0) {
     writeOnGround(
       painter,
       rect.column + 1,
@@ -4334,14 +4406,14 @@ function paintSessionManager(
     );
     return;
   }
-  const selected = clampIndex(selectedSessionIndex, sessions.length);
+  const selected = clampIndex(selectedSessionIndex, Math.max(1, controller.sessions.peek().length));
   const available = Math.max(0, rect.height - SESSION_LIST_START);
-  const rowFor = (session: ExomuxSessionSummary): ExomuxSessionListRow => {
-    const attached = controller.runtime(session.id)?.attached.peek() ?? false;
-    const status = session.running ? (attached ? "LIVE" : "HOLD") : session.status.toUpperCase();
-    return { label: `[${status}] ${session.title} :: ${session.commandLine}`, running: session.running };
-  };
-  const rows = sessions.map(rowFor);
+  // Headings and the current session's row recede like stopped terminals; an
+  // attachable host session reads as live.
+  const rows: ExomuxSessionListRow[] = managerRows.map((row) => ({
+    label: row.label,
+    running: row.kind === "terminal" ? row.running : row.kind === "host-session" ? row.attachable && !row.current : false,
+  }));
   sessionList?.sync({
     width: Math.max(1, rect.width),
     height: Math.max(1, available),
@@ -4385,17 +4457,17 @@ function paintSessionManager(
   }
   // Hand-drawn fallback until the composited snapshot lands, on the same
   // window math as the List so the swap never shifts a row.
-  const offset = exomuxSessionListWindowStart(sessions.length, selected, available, sessionListScrollTop);
+  const offset = exomuxSessionListWindowStart(rows.length, selected, available, sessionListScrollTop);
   for (let visibleIndex = 0; visibleIndex < available; visibleIndex += 1) {
     const index = offset + visibleIndex;
-    const session = sessions[index];
-    if (!session) break;
-    const isSelected = active && index === selected;
+    const entry = rows[index];
+    if (!entry) break;
+    const isSelected = active && index === selected && managerRows[index]?.kind === "terminal";
     const row = rect.row + SESSION_LIST_START + visibleIndex;
     const rowRect = { column: rect.column, row, width: rect.width, height: 1 };
-    const foreground = isSelected ? theme.background : session.running ? theme.text : theme.muted;
+    const foreground = isSelected ? theme.background : entry.running ? theme.text : theme.muted;
     const label = fitText(
-      `${isSelected ? ">" : " "} ${rows[index]!.label}`,
+      `${isSelected ? ">" : " "} ${entry.label}`,
       Math.max(0, rect.width - 2),
     );
     // The selected row is a deliberate block of colour and stays opaque; the
@@ -6226,14 +6298,16 @@ function managerSessionAt(
 ): ExomuxManagerSessionHit | undefined {
   const manager = projection.windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
   if (!manager || !contains(manager.clientRect, column, row)) return undefined;
-  const sessions = controller.sessions.peek();
+  const rows = exomuxManagerRows(controller);
   const available = Math.max(0, manager.clientRect.height - SESSION_LIST_START);
   const relativeRow = row - manager.clientRect.row;
   if (relativeRow < SESSION_LIST_START || relativeRow >= SESSION_LIST_START + available) return undefined;
-  const offset = exomuxSessionListWindowStart(sessions.length, selectedSessionIndex, available, scrollTop);
-  const index = offset + relativeRow - SESSION_LIST_START;
-  const session = sessions[index];
-  return session ? { session, index } : undefined;
+  const offset = exomuxSessionListWindowStart(rows.length, selectedSessionIndex, available, scrollTop);
+  const target = rows[offset + relativeRow - SESSION_LIST_START];
+  if (!target || target.kind === "heading") return undefined;
+  if (target.kind === "host-session") return { kind: "host-session", name: target.name };
+  const index = controller.sessions.peek().findIndex((session) => session.id === target.session.id);
+  return index >= 0 ? { kind: "terminal", session: target.session, index } : undefined;
 }
 
 function clientWindowAt(
