@@ -105,3 +105,23 @@ Legend for verdict tags: ✅ exotui-driven · 🔧 hack (component exists) · �
   frame while the render catches up).
 - The hand-drawn code it replaces is deleted, not left as dead paint paths.
 - exomux suite and the exotui library suite stay green; CHANGELOG updated on both sides.
+
+## Open bug: picker ghost rows on click/resize (user report, Aug 14 2026)
+
+The user's live Ghostty session shows stale selection bars in the settings pickers — multiple `T2 Neural Steel` /
+`butterchurn` highlight rows in **previous themes' accent colours**, some horizontally shifted, some outside the
+current picker rects — appearing "when you click to select or resize the window" (screenshot on file).
+
+Investigated Aug 14: headless reproductions (sequential clicks, racing clicks with no settling, terminal resizes
+mid-flight) all leave the canvas frameBuffer clean, and `Canvas.rerenderAll()` clears retained state on resize, so the
+painter/canvas content is correct. Ghost bars **outside** the blit regions and **left-shifted fragments** (`rchurn`,
+doubled `>>`) implicate the stdout diff layer or the terminal's own reflow (cursor-position desync on ranged updates),
+which the in-memory harness cannot observe. Hardening landed: `WidgetSurface.render()` now converges (keeps
+rendering while deferred draws keep arriving) instead of stopping after two fixed passes, so a reflow racing an
+in-flight snapshot can no longer be captured half-applied — plus a mid-flight-mutation regression test.
+
+Next steps when it reproduces again: capture which action precedes the freeze (theme click vs Ghostty resize), and
+whether a forced full repaint (e.g. toggling a setting that resizes the window by one cell) clears it — that separates
+"canvas holds ghosts" from "terminal shows ghosts the diff never overwrote". A diagnostic worth adding: a debug
+keybinding that calls the desktop's full-repaint escape hatch (`Canvas.rerenderAll` + full range flush) to heal and
+confirm the diff-layer theory in one keystroke.

@@ -144,13 +144,22 @@ export class WidgetSurface {
   /**
    * Flushes the microtask-deferred component draws and renders. Two passes catch
    * sub-objects (labels, slider thumbs) created during the first draw; each pass
-   * forces a full redraw so the snapshot is exact.
+   * forces a full redraw so the snapshot is exact. Further passes run only while
+   * deferred draws keep arriving — a reflow scheduled past the flush window (a
+   * selection highlight moving after a scroll, a remount racing an in-flight
+   * render) would otherwise be captured half-applied and blitted as a stale
+   * ghost that persists until the next interaction.
    */
   async render(): Promise<void> {
-    for (let pass = 0; pass < 2; pass += 1) {
+    for (let pass = 0; pass < 6; pass += 1) {
       for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
       this.#canvas.rerenderAll();
       this.#canvas.render();
+      if (pass === 0) continue;
+      // Deferred draws that arrived during this pass queue more update work;
+      // an empty queue after a flush means the snapshot is settled.
+      for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
+      if (this.#canvas.updateObjects.length === 0) break;
     }
   }
 

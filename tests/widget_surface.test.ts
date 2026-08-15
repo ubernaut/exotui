@@ -95,3 +95,53 @@ Deno.test("widgetSurfaceCellData decodes glyph, truecolor attributes, and bold",
   assertEquals(reset?.glyph, " ");
   assertEquals(reset?.foreground, undefined);
 });
+
+Deno.test("WidgetSurface render converges when state mutates mid-flight", async () => {
+  const { List } = await import("../src/components/list.ts");
+  const { Signal } = await import("../src/signals/mod.ts");
+  const items = Array.from({ length: 20 }, (_, index) => `item-${index}`);
+  const selected = new Signal(0);
+  const surface = new WidgetSurface(16, 6);
+  try {
+    surface.mount((tui) => [
+      new List({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 16, height: 6 },
+        theme: { base: createAnsiStyle({ foreground: [200, 200, 210], background: [20, 22, 30] }) },
+        items,
+        selectedIndex: selected,
+        selectedStyle: createAnsiStyle({ foreground: [0, 0, 0], background: [255, 120, 180], bold: true }),
+      }),
+    ]);
+    // Mutate the selection between the render's microtask flushes — the exact
+    // interleaving that used to capture a half-applied snapshot whose stale
+    // highlight then persisted as a ghost row until the next interaction.
+    const inFlight = surface.render();
+    for (let step = 0; step < 3; step += 1) {
+      await Promise.resolve();
+      selected.value = 7 + step;
+    }
+    await inFlight;
+
+    const SGRP = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
+    let markers = 0;
+    let highlightRows = 0;
+    for (let row = 0; row < 6; row += 1) {
+      let plain = "";
+      let highlighted = false;
+      for (let column = 0; column < 16; column += 1) {
+        const cell = surface.cellAt(row, column);
+        const text = typeof cell === "string" ? cell : cell ? new TextDecoder().decode(cell) : " ";
+        if (text.includes("48;2;255;120;180")) highlighted = true;
+        plain += text.replace(SGRP, "");
+      }
+      if (plain.includes(">")) markers += 1;
+      if (highlighted) highlightRows += 1;
+    }
+    assertEquals(markers, 1, "exactly one selection marker row");
+    assertEquals(highlightRows, 1, "exactly one highlighted row");
+  } finally {
+    surface.dispose();
+  }
+});
