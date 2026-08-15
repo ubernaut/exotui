@@ -296,6 +296,12 @@ across resizes. Missing axes degrade to the local available size, never zero. Th
 unset instead of misreading them as cells, and all four capability profiles classify them (Simple supported,
 Yoga/Taffy-protocol unsupported); `inspectTuiCssSupport()` and the layout docs were updated.
 
+Decision (Aug 15, 2026) on logical edges and direction/RTL: deferred, per the checkbox's own condition. Terminal
+emulators do not agree on bidi rendering (most reorder per line at display time, invisibly to cell-addressed output), so
+a solver-side RTL model cannot guarantee that visual order, cell coordinates, and hit regions coincide — the
+one-clear-model precondition fails today. Revisit only alongside a bidi-aware text measurement contract;
+`row-reverse`/`column-reverse` (already landed) cover the layout-mirroring use cases that matter in practice.
+
 Completed verification slice Aug 15, 2026: the shared Simple/Yoga conformance corpus gains nested/overflowing fixtures
 for equal-grow remainder allocation, shrink-to-minimum with reported overflow, intrinsic text bases in a wrapping gapped
 container, and nested max-width caps under column shrink — each with per-backend dispositions where the backends
