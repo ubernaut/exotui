@@ -95,7 +95,8 @@ export function inspectTuiCssSupport(): TuiCssSupportReport {
     solverCapabilities: inspectLayoutSolverCapabilities(),
     unsupported: [
       "browser CSS parser parity",
-      "em/rem/vh/vw/calc/container-query units",
+      "em/rem/container-query units",
+      "multiplicative or nested calc() expressions (the additive subset is supported)",
       "floats",
       "transforms",
       "animations and transitions",

@@ -199,7 +199,11 @@ function applyYogaLength(
   property: "width" | "height" | "minWidth" | "minHeight" | "maxWidth" | "maxHeight" | "flexBasis",
   length: LayoutLengthValue,
 ): void {
-  if (length.unit === "fr") return;
+  // fr and the vw/vh/pw/ph/calc units are not mapped by this adapter; leaving
+  // the property unset (Yoga's default) beats misreading them as cell counts.
+  // The capability profile marks them unsupported, so declaration inspection
+  // diagnoses them for this solver.
+  if (length.unit !== "auto" && length.unit !== "cell" && length.unit !== "percent") return;
   if (property === "width") {
     if (length.unit === "auto") node.setWidthAuto();
     else if (length.unit === "percent") node.setWidthPercent(length.value);
@@ -249,7 +253,8 @@ function setYogaPositionEdges(
 }
 
 function applyYogaPosition(node: YogaNode, edge: number, length: LayoutLengthValue): void {
-  if (length.unit === "auto" || length.unit === "fr") return;
+  // Same adapter rule as applyYogaLength: unmapped units stay unset.
+  if (length.unit !== "cell" && length.unit !== "percent") return;
   if (length.unit === "percent") node.setPositionPercent(edge, length.value);
   else node.setPosition(edge, length.value);
 }

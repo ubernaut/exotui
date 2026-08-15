@@ -55,10 +55,42 @@ export type LayoutOverflowWrap = "normal" | "anywhere" | "break-word";
 /** Public type alias selecting which box an authored size describes. */
 export type LayoutBoxSizing = "content-box" | "border-box";
 
-/** Public interface describing a terminal-cell layout length. */
-export interface LayoutLengthValue {
-  unit: "auto" | "cell" | "percent" | "fr";
+/** Units resolvable inside a bounded additive `calc()` expression. */
+export type LayoutCalcUnit = "cell" | "percent" | "vw" | "vh" | "pw" | "ph";
+
+/** One signed additive term of a bounded `calc()` expression. */
+export interface LayoutCalcTerm {
+  unit: LayoutCalcUnit;
   value: number;
+}
+
+/**
+ * Public interface describing a terminal-cell layout length.
+ *
+ * Beyond cells, percentages, and fractions: `vw`/`vh` resolve against the
+ * solve viewport, `pw`/`ph` (authored `w`/`h`, Textual-style) against the
+ * containing block's width/height regardless of the property's own axis, and
+ * `calc` carries a bounded additive term list in {@linkcode LayoutLengthValue.terms}.
+ */
+export interface LayoutLengthValue {
+  unit: "auto" | "cell" | "percent" | "fr" | "vw" | "vh" | "pw" | "ph" | "calc";
+  value: number;
+  /** Additive `calc()` terms; present only when `unit` is `"calc"`. */
+  terms?: readonly LayoutCalcTerm[];
+}
+
+/** Sizes a bounded `calc()` expression may not exceed. */
+export const LAYOUT_CALC_TERM_LIMIT = 8;
+
+/**
+ * Axis measurements viewport- and parent-relative units resolve against.
+ * Missing axes degrade to the local available size, never to a silent zero.
+ */
+export interface LayoutLengthResolutionContext {
+  viewportWidth?: number;
+  viewportHeight?: number;
+  parentWidth?: number;
+  parentHeight?: number;
 }
 
 /** Public interface describing a one-dimensional CSS-grid placement. */
@@ -167,6 +199,15 @@ export function autoLength(): LayoutLengthValue {
   return { ...AUTO_LAYOUT_LENGTH };
 }
 
+/** Creates a bounded additive `calc()` layout length from its terms. */
+export function calcLength(terms: readonly LayoutCalcTerm[]): LayoutLengthValue {
+  const bounded = terms.slice(0, LAYOUT_CALC_TERM_LIMIT).map((term) => ({
+    unit: term.unit,
+    value: finiteNumber(term.value, 0),
+  }));
+  return { unit: "calc", value: 0, terms: bounded };
+}
+
 /** Returns a fresh normalized style object. */
 export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
   return {
@@ -225,26 +266,21 @@ export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
 export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLayoutStyle {
   const clone: ComputedLayoutStyle = {
     ...style,
-    flexBasis: { ...style.flexBasis },
+    flexBasis: cloneLayoutLength(style.flexBasis),
     gridTemplateColumns: cloneLayoutLengths(style.gridTemplateColumns),
     gridTemplateRows: cloneLayoutLengths(style.gridTemplateRows),
     gridTemplateAreas: cloneGridAreas(style.gridTemplateAreas),
-    gridAutoColumns: { ...style.gridAutoColumns },
-    gridAutoRows: { ...style.gridAutoRows },
+    gridAutoColumns: cloneLayoutLength(style.gridAutoColumns),
+    gridAutoRows: cloneLayoutLength(style.gridAutoRows),
     gridColumn: { ...style.gridColumn },
     gridRow: { ...style.gridRow },
-    width: { ...style.width },
-    height: { ...style.height },
-    minWidth: { ...style.minWidth },
-    minHeight: { ...style.minHeight },
-    maxWidth: { ...style.maxWidth },
-    maxHeight: { ...style.maxHeight },
-    inset: {
-      top: { ...style.inset.top },
-      right: { ...style.inset.right },
-      bottom: { ...style.inset.bottom },
-      left: { ...style.inset.left },
-    },
+    width: cloneLayoutLength(style.width),
+    height: cloneLayoutLength(style.height),
+    minWidth: cloneLayoutLength(style.minWidth),
+    minHeight: cloneLayoutLength(style.minHeight),
+    maxWidth: cloneLayoutLength(style.maxWidth),
+    maxHeight: cloneLayoutLength(style.maxHeight),
+    inset: cloneBoxEdgeLengths(style.inset),
     margin: { ...style.margin },
     padding: { ...style.padding },
     border: { ...style.border },
@@ -262,17 +298,45 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
   return clone;
 }
 
+/** The percentage base one unit resolves against, given the known axes. */
+function unitBase(unit: LayoutCalcUnit, available: number, context?: LayoutLengthResolutionContext): number {
+  const pick = (axis: number | undefined): number =>
+    axis === undefined ? available : Math.max(0, Math.floor(finiteNumber(axis, 0)));
+  if (unit === "vw") return pick(context?.viewportWidth);
+  if (unit === "vh") return pick(context?.viewportHeight);
+  if (unit === "pw") return pick(context?.parentWidth);
+  if (unit === "ph") return pick(context?.parentHeight);
+  return available;
+}
+
+/** One term's unfloored cell contribution. */
+function resolveCalcTerm(term: LayoutCalcTerm, available: number, context?: LayoutLengthResolutionContext): number {
+  if (term.unit === "cell") return finiteNumber(term.value, 0);
+  return unitBase(term.unit, available, context) * finiteNumber(term.value, 0) / 100;
+}
+
 /** Resolves a layout length against an available terminal-cell size. */
 export function resolveLayoutLength(
   value: LayoutLengthValue | undefined,
   available: number,
   fallback = 0,
+  context?: LayoutLengthResolutionContext,
 ): number {
   const safeAvailable = Math.max(0, Math.floor(finiteNumber(available, 0)));
   const safeFallback = Math.max(0, Math.floor(finiteNumber(fallback, 0)));
   if (!value || value.unit === "auto") return safeFallback;
   if (value.unit === "cell") return Math.max(0, Math.floor(value.value));
   if (value.unit === "percent") return Math.max(0, Math.floor(safeAvailable * value.value / 100));
+  if (value.unit === "vw" || value.unit === "vh" || value.unit === "pw" || value.unit === "ph") {
+    return Math.max(0, Math.floor(unitBase(value.unit, safeAvailable, context) * value.value / 100));
+  }
+  if (value.unit === "calc") {
+    const sum = (value.terms ?? []).reduce(
+      (total, term) => total + resolveCalcTerm(term, safeAvailable, context),
+      0,
+    );
+    return Math.max(0, Math.floor(sum));
+  }
   return Math.max(0, Math.floor(value.value));
 }
 
@@ -282,10 +346,11 @@ export function clampLayoutSize(
   available: number,
   min: LayoutLengthValue,
   max: LayoutLengthValue,
+  context?: LayoutLengthResolutionContext,
 ): number {
   const safe = Math.max(0, Math.floor(finiteNumber(size, 0)));
-  const lower = resolveLayoutLength(min, available, 0);
-  const upper = max.unit === "auto" ? Number.MAX_SAFE_INTEGER : resolveLayoutLength(max, available, available);
+  const lower = resolveLayoutLength(min, available, 0, context);
+  const upper = max.unit === "auto" ? Number.MAX_SAFE_INTEGER : resolveLayoutLength(max, available, available, context);
   return Math.max(lower, Math.min(upper, safe));
 }
 
@@ -301,14 +366,65 @@ export function parseLayoutLength(
 function tryParseLayoutLength(value: string): LayoutLengthValue | undefined {
   const trimmed = value.trim().toLowerCase();
   if (trimmed === "auto") return autoLength();
-  const match = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)(%|fr|ch|cells?)?$/);
+  if (trimmed.startsWith("calc(")) return tryParseCalcLength(trimmed);
+  const match = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)(%|fr|ch|cells?|vw|vh|w|h)?$/);
   if (!match) return undefined;
   const number = Number.parseFloat(match[1]!);
   if (!Number.isFinite(number)) return undefined;
   const unit = match[2];
   if (unit === "%") return percentLength(number);
   if (unit === "fr") return frLength(number);
+  if (unit === "vw" || unit === "vh") return { unit, value: number };
+  if (unit === "w") return { unit: "pw", value: number };
+  if (unit === "h") return { unit: "ph", value: number };
   return cellLength(number);
+}
+
+/**
+ * Parses the bounded additive `calc()` subset: signed `+`/`-` chains of at
+ * most {@linkcode LAYOUT_CALC_TERM_LIMIT} cell/%/vw/vh/w/h terms. Nesting,
+ * multiplication, and `fr` terms are rejected — the model stays a linear
+ * combination a terminal cell grid can resolve deterministically.
+ */
+function tryParseCalcLength(trimmed: string): LayoutLengthValue | undefined {
+  if (!trimmed.endsWith(")")) return undefined;
+  const body = trimmed.slice("calc(".length, -1).trim();
+  if (body.length === 0 || body.length > 256 || body.includes("(")) return undefined;
+  // Normalize into "term [op term]*": operators need surrounding whitespace.
+  const tokens = body.split(/\s+/);
+  const terms: LayoutCalcTerm[] = [];
+  let sign = 1;
+  let expectTerm = true;
+  for (const token of tokens) {
+    if (!expectTerm) {
+      if (token === "+") sign = 1;
+      else if (token === "-") sign = -1;
+      else return undefined;
+      expectTerm = true;
+      continue;
+    }
+    const match = token.match(/^(\d+(?:\.\d+)?|\.\d+)(%|ch|cells?|vw|vh|w|h)?$/);
+    if (!match) return undefined;
+    const number = Number.parseFloat(match[1]!);
+    if (!Number.isFinite(number)) return undefined;
+    const suffix = match[2];
+    const unit: LayoutCalcUnit = suffix === "%"
+      ? "percent"
+      : suffix === "vw"
+      ? "vw"
+      : suffix === "vh"
+      ? "vh"
+      : suffix === "w"
+      ? "pw"
+      : suffix === "h"
+      ? "ph"
+      : "cell";
+    terms.push({ unit, value: sign * number });
+    sign = 1;
+    expectTerm = false;
+  }
+  if (expectTerm || terms.length === 0 || terms.length > LAYOUT_CALC_TERM_LIMIT) return undefined;
+  return { unit: "calc", value: 0, terms };
 }
 
 function parseAspectRatio(value: string): { valid: boolean; value?: number } {
@@ -755,7 +871,23 @@ function expandGridRepeat(value: string): string {
 }
 
 function tokenizeGridTrackList(value: string): string[] {
-  return splitCssWords(value);
+  // calc(...) contains spaces; keep each parenthesized group one token so a
+  // track list like "25vw calc(100% - 30) 1fr" splits into three tracks.
+  const tokens: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const char of value) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (depth === 0 && /\s/.test(char)) {
+      if (current) tokens.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (current) tokens.push(current);
+  return tokens;
 }
 
 function parseGridSpan(value: string): number | undefined {
@@ -962,12 +1094,16 @@ function applyBoxEdgeLength(
   };
 }
 
+function cloneLayoutLength(value: LayoutLengthValue): LayoutLengthValue {
+  return value.terms ? { ...value, terms: value.terms.map((term) => ({ ...term })) } : { ...value };
+}
+
 function cloneBoxEdgeLengths(edges: BoxEdges<LayoutLengthValue>): BoxEdges<LayoutLengthValue> {
   return {
-    top: { ...edges.top },
-    right: { ...edges.right },
-    bottom: { ...edges.bottom },
-    left: { ...edges.left },
+    top: cloneLayoutLength(edges.top),
+    right: cloneLayoutLength(edges.right),
+    bottom: cloneLayoutLength(edges.bottom),
+    left: cloneLayoutLength(edges.left),
   };
 }
 
@@ -1030,7 +1166,7 @@ function finiteNumber(value: number, fallback: number): number {
 function cloneLayoutLengths(values: readonly LayoutLengthValue[]): LayoutLengthValue[] {
   const clone = new Array<LayoutLengthValue>(values.length);
   for (let index = 0; index < values.length; index += 1) {
-    clone[index] = { ...values[index]! };
+    clone[index] = cloneLayoutLength(values[index]!);
   }
   return clone;
 }

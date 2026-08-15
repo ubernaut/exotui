@@ -30,7 +30,17 @@ function capabilities(): LayoutSolverCapabilities {
     availability: "optional",
     style: supportAll,
     displayModes: { block: "supported", flex: "supported", grid: "supported", none: "supported" },
-    lengthUnits: { auto: "supported", cell: "supported", percent: "supported", fr: "supported" },
+    lengthUnits: {
+      auto: "supported",
+      cell: "supported",
+      percent: "supported",
+      fr: "supported",
+      vw: "unsupported",
+      vh: "unsupported",
+      pw: "unsupported",
+      ph: "unsupported",
+      calc: "unsupported",
+    },
     invariants: {
       "cell-rounding": { support: "supported", detail: "Adapter snaps absolute edges to terminal cells." },
       "overflow-inspection": { support: "supported", detail: "Adapter projects content size to shared metadata." },

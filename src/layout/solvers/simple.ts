@@ -9,6 +9,7 @@ import {
   type BoxEdges,
   type ComputedLayoutStyle,
   type LayoutJustifyContent,
+  type LayoutLengthResolutionContext,
   type LayoutLengthValue,
   resolveLayoutLength,
 } from "../style.ts";
@@ -52,15 +53,25 @@ export class SimpleLayoutSolver implements LayoutSolver {
   }
 
   solve(input: LayoutSolverInput): LayoutSolverResult {
-    const root = this.#layoutNode(input.root, normalizeRectangle(input.bounds), true);
-    const boxes = flattenComputedLayoutBoxes(root);
-    return {
-      root,
-      boxes,
-      byId: mapLayoutBoxes(boxes),
-      contentWidth: root.scrollWidth,
-      contentHeight: root.scrollHeight,
-    };
+    const bounds = normalizeRectangle(input.bounds);
+    const previousViewport = activeLengthViewport;
+    const previousParent = activeLengthParent;
+    activeLengthViewport = { width: bounds.width, height: bounds.height };
+    activeLengthParent = { width: bounds.width, height: bounds.height };
+    try {
+      const root = this.#layoutNode(input.root, bounds, true);
+      const boxes = flattenComputedLayoutBoxes(root);
+      return {
+        root,
+        boxes,
+        byId: mapLayoutBoxes(boxes),
+        contentWidth: root.scrollWidth,
+        contentHeight: root.scrollHeight,
+      };
+    } finally {
+      activeLengthViewport = previousViewport;
+      activeLengthParent = previousParent;
+    }
   }
 
   #layoutNode(
@@ -69,6 +80,23 @@ export class SimpleLayoutSolver implements LayoutSolver {
     isRoot = false,
     fillAllocated = false,
     containingBlock: Rectangle = allocated,
+    marginOverride?: BoxEdges<number>,
+  ): ComputedLayoutBox {
+    const previousParent = activeLengthParent;
+    activeLengthParent = { width: containingBlock.width, height: containingBlock.height };
+    try {
+      return this.#layoutNodeScoped(node, allocated, isRoot, fillAllocated, containingBlock, marginOverride);
+    } finally {
+      activeLengthParent = previousParent;
+    }
+  }
+
+  #layoutNodeScoped(
+    node: LayoutNode,
+    allocated: Rectangle,
+    isRoot: boolean,
+    fillAllocated: boolean,
+    containingBlock: Rectangle,
     marginOverride?: BoxEdges<number>,
   ): ComputedLayoutBox {
     const style = node.style;
@@ -122,6 +150,16 @@ export class SimpleLayoutSolver implements LayoutSolver {
   }
 
   #layoutBlockChildren(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
+    const previousParent = activeLengthParent;
+    activeLengthParent = { width: bounds.width, height: bounds.height };
+    try {
+      return this.#layoutBlockChildrenScoped(node, bounds);
+    } finally {
+      activeLengthParent = previousParent;
+    }
+  }
+
+  #layoutBlockChildrenScoped(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
     const boxes: ComputedLayoutBox[] = [];
     const children = layoutChildren(node);
     const gap = resolveAxisGap(node.style, "row", bounds);
@@ -151,6 +189,16 @@ export class SimpleLayoutSolver implements LayoutSolver {
   }
 
   #layoutFlexChildren(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
+    const previousParent = activeLengthParent;
+    activeLengthParent = { width: bounds.width, height: bounds.height };
+    try {
+      return this.#layoutFlexChildrenScoped(node, bounds);
+    } finally {
+      activeLengthParent = previousParent;
+    }
+  }
+
+  #layoutFlexChildrenScoped(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
     const children = layoutChildren(node);
     if (children.length === 0) return [];
 
@@ -245,6 +293,16 @@ export class SimpleLayoutSolver implements LayoutSolver {
   }
 
   #layoutGridChildren(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
+    const previousParent = activeLengthParent;
+    activeLengthParent = { width: bounds.width, height: bounds.height };
+    try {
+      return this.#layoutGridChildrenScoped(node, bounds);
+    } finally {
+      activeLengthParent = previousParent;
+    }
+  }
+
+  #layoutGridChildrenScoped(node: LayoutNode, bounds: Rectangle): ComputedLayoutBox[] {
     const children = layoutChildren(node);
     if (children.length === 0) return [];
 
@@ -294,6 +352,16 @@ export class SimpleLayoutSolver implements LayoutSolver {
   }
 
   #layoutAbsoluteChildrenInto(target: ComputedLayoutBox[], node: LayoutNode, bounds: Rectangle): void {
+    const previousParent = activeLengthParent;
+    activeLengthParent = { width: bounds.width, height: bounds.height };
+    try {
+      this.#layoutAbsoluteChildrenIntoScoped(target, node, bounds);
+    } finally {
+      activeLengthParent = previousParent;
+    }
+  }
+
+  #layoutAbsoluteChildrenIntoScoped(target: ComputedLayoutBox[], node: LayoutNode, bounds: Rectangle): void {
     for (const child of node.children) {
       if (child.style.display === "none" || child.style.position !== "absolute") continue;
       const margin = resolveBoxEdges(authoredLengths(child.style)?.margin, child.style.margin, bounds.width);
@@ -307,6 +375,35 @@ export class SimpleLayoutSolver implements LayoutSolver {
       ));
     }
   }
+}
+
+/**
+ * Dynamically scoped resolution context for viewport (`vw`/`vh`) and
+ * parent-axis (`w`/`h`) units. The solver is fully synchronous, and every
+ * writer saves and restores in try/finally, so this behaves as an implicit
+ * parameter without threading it through every sizing helper. Where a helper
+ * resolves against a rect other than the active containing block (grid
+ * cells), it passes an explicit context instead.
+ */
+let activeLengthViewport: { width: number; height: number } | undefined;
+let activeLengthParent: { width: number; height: number } | undefined;
+
+function activeLengthContext(): LayoutLengthResolutionContext {
+  return {
+    viewportWidth: activeLengthViewport?.width,
+    viewportHeight: activeLengthViewport?.height,
+    parentWidth: activeLengthParent?.width,
+    parentHeight: activeLengthParent?.height,
+  };
+}
+
+function explicitLengthContext(parent: { width: number; height: number }): LayoutLengthResolutionContext {
+  return {
+    viewportWidth: activeLengthViewport?.width,
+    viewportHeight: activeLengthViewport?.height,
+    parentWidth: parent.width,
+    parentHeight: parent.height,
+  };
 }
 
 /** Creates the built-in deterministic block/flex layout solver. */
@@ -447,12 +544,13 @@ function placeGridChildren(children: readonly LayoutNode[], bounds: GridPlacemen
 }
 
 function alignGridItemBounds(node: LayoutNode, cell: Rectangle): Rectangle {
+  const cellContext = explicitLengthContext(cell);
   const width = node.style.justifySelf === "stretch" || node.style.width.unit === "auto"
     ? cell.width
-    : Math.min(cell.width, resolveLayoutLength(node.style.width, cell.width, cell.width));
+    : Math.min(cell.width, resolveLayoutLength(node.style.width, cell.width, cell.width, cellContext));
   const height = node.style.alignSelf === "stretch" || node.style.height.unit === "auto"
     ? cell.height
-    : Math.min(cell.height, resolveLayoutLength(node.style.height, cell.height, cell.height));
+    : Math.min(cell.height, resolveLayoutLength(node.style.height, cell.height, cell.height, cellContext));
   return {
     column: cell.column + gridAlignmentOffset(cell.width, width, node.style.justifySelf),
     row: cell.row + gridAlignmentOffset(cell.height, height, node.style.alignSelf),
@@ -486,8 +584,11 @@ function resolveGridTracks(
     if (track.unit === "cell") {
       sizes[index] = Math.max(0, Math.floor(track.value));
       fixed += sizes[index]!;
-    } else if (track.unit === "percent") {
-      sizes[index] = Math.max(0, Math.floor(availableWithoutGaps * track.value / 100));
+    } else if (
+      track.unit === "percent" || track.unit === "vw" || track.unit === "vh" ||
+      track.unit === "pw" || track.unit === "ph" || track.unit === "calc"
+    ) {
+      sizes[index] = resolveLayoutLength(track, availableWithoutGaps, 0, activeLengthContext());
       fixed += sizes[index]!;
     } else if (track.unit === "fr") {
       frIndexes.push(index);
@@ -769,7 +870,7 @@ function resolveBoxEdges(
 }
 
 function resolveBoxLength(value: LayoutLengthValue, percentageBase: number): number {
-  return value.unit === "auto" ? 0 : resolveLayoutLength(value, percentageBase, 0);
+  return value.unit === "auto" ? 0 : resolveLayoutLength(value, percentageBase, 0, activeLengthContext());
 }
 
 function autoMarginEdges(style: ComputedLayoutStyle): BoxEdges<boolean> {
@@ -811,7 +912,7 @@ function resolveAxisGap(
   const authored = axis === "row" ? lengths?.rowGap : lengths?.columnGap;
   if (authored) {
     const available = axis === "row" ? containingBlock.height : containingBlock.width;
-    return resolveLayoutLength(authored, available, 0);
+    return resolveLayoutLength(authored, available, 0, explicitLengthContext(containingBlock));
   }
   return Math.max(0, axis === "row" ? style.rowGap || style.gap : style.columnGap || style.gap);
 }
@@ -901,7 +1002,7 @@ function resolveOuterSize(
   boxSizing: NonNullable<ComputedLayoutStyle["boxSizing"]>,
 ): number {
   if (length.unit === "auto") return Math.max(0, Math.floor(fallbackOuter));
-  const authored = resolveLayoutLength(length, available, 0);
+  const authored = resolveLayoutLength(length, available, 0, activeLengthContext());
   return authored + (boxSizing === "content-box" ? extras : 0);
 }
 
@@ -1046,7 +1147,9 @@ function absoluteChildBounds(
 }
 
 function resolveInset(value: ComputedLayoutStyle["inset"]["top"], available: number): number | undefined {
-  return value.unit === "auto" || value.unit === "fr" ? undefined : resolveLayoutLength(value, available, 0);
+  return value.unit === "auto" || value.unit === "fr"
+    ? undefined
+    : resolveLayoutLength(value, available, 0, activeLengthContext());
 }
 
 function preferredFlexBasis(
@@ -1440,7 +1543,7 @@ function measureNodeIntrinsicBase(
     let count = 0;
     const authoredGap = authoredLengths(node.style)?.columnGap;
     const gap = authoredGap
-      ? resolveLayoutLength(authoredGap, availableWidth, 0)
+      ? resolveLayoutLength(authoredGap, availableWidth, 0, activeLengthContext())
       : Math.max(0, node.style.columnGap || node.style.gap);
     for (const child of node.children) {
       if (!participatesInLayout(child)) continue;
@@ -1488,10 +1591,13 @@ function childLayoutIntrinsicSize(
   const measured = measureNodeIntrinsic(node, availableWidth, defaultTextHeight, measurementCache);
   const width = node.style.width.unit === "auto"
     ? measured.width
-    : resolveLayoutLength(node.style.width, availableWidth, measured.width);
-  const height = node.style.height.unit === "auto"
-    ? measured.height
-    : resolveLayoutLength(node.style.height, Math.max(defaultTextHeight, measured.height), measured.height);
+    : resolveLayoutLength(node.style.width, availableWidth, measured.width, activeLengthContext());
+  const height = node.style.height.unit === "auto" ? measured.height : resolveLayoutLength(
+    node.style.height,
+    Math.max(defaultTextHeight, measured.height),
+    measured.height,
+    activeLengthContext(),
+  );
   return {
     width: Math.max(0, width),
     height: Math.max(defaultTextHeight, height),
@@ -1512,7 +1618,8 @@ function measureTextIntrinsic(
 }
 
 function intrinsicMeasurementCacheKey(node: LayoutNode, availableWidth: number, defaultTextHeight: number): string {
-  return "v1" +
+  return "v2" +
+    "\u001f" + (activeLengthViewport ? `${activeLengthViewport.width}x${activeLengthViewport.height}` : "-") +
     "\u001f" + Math.max(1, Math.floor(availableWidth)) +
     "\u001f" + Math.max(1, Math.floor(defaultTextHeight)) +
     "\u001f" + intrinsicNodeSignature(node, "\u001f", false);

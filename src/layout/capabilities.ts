@@ -301,7 +301,17 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       grid: "supported",
       none: "supported",
     },
-    lengthUnits: { auto: "supported", cell: "supported", percent: "partial", fr: "partial" },
+    lengthUnits: {
+      auto: "supported",
+      cell: "supported",
+      percent: "partial",
+      fr: "partial",
+      vw: "supported",
+      vh: "supported",
+      pw: "supported",
+      ph: "supported",
+      calc: "supported",
+    },
     invariants: {
       "cell-rounding": invariant(
         "supported",
@@ -362,6 +372,8 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
     notes: [
       "Block, Flex, and Grid refer to the documented terminal-cell subset, not browser layout parity.",
       "Percentage Flex sizing and one-cell remainder allocation remain explicit L1 conformance work.",
+      "vw/vh resolve against the solve bounds and w/h (pw/ph) against the containing block; where an axis is not threaded they degrade to the local available size, never to zero.",
+      "calc() is a bounded additive model: at most 8 signed cell/%/vw/vh/w/h terms, no nesting, multiplication, or fr.",
     ],
   }),
 );
@@ -370,7 +382,17 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
 export const YOGA_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freezeCapabilities(
   createKnownCapabilities("yoga", "optional", {
     displayModes: { block: "partial", flex: "supported", grid: "unsupported", none: "supported" },
-    lengthUnits: { auto: "supported", cell: "supported", percent: "supported", fr: "unsupported" },
+    lengthUnits: {
+      auto: "supported",
+      cell: "supported",
+      percent: "supported",
+      fr: "unsupported",
+      vw: "unsupported",
+      vh: "unsupported",
+      pw: "unsupported",
+      ph: "unsupported",
+      calc: "unsupported",
+    },
     invariants: {
       "cell-rounding": invariant(
         "supported",
@@ -447,7 +469,17 @@ export const YOGA_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freezeC
 export const TAFFY_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freezeCapabilities(
   createKnownCapabilities("taffy", "planned", {
     displayModes: { block: "unsupported", flex: "unsupported", grid: "unsupported", none: "unsupported" },
-    lengthUnits: { auto: "unsupported", cell: "unsupported", percent: "unsupported", fr: "unsupported" },
+    lengthUnits: {
+      auto: "unsupported",
+      cell: "unsupported",
+      percent: "unsupported",
+      fr: "unsupported",
+      vw: "unsupported",
+      vh: "unsupported",
+      pw: "unsupported",
+      ph: "unsupported",
+      calc: "unsupported",
+    },
     invariants: {
       "cell-rounding": invariant("unsupported", "No Taffy adapter is implemented; L2 must define this mapping."),
       "overflow-inspection": invariant("unsupported", "No Taffy adapter is implemented; L2 must define this mapping."),
@@ -486,7 +518,17 @@ export function unknownLayoutSolverCapabilities(solverId: string): LayoutSolverC
     availability: "custom",
     style,
     displayModes: { block: "unknown", flex: "unknown", grid: "unknown", none: "unknown" },
-    lengthUnits: { auto: "unknown", cell: "unknown", percent: "unknown", fr: "unknown" },
+    lengthUnits: {
+      auto: "unknown",
+      cell: "unknown",
+      percent: "unknown",
+      fr: "unknown",
+      vw: "unknown",
+      vh: "unknown",
+      pw: "unknown",
+      ph: "unknown",
+      calc: "unknown",
+    },
     invariants: {
       "cell-rounding": invariant("unknown", "The solver did not publish capability metadata."),
       "overflow-inspection": invariant("unknown", "The solver did not publish capability metadata."),

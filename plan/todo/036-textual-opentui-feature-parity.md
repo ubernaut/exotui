@@ -275,7 +275,7 @@ Acceptance:
 - [x] Add `aspect-ratio`, `box-sizing`, auto margins, percentage padding/margins/gaps, and correct relative-position
       offsets.
 - [ ] Add logical start/end edges and direction/RTL only if terminal ordering and hit testing can share one clear model.
-- [ ] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
+- [x] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
 - [ ] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
       measured widgets.
 - [ ] Verify grow/shrink/basis, wrapping, gaps, min/max constraints, intrinsic basis, and one-cell remainder allocation
@@ -285,6 +285,16 @@ Completed slice July 16, 2026: the Simple solver now has independent reverse mai
 `align-content`, `space-evenly`, and deterministic integer-cell remainder distribution. The capability report keeps Yoga
 gaps explicit. Baseline remains deliberately gated because the shared intrinsic-measurement contract does not yet expose
 ascent/baseline metrics; it is not silently approximated.
+
+Completed units slice Aug 15, 2026: `LayoutLengthValue` gains `vw`/`vh` (solve-viewport axes), `pw`/`ph`
+(containing-block axes, authored Textual-style as `w`/`h`), and a bounded additive `calc()` carrying at most eight
+signed cell/%/vw/vh/w/h terms — no nesting, multiplication, or `fr`. Resolution takes an explicit
+`LayoutLengthResolutionContext`; the Simple solver threads it through a dynamically scoped, save/restore
+viewport/containing-block context (synchronous solve), grid tracks and the paren-aware track tokenizer accept the new
+units, and the intrinsic-measurement cache key now varies with the viewport so vw/vh-sized subtrees cannot go stale
+across resizes. Missing axes degrade to the local available size, never zero. The Yoga adapter leaves the new units
+unset instead of misreading them as cells, and all four capability profiles classify them (Simple supported,
+Yoga/Taffy-protocol unsupported); `inspectTuiCssSupport()` and the layout docs were updated.
 
 Completed sizing slice July 16, 2026: the Simple solver preserves legacy numeric spacing fields while carrying strict,
 serializable authored percentage/auto metadata; resolves percentage margins and padding against the containing inline

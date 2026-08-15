@@ -205,7 +205,9 @@ Yoga is not a general replacement for the default solver. These remain intention
 
 - CSS Grid: use the default solver for grid tracks, spans, and grid item placement.
 - browser CSS parsing: this project still owns the CSS-like parser and cascade.
-- browser layout units such as `em`, `rem`, `vh`, `vw`, `calc()`, and container queries.
+- viewport (`vw`/`vh`), parent-axis (`w`/`h`), and `calc()` units: the Yoga adapter leaves them unset and the capability
+  report marks them unsupported; use the Simple solver.
+- browser layout units such as `em`, `rem`, and container queries.
 - full browser intrinsic sizing, text layout, min-content/max-content, and baseline alignment.
 - Yoga does not support CSS Grid, including named lines or template areas; use the Simple solver for the supported Grid
   subset. Named lines, subgrid, and dense browser Grid packing are unsupported by every current backend.
@@ -339,6 +341,11 @@ Values:
 - bare integers as terminal cells: `width: 24`
 - `ch`, `cell`, `cells`
 - percentages: `width: 100%`
+- viewport-axis percentages: `width: 50vw`, `height: 25vh` (the solve bounds)
+- parent-axis percentages, Textual-style: `width: 50w` (parent width), `width: 50h` (parent height), regardless of the
+  property's own axis
+- bounded additive `calc()`: at most 8 signed `+`/`-` terms of cells, `%`, `vw`, `vh`, `w`, or `h` — for example
+  `width: calc(100% - 4)`. Nesting, multiplication, and `fr` terms are rejected; operators need surrounding spaces.
 - `fr` values for repo-owned sizing paths
 - `auto`
 - colors as strings for renderer/theme interpretation
@@ -391,7 +398,8 @@ Unsupported for now:
 - floats
 - transforms
 - animations/transitions
-- browser layout units such as `em`, `rem`, `vh`, and `vw`
+- browser layout units such as `em` and `rem` (`vh`, `vw`, `w`, `h`, and additive `calc()` are supported by the Simple
+  solver)
 - named grid lines, dense packing, subgrid, and full browser Grid behavior
 - complex pseudo classes and pseudo elements
 - browser paint effects such as shadows, filters, and gradients
