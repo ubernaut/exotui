@@ -18,6 +18,11 @@ Every exomux control gets one of four verdicts:
 Many entries carry a **primary verdict + a ⭐ back-feed note** (e.g. "should be a `List`, and its transparency is
 richer than `List` — feed it back"). Line numbers are approximate (this file drifts); treat them as anchors.
 
+**Refreshed Aug 14 2026** against the current `app.ts`, folding in the Aug 13–14 mouse/cursor work and the first
+landed WS items from [plan/todo/031](../plan/todo/031-exomux-exotui-widget-sync.md): WS-001 (`WidgetSurface`
+promoted — `widget_surface.ts` is now a thin alias of `@ubernaut/deno-tui/app`'s `WidgetSurface`) and WS-006 (SCP
+password → composited `ExomuxInputField`) are **done**; WS-003 is library-half done (`List.rowStyle`).
+
 ## The one architectural fact that colors everything
 
 The exomux desktop is **a single retained exotui draw object** — `ExomuxDesktopDrawObject` (`app.ts:~5059`) inside
@@ -87,7 +92,7 @@ none of exomux's modals use it.
 | **Start-menu dropdown** (`paintStartMenu` `app.ts:3112`) | 6 command rows incl. a `danger` Quit; anchor-aware placement, cursor-anchored on right-click | 🔧 + ⭐ | It is a **`ContextMenu`** (selectable list, disabled/separator support). Should be composited. ⭐ back-feed: **danger/destructive item tone** and **cursor-anchored, clamped-on-screen placement** to `ContextMenu`. |
 | **Kill confirmation** (`paintKillConfirmation` `app.ts:3758`) | Title, detail, `[ Cancel ]`, `[ Kill ]` (danger) | 🔧 **(high)** + ⭐ | Textbook **`Modal`** with a destructive action. ⭐ back-feed: **`modalButtonRects` responsive stacking** (buttons stack vertically when the box is narrow, reducing mis-hits on the destructive choice) — the exotui `Modal` doesn't do this. |
 | **Quit modal** (`paintQuitModal` `app.ts:3795`) | Title, detail, `[ Cancel ]` / `[ Detach ]` (accent) / `[ Terminate ]` (danger) | 🔧 **(high)** | Three-action **`Modal`** (mixed accent + destructive tones). |
-| **SCP modal** (`paintScpModal` `app.ts:4706`) | Title, detail, **hand-drawn masked password field** (`•` mask), `[ Cancel ]` / `[ Paste path ]` / `[ Send ]` | 🔧 **(highest clarity)** | **The clearest hack in the app.** exotui `Input` already does `password` masking, cursor, validator — but the field is plain painter text driven by `appendScpPassword`/`backspaceScpPassword` (`app.ts:2357`). Use a composited **`Input`** (like the session-name field already does) inside a **`Modal`**. |
+| **SCP modal** (`paintScpModal`) | Title, detail, **composited masked password field**, `[ Cancel ]` / `[ Paste path ]` / `[ Send ]` | ✅ *(field — WS-006 done Aug 14 2026)* + 🔧 *(container)* | The password field now composites a real `Input(password)` via the reusable **`ExomuxInputField`** (`input_field.ts`), with a controller-accumulation fallback for keystrokes that beat the async mount. The modal *container* is still hand-drawn — migrate with the other dialogs (WS-005). |
 | **Help modal** (`paintHelp` `app.ts:3719`) | 15 hand-drawn key-reference lines + `[ Close ]` | 🔧 *(med)* | exotui has **`KeyHelp`** (key-binding rows) and **`Markdown`**; wrap either in a **`Modal`**. |
 | **Per-window config modal** (`paintWindowConfigModal` `app.ts:4631`) | Value rows (`> label` + right-aligned value, cycle-on-click), detail, `[ Reset ]`, `[ Close ]` — **hand-drawn, no composited widgets** | 🔧 **(high — inconsistency)** | The **same codebase** composites real `Cycler`/`CheckBox` in the settings window, but here reimplements value rows by hand. Should use the **composited option-control host** (`ExomuxSettingsOptions`) + a `Modal`. Straight consistency win. |
 | **Background-config modal** (`paintBackgroundConfigModal` `app.ts:4114`) | Hand-drawn frame/title/header; **real composited `List` + `Cycler`/`CheckBox` + `Button`** (view-only) | ✅ *(controls)* + 🔧 *(container)* | The **right pattern** for the controls. Only the modal *frame* is hand-drawn — wrap it in **`Modal`** for the last mile. Good template for fixing the modals above. |
@@ -122,9 +127,12 @@ routing code.
 
 | Control | Rendering | Verdict | Rationale |
 |---|---|---|---|
-| **Block mouse cursor** `█` (`app.ts:3097`) | Hand-drawn at the tracked mouse cell; any-motion tracking (`\x1b[?1003h`) with a 1 s keepalive | 🆕 + ⭐ | No exotui equivalent. Back-feed a **software cursor overlay + an any-motion-tracking helper** (mode-1003 enable/keepalive/teardown) — useful to any app that wants a drawn pointer. |
+| **Block mouse cursor** `█` (`exomuxBlockCursorRender` `app.ts:~5606`) | Hand-drawn at the tracked mouse cell; **blinks at 2 Hz** and turns into a **contextual resize/move glyph** over a floating window's drag border (`resizeGlyphAt` `app.ts:~5582`); any-motion tracking (`\x1b[?1003h`) enabled + re-asserted on a keepalive + torn down (`app.ts:~711-735`, `terminal_modes.ts`) | 🆕 + ⭐ | No exotui equivalent. Back-feed a **`SoftwareCursor` overlay** (blink + contextual glyph resolution) **+ an any-motion-tracking helper** (mode-1003 enable/keepalive/teardown) — useful to any app that wants a drawn pointer. |
+| **Wheel-under-pointer routing** (`wheelDeltaAt`/`scrollWindowAt` `app.ts:~1594`, listbox-wheel `app.ts:~1889`) | The wheel scrolls the viewport **under the pointer** without moving selection, and routes to the control under the cursor, not the focused one; full-screen alt-screen children get cursor-key fallback bytes (`wheelFallbackKeyBytes` `app.ts:~3019`) | ⭐ | A general **interaction contract** worth promoting alongside the richer `List`: "wheel scrolls what it hovers; selection only moves on explicit input." |
+| **Pincushion pointer warp** (`exomuxPincushionSource` `ghostty.ts:~216`) | Maps a reported mouse cell → visual cell through the active display-distortion shader before hit-testing | *(exomux-local)* + ⭐ idea | Ghostty-specific, but the **"pointer-transform hook before hit-testing"** pattern (undo a display distortion) could be a general input-pipeline extension point. |
+| **F1 → help, debug overlay/logging** | exomux-local conveniences | — | Not component candidates. |
 | **Animated backgrounds** (metaballs, butterchurn, matrix, fire, ivy, circuit, rainy-windows, skull, vaporwave, turbulence, image…) | Hand-drawn / GPU fields rasterized to cells | 🆕 + ⭐ | exotui has `ThreeAscii` (3D) but no 2-D animated-field library. Back-feed an **`AnimatedBackground` family** — the **butterchurn GPU (WebGPU/WGSL) pipeline** especially is a large, reusable asset. |
-| **`ExomuxWidgetSurface` compositing pattern** (`widget_surface.ts`) | Headless `Tui` + `MemoryCanvasSink` → off-screen render → `rawCell` blit with async snapshot + fallback | 🆕 + ⭐⭐ | **The highest-leverage back-feed.** Any app compositing real components into its own retained grid (games, dashboards, custom canvases) wants this. Promote it to an exotui **`WidgetSurface` / `CompositeSurface`** utility, with the snapshot/fallback machinery built in. |
+| **`WidgetSurface` compositing pattern** (`widget_surface.ts`) | Headless `Tui` + `MemoryCanvasSink` → off-screen render → `rawCell` blit with async snapshot + fallback | ✅ **(promoted Aug 14 2026 — WS-001 done)** | **The highest-leverage back-feed — landed.** Lives in exotui as `WidgetSurface` (`src/app/widget_surface.ts`, exported from `mod.app.ts`, built on `Canvas.rerenderAll()`); exomux's `ExomuxWidgetSurface` is now a thin alias. |
 
 ---
 
@@ -144,26 +152,30 @@ adopt an exotui component **and** hand it new capabilities on the way up.
 
 ## Back-feed roadmap (highest leverage first)
 
-1. **`WidgetSurface` / `CompositeSurface` in exotui** ⭐⭐ — promote `ExomuxWidgetSurface` (headless render → `rawCell`
-   blit → async snapshot + fallback). Unlocks every other composited-component migration below and helps any app with
-   a custom retained grid. *Foundational.*
+1. **`WidgetSurface` / `CompositeSurface` in exotui** ⭐⭐ — **done Aug 14 2026 (WS-001)**: `WidgetSurface` in
+   `src/app/widget_surface.ts`, exported from `mod.app.ts`, built on `Canvas.rerenderAll()`; exomux consumes it via a
+   thin alias. *Foundational — unblocked everything below.*
 2. **`TerminalScreen` component + `terminal_palette` utilities** 🆕⭐ — a real PTY cell-grid renderer with xterm-256,
    WCAG contrast lift, dim-inactive, transparency, cursor. exotui only has line-level `TerminalOutput` today. Biggest
    net-new capability.
-3. **Richer `List` / `Table`** ⭐ — transparency (render rows through a ground), status/tag columns, opaque-selected
-   block. Then **convert the Sessions panel to a composited `List`/`Table`** — which *also fixes wheel-changes-
-   selection* for free.
+3. **Richer `List` / `Table`** ⭐ — *library half done Aug 14 2026*: `List.rowStyle` (per-row reactive
+   foreground/background tracking the scroll window) landed in `src/components/list.ts`. Remaining: **convert the
+   Sessions panel to a composited `List`/`Table`** — which *also fixes wheel-changes-selection* for free — including
+   per-cell ground-blend against the desktop backdrop for reduced-opacity windows.
 4. **Richer `Tree`** ⭐ — per-node status (online/offline), metadata, `note` rows, pluggable activation. Then
    **convert the Network panel to a composited `Tree`.**
 5. **`Modal` upgrades + migrate the dialogs** ⭐🔧 — add responsive button stacking (`modalButtonRects`), then move
    Kill / Quit / SCP / Help / Window-config onto `Modal` + `ModalController`. The **SCP password field → `Input`
-   (password)** is the single clearest, smallest, highest-clarity fix; do it first as a proof point.
+   (password)** proof point is **done Aug 14 2026 (WS-006)** via the reusable `ExomuxInputField`; next, migrate the
+   session-name editor onto it and delete `session_name_field.ts` (WS-010).
 6. **`ContextMenu` upgrades + migrate the start menu** ⭐🔧 — destructive-item tone + cursor-anchored clamped
    placement, then composite the start menu on it.
 7. **Window-host niceties** ⭐ — double-click-to-maximize, title "status adornments", honoring `control.tone` on the
    titlebar buttons (a bug in exomux today), configurable border style.
-8. **`AnimatedBackground` family + software block cursor / any-motion helper** 🆕⭐ — package exomux's fields
-   (incl. the butterchurn GPU pipeline) and the drawn-cursor/mode-1003 tracking as reusable exotui features.
+8. **`AnimatedBackground` family + `SoftwareCursor` / any-motion helper** 🆕⭐ — package exomux's fields (incl. the
+   butterchurn GPU pipeline) and the drawn cursor (2 Hz blink + contextual resize/move glyph via `resizeGlyphAt`) +
+   mode-1003 enable/keepalive/teardown as reusable exotui features. Consider the **wheel-under-pointer** routing
+   contract alongside the richer `List`.
 
 ### Straight bug/consistency fixes inside exomux (no new exotui work)
 
