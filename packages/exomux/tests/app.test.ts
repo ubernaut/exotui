@@ -37,12 +37,16 @@ import {
   resizeGlyphAt,
 } from "../app.ts";
 import {
+  buildExomuxNetworkNodes,
   createExomuxController,
   EXOMUX_NETWORK_WINDOW_ID,
+  EXOMUX_REMOTE_MONITOR_COMMAND,
   EXOMUX_SESSIONS_WINDOW_ID,
   EXOMUX_SETTINGS_WINDOW_ID,
   EXOMUX_WARNING_TTL_MS,
   type ExomuxController,
+  exomuxNetworkNodeAction,
+  exomuxPingSummary,
   type ExomuxPreferences,
 } from "../controller.ts";
 import {
@@ -5413,6 +5417,179 @@ Deno.test("Exomux sessions panel lists host sessions and switches on click (UX-0
     await harness.pilot.click(manager.clientRect.column + 2, rowY);
     await mounted.whenIdle();
     assertEquals(switches, ["work"]);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux network tree carries per-machine action rows (TSM-010)", () => {
+  const nodes = buildExomuxNetworkNodes(
+    ["cos@backup.local"],
+    {
+      availability: "available",
+      detail: "tailscale is running",
+      snapshot: {
+        backendState: "Running",
+        devices: [
+          {
+            id: "peer-1",
+            shortName: "studio",
+            dnsName: "studio.tail.net",
+            ipv4: "100.64.0.2",
+            os: "linux",
+            online: true,
+            self: false,
+            relayed: false,
+            tags: [],
+          },
+          {
+            id: "peer-2",
+            shortName: "bare",
+            dnsName: "",
+            os: "linux",
+            online: true,
+            self: false,
+            relayed: false,
+            tags: [],
+          },
+        ],
+        capturedAt: 1,
+      },
+    },
+    new Set(["hosts", "tailscale"]),
+  );
+  const host = nodes[0]!.children!.find((node) => node.id === "host:cos@backup.local")!;
+  const hostActions = host.children!.find((node) => node.id === "grp:act-host:cos@backup.local")!;
+  assertEquals(hostActions.children!.map((node) => node.id), [
+    "act:host-mon:cos@backup.local",
+    "act:host-ping:cos@backup.local",
+    "act:host-copy:cos@backup.local",
+  ]);
+  const studio = nodes[1]!.children!.find((node) => node.id === "dev:peer-1")!;
+  const studioActions = studio.children!.find((node) => node.id === "grp:act:peer-1")!;
+  assertEquals(studioActions.children!.map((node) => node.id), [
+    "act:mon:peer-1",
+    "act:ping:peer-1",
+    "act:copy4:peer-1",
+    "act:copydns:peer-1",
+  ]);
+  // A device with neither IPv4 nor a DNS name only offers monitor + ping.
+  const bare = nodes[1]!.children!.find((node) => node.id === "dev:peer-2")!;
+  const bareActions = bare.children!.find((node) => node.id === "grp:act:peer-2")!;
+  assertEquals(bareActions.children!.map((node) => node.id), ["act:mon:peer-2", "act:ping:peer-2"]);
+  // The id parser round-trips every action row.
+  assertEquals(exomuxNetworkNodeAction("act:mon:peer-1"), { kind: "monitor", deviceId: "peer-1" });
+  assertEquals(exomuxNetworkNodeAction("act:host-copy:cos@backup.local"), {
+    kind: "host-copy",
+    target: "cos@backup.local",
+  });
+  assertEquals(exomuxNetworkNodeAction("act:shell:peer-1"), undefined);
+});
+
+Deno.test("Exomux ping summary picks the reply or loss line from raw ping output", () => {
+  assertEquals(
+    exomuxPingSummary("PING x (1.2.3.4)\n64 bytes from 1.2.3.4: icmp_seq=1 ttl=64 time=1.23 ms\n"),
+    "64 bytes from 1.2.3.4: icmp_seq=1 ttl=64 time=1.23 ms",
+  );
+  assertEquals(
+    exomuxPingSummary("PING x\n\n--- x ping statistics ---\n1 packets transmitted, 0 received, 100% packet loss\n"),
+    "1 packets transmitted, 0 received, 100% packet loss",
+  );
+  assertEquals(exomuxPingSummary(""), undefined);
+});
+
+Deno.test("Exomux network actions: monitor spawns over ssh -t, ping reports, copy emits OSC 52", async () => {
+  const client = new FakeExomuxClient([]);
+  const pings: string[][] = [];
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [],
+    tailnetSource: {
+      fetchStatus: () =>
+        Promise.resolve(
+          {
+            availability: "available",
+            detail: "tailscale is running",
+            snapshot: {
+              backendState: "Running",
+              devices: [
+                {
+                  id: "peer-1",
+                  shortName: "studio",
+                  dnsName: "studio.tail.net",
+                  ipv4: "100.64.0.2",
+                  os: "linux",
+                  online: true,
+                  self: false,
+                  relayed: false,
+                  tags: [],
+                },
+              ],
+              capturedAt: 1,
+            },
+          } satisfies TailnetStatusResult,
+        ),
+    },
+    tailnetPollIntervalMs: 300_000,
+    networkProbeRunner: (command, args) => {
+      pings.push([command, ...args]);
+      return Promise.resolve({
+        code: 0,
+        stdout: new TextEncoder().encode("64 bytes from 100.64.0.2: icmp_seq=1 ttl=64 time=1.23 ms\n"),
+      });
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await clickStartMenuItem(harness, mounted, "network");
+    await mounted.whenIdle();
+    await waitForCondition(
+      () => controller.networkTree.visibleRows().some((row) => row.id === "dev:peer-1"),
+      2_000,
+    );
+
+    const tree = controller.networkTree;
+    const pressOn = async (rowId: string) => {
+      const index = tree.visibleRows().findIndex((row) => row.id === rowId);
+      assert(index >= 0, `row ${rowId} is visible`);
+      tree.setSelectedIndex(index);
+      await harness.pilot.press("return");
+      await mounted.whenIdle();
+    };
+
+    // Expand the machine, then its Actions group.
+    await pressOn("dev:peer-1");
+    await pressOn("grp:act:peer-1");
+
+    // Copy IPv4 → OSC 52 with the base64 payload lands on the terminal stream.
+    await pressOn("act:copy4:peer-1");
+    assertStringIncludes(controller.status.peek(), "Copied studio IPv4: 100.64.0.2");
+    assertStringIncludes(harness.stdout.text, `]52;c;${btoa("100.64.0.2")}`);
+
+    // Copy MagicDNS uses the DNS name.
+    await pressOn("act:copydns:peer-1");
+    assertStringIncludes(harness.stdout.text, `]52;c;${btoa("studio.tail.net")}`);
+
+    // Ping runs the bounded local probe and reports the reply line.
+    await pressOn("act:ping:peer-1");
+    await waitForCondition(() => controller.status.peek().includes("time=1.23"), 2_000);
+    assertEquals(pings, [["ping", "-c", "1", "-W", "3", "studio.tail.net"]]);
+
+    // System monitor spawns ssh -t with the remote btop/htop/top probe.
+    await pressOn("act:mon:peer-1");
+    await waitForCondition(() => client.spawned.length > 0, 2_000);
+    const monitor = client.spawned.at(-1)!;
+    assertEquals(monitor.command, "ssh");
+    assertEquals(monitor.args, ["-t", "studio.tail.net", EXOMUX_REMOTE_MONITOR_COMMAND]);
+    assertEquals(monitor.title, "studio · monitor");
   } finally {
     harness.destroy();
     await controller.dispose();

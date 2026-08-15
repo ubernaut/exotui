@@ -22,6 +22,8 @@ import {
 } from "@showcase/kit";
 import {
   createTailscaleStatusSource,
+  runBoundedTailnetCommand,
+  type TailnetCommandRunner,
   type TailnetDevice,
   TailnetPoller,
   type TailnetStatusResult,
@@ -127,6 +129,51 @@ export function exomuxNetworkNodeSessionId(nodeId: string): string | undefined {
   return nodeId.startsWith("ses:") ? nodeId.slice(4) : undefined;
 }
 
+/** One parsed per-machine action row of the network tree (TSM-010). */
+export type ExomuxNetworkAction =
+  | { readonly kind: "monitor" | "ping" | "copy4" | "copydns"; readonly deviceId: string }
+  | { readonly kind: "host-monitor" | "host-ping" | "host-copy"; readonly target: string };
+
+/** Parses a per-machine action leaf id; undefined for every other node. */
+export function exomuxNetworkNodeAction(nodeId: string): ExomuxNetworkAction | undefined {
+  for (const [prefix, kind] of EXOMUX_NETWORK_ACTION_PREFIXES) {
+    if (!nodeId.startsWith(prefix)) continue;
+    const rest = nodeId.slice(prefix.length);
+    if (!rest) return undefined;
+    return kind.startsWith("host-")
+      ? { kind, target: rest } as ExomuxNetworkAction
+      : { kind, deviceId: rest } as ExomuxNetworkAction;
+  }
+  return undefined;
+}
+
+const EXOMUX_NETWORK_ACTION_PREFIXES: readonly (readonly [string, ExomuxNetworkAction["kind"]])[] = [
+  ["act:mon:", "monitor"],
+  ["act:ping:", "ping"],
+  ["act:copy4:", "copy4"],
+  ["act:copydns:", "copydns"],
+  ["act:host-mon:", "host-monitor"],
+  ["act:host-ping:", "host-ping"],
+  ["act:host-copy:", "host-copy"],
+];
+
+/**
+ * The system-monitor argv the remote host resolves for itself: btop, then
+ * htop, then plain top — one command string executed by the remote login
+ * shell over `ssh -t`, never by a local shell.
+ */
+export const EXOMUX_REMOTE_MONITOR_COMMAND =
+  "command -v btop >/dev/null 2>&1 && exec btop; command -v htop >/dev/null 2>&1 && exec htop; exec top";
+
+/** One human line from ping output: the reply line or the loss/rtt summary, bounded. */
+export function exomuxPingSummary(output: string): string | undefined {
+  const lines = output.split(/[\r\n]+/).map((line) => line.trim());
+  const reply = lines.find((line) => line.includes("bytes from") || /\btime[=<]/.test(line));
+  if (reply) return reply.slice(0, 120);
+  const stats = lines.find((line) => line.startsWith("rtt ") || line.includes("packet loss"));
+  return stats?.slice(0, 120);
+}
+
 /** Extracts the tailnet device id from a `dev:` machine or `act:shell:` action node id. */
 export function exomuxNetworkNodeDeviceId(nodeId: string): string | undefined {
   if (nodeId.startsWith("dev:")) return nodeId.slice(4);
@@ -224,11 +271,22 @@ export function buildExomuxNetworkNodes(
   const hostChildren: TreeNode[] = savedHosts.length > 0
     ? savedHosts.map((target) => {
       const id = exomuxNetworkHostNodeId(target);
+      const actionsId = `grp:act-host:${target}`;
       return {
         id,
         label: `@ ${target}`,
         children: [
           { id: `act:host-shell:${target}`, label: "Open shell" },
+          {
+            id: actionsId,
+            label: "Actions",
+            children: [
+              { id: `act:host-mon:${target}`, label: "System monitor" },
+              { id: `act:host-ping:${target}`, label: "Ping" },
+              { id: `act:host-copy:${target}`, label: "Copy address" },
+            ],
+            expanded: expansion.has(actionsId),
+          },
           ...shellsForTargets([target]),
         ],
         expanded: expansion.has(id),
@@ -249,12 +307,24 @@ export function buildExomuxNetworkNodes(
     }
     for (const device of status.snapshot.devices) {
       const id = `dev:${device.id}`;
+      const actionsId = `grp:act:${device.id}`;
       tailscaleChildren.push({
         id,
         label: exomuxNetworkDeviceLabel(device),
         status: device.online ? "online" : "offline",
         children: [
           { id: `act:shell:${device.id}`, label: "Open shell" },
+          {
+            id: actionsId,
+            label: "Actions",
+            children: [
+              { id: `act:mon:${device.id}`, label: "System monitor" },
+              { id: `act:ping:${device.id}`, label: "Ping" },
+              ...(device.ipv4 ? [{ id: `act:copy4:${device.id}`, label: `Copy IPv4 ${device.ipv4}` }] : []),
+              ...(device.dnsName ? [{ id: `act:copydns:${device.id}`, label: "Copy MagicDNS name" }] : []),
+            ],
+            expanded: expansion.has(actionsId),
+          },
           ...shellsForTargets([device.dnsName || undefined, device.ipv4]),
         ],
         expanded: expansion.has(id),
@@ -386,6 +456,8 @@ export interface ExomuxControllerOptions {
   /** Switches this client to another exomux session; wired by the launcher. */
   readonly onSwitchSession?: (name: string) => void;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
+  /** Injectable argv-only runner for local network probes (ping); tests fake it. */
+  readonly networkProbeRunner?: TailnetCommandRunner;
   readonly tailnetPollIntervalMs?: number;
   /** Injectable local-file existence probe for paste-to-scp interception. */
   readonly statFile?: (path: string) => Promise<boolean>;
@@ -477,6 +549,10 @@ export class ExomuxController {
   readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
   readonly savedHosts = new Signal<readonly string[]>([]);
   readonly sessionHosts = new Signal<Readonly<Record<string, string>>>({});
+  /** One-shot clipboard payload the app emits as OSC 52; the nonce retriggers repeats. */
+  readonly clipboardCopy = new Signal<{ readonly text: string; readonly nonce: number } | undefined>(undefined);
+  #clipboardNonce = 0;
+  readonly #networkProbeRunner: TailnetCommandRunner;
   readonly backgroundId = new Signal<ExomuxBackgroundId>("metaballs");
   /** Running total of preset steps requested; the desktop applies the delta. */
   readonly backgroundPresetStep: Signal<number> = new Signal(0);
@@ -611,6 +687,7 @@ export class ExomuxController {
     this.windowHost = windowHost;
     this.theme = new Computed(() => exomuxTheme(this.themeId.value));
     this.#tailnetSource = options.tailnetSource ?? createTailscaleStatusSource();
+    this.#networkProbeRunner = options.networkProbeRunner ?? runBoundedTailnetCommand;
     this.#tailnetPollIntervalMs = options.tailnetPollIntervalMs;
     this.#statFile = options.statFile ?? defaultExomuxStatFile;
     this.#scpCwdTimeoutMs = Math.min(10_000, Math.max(50, options.scpCwdTimeoutMs ?? 1_500));
@@ -1500,6 +1577,61 @@ export class ExomuxController {
       this.#persistMetadata();
     }
     return session;
+  }
+
+  /** Opens a remote system monitor (btop/htop/top, resolved remotely) over `ssh -t`. */
+  async spawnNetworkMonitor(
+    target: string,
+    title: string,
+    bounds: Rectangle,
+  ): Promise<ExomuxSessionSummary | undefined> {
+    this.#assertActive();
+    if (!isExomuxSshTarget(target)) {
+      this.status.value = `Refusing SSH target with unsupported characters: ${target.slice(0, 40)}`;
+      return undefined;
+    }
+    const session = await this.spawn({
+      bounds,
+      command: "ssh",
+      args: ["-t", target, EXOMUX_REMOTE_MONITOR_COMMAND],
+      title: `${title || target} · monitor`,
+    });
+    if (session) {
+      this.rememberHost(target);
+      this.sessionHosts.value = Object.freeze({ ...this.sessionHosts.peek(), [session.id]: target });
+      this.#persistMetadata();
+    }
+    return session;
+  }
+
+  /** Pings one target with a bounded local subprocess; the result lands in the status line. */
+  async pingNetworkTarget(target: string): Promise<void> {
+    this.#assertActive();
+    if (!isExomuxSshTarget(target)) {
+      this.status.value = `Refusing ping target with unsupported characters: ${target.slice(0, 40)}`;
+      return;
+    }
+    this.status.value = `Pinging ${target}…`;
+    try {
+      const result = await this.#networkProbeRunner("ping", ["-c", "1", "-W", "3", target], 5_000, 16_384);
+      if (this.#disposed) return;
+      const summary = exomuxPingSummary(new TextDecoder().decode(result.stdout));
+      this.status.value = result.code === 0
+        ? `Ping ${target}: ${summary ?? "reply received"}`
+        : `Ping ${target} failed${summary ? `: ${summary}` : " · no reply within 3s"}`;
+    } catch {
+      if (this.#disposed) return;
+      this.status.value = `Ping unavailable: could not run the local ping command.`;
+    }
+  }
+
+  /** Hands text to the app's OSC 52 clipboard emitter and says so in the status line. */
+  copyNetworkText(text: string, label: string): void {
+    if (this.#disposed) return;
+    const bounded = text.slice(0, 1024);
+    if (!bounded) return;
+    this.clipboardCopy.value = { text: bounded, nonce: ++this.#clipboardNonce };
+    this.status.value = `Copied ${label}: ${bounded}`;
   }
 
   /** Preferred SSH target for one tailnet device (MagicDNS name over raw IP). */
@@ -2585,6 +2717,7 @@ export class ExomuxController {
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
     this.hostSessions.dispose();
+    this.clipboardCopy.dispose();
     this.shaderManagerVisible.dispose();
     this.shaderManagerIndex.dispose();
     this.shaderPathDraft.dispose();

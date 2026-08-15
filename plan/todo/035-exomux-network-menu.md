@@ -22,9 +22,15 @@ Status: MVP implementation in progress as of July 21, 2026. Fleshes out the orig
   opens a Send / Paste path / Cancel modal; Send runs argv-only `scp -q -- <file> <target>:` in the background with
   status-line progress, Paste path forwards the literal text, and every other paste flows through untouched. Destination
   is the remote home directory; OSC 7 remote-cwd tracking (D4) remains open.
-- Still tracked below (unchanged): per-machine actions submenu (system monitor, ping, copy, details), remote tmux/exomux
-  session listing with attach/focus-if-open, OSC 7 cwd targeting for scp, capability/provider manifest integration,
-  fuzzy filter.
+- **TSM-010 landed Aug 15 2026:** every saved host and tailnet device grows an `Actions` subtree — System monitor
+  (`ssh -t` with a remote `btop → htop → top` probe, one command string resolved by the remote shell), Ping (bounded
+  argv-only local `ping -c 1 -W 3` through the injectable `TailnetCommandRunner`, result in the status line), and
+  Copy IPv4 / Copy MagicDNS / Copy address (OSC 52 through the hosting terminal's stdout via the library's
+  `terminalClipboardSequence`; a status-line confirmation names what was copied). The Details modal from the ledger
+  row was deferred — it was not in the acceptance criteria.
+- Still tracked below (unchanged): remote tmux/exomux session listing with attach/focus-if-open (TSM-012/013),
+  remaining OSC 7 cwd targeting for scp (a `pwd`-probe capture already landed), capability/provider manifest
+  integration (TSM-011), fuzzy filter.
 
 This roadmap adds first-class Tailscale awareness to the Exomux terminal-multiplexer showcase: a `[ Tailnet ]` menu-bar
 entry beside `[ New ]` that opens a floating, TOC-style tree panel on the left edge of the desktop, from which tailnet

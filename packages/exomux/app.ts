@@ -46,6 +46,7 @@ import {
   EXOMUX_SETTINGS_WINDOW_ID,
   ExomuxController,
   type ExomuxControllerOptions,
+  exomuxNetworkNodeAction,
   exomuxNetworkNodeHostShellTarget,
   exomuxNetworkNodeHostTarget,
   exomuxNetworkNodeSessionId,
@@ -74,7 +75,7 @@ import {
   exomuxWindowId,
   type ExomuxWindowSettings,
 } from "./model.ts";
-import { textWidth } from "@ubernaut/deno-tui";
+import { terminalClipboardSequence, textWidth } from "@ubernaut/deno-tui";
 import {
   exomuxBackgroundOvergrows,
   type ExomuxOvergrowthEdges,
@@ -812,6 +813,20 @@ export function mountExomuxDesktop(
   applyBlockCursorMode();
   controller.globalSettings.subscribe(applyBlockCursorMode);
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyBlockCursorMode));
+  // Copy actions (TSM-010) emit OSC 52 through the terminal's own stdout: the
+  // desktop cannot reach the OS clipboard, but the hosting terminal can. A
+  // terminal without OSC 52 support simply ignores the sequence.
+  let lastClipboardNonce = 0;
+  controller.clipboardCopy.subscribe((payload) => {
+    if (!payload || payload.nonce === lastClipboardNonce) return;
+    lastClipboardNonce = payload.nonce;
+    try {
+      const stdout = app.tui.canvas.stdout as { writeSync?: (bytes: Uint8Array) => number } | undefined;
+      stdout?.writeSync?.(new TextEncoder().encode(terminalClipboardSequence(payload.text)));
+    } catch {
+      // A closed or non-writable stdout must never take the desktop down.
+    }
+  }, subscriptions.signal);
   // Global debug logging (UX-008): while on, console output, exomuxDebugLog
   // calls, uncaught errors, and unhandled rejections all land in one file the
   // status line names — the evidence channel for anything the TUI would hide.
@@ -1620,6 +1635,45 @@ export function mountExomuxDesktop(
     const hostShellTarget = exomuxNetworkNodeHostShellTarget(row.id);
     if (hostShellTarget) {
       await controller.spawnNetworkShell(hostShellTarget, hostShellTarget, bodyRect.peek());
+      await syncWindows();
+      return;
+    }
+    // Per-machine action rows (TSM-010): monitor over ssh -t, bounded ping,
+    // OSC 52 copies. Device actions resolve their target from the live
+    // snapshot; saved-host actions carry the target in the node id.
+    const action = exomuxNetworkNodeAction(row.id);
+    if (action) {
+      if ("target" in action) {
+        if (action.kind === "host-monitor") {
+          await controller.spawnNetworkMonitor(action.target, action.target, bodyRect.peek());
+          await syncWindows();
+        } else if (action.kind === "host-ping") {
+          void controller.pingNetworkTarget(action.target);
+        } else {
+          controller.copyNetworkText(action.target, "address");
+        }
+        return;
+      }
+      const device = controller.networkDevice(`dev:${action.deviceId}`);
+      if (!device) return;
+      if (action.kind === "copy4") {
+        if (device.ipv4) controller.copyNetworkText(device.ipv4, `${device.shortName} IPv4`);
+        return;
+      }
+      if (action.kind === "copydns") {
+        if (device.dnsName) controller.copyNetworkText(device.dnsName, `${device.shortName} MagicDNS`);
+        return;
+      }
+      const target = ExomuxController.tailnetSshTarget(device);
+      if (!target) {
+        controller.status.value = `No reachable SSH target for ${device.shortName}.`;
+        return;
+      }
+      if (action.kind === "ping") {
+        void controller.pingNetworkTarget(target);
+        return;
+      }
+      await controller.spawnNetworkMonitor(target, device.shortName, bodyRect.peek());
       await syncWindows();
       return;
     }

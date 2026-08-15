@@ -640,6 +640,10 @@ async function writeAll(connection: Deno.Conn, bytes: Uint8Array): Promise<void>
   while (offset < bytes.byteLength) offset += await connection.write(bytes.subarray(offset));
 }
 
+/** The default argv-only bounded runner, shared with the network panel's probes. */
+export const runBoundedTailnetCommand: TailnetCommandRunner = (command, args, timeoutMs, maxBytes) =>
+  runTailscaleCommand(command, args, timeoutMs, maxBytes);
+
 const runTailscaleCommand: TailnetCommandRunner = async (command, args, timeoutMs, maxBytes) => {
   const child = new Deno.Command(command, {
     args: [...args],
