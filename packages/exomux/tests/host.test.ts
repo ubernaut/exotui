@@ -881,7 +881,10 @@ Deno.test("exomux shutdown request delivers its acknowledgement before closing t
   assertEquals(host.inspect().running, false);
 });
 
-Deno.test("exomux failed disposal is reported, retained, and never double-invoked", async () => {
+Deno.test("exomux reaps a dead session even when its handle disposal fails", async () => {
+  // The process is dead (kill succeeded); dispose() throwing must not leave an
+  // unkillable zombie window behind (UX-005) — the session is reaped and the
+  // disposal failure is merely noted.
   const backend = new FakeTerminalBackend();
   const host = createHost(backend);
   const peer = new FakePeer();
@@ -900,28 +903,53 @@ Deno.test("exomux failed disposal is reported, retained, and never double-invoke
     requestId: 2,
     sessionId: spawned.session.id,
   }));
-  await client.receive(wire({
-    version: 1,
-    type: "kill",
-    requestId: 3,
-    sessionId: spawned.session.id,
-  }));
   await drain();
 
   assertEquals(handle.killCalls, 1);
   assertEquals(handle.disposeCalls, 1);
-  assertEquals(host.inspect().sessions.length, 1);
+  assertEquals(host.inspect().sessions.length, 0);
   assertEquals(
     peer.messages().filter((message) => message.type === "ack" && message.operation === "kill").length,
-    0,
+    1,
   );
+  await host.shutdown();
+  client.disconnect();
+});
+
+Deno.test("exomux retains a still-running session whose termination failed", async () => {
+  // The other half of the contract: while the process is actually alive, a
+  // failed termination is reported and the session stays — a live PTY must
+  // never silently vanish.
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+  const peer = new FakePeer();
+  const client = host.connect(peer);
+  await authenticate(client);
+  await client.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "unkillable" }));
+  await drain();
+  const spawned = peer.messages().find((message) => message.type === "spawned");
+  assert(spawned?.type === "spawned");
+  const handle = backend.handles[0]!;
+  // The kill is refused, so the process keeps running; disposal also fails.
+  handle.killGate = deferred<boolean>();
+  handle.disposeFailure = true;
+  const killRequest = client.receive(wire({
+    version: 1,
+    type: "kill",
+    requestId: 2,
+    sessionId: spawned.session.id,
+  }));
+  handle.killGate.resolve(false);
+  await killRequest;
+  await drain();
+
+  assertEquals(handle.killCalls, 1);
+  assertEquals(host.inspect().sessions.length, 1);
   assertEquals(
     peer.messages().filter((message) => message.type === "error" && message.code === "termination-failed").length,
-    2,
+    1,
   );
   await assertRejects(() => host.shutdown());
-  assertEquals(handle.killCalls, 1);
-  assertEquals(handle.disposeCalls, 1);
   client.disconnect();
 });
 

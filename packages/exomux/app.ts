@@ -4086,27 +4086,6 @@ function mixExomuxRgb(from: ExomuxRgb, to: ExomuxRgb, amount: number): ExomuxRgb
   ];
 }
 
-/**
- * Theme colour for a projected titlebar-button tone. The workbench hands every
- * control a tone (close=danger, maximize=success, minimize=warning,
- * restore=muted, unpin=success); "default" and unknown tones follow the bar's
- * own text colour.
- */
-function exomuxTitlebarToneColor(theme: ExomuxThemeSpec, tone: string): ExomuxRgb | undefined {
-  switch (tone) {
-    case "danger":
-      return theme.danger;
-    case "success":
-      return theme.success;
-    case "warning":
-      return theme.warning;
-    case "muted":
-      return theme.muted;
-    default:
-      return undefined;
-  }
-}
-
 function paintWindow(
   painter: DesktopPainter,
   window: WorkbenchWindowChromeProjection,
@@ -4167,15 +4146,17 @@ function paintWindow(
       titleWidth,
     ),
     {
-      foreground: window.active ? theme.background : theme.text,
+      // The main theme foreground everywhere on the bar: per-tone and
+      // background-on-accent colouring read poorly against some themes'
+      // accent bars (UX-004, user direction).
+      foreground: theme.text,
       bold: window.active,
     },
     titleBarGround,
   );
   for (const control of window.controls) {
-    const toneColor = exomuxTitlebarToneColor(theme, control.tone);
     writeOnGround(painter, control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
-      foreground: toneColor ?? (window.active ? theme.background : theme.text),
+      foreground: theme.text,
       bold: control.tone === "danger" || window.active,
     }, titleBarGround);
   }

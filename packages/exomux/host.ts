@@ -760,10 +760,14 @@ export class ExomuxHostController {
       } catch {
         disposalFailed = true;
       }
-      if (disposalFailed || safeHandleInspection(session.handle).running) {
+      // Disposal failing is only fatal while the process is actually still
+      // running. An exited session's handle is often already closed — its
+      // dispose() throwing must not make the dead window unkillable (UX-005).
+      if (safeHandleInspection(session.handle).running) {
         session.updatedAt = this.#now();
         throw hostError("termination-failed", "Terminal backend could not confirm session termination.");
       }
+      if (disposalFailed) session.updatedAt = this.#now();
     } catch (error) {
       session.terminating = false;
       this.#broadcastState(session);

@@ -142,7 +142,7 @@ Deno.test("Exomux paints the metaball field behind floating desktop windows", as
   }
 });
 
-Deno.test("Exomux paints titlebar controls in their projected tones", async () => {
+Deno.test("Exomux paints titlebar text and controls in the main theme foreground", async () => {
   const client = new FakeExomuxClient([]);
   const controller = await createExomuxController({ client, initialSessions: [] });
   const mount: ExomuxAppMountRef = {};
@@ -163,16 +163,18 @@ Deno.test("Exomux paints titlebar controls in their projected tones", async () =
     };
     const foregroundSgr = (color: readonly [number, number, number]): string =>
       `38;2;${color[0]};${color[1]};${color[2]}`;
-    // The workbench projection hands every control a tone; the painter must not
-    // collapse them all to the bar colour (close used to be the only survivor).
-    const expectTone = (kind: string, color: readonly [number, number, number]) => {
+    // Titlebar text and controls use the main theme foreground (UX-004): the
+    // per-tone colours read poorly against some themes' accent bars.
+    const expectForeground = (kind: string) => {
       const control = manager.controls.find((entry) => entry.kind === kind);
       assert(control, `missing ${kind} control`);
-      assertStringIncludes(cellText(control.rect.column, control.rect.row), foregroundSgr(color));
+      assertStringIncludes(cellText(control.rect.column, control.rect.row), foregroundSgr(theme.text));
     };
-    expectTone("close", theme.danger);
-    expectTone("maximize", theme.success);
-    expectTone("minimize", theme.warning);
+    expectForeground("close");
+    expectForeground("maximize");
+    expectForeground("minimize");
+    // The title text follows the same rule.
+    assertStringIncludes(cellText(manager.titleBarRect.column + 1, manager.titleBarRect.row), foregroundSgr(theme.text));
   } finally {
     harness.destroy();
     await controller.dispose();
@@ -5001,6 +5003,70 @@ Deno.test("Exomux transparent windows show the windows beneath them, stacking pe
     // the middle window's already-blended cells.
     const chromeExpected = mixExomuxRgb(oneDeep, theme.accent, exomuxControlOpacity(0.5));
     assertStringIncludes(cellText(26, 10), `48;2;${chromeExpected.join(";")}`);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux settings window stacks like a regular window (UX-003)", async () => {
+  const initial = session("stack-regular", "shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute(
+      { kind: "set-placement", id: exomuxWindowId("stack-regular"), placement: "floating" },
+      mounted.bodyRect.peek(),
+    );
+    // Open settings, then focus the terminal: the terminal must stack above.
+    await clickStartMenuItem(harness, mounted, "config");
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId("stack-regular") }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const projection = mounted.windowProjection.peek();
+    const settings = projection.floatingWindows.find((w) => w.id === EXOMUX_SETTINGS_WINDOW_ID);
+    const terminal = projection.floatingWindows.find((w) => w.id === exomuxWindowId("stack-regular"));
+    assert(settings && terminal);
+    assertEquals(settings.alwaysOnTop, false, "settings must not pin on top");
+    assert(terminal.zIndex > settings.zIndex, "a focused terminal stacks above the settings window");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux close button kills an exited window in one click (UX-005)", async () => {
+  const initial = session("dead-window", "dead shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 30 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    client.markExited("dead-window", 0);
+    await harness.pilot.settle();
+    const terminal = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId("dead-window"));
+    assert(terminal);
+    const close = terminal.controls.find((control) => control.kind === "close");
+    assert(close);
+    await harness.pilot.click(close.hitRect.column, close.hitRect.row);
+    await waitForCondition(() => client.killed.includes("dead-window"), 2_000);
+    await mounted.whenIdle();
+    assertEquals(
+      mounted.windowProjection.peek().windows.some((w) => w.id === exomuxWindowId("dead-window")),
+      false,
+      "the dead window is gone after one click",
+    );
   } finally {
     harness.destroy();
     await controller.dispose();

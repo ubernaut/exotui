@@ -1641,10 +1641,10 @@ export class ExomuxController {
       }
       this.windowHost.execute({ kind: "restore", id: exomuxWindowId(session.id) }, bounds);
       this.windowHost.execute({ kind: "focus", id: exomuxWindowId(session.id) }, bounds);
-      // The manager is an always-on-top floating utility. Leaving it over the
-      // first focused shell hides the prompt and early echo, which looks like
-      // severe input latency even though the PTY is current. Keep it one
-      // Ctrl-N s away on the shelf when it launched the terminal.
+      // Leaving the manager over the first focused shell hides the prompt and
+      // early echo, which looks like severe input latency even though the PTY
+      // is current. Keep it one Ctrl-N s away on the shelf when it launched
+      // the terminal.
       if (minimizeSessionManager) {
         this.windowHost.execute({ kind: "minimize", id: EXOMUX_SESSIONS_WINDOW_ID }, bounds);
       }
@@ -2145,7 +2145,6 @@ export class ExomuxController {
         maxHeight: 30,
         placement: "floating",
         floatingRect: { column: 2, row: 2, width: 38, height: 16 },
-        alwaysOnTop: true,
       },
       // The network panel stacks in the normal tier so freshly spawned
       // terminals (which take focus) always land above it.
@@ -2160,8 +2159,8 @@ export class ExomuxController {
         floatingRect: { column: 0, row: 0, width: 32, height: 22 },
       },
       // Settings ride an ordinary floating window — movable, resizable, and
-      // stacked above terminals so opening them never hides the knobs. Born
-      // minimized: the menu restores it on demand.
+      // stacked like any other window (UX-003): raised on focus, never
+      // pinned on top. Born minimized: the menu restores it on demand.
       {
         id: EXOMUX_SETTINGS_WINDOW_ID,
         title: "Exomux settings",
@@ -2172,7 +2171,6 @@ export class ExomuxController {
         state: "minimized",
         placement: "floating",
         floatingRect: { column: 5, row: 2, width: 64, height: 24 },
-        alwaysOnTop: true,
       },
       ...[...runtimes.values()].map((runtime) => ({
         id: exomuxWindowId(runtime.sessionId),
