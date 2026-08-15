@@ -123,7 +123,9 @@ Deno.test("Exomux preference writer persists changes and copies the wallpaper", 
       effects: {
         scanline: { enabled: false, params: {} },
         pincushion: { enabled: true, params: { magnitude: 0.4 } },
+        vhs: { enabled: false, params: {} },
       },
+      customShaders: [],
     });
     for (let attempt = 0; attempt < 40; attempt += 1) {
       const c = await loadExomuxConfig(path);

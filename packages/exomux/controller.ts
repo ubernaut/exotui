@@ -34,6 +34,8 @@ import {
   EXOMUX_SHADER_PARAMS,
   exomuxEnabledShaderEffects,
   exomuxFormatShaderValue,
+  type ExomuxCustomShaderEntry,
+  exomuxShaderEffectLabel,
   type ExomuxShaderConfig,
   type ExomuxShaderEffect,
   type ExomuxShaderEffectConfig,
@@ -692,7 +694,7 @@ export class ExomuxController {
       const enabled = effectConfig?.enabled ?? false;
       rows.push({
         id: `shader-toggle:${effect}`,
-        label: effect === "scanline" ? "CRT scanlines" : "CRT pincushion",
+        label: exomuxShaderEffectLabel(effect),
         value: enabled ? "On" : "Off",
         control: { kind: "checkbox", checked: enabled },
       });
@@ -753,7 +755,7 @@ export class ExomuxController {
     effect: ExomuxShaderEffect,
     next: ExomuxShaderEffectConfig,
   ): ExomuxShaderConfig {
-    return { effects: { ...config.effects, [effect]: next } };
+    return { ...config, effects: { ...config.effects, [effect]: next } };
   }
 
   #setShaderConfig(config: ExomuxShaderConfig): void {

@@ -196,3 +196,64 @@ Deno.test("Applying shaders writes GLSL and chains every enabled effect in the c
     await Deno.remove(configDir, { recursive: true }).catch(() => undefined);
   }
 });
+
+Deno.test("VHS distortion registers with five independent intensities (UX-010)", async () => {
+  const { EXOMUX_SHADER_PARAMS, generateExomuxShader, normalizeExomuxShaderConfig, exomuxShaderEffectLabel } =
+    await import("../ghostty.ts");
+  assertEquals(exomuxShaderEffectLabel("vhs"), "VHS distortion");
+  assertEquals(
+    EXOMUX_SHADER_PARAMS.vhs.map((param) => param.id),
+    ["tracking", "chromaBleed", "staticSnow", "jitterWave", "lumaNoise"],
+  );
+
+  // Chosen values bake into the generated GLSL as constants.
+  const glsl = generateExomuxShader("vhs", { tracking: 0.6, chromaBleed: 0.4, staticSnow: 0.1, jitterWave: 0.3, lumaNoise: 0.55 });
+  assertStringIncludes(glsl, "float tracking = 0.6;");
+  assertStringIncludes(glsl, "float chromaBleed = 0.4;");
+  assertStringIncludes(glsl, "float staticSnow = 0.1;");
+  assertStringIncludes(glsl, "float jitterWave = 0.3;");
+  assertStringIncludes(glsl, "float lumaNoise = 0.55;");
+  assertStringIncludes(glsl, "mainImage");
+
+  // The config round-trips vhs and clamps junk.
+  const config = normalizeExomuxShaderConfig({
+    effects: { vhs: { enabled: true, params: { tracking: 99, chromaBleed: "junk" } } },
+  });
+  assertEquals(config.effects.vhs.enabled, true);
+  assertEquals(config.effects.vhs.params.tracking, 1);
+  assertEquals(config.effects.vhs.params.chromaBleed, 0.25);
+});
+
+Deno.test("custom shader entries persist, order, and reach the Ghostty config (UX-009 model)", async () => {
+  const { applyExomuxShaders, normalizeExomuxShaderConfig } = await import("../ghostty.ts");
+  const config = normalizeExomuxShaderConfig({
+    effects: { vhs: { enabled: true, params: {} } },
+    customShaders: [
+      { path: "/home/user/glow.glsl", enabled: true },
+      { path: "/home/user/off.glsl", enabled: false },
+      { path: "   ", enabled: true }, // blank paths are dropped
+      { path: "/home/user/last.glsl", enabled: true },
+    ],
+  });
+  assertEquals(config.customShaders.map((entry) => entry.path), [
+    "/home/user/glow.glsl",
+    "/home/user/off.glsl",
+    "/home/user/last.glsl",
+  ]);
+
+  const dir = Deno.makeTempDirSync({ prefix: "exomux-shader-" });
+  try {
+    const result = await applyExomuxShaders(dir, config);
+    const written = Deno.readTextFileSync(result.configPath);
+    const shaderLines = written.split("\n").filter((line) => line.startsWith("custom-shader ="));
+    // Built-ins first, then enabled customs in list order; disabled ones stay out.
+    assertEquals(shaderLines.length, 3);
+    assertStringIncludes(shaderLines[0]!, "exomux-vhs.glsl");
+    assertStringIncludes(shaderLines[1]!, "/home/user/glow.glsl");
+    assertStringIncludes(shaderLines[2]!, "/home/user/last.glsl");
+    // The generated VHS shader exists on disk.
+    assertStringIncludes(Deno.readTextFileSync(result.shaderPaths[0]!), "VHS distortion");
+  } finally {
+    Deno.removeSync(dir, { recursive: true });
+  }
+});

@@ -62,8 +62,8 @@ export function isGhosttyAvailable(env: (key: string) => string | undefined = re
   return isRunningInGhostty(env) || isGhosttyInstalled(env);
 }
 
-/** The CRT shaders Exomux ships, in menu order. */
-export const EXOMUX_SHADER_EFFECTS = ["scanline", "pincushion"] as const;
+/** The shaders Exomux ships, in menu order. */
+export const EXOMUX_SHADER_EFFECTS = ["scanline", "pincushion", "vhs"] as const;
 export type ExomuxShaderEffect = (typeof EXOMUX_SHADER_EFFECTS)[number];
 
 /** A configurable shader parameter with its range, for building sliders. */
@@ -87,7 +87,33 @@ export const EXOMUX_SHADER_PARAMS: Readonly<Record<ExomuxShaderEffect, readonly 
     // Finer 2.5% steps, since a subtle barrel curve is the useful range.
     { id: "magnitude", label: "Distortion", min: 0, max: 1, step: 0.025, default: 0.025 },
   ]),
+  // Five independent VHS artifacts, mixable per-effect (UX-010).
+  vhs: Object.freeze([
+    { id: "tracking", label: "Tracking errors", min: 0, max: 1, step: 0.05, default: 0.2 },
+    { id: "chromaBleed", label: "Color bleeding", min: 0, max: 1, step: 0.05, default: 0.25 },
+    { id: "staticSnow", label: "Static and snow", min: 0, max: 1, step: 0.05, default: 0.15 },
+    { id: "jitterWave", label: "Jitter and wavy lines", min: 0, max: 1, step: 0.05, default: 0.15 },
+    { id: "lumaNoise", label: "Luma noise", min: 0, max: 1, step: 0.05, default: 0.2 },
+  ]),
 });
+
+/** Display label for one built-in effect, shared by settings and the manager. */
+export function exomuxShaderEffectLabel(effect: ExomuxShaderEffect): string {
+  switch (effect) {
+    case "scanline":
+      return "CRT scanlines";
+    case "pincushion":
+      return "CRT pincushion";
+    case "vhs":
+      return "VHS distortion";
+  }
+}
+
+/** One user-supplied Ghostty shader entry; order is the application order. */
+export interface ExomuxCustomShaderEntry {
+  readonly path: string;
+  readonly enabled: boolean;
+}
 
 /** One effect's on/off state and its parameter values. */
 export interface ExomuxShaderEffectConfig {
@@ -99,15 +125,17 @@ export interface ExomuxShaderEffectConfig {
 /** The persisted shader configuration: each effect is enabled independently. */
 export interface ExomuxShaderConfig {
   readonly effects: Readonly<Record<ExomuxShaderEffect, ExomuxShaderEffectConfig>>;
+  /** User GLSL files chained after the built-ins, in application order. */
+  readonly customShaders: readonly ExomuxCustomShaderEntry[];
 }
 
-/** Safe defaults: every effect off, each param at its default. */
+/** Safe defaults: every effect off, each param at its default, no customs. */
 export function defaultExomuxShaderConfig(): ExomuxShaderConfig {
   const effects = {} as Record<ExomuxShaderEffect, ExomuxShaderEffectConfig>;
   for (const effect of EXOMUX_SHADER_EFFECTS) {
     effects[effect] = Object.freeze({ enabled: false, params: exomuxShaderDefaults(effect) });
   }
-  return Object.freeze({ effects: Object.freeze(effects) });
+  return Object.freeze({ effects: Object.freeze(effects), customShaders: Object.freeze([]) });
 }
 
 /** The default parameter map for one effect. */
@@ -166,7 +194,16 @@ export function normalizeExomuxShaderConfig(value: unknown): ExomuxShaderConfig 
       params: Object.freeze(normalizeEffectParams(effect, paramSource)),
     });
   }
-  return Object.freeze({ effects: Object.freeze(effects) });
+  const customSource = Array.isArray(record.customShaders) ? record.customShaders : [];
+  const customShaders: ExomuxCustomShaderEntry[] = [];
+  for (const entry of customSource.slice(0, 32)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const candidate = entry as Record<string, unknown>;
+    const path = typeof candidate.path === "string" ? candidate.path.trim() : "";
+    if (path.length === 0 || path.length > 1024) continue;
+    customShaders.push(Object.freeze({ path, enabled: candidate.enabled === true }));
+  }
+  return Object.freeze({ effects: Object.freeze(effects), customShaders: Object.freeze(customShaders) });
 }
 
 /** Formats a shader parameter (0–1) as a percentage, keeping a needed decimal (e.g. 2.5%). */
@@ -257,6 +294,69 @@ export function generateExomuxShader(
       "",
     ].join("\n");
   }
+  if (effect === "vhs") {
+    return [
+      "// Exomux VHS distortion: five independently mixable tape artifacts.",
+      "// Note: jitter/tracking displace the display horizontally and are",
+      "// time-varying, so no static pointer-transform can mirror them — keep",
+      "// them modest if pointer accuracy matters (see plan/todo/034 UX-010).",
+      "float vhsHash(vec2 p) {",
+      "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);",
+      "}",
+      "",
+      "void mainImage(out vec4 fragColor, in vec2 fragCoord) {",
+      "  vec2 uv = fragCoord / iResolution.xy;",
+      `  float tracking = ${value("tracking")};`,
+      `  float chromaBleed = ${value("chromaBleed")};`,
+      `  float staticSnow = ${value("staticSnow")};`,
+      `  float jitterWave = ${value("jitterWave")};`,
+      `  float lumaNoise = ${value("lumaNoise")};`,
+      "  float t = iTime;",
+      "",
+      "  // Jitter and wavy lines: the frame's rows shift horizontally, strongest",
+      "  // toward the top and bottom the way a worn transport wobbles.",
+      "  float edge = pow(abs(uv.y * 2.0 - 1.0), 2.0);",
+      "  float wave = sin(uv.y * 60.0 + t * 6.3) * 0.0035 + sin(uv.y * 13.0 - t * 2.1) * 0.002;",
+      "  float rowJitter = (vhsHash(vec2(floor(uv.y * iResolution.y), floor(t * 24.0))) - 0.5) * 0.002;",
+      "  uv.x += (wave * edge + rowJitter) * jitterWave * 4.0;",
+      "",
+      "  // Tracking errors: an occasional band tears sideways and fills with hash.",
+      "  float bandPos = fract(vhsHash(vec2(floor(t * 1.7), 3.0)) + t * 0.11);",
+      "  float band = 1.0 - smoothstep(0.0, 0.08 + 0.10 * tracking, abs(uv.y - bandPos));",
+      "  float bandGate = step(1.0 - 0.6 * tracking, vhsHash(vec2(floor(t * 1.7), 7.0)));",
+      "  float tear = band * bandGate;",
+      "  uv.x += tear * (vhsHash(vec2(floor(uv.y * iResolution.y), floor(t * 30.0))) - 0.5) * 0.12 * tracking;",
+      "",
+      "  // Color bleeding: chroma channels separate and smear past edges.",
+      "  float bleed = chromaBleed * 0.006;",
+      "  float r = texture(iChannel0, uv + vec2(bleed, 0.0)).r;",
+      "  float g = texture(iChannel0, uv).g;",
+      "  float b = texture(iChannel0, uv - vec2(bleed, 0.0)).b;",
+      "  vec3 color = vec3(r, g, b);",
+      "  color.rb = mix(color.rb, vec2(",
+      "    texture(iChannel0, uv + vec2(bleed * 2.5, 0.0)).r,",
+      "    texture(iChannel0, uv - vec2(bleed * 2.5, 0.0)).b), 0.35 * chromaBleed);",
+      "",
+      "  // The torn band loses signal: darker, noisier, desaturated.",
+      "  float bandNoise = vhsHash(uv * iResolution.xy + floor(t * 30.0));",
+      "  color = mix(color, vec3(bandNoise) * 0.7, tear * 0.65);",
+      "",
+      "  // Static and snow: sparse white/black flecks over everything.",
+      "  float fleck = vhsHash(uv * iResolution.xy + vec2(floor(t * 60.0), 11.0));",
+      "  float snowGate = step(1.0 - 0.03 * staticSnow, fleck);",
+      "  float snowShade = step(0.5, vhsHash(uv * iResolution.xy + vec2(floor(t * 60.0), 13.0)));",
+      "  color = mix(color, vec3(snowShade), snowGate);",
+      "",
+      "  // Luma noise: sandy grain that lives in the dark areas.",
+      "  float luma = dot(color, vec3(0.299, 0.587, 0.114));",
+      "  float grain = (vhsHash(uv * iResolution.xy + vec2(floor(t * 48.0), 29.0)) - 0.5);",
+      "  color += grain * lumaNoise * 0.22 * (1.0 - luma);",
+      "",
+      "  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);",
+      "}",
+      "",
+    ].join("\n");
+  }
   return [
     "// Exomux CRT pulsating scanlines",
     "void mainImage(out vec4 fragColor, in vec2 fragCoord) {",
@@ -308,7 +408,8 @@ export async function applyExomuxShaders(
   await Deno.mkdir(directory, { recursive: true });
   const configPath = exomuxGhosttyConfigPath(configDirectory);
   const enabled = exomuxEnabledShaderEffects(config);
-  if (enabled.length === 0) {
+  const customs = config.customShaders.filter((entry) => entry.enabled);
+  if (enabled.length === 0 && customs.length === 0) {
     await Deno.writeTextFile(configPath, "# Exomux shaders disabled\n");
     return { configPath, shaderPaths: [] };
   }
@@ -319,6 +420,12 @@ export async function applyExomuxShaders(
     await Deno.writeTextFile(shaderPath, generateExomuxShader(effect, config.effects[effect].params));
     lines.push(`custom-shader = ${shaderPath}`);
     shaderPaths.push(shaderPath);
+  }
+  // User shaders chain after the built-ins, in list order — Ghostty applies
+  // custom-shader entries in sequence, so the order is part of the config.
+  for (const entry of customs) {
+    lines.push(`custom-shader = ${entry.path}`);
+    shaderPaths.push(entry.path);
   }
   lines.push("custom-shader-animation = true");
   await Deno.writeTextFile(configPath, `${lines.join("\n")}\n`);
