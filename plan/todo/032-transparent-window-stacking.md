@@ -66,6 +66,22 @@ layers stack.
 - Follow-up (fold into 031's WS-010 convergence if it lands first): have `WidgetSurface` hand back structured
   `{glyph, foreground, background}` next to the styled string so the parser becomes dead code.
 
+### Control backgrounds: half the window's transparency (user, Aug 14 2026)
+
+Interactive controls (buttons, inputs, list rows' chrome, cyclers/checkboxes, titlebar buttons — anything a user reads
+or clicks) must stay more legible than the window body they sit on. Their backgrounds take **half the window's
+transparency**:
+
+```
+controlOpacity = ((100 − windowOpacity) / 2) + windowOpacity     // i.e. (100 + windowOpacity) / 2
+```
+
+So a 50%-opacity window renders its controls at 75%; a 33% window renders them at 66%; an opaque window keeps opaque
+controls. Implementation: wherever a control's ground is blended (`exomuxWindowGround` callers, composited-widget blit
+re-grounding, the modal/button fills), derive the control ground from the same backdrop sample but at
+`(1 + opacity) / 2` — one helper (`exomuxControlOpacity(opacity)`) so every control agrees. Deliberate opaque blocks
+(the selected-row accent, the cursor cell) remain fully opaque as today.
+
 ### Edge cases
 
 - **Wide glyphs**: a double-width glyph deposits its color into both columns (the follower cell too); retiring half a
