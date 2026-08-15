@@ -4,8 +4,15 @@
 
 [![The exomux desktop: transparent stacked terminal windows, the network panel, htop over animated backgrounds, all under a CRT/VHS shader](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui.png)](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui-demo.mp4)
 
-**▶ [Watch the demo](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui-demo.mp4)** ·
-**[Themes & backgrounds tour](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/themes-and-backgrounds.mp4)**
+
+
+https://github.com/user-attachments/assets/ec94417d-81a8-4c9c-bf77-455f7b1b5dd8
+
+
+
+https://github.com/user-attachments/assets/99d1d873-04c6-4a7e-aecc-89db72512292
+
+
 — that screenshot is a real terminal: draggable transparent windows compositing through each other, a fluid-simulated
 desktop behind them, remote machines one keystroke away, and a VHS shader over the lot.
 
