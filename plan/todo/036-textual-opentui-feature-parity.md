@@ -625,18 +625,25 @@ Acceptance:
       luminance, picks the corner glyph from the sixteen quadrant chars, and carries BOTH colors (lit partition
       foreground, rest background); the density ramp is a peer mode under the same grid contract, unchanged and
       still selectable.
-- [ ] Compare the standard sampler with OpenTUI's GPU-only horizontally pre-squeezed technique for terminal cell aspect
-      ratios; treat a matching CPU pre-squeezed path as a repo extension.
-- [ ] Preserve and centralize perspective-camera cell-aspect correction; evaluate orthographic-camera correction as a
-      separate repo extension with explicit projection tests.
+- [x] Compare the standard sampler with OpenTUI's GPU-only horizontally pre-squeezed technique for terminal cell aspect
+      ratios; treat a matching CPU pre-squeezed path as a repo extension. Completed August 16, 2026:
+      `preSqueezePixels` is the CPU counterpart shipped as an extension the standard path never applies;
+      `compareSqueezeSamplers` runs both under the shared contract and reports the mean color error between them.
+- [x] Preserve and centralize perspective-camera cell-aspect correction; evaluate orthographic-camera correction as a
+      separate repo extension with explicit projection tests. Completed August 16, 2026: `perspectiveCellAspect` is
+      THE shared correction (cells ~2x taller than wide; square cells opt out via the ratio argument);
+      `orthographicCellFrustum` is the separate extension whose projection tests assert a unit square stays square
+      on the cell grid.
 - [x] Provide GPU and deterministic CPU pixel-to-cell sampling with the same grid contract and explicit fallback reason.
       Do not describe the CPU sampler as software 3D rendering: scene rendering still requires the selected Three/WebGPU
       path. Completed August 16, 2026: the SamplerBackend seam pairs the deterministic CPU implementation with an
       optional GPU one under the identical contract; choosing CPU always names the explicit fallback reason, and the
       frozen PIXEL_SAMPLER_LIMITS statement says the CPU sampler converts already-rendered pixels — it is not
       software 3D rendering.
-- [ ] Add frame/image capture, sampler statistics, color-error metrics, and fixtures for ramps, quadrant glyphs, and
-      full blocks.
+- [x] Add frame/image capture, sampler statistics, color-error metrics, and fixtures for ramps, quadrant glyphs, and
+      full blocks. Completed August 16, 2026: captureSampledFrame round-trips frames, samplerStatistics reports
+      lit/distinct tallies, samplerColorError is the mean per-channel metric, and SAMPLER_FIXTURES (gradient,
+      checker, solid) deterministically exercise ramps, quadrant corners, and full blocks under test. G1 complete.
 
 Acceptance:
 

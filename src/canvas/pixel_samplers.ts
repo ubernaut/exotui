@@ -219,3 +219,160 @@ export function createSamplerBackend(
     sample: (input, grid, mode) => mode === "quadrant" ? sampleQuadrants(input, grid) : sampleDensityRamp(input, grid),
   };
 }
+
+/**
+ * 036 G1 (continued): pre-squeeze, aspect correction, capture, and
+ * metrics — the comparison-and-instrumentation half of the sampling
+ * family, still on the same grid contract.
+ */
+
+/**
+ * Horizontally pre-squeezes pixels toward the terminal cell aspect —
+ * the CPU counterpart of OpenTUI's GPU-only technique, shipped as a
+ * repo EXTENSION: the standard sampler path never squeezes.
+ */
+export function preSqueezePixels(input: SamplerPixels, factor = 2): SamplerPixels {
+  const squeeze = Math.max(1, Math.floor(factor));
+  const width = Math.max(1, Math.floor(input.width / squeeze));
+  const pixels = new Uint8Array(width * input.height * 4);
+  for (let y = 0; y < input.height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let red = 0, green = 0, blue = 0, alpha = 0, count = 0;
+      for (let source = x * squeeze; source < Math.min((x + 1) * squeeze, input.width); source += 1) {
+        const offset = (y * input.width + source) * 4;
+        red += input.pixels[offset]!;
+        green += input.pixels[offset + 1]!;
+        blue += input.pixels[offset + 2]!;
+        alpha += input.pixels[offset + 3]!;
+        count += 1;
+      }
+      const target = (y * width + x) * 4;
+      pixels[target] = Math.round(red / count);
+      pixels[target + 1] = Math.round(green / count);
+      pixels[target + 2] = Math.round(blue / count);
+      pixels[target + 3] = Math.round(alpha / count);
+    }
+  }
+  return { pixels, width, height: input.height };
+}
+
+/** Mean absolute per-channel color error between two frames. */
+export function samplerColorError(left: SampledFrame, right: SampledFrame): number {
+  const cells = Math.min(left.cells.length, right.cells.length);
+  if (cells === 0) return 0;
+  let total = 0;
+  for (let index = 0; index < cells; index += 1) {
+    const a = left.cells[index]!.foreground;
+    const b = right.cells[index]!.foreground;
+    total += Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  }
+  return total / (cells * 3);
+}
+
+/** Compares the standard sampler with the pre-squeezed extension. */
+export function compareSqueezeSamplers(
+  input: SamplerPixels,
+  grid: SamplerGrid,
+  mode: SamplerMode = "density-ramp",
+  factor = 2,
+): { readonly standard: SampledFrame; readonly preSqueezed: SampledFrame; readonly meanColorError: number } {
+  const backend = createSamplerBackend();
+  const standard = backend.sample(input, grid, mode);
+  const preSqueezed = backend.sample(preSqueezePixels(input, factor), grid, mode);
+  return { standard, preSqueezed, meanColorError: samplerColorError(standard, preSqueezed) };
+}
+
+/**
+ * THE central cell-aspect correction: terminal cells are ~2x taller
+ * than wide, so a perspective camera's aspect uses half-height cells.
+ * Every call site shares this one function.
+ */
+export function perspectiveCellAspect(columns: number, rows: number, cellAspectRatio = 0.5): number {
+  return (Math.max(1, columns) * cellAspectRatio) / Math.max(1, rows);
+}
+
+/**
+ * Orthographic correction, shipped as a separate repo extension with
+ * its own projection contract: the frustum height scales by the cell
+ * aspect so a unit square still lands square on the cell grid.
+ */
+export function orthographicCellFrustum(
+  columns: number,
+  rows: number,
+  worldWidth: number,
+  cellAspectRatio = 0.5,
+): { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number } {
+  const aspect = perspectiveCellAspect(columns, rows, cellAspectRatio);
+  const half = worldWidth / 2;
+  return { left: -half, right: half, top: half / aspect, bottom: -half / aspect };
+}
+
+/** Sampler statistics for the diagnostics surfaces. */
+export function samplerStatistics(frame: SampledFrame): {
+  readonly cells: number;
+  readonly litCells: number;
+  readonly distinctGlyphs: number;
+  readonly distinctForegrounds: number;
+} {
+  const glyphs = new Set<string>();
+  const colors = new Set<number>();
+  let lit = 0;
+  for (const cell of frame.cells) {
+    glyphs.add(cell.glyph);
+    const [red, green, blue] = cell.foreground;
+    colors.add((red << 16) | (green << 8) | blue);
+    if (cell.glyph !== " ") lit += 1;
+  }
+  return { cells: frame.cells.length, litCells: lit, distinctGlyphs: glyphs.size, distinctForegrounds: colors.size };
+}
+
+/** Serializes a frame for capture files and fixtures. */
+export function captureSampledFrame(frame: SampledFrame): string {
+  return JSON.stringify(frame);
+}
+
+/** Deterministic pixel fixtures for ramps, quadrants, and full blocks. */
+export const SAMPLER_FIXTURES = Object.freeze({
+  /** A left-to-right brightness gradient (exercises every ramp glyph). */
+  gradient(width = 16, height = 4): SamplerPixels {
+    const pixels = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const value = Math.round(x * 255 / Math.max(1, width - 1));
+        const offset = (y * width + x) * 4;
+        pixels[offset] = value;
+        pixels[offset + 1] = value;
+        pixels[offset + 2] = value;
+        pixels[offset + 3] = 255;
+      }
+    }
+    return { pixels, width, height };
+  },
+  /** A diagonal checker (exercises the quadrant corner glyphs). */
+  checker(width = 8, height = 8): SamplerPixels {
+    const pixels = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const on = (x < width / 2) === (y < height / 2);
+        const value = on ? 255 : 0;
+        const offset = (y * width + x) * 4;
+        pixels[offset] = value;
+        pixels[offset + 1] = value;
+        pixels[offset + 2] = value;
+        pixels[offset + 3] = 255;
+      }
+    }
+    return { pixels, width, height };
+  },
+  /** A solid frame (exercises full blocks). */
+  solid(value: number, width = 4, height = 4): SamplerPixels {
+    const pixels = new Uint8Array(width * height * 4);
+    for (let index = 0; index < width * height; index += 1) {
+      pixels[index * 4] = value;
+      pixels[index * 4 + 1] = value;
+      pixels[index * 4 + 2] = value;
+      pixels[index * 4 + 3] = 255;
+    }
+    return { pixels, width, height };
+  },
+});

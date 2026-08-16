@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 455,
-    "bytes": 5227497,
+    "bytes": 5233619,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -148,7 +148,7 @@
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
       "src/canvas/mod.ts": 520,
-      "src/canvas/pixel_samplers.ts": 8237,
+      "src/canvas/pixel_samplers.ts": 14359,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -462,7 +462,7 @@
   },
   "mod.app.ts": {
     "modules": 129,
-    "bytes": 1832734,
+    "bytes": 1838856,
     "paths": {
       "mod.app.ts": 4347,
       "src/app/actions.ts": 3908,
@@ -489,7 +489,7 @@
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
       "src/canvas/mod.ts": 520,
-      "src/canvas/pixel_samplers.ts": 8237,
+      "src/canvas/pixel_samplers.ts": 14359,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -638,7 +638,7 @@
   },
   "mod.testing.ts": {
     "modules": 86,
-    "bytes": 703761,
+    "bytes": 709883,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4236,
@@ -662,7 +662,7 @@
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
       "src/canvas/mod.ts": 520,
-      "src/canvas/pixel_samplers.ts": 8237,
+      "src/canvas/pixel_samplers.ts": 14359,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -783,7 +783,7 @@
   },
   "mod.theme.ts": {
     "modules": 62,
-    "bytes": 549219,
+    "bytes": 555341,
     "paths": {
       "mod.theme.ts": 418,
       "src/canvas/box.ts": 5452,
@@ -791,7 +791,7 @@
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
       "src/canvas/mod.ts": 520,
-      "src/canvas/pixel_samplers.ts": 8237,
+      "src/canvas/pixel_samplers.ts": 14359,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -851,7 +851,7 @@
   },
   "mod.web.ts": {
     "modules": 364,
-    "bytes": 4435660,
+    "bytes": 4441782,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -998,7 +998,7 @@
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
       "src/canvas/mod.ts": 520,
-      "src/canvas/pixel_samplers.ts": 8237,
+      "src/canvas/pixel_samplers.ts": 14359,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
