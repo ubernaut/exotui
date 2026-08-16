@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 89 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
+As of Aug 16, 2026, 90 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
 LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
 ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, HIS-010, AUT-001, AUT-003, AUT-004, and
 AUT-007. Earlier: TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 111 items stay open below; a checked box means its implementation, focused
+SEC-001, SEC-008, and REM-001. The remaining 110 items stay open below; a checked box means its implementation, focused
 tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -388,7 +388,7 @@ tests, public export review, and relevant repository gates passed.
 - [x] **AUT-001 (P1; deps: —)** Extend commands with generic input, progress, result, and error types plus runtime
       descriptors for tooling. **Accept:** registry inspection exposes descriptors and invocation rejects incompatible
       input before executing.
-- [ ] **AUT-002 (P1; deps: AUT-001, FRM-010)** Let commands declare JSON-Schema-compatible argument definitions and
+- [x] **AUT-002 (P1; deps: AUT-001, FRM-010)** Let commands declare JSON-Schema-compatible argument definitions and
       render prompts through the form registry. **Accept:** validated prompt output is assignable to the command input
       and headless callers use the same validator.
 - [x] **AUT-003 (P1; deps: AUT-001)** Add structured progress events for phases, determinate work, indeterminate work,
