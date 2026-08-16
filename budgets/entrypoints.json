@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 432,
-    "bytes": 5054908,
+    "modules": 433,
+    "bytes": 5061544,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -54,11 +54,12 @@
       "src/app/hit_targets.ts": 4263,
       "src/app/input_commands.ts": 4356,
       "src/app/journal_store.ts": 4762,
+      "src/app/kanban.ts": 6607,
       "src/app/list_commands.ts": 3723,
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4452,
+      "src/app/mod.ts": 4481,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -821,8 +822,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 347,
-    "bytes": 4300833,
+    "modules": 348,
+    "bytes": 4307469,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -875,11 +876,12 @@
       "src/app/hit_targets.ts": 4263,
       "src/app/input_commands.ts": 4356,
       "src/app/journal_store.ts": 4762,
+      "src/app/kanban.ts": 6607,
       "src/app/list_commands.ts": 3723,
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4452,
+      "src/app/mod.ts": 4481,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,

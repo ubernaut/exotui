@@ -314,7 +314,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **WID-008 (P2; deps: TXT-005, 023:V1)** Add a virtualized hex/binary viewer with byte/word grouping, endian
       interpretation, offset navigation, diff overlays, and bounded edits. **Accept:** edits map exactly to source
       offsets and cannot extend data without explicit policy.
-- [ ] **WID-009 (P2; deps: INP-006, HIS-001, 023:W2)** Add a virtualized kanban board with keyboard/pointer card
+- [x] **WID-009 (P2; deps: INP-006, HIS-001, 023:W2)** Add a virtualized kanban board with keyboard/pointer card
       movement, swimlanes, WIP limits, and optimistic move hooks. **Accept:** rejected moves return cards to stable
       positions without losing focus.
 - [x] **WID-010 (P2; deps: VIS-001, DAT-008)** Add a virtualized event-timeline/feed widget with grouping, sticky time
