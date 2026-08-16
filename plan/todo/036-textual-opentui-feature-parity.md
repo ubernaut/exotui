@@ -568,9 +568,13 @@ Acceptance:
 
 ### R1 - OpenTUI-Inspired Renderer And Terminal Services (P2, Large)
 
-- [ ] Unify alternate-screen, buffered main-screen, and split-footer modes behind one renderer-neutral policy. Do not
+- [x] Unify alternate-screen, buffered main-screen, and split-footer modes behind one renderer-neutral policy. Do not
       call OpenTUI-style main-screen rendering true inline mode; specify a separate embedded/inline contract only if a
-      concrete host use case requires it.
+      concrete host use case requires it. Completed August 16, 2026: `screen_mode_policy.ts` — every mode answers the
+      same three questions (enter, exit, paintRect); buffered-main opens a primary-buffer region under a saved cursor
+      without 1049 and wipes it on exit; split-footer restricts the scroll region so shell output scrolls above a
+      stable footer; the frozen SCREEN_MODE_LIMITS statement says buffered-main must not be called inline mode and an
+      inline contract stays unspecified until a host needs one.
 - [ ] Add styled scrollback snapshots and reusable streaming off-screen surfaces for Markdown, code, and process output.
 - [ ] Complete structured Kitty keyboard press/repeat/release and base-layout metadata while keeping legacy input paths.
 - [x] Add terminal theme/palette detection, title/background control, OSC 52 clipboard, desktop notifications, raw OSC

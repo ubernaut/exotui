@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 449,
-    "bytes": 5187998,
+    "modules": 450,
+    "bytes": 5192738,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -299,7 +299,7 @@
       "src/runtime/kitty_graphics.ts": 12748,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2767,
+      "src/runtime/mod.ts": 2808,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,
@@ -322,6 +322,7 @@
       "src/runtime/resource_loads.ts": 60109,
       "src/runtime/retry_policy.ts": 7010,
       "src/runtime/scheduler.ts": 10346,
+      "src/runtime/screen_mode_policy.ts": 4699,
       "src/runtime/selective_erase.ts": 3348,
       "src/runtime/signal_exporters.ts": 5318,
       "src/runtime/signal_redaction.ts": 4046,
