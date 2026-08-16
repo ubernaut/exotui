@@ -296,7 +296,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **WID-002 (P2; deps: LOC-004, FRM-001)** Add time, duration, and time-zone pickers with step constraints and
       ambiguous/nonexistent local-time handling. **Accept:** DST gaps and folds require an explicit resolution and
       round-trip to a typed value.
-- [ ] **WID-003 (P1; deps: TXT-002, FRM-002)** Add a token/tag editor with quoted parsing, async suggestions, duplicate
+- [x] **WID-003 (P1; deps: TXT-002, FRM-002)** Add a token/tag editor with quoted parsing, async suggestions, duplicate
       policy, reordering, and per-token validation. **Accept:** all editing and selection operations are grapheme-safe
       and undoable.
 - [ ] **WID-004 (P1; deps: INP-006, HIS-001)** Add a virtualized transfer-list controller with search, bulk selection,

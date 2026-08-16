@@ -27,6 +27,7 @@ export * from "./route_outlets.ts";
 export * from "./route_prefetch.ts";
 export * from "./action_policies.ts";
 export * from "./content_integrity.ts";
+export * from "./token_editor.ts";
 export * from "./background_jobs.ts";
 export * from "./command_aliases.ts";
 export * from "./command_arguments.ts";
