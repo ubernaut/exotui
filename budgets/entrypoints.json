@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 453,
-    "bytes": 5214653,
+    "modules": 454,
+    "bytes": 5219223,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -300,7 +300,7 @@
       "src/runtime/kitty_keyboard.ts": 5301,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2925,
+      "src/runtime/mod.ts": 2964,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,
@@ -332,6 +332,7 @@
       "src/runtime/span_instrumentation.ts": 3414,
       "src/runtime/storage.ts": 11461,
       "src/runtime/storage_diagnostics.ts": 2606,
+      "src/runtime/stream_ownership.ts": 4531,
       "src/runtime/stream_resource.ts": 4518,
       "src/runtime/structured_logs.ts": 4537,
       "src/runtime/supervisor.ts": 5198,

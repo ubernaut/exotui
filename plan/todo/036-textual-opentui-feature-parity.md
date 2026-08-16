@@ -601,7 +601,12 @@ Acceptance:
       nothing count as skipped, frame timings roll on the caller's clock; SchedulerDiagnostics pulls queue
       depth/running from registered providers; renderDebugOverlay assembles accounting, queues, DiagnosticsHub
       data, and a console tail into width-clipped text rows any host paints.
-- [ ] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions.
+- [x] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions. Audited
+      August 16, 2026 and recorded as enforceable data in `stream_ownership.ts`: per transport, who creates,
+      reads, writes, and closes the stream, whether it is merely borrowed, and the teardown order —
+      isStreamActionAllowed is deny-by-default (an unlisted actor/action refuses), the borrowed transports (ssh,
+      xterm.js) are closed only by their real owners, and the PTY contract is asserted against
+      ProcessSessionController's actual stop/dispose/writeInput surface.
 
 Completed slice July 16, 2026: renderer-neutral OSC services now sanitize control injection, default every side effect
 to disabled, bound clipboard/text/pending input, parse chunked color replies, isolate subscriber failures, expose

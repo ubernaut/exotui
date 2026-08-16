@@ -76,3 +76,4 @@ export * from "./screen_mode_policy.ts";
 export * from "./offscreen_surface.ts";
 export * from "./kitty_keyboard.ts";
 export * from "./render_accounting.ts";
+export * from "./stream_ownership.ts";
