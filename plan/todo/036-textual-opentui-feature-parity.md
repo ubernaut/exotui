@@ -381,7 +381,7 @@ Acceptance:
 - [ ] Add Textual-style `!important`, `initial`, nested rules with `&`, scoped widget defaults, and multiple external
       stylesheet composition. Evaluate browser-style `inherit` and `unset` separately as repo extensions, not Textual
       parity claims.
-- [ ] Add high-value pseudo-classes: `focus-within`, `empty`, `enabled`, `first/last-of-type`, `light`, `dark`, `odd`,
+- [x] Add high-value pseudo-classes: `focus-within`, `empty`, `enabled`, `first/last-of-type`, `light`, `dark`, `odd`,
       `even`, and explicit renderer-mode states that keep buffered main-screen and true inline modes distinct.
 - [ ] Add renderer-neutral opacity/tint/hatch and a bounded transition/timeline API for numeric/color/offset styles.
 - [ ] Add local markup/CSS hot reload with parse diagnostics and last-known-good rollback.
@@ -393,6 +393,17 @@ Acceptance:
 - Cascade fixtures cover nesting, scope, specificity, important rules, resets, variables, and dynamic states.
 - Dock/layer/visual-offset behavior shares overlay and hit-test ownership in terminal and browser hosts.
 - A malformed hot-reload does not destroy the live UI or its controller state.
+
+Completed cascade-language slice Aug 16, 2026: `!important` (applied after every normal declaration while preserving
+specificity/source order among importants, so an important stylesheet rule beats a normal inline style and an important
+inline style beats both), Textual-style `initial` (resets every normalized field a property owns, including the authored
+percentage/auto spacing sidecar), bounded CSS-style nested rules (`&` splices the parent selector, bare selectors nest
+as descendants, lists cross-multiply, depth-capped at 8 with at-rules inside bodies dropped rather than misparsed), and
+multi-stylesheet composition (`css` accepts an ordered array). The pseudo-class checkbox landed in full: `:empty`,
+`:enabled`, `:focus-within` (descendant walk), `:first/last-of-type`, `:odd`/`:even`, plus environment states
+`:light`/`:dark` and `:screen-alternate/buffered/inline` driven by new `colorScheme`/`rendererMode` cascade options.
+`inspectTuiCssSupport()` reflects it all (and caught up on the L1 units). Remaining in the third checkbox: scoped widget
+defaults, and the separate `inherit`/`unset` evaluation.
 
 ### D1 - Make The Markup Tree Live (P1, Large)
 

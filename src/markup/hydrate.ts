@@ -30,7 +30,8 @@ export interface MarkupLayoutCacheOptions {
 /** Options for creating a layout result from markup and CSS-like styles. */
 export interface MarkupLayoutOptions {
   markup: string;
-  css?: string;
+  /** One stylesheet, or several composed in order (later sources win ties). */
+  css?: string | readonly string[];
   stylesheet?: TuiCssStylesheet;
   bounds: Rectangle;
   solver?: LayoutSolver;
@@ -109,8 +110,9 @@ export function createMarkupLayout(options: MarkupLayoutOptions): MarkupLayoutRe
   const document = cache
     ? cache.document(options.markup, options.parse)
     : parseTuiMarkup(options.markup, options.parse);
+  const cssSource = Array.isArray(options.css) ? options.css.join("\n") : options.css as string | undefined;
   const stylesheet = options.stylesheet ??
-    (cache ? cache.stylesheet(options.css ?? "") : parseCssStylesheet(options.css ?? ""));
+    (cache ? cache.stylesheet(cssSource ?? "") : parseCssStylesheet(cssSource ?? ""));
   const engineDiagnostics: LayoutDiagnostic[] = [];
   const appliedDeclarations: AppliedTuiCssDeclaration[] = [];
   const engine = createLayoutEngine({

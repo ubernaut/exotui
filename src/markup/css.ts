@@ -5,6 +5,8 @@ import { isAsciiWhitespaceCharacter } from "../utils/formatting.ts";
 export interface TuiCssDeclaration {
   property: string;
   value: string;
+  /** True when the declaration carried `!important`. */
+  important?: boolean;
 }
 
 /** Supported viewport features for CSS-like media rules. */
@@ -68,9 +70,35 @@ export function parseCssStylesheet(source: string): TuiCssStylesheet {
       const close = findMatchingBrace(block, open);
       if (close < 0) break;
       const selectors = splitSelectorList(block.slice(index, open));
-      const declarations = parseCssDeclarations(block.slice(open + 1, close));
-      addRules(selectors, declarations, media);
+      addRuleTree(selectors, block.slice(open + 1, close), media, 0);
       index = close + 1;
+    }
+  }
+
+  /**
+   * Adds one rule body, recursing into bounded CSS-style nested rules: `&`
+   * splices the parent selector in place, a bare nested selector nests as a
+   * descendant, and selector lists cross-multiply. At-rules inside a body and
+   * nesting past the depth cap are dropped rather than misparsed.
+   */
+  function addRuleTree(
+    selectors: readonly string[],
+    body: string,
+    media: TuiCssMediaQuery | undefined,
+    depth: number,
+  ): void {
+    const { declarationSource, nested } = splitRuleBody(body);
+    addRules(selectors, parseCssDeclarations(declarationSource), media);
+    if (depth >= 8) return;
+    for (const sub of nested) {
+      if (sub.prelude.startsWith("@")) continue;
+      const combined: string[] = [];
+      for (const parent of selectors) {
+        for (const child of splitSelectorList(sub.prelude)) {
+          combined.push(child.includes("&") ? child.replaceAll("&", parent) : `${parent} ${child}`);
+        }
+      }
+      if (combined.length > 0) addRuleTree(combined, sub.body, media, depth + 1);
     }
   }
 
@@ -99,8 +127,14 @@ export function parseCssDeclarations(source: string): TuiCssDeclaration[] {
     const colon = part.indexOf(":");
     if (colon < 0) continue;
     const property = part.slice(0, colon).trim().toLowerCase();
-    const value = part.slice(colon + 1).trim();
-    if (property && value) declarations.push({ property, value });
+    let value = part.slice(colon + 1).trim();
+    let important = false;
+    const bang = value.match(/!\s*important$/i);
+    if (bang) {
+      important = true;
+      value = value.slice(0, -bang[0].length).trim();
+    }
+    if (property && value) declarations.push({ property, value, ...(important ? { important: true } : {}) });
   }
   return declarations;
 }
@@ -178,6 +212,38 @@ function splitDeclarations(source: string): string[] {
   const last = source.slice(start).trim();
   if (last) declarations.push(last);
   return declarations;
+}
+
+/** Splits a rule body into its declaration text and any nested rule blocks. */
+function splitRuleBody(body: string): {
+  declarationSource: string;
+  nested: Array<{ prelude: string; body: string }>;
+} {
+  const nested: Array<{ prelude: string; body: string }> = [];
+  let declarationSource = "";
+  let segmentStart = 0;
+  let index = 0;
+  while (index < body.length) {
+    const char = body[index];
+    if (char === ";") {
+      declarationSource += body.slice(segmentStart, index + 1);
+      segmentStart = index + 1;
+      index += 1;
+      continue;
+    }
+    if (char === "{") {
+      const prelude = body.slice(segmentStart, index).trim();
+      const close = findMatchingBrace(body, index);
+      if (close < 0) break;
+      nested.push({ prelude, body: body.slice(index + 1, close) });
+      segmentStart = close + 1;
+      index = close + 1;
+      continue;
+    }
+    index += 1;
+  }
+  declarationSource += body.slice(segmentStart);
+  return { declarationSource, nested };
 }
 
 function stripCssComments(source: string): string {
