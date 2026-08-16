@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 434,
-    "bytes": 5066407,
+    "modules": 435,
+    "bytes": 5072761,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -49,6 +49,7 @@
       "src/app/form_submission.ts": 5743,
       "src/app/form_validation_timing.ts": 4954,
       "src/app/forms.ts": 102512,
+      "src/app/general_widgets.ts": 6316,
       "src/app/gestures.ts": 5607,
       "src/app/history.ts": 48881,
       "src/app/history_branches.ts": 4450,
@@ -60,7 +61,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4513,
+      "src/app/mod.ts": 4551,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -823,8 +824,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 349,
-    "bytes": 4312332,
+    "modules": 350,
+    "bytes": 4318686,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -872,6 +873,7 @@
       "src/app/form_submission.ts": 5743,
       "src/app/form_validation_timing.ts": 4954,
       "src/app/forms.ts": 102512,
+      "src/app/general_widgets.ts": 6316,
       "src/app/gestures.ts": 5607,
       "src/app/history.ts": 48881,
       "src/app/history_branches.ts": 4450,
@@ -883,7 +885,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4513,
+      "src/app/mod.ts": 4551,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
