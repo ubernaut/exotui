@@ -637,7 +637,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **QAL-008 (P1; deps: PKG-005)** Run a downstream compatibility matrix against pinned example applications and
       third-party adapter fixtures. **Accept:** public API/behavior changes produce a migration report before baseline
       updates.
-- [ ] **QAL-009 (P2; deps: TERM-003, 023:T1)** Differentially run protocol/render fixtures through supported terminal
+- [x] **QAL-009 (P2; deps: TERM-003, 023:T1)** Differentially run protocol/render fixtures through supported terminal
       emulators or their headless cores and preserve normalized divergences. **Accept:** CI distinguishes framework
       regressions from documented emulator differences.
 - [x] **QAL-010 (P1; deps: —)** Add repeated-run flake detection with timing distributions, resource snapshots, and

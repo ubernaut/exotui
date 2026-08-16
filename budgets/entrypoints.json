@@ -604,10 +604,10 @@
     }
   },
   "mod.testing.ts": {
-    "modules": 78,
-    "bytes": 650296,
+    "modules": 81,
+    "bytes": 676280,
     "paths": {
-      "mod.testing.ts": 589,
+      "mod.testing.ts": 645,
       "src/app/actions.ts": 3908,
       "src/app/app.ts": 12593,
       "src/app/command_bindings.ts": 20400,
@@ -645,6 +645,8 @@
       "src/runtime/scheduler.ts": 10346,
       "src/runtime/storage.ts": 11461,
       "src/runtime/telemetry.ts": 9701,
+      "src/runtime/terminal_operations.ts": 7445,
+      "src/runtime/terminal_parser.ts": 11207,
       "src/runtime/worker_pool.ts": 7395,
       "src/selection.ts": 10964,
       "src/signals/computed.ts": 2359,
@@ -658,6 +660,7 @@
       "src/signals/signal.ts": 12850,
       "src/signals/types.ts": 1108,
       "src/testing/app.ts": 15795,
+      "src/testing/differential_terminal.ts": 7276,
       "src/testing/fault_injection.ts": 3967,
       "src/testing/flake_detection.ts": 4688,
       "src/testing/input.ts": 4789,
