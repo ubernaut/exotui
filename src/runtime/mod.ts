@@ -52,6 +52,7 @@ export * from "./span_instrumentation.ts";
 export * from "./stream_resource.ts";
 export * from "./structured_logs.ts";
 export * from "./supervisor.ts";
+export * from "./support_bundle.ts";
 export * from "./task_context.ts";
 export * from "./timeline.ts";
 export * from "./trace_sampling.ts";
