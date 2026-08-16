@@ -433,7 +433,7 @@ defaults, and the separate `inherit`/`unset` evaluation.
 
 ### D1 - Make The Markup Tree Live (P1, Large)
 
-- [ ] Add mount, remove, move, attribute/class mutation, query/filter, and bounded recompose operations.
+- [x] Add mount, remove, move, attribute/class mutation, query/filter, and bounded recompose operations.
 - [ ] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
 - [ ] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
 - [ ] Preserve hydrated widget identity and state when unrelated markup branches change.
@@ -445,6 +445,13 @@ Acceptance:
 - Mutation and event ordering are deterministic and disposable.
 - Incremental output matches a clean full recomputation in property tests.
 - The same live markup fixture runs in terminal and browser hosts.
+
+Completed first slice Aug 16, 2026: `LiveMarkupTree` (`src/markup/live_tree.ts`) makes the parsed document mutable —
+mount (fragment parse, deterministic `<id>~<n>` collision rewrite), remove, move (cycle-rejecting), attribute/class/text
+mutation (id is index-owned and immutable), selector `query`/`first` with exclude/predicate filters reusing
+`matchesCssSelector`, and atomic bounded `recompose`. Every successful mutation bumps one revision and lands in a
+bounded, acknowledgeable journal so the later invalidation slice can key off "what changed since revision N". Mutations
+apply fully or reject without touching the tree.
 
 ### W1 - Screen Stacks And Modal Lifecycle (P1, Medium)
 

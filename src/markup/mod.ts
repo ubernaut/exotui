@@ -6,6 +6,7 @@ export * from "./hot_reload.ts";
 export * from "./html.ts";
 export * from "./hydrate.ts";
 export * from "./layout_worker.ts";
+export * from "./live_tree.ts";
 export * from "./support.ts";
 export * from "./widgets.ts";
 export * from "./window_history.ts";
