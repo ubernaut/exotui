@@ -161,7 +161,7 @@ immediately on resume; clean attaches send no wiggle. Applies to both the resume
 chrome half of the report needs the user's debug log (UX-011 flush lines plus any errors) from a live resume to rule out
 a write-path component on the real terminal.
 
-## UX-013 — VHS shader realism pass: tracking, static/snow, luma noise (P2, user, Aug 15) — **implemented Aug 16 2026, awaiting the user's visual verdict**
+## UX-013 — VHS shader realism pass: tracking, static/snow, luma noise (P2, user, Aug 15) — **done Aug 16 2026** (user confirmed live: "they look good")
 
 > **Landed:** tracking is now a thin sync-glitch band (1–4% of screen height) whose rows displace sharply in 2px
 > scanline pairs, filled with horizontal 24px streak segments and a bright seam on its lower edge — all geometry in
@@ -183,7 +183,7 @@ Make a dedicated pass over those three effects in `generateExomuxShader`'s vhs b
 - Test on the user's machine across min→max resize; the Aug 15 screenshot (huge window, woven texture) is the regression
   reference.
 
-## UX-014 — Settings listbox: stale duplicate selection bars (P1 bug, user, Aug 16) — **root cause found and fixed Aug 16 2026 (second pass), awaiting the user's confirmation**
+## UX-014 — Settings listbox: stale duplicate selection bars (P1 bug, user, Aug 16) — **done Aug 16 2026** (user confirmed live)
 
 > **Second pass (the real fix):** the user's follow-up screenshot — bars accumulating in _three different themes'_
 > accent colors, worsening with every click — reproduced headlessly once theme clicks (which remount the composited
