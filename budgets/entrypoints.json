@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 454,
-    "bytes": 5219223,
+    "modules": 455,
+    "bytes": 5227497,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -147,7 +147,8 @@
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
-      "src/canvas/mod.ts": 483,
+      "src/canvas/mod.ts": 520,
+      "src/canvas/pixel_samplers.ts": 8237,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -460,8 +461,8 @@
     }
   },
   "mod.app.ts": {
-    "modules": 128,
-    "bytes": 1824460,
+    "modules": 129,
+    "bytes": 1832734,
     "paths": {
       "mod.app.ts": 4347,
       "src/app/actions.ts": 3908,
@@ -487,7 +488,8 @@
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
-      "src/canvas/mod.ts": 483,
+      "src/canvas/mod.ts": 520,
+      "src/canvas/pixel_samplers.ts": 8237,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -635,8 +637,8 @@
     }
   },
   "mod.testing.ts": {
-    "modules": 85,
-    "bytes": 695487,
+    "modules": 86,
+    "bytes": 703761,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4236,
@@ -659,7 +661,8 @@
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
-      "src/canvas/mod.ts": 483,
+      "src/canvas/mod.ts": 520,
+      "src/canvas/pixel_samplers.ts": 8237,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -779,15 +782,16 @@
     }
   },
   "mod.theme.ts": {
-    "modules": 61,
-    "bytes": 540945,
+    "modules": 62,
+    "bytes": 549219,
     "paths": {
       "mod.theme.ts": 418,
       "src/canvas/box.ts": 5452,
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
-      "src/canvas/mod.ts": 483,
+      "src/canvas/mod.ts": 520,
+      "src/canvas/pixel_samplers.ts": 8237,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
@@ -846,8 +850,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 363,
-    "bytes": 4427386,
+    "modules": 364,
+    "bytes": 4435660,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -993,7 +997,8 @@
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
       "src/canvas/draw_object.ts": 10635,
-      "src/canvas/mod.ts": 483,
+      "src/canvas/mod.ts": 520,
+      "src/canvas/pixel_samplers.ts": 8237,
       "src/canvas/rerender_queue.ts": 3698,
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,

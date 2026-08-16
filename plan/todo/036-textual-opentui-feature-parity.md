@@ -620,15 +620,21 @@ Acceptance:
 
 ### G1 - Advanced Three/Glyph Sampling (P2, Medium)
 
-- [ ] Add a dual-foreground/background 2x2 quadrant sampler as a separate mode from the repaired density-ramp glyph
-      renderer.
+- [x] Add a dual-foreground/background 2x2 quadrant sampler as a separate mode from the repaired density-ramp glyph
+      renderer. Completed August 16, 2026: `pixel_samplers.ts` — the quadrant mode partitions each cell's block by
+      luminance, picks the corner glyph from the sixteen quadrant chars, and carries BOTH colors (lit partition
+      foreground, rest background); the density ramp is a peer mode under the same grid contract, unchanged and
+      still selectable.
 - [ ] Compare the standard sampler with OpenTUI's GPU-only horizontally pre-squeezed technique for terminal cell aspect
       ratios; treat a matching CPU pre-squeezed path as a repo extension.
 - [ ] Preserve and centralize perspective-camera cell-aspect correction; evaluate orthographic-camera correction as a
       separate repo extension with explicit projection tests.
-- [ ] Provide GPU and deterministic CPU pixel-to-cell sampling with the same grid contract and explicit fallback reason.
+- [x] Provide GPU and deterministic CPU pixel-to-cell sampling with the same grid contract and explicit fallback reason.
       Do not describe the CPU sampler as software 3D rendering: scene rendering still requires the selected Three/WebGPU
-      path.
+      path. Completed August 16, 2026: the SamplerBackend seam pairs the deterministic CPU implementation with an
+      optional GPU one under the identical contract; choosing CPU always names the explicit fallback reason, and the
+      frozen PIXEL_SAMPLER_LIMITS statement says the CPU sampler converts already-rendered pixels — it is not
+      software 3D rendering.
 - [ ] Add frame/image capture, sampler statistics, color-error metrics, and fixtures for ramps, quadrant glyphs, and
       full blocks.
 
