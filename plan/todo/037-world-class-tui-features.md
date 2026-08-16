@@ -523,7 +523,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-003 (P0; deps: REM-001, REM-002)** Require a secure-transport policy and expose verified transport
       identity/channel-binding metadata to the host. **Accept:** production policy rejects plaintext or unverifiable
       transports while tests can install an explicit fake.
-- [ ] **REM-004 (P1; deps: REM-001, TXT-003)** Add a versioned cell-frame codec with palette tables, run-length/span
+- [x] **REM-004 (P1; deps: REM-001, TXT-003)** Add a versioned cell-frame codec with palette tables, run-length/span
       encoding, checksums, and full-frame fallback. **Accept:** decoding a delta plus its base yields the exact styled
       cell frame or requests resync.
 - [ ] **REM-005 (P0; deps: REM-004, ASY-005)** Add frame sequence numbers, acknowledgements, bounded send windows, and
