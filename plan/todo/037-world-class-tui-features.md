@@ -538,7 +538,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-008 (P2; deps: REM-004, REM-005, OBS-003)** Adapt frame rate, color depth, compression, and optional
       graphics to measured latency/bandwidth under host-set quality floors. **Accept:** adaptation is hysteretic,
       inspectable, and never changes logical layout.
-- [ ] **REM-009 (P2; deps: REM-002, REM-007, SEC-008)** Support explicitly consented multi-client sessions with visible
+- [x] **REM-009 (P2; deps: REM-002, REM-007, SEC-008)** Support explicitly consented multi-client sessions with visible
       participant indicators and viewer/controller/moderator roles; hidden spectators are forbidden. **Accept:** joining
       and control transfer require host policy, are announced to all participants, and are revocable.
 - [ ] **REM-010 (P1; deps: REM-002, REM-005, SEC-009)** Add session lifecycle policy for idle expiry, absolute lifetime,
