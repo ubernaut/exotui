@@ -137,6 +137,21 @@ export interface BoxEdges<T = number> {
 }
 
 /** Public interface describing the normalized style used by layout solvers. */
+/** Background hatch fill: one repeated glyph and an optional color. */
+export interface LayoutHatch {
+  readonly glyph: string;
+  readonly color?: string;
+}
+
+/** Named hatch patterns (Textual-compatible) accepted by `hatch:`. */
+export const LAYOUT_HATCH_PATTERNS: Readonly<Record<string, string>> = Object.freeze({
+  left: "╲",
+  right: "╱",
+  cross: "╳",
+  horizontal: "─",
+  vertical: "│",
+});
+
 export interface ComputedLayoutStyle {
   display: LayoutDisplay;
   position: LayoutPosition;
@@ -188,6 +203,15 @@ export interface ComputedLayoutStyle {
   overflowX: LayoutOverflow;
   overflowY: LayoutOverflow;
   zIndex: number;
+  /**
+   * C1 paint hints, renderer-owned like `color`: the solver never reads them.
+   * `opacity` scales the subtree's paint toward its backdrop (0..1); `tint`
+   * blends a color over the subtree's final paint; `hatch` fills otherwise
+   * empty background cells with a repeating glyph.
+   */
+  opacity: number;
+  tint?: string;
+  hatch?: LayoutHatch;
   color?: string;
   backgroundColor?: string;
   borderColor?: string;
@@ -293,6 +317,7 @@ export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
     overflowX: "visible",
     overflowY: "visible",
     zIndex: 0,
+    opacity: 1,
     visibility: "visible",
     whiteSpace: "normal",
     overflowWrap: "normal",
@@ -319,6 +344,7 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
     maxWidth: cloneLayoutLength(style.maxWidth),
     maxHeight: cloneLayoutLength(style.maxHeight),
     inset: cloneBoxEdgeLengths(style.inset),
+    hatch: style.hatch ? { ...style.hatch } : undefined,
     margin: { ...style.margin },
     padding: { ...style.padding },
     border: { ...style.border },
@@ -599,6 +625,27 @@ function parseSignedOffsetCells(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseOpacityValue(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!/^[+]?\d*\.?\d+%?$/.test(trimmed)) return undefined;
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed)) return undefined;
+  const scaled = trimmed.endsWith("%") ? parsed / 100 : parsed;
+  return Math.min(1, Math.max(0, scaled));
+}
+
+function parseHatchValue(value: string): LayoutHatch | undefined {
+  const words = splitCssWords(value);
+  if (words.length === 0 || words.length > 2) return undefined;
+  const [pattern, color] = words;
+  const named = LAYOUT_HATCH_PATTERNS[pattern!.toLowerCase()];
+  const raw = named ?? pattern!.replace(/^["']|["']$/g, "");
+  // The fill must be exactly one narrow grapheme; multi-cell fills would
+  // desynchronize the hatch from the cell grid.
+  if ([...raw].length !== 1) return undefined;
+  return { glyph: raw, color: color || undefined };
+}
+
 function parseSignedLayoutInteger(value: string | undefined, fallback = 0): number {
   if (value === undefined) return fallback;
   const parsed = Number.parseFloat(value.trim());
@@ -849,6 +896,25 @@ export function applyLayoutDeclaration(
       const y = parseSignedOffsetCells(resolved);
       if (y === undefined) return style;
       next.offsetY = y;
+      break;
+    }
+    case "opacity": {
+      const opacity = parseOpacityValue(resolved);
+      if (opacity === undefined) return style;
+      next.opacity = opacity;
+      break;
+    }
+    case "tint":
+      next.tint = resolved === "none" ? undefined : resolved || undefined;
+      break;
+    case "hatch": {
+      if (resolved === "none") {
+        next.hatch = undefined;
+        break;
+      }
+      const hatch = parseHatchValue(resolved);
+      if (hatch === undefined) return style;
+      next.hatch = hatch;
       break;
     }
     case "color":

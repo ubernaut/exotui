@@ -383,7 +383,7 @@ Acceptance:
       parity claims.
 - [x] Add high-value pseudo-classes: `focus-within`, `empty`, `enabled`, `first/last-of-type`, `light`, `dark`, `odd`,
       `even`, and explicit renderer-mode states that keep buffered main-screen and true inline modes distinct.
-- [ ] Add renderer-neutral opacity/tint/hatch and a bounded transition/timeline API for numeric/color/offset styles.
+- [x] Add renderer-neutral opacity/tint/hatch and a bounded transition/timeline API for numeric/color/offset styles.
 - [x] Add local markup/CSS hot reload with parse diagnostics and last-known-good rollback.
 - [x] Decide whether the lightweight parser remains sufficient or whether a `css-tree` adapter is justified by the new
       grammar and diagnostics.
@@ -400,6 +400,14 @@ scans (tag balance with void/self-closing awareness, CSS brace balance, empty-sh
 rejects the candidate whole and keeps the last-known-good sources and version; warnings apply but are reported.
 `watchMarkupHotReload` drives it from local files through injectable IO (Deno.watchFs/readTextFile by default) with
 debounced event coalescing, and a read failure surfaces as a diagnostic without touching the live sources.
+
+Completed paint-hints/transitions slice Aug 16, 2026 (fourth C1 slice): `opacity` (0..1, number or percent), `tint`
+(color blended over final paint), and `hatch` (Textual-compatible named patterns left/right/cross/horizontal/vertical or
+any single-cell glyph, plus color) join the normalized style model as renderer-owned `outside-solver` fields, parsed,
+cloned, cascade-resettable, and capability-reported like `color`. `src/runtime/timeline.ts` adds the bounded transition
+API: a `Timeline` whose tracks tween numbers and numeric tuples (colors, offsets) under a caller-advanced clock — named
+or custom easing, delay, repeat/alternate, cancellation, a 256-track bound, and deterministic replay by construction (no
+hidden timers; `advance(nowMs)` is the only clock input).
 
 Completed authoring slice Aug 16, 2026 (second C1 slice): scalar `offset: x y` (plus `offset-x`/`offset-y`) is a
 paint-owned visual translation — an engine post-pass moves the styled node's solved box subtree and hit regions without
