@@ -520,7 +520,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-002 (P0; deps: REM-001, SEC-001)** Add an authentication/authorization adapter that yields a short-lived
       session principal and explicit roles. **Accept:** the protocol carries no credential material after setup and role
       changes revoke capabilities immediately.
-- [ ] **REM-003 (P0; deps: REM-001, REM-002)** Require a secure-transport policy and expose verified transport
+- [x] **REM-003 (P0; deps: REM-001, REM-002)** Require a secure-transport policy and expose verified transport
       identity/channel-binding metadata to the host. **Accept:** production policy rejects plaintext or unverifiable
       transports while tests can install an explicit fake.
 - [ ] **REM-004 (P1; deps: REM-001, TXT-003)** Add a versioned cell-frame codec with palette tables, run-length/span
