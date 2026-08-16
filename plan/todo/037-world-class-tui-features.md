@@ -658,7 +658,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-004 (P1; deps: PER-003, ASY-005)** Coalesce terminal writes under stream backpressure while preserving
       synchronization boundaries and urgent cursor teardown. **Accept:** partial-write fixtures reconstruct exact output
       and memory stays bounded for a stalled sink.
-- [ ] **PER-005 (P2; deps: ASY-008, REM-004)** Define transferable frame packets with packed glyph/style tables for
+- [x] **PER-005 (P2; deps: ASY-008, REM-004)** Define transferable frame packets with packed glyph/style tables for
       worker and remote boundaries. **Accept:** browser worker traces transfer ownership with no structured-clone copy
       of the cell payload.
 - [ ] **PER-006 (P2; deps: OBS-002, OBS-003, ASY-010)** Adapt frame cadence to dirty work, input latency, background
