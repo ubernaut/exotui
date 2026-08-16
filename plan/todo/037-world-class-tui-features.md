@@ -526,7 +526,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-004 (P1; deps: REM-001, TXT-003)** Add a versioned cell-frame codec with palette tables, run-length/span
       encoding, checksums, and full-frame fallback. **Accept:** decoding a delta plus its base yields the exact styled
       cell frame or requests resync.
-- [ ] **REM-005 (P0; deps: REM-004, ASY-005)** Add frame sequence numbers, acknowledgements, bounded send windows, and
+- [x] **REM-005 (P0; deps: REM-004, ASY-005)** Add frame sequence numbers, acknowledgements, bounded send windows, and
       slow-client backpressure. **Accept:** a stalled client cannot grow host memory and resumes from the newest valid
       base.
 - [ ] **REM-006 (P1; deps: REM-004, REM-005, HIS-007)** Add reconnect tokens and bounded session resume from a
