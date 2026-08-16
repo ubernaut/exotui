@@ -13,6 +13,7 @@ export * from "./data_table_commands.ts";
 export * from "./disposables.ts";
 export * from "./form_async_validation.ts";
 export * from "./form_submission.ts";
+export * from "./form_validation_timing.ts";
 export * from "./form_commands.ts";
 export * from "./focus_commands.ts";
 export {
