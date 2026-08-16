@@ -752,12 +752,26 @@ export class ExomuxButterchurnGpu {
     warpPass.draw(this.#meshVertices);
     warpPass.end();
 
-    // 2. Custom shapes and waves — MilkDrop draws them onto the warped frame,
+    // 2. Blur chain, each level fed by the one above it. MilkDrop computes the
+    //    blur textures from the WARP OUTPUT, before motion vectors, shapes, and
+    //    waves are drawn — so a high-pass warp (`blur1 - main`) subtracts last
+    //    frame's shapes at full weight (blur1 lacks them, main has them)
+    //    instead of only their high-frequency residue. Goody-class echo
+    //    amplifiers depend on that full-weight injection (rectified by the
+    //    UNORM store) to reach saturation; blurring after the shapes made the
+    //    echo self-cancel in the loop and the picture starve.
+    let blurSource = target;
+    for (let level = 0; level < 3; level += 1) {
+      this.#blurLevel(encoder, blurSource, level);
+      blurSource = this.#blur[level]!;
+    }
+
+    // 3. Custom shapes and waves — MilkDrop draws them onto the warped frame,
     //    shapes under waves, all before the basic waveform.
     const prims = frame.prims ?? [];
     if (prims.length > 0) this.#drawPrims(encoder, target, source, prims);
 
-    // 3. Basic waveform, drawn straight onto the warped frame.
+    // 4. Basic waveform, drawn straight onto the warped frame.
     if (frame.waveCount > 1) {
       const wavePass = encoder.beginRenderPass({
         colorAttachments: [{ view: this.#view(target), loadOp: "load", storeOp: "store" }],
@@ -774,14 +788,7 @@ export class ExomuxButterchurnGpu {
       wavePass.end();
     }
 
-    // 3. Blur chain, each level fed by the one above it.
-    let blurSource = target;
-    for (let level = 0; level < 3; level += 1) {
-      this.#blurLevel(encoder, blurSource, level);
-      blurSource = this.#blur[level]!;
-    }
-
-    // 4. Composite through the preset's own shader.
+    // 5. Composite through the preset's own shader.
     const compPass = encoder.beginRenderPass({
       colorAttachments: [{
         view: this.#view(this.#resolveIntermediate()),
@@ -798,7 +805,7 @@ export class ExomuxButterchurnGpu {
     compPass.draw(3);
     compPass.end();
 
-    // 5. Resolve to the cell grid, and copy out when the buffer is free. A
+    // 6. Resolve to the cell grid, and copy out when the buffer is free. A
     //    copy into a buffer that is still mapped is a validation error, so a
     //    frame is simply skipped while the previous readback is in flight.
     this.#resolveToCells(encoder, !this.#mapping);

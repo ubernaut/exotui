@@ -130,6 +130,23 @@ store range-compressed values whose decompression amplifies (`scale1` > 1 in the
   mesh warp boundaries, or the echo shape's `tex_zoom` sampling footprint. A reference A/B against real butterchurn in a
   browser would settle it fastest.
 
+### Aug 16 2026: blur-order audit against real butterchurn source
+
+A source-level audit of jberg/butterchurn (`renderer.js`, `warp.js`) settled the pipeline order question without a
+browser: real butterchurn computes the blur chain from the WARP OUTPUT — before motion vectors, custom shapes, waves,
+and the basic waveform are drawn — so a high-pass warp's `blur1` lacks last frame's shapes while `sampler_main` has
+them, and the shapes are subtracted at full weight into the loop. Our chain blurred the finished frame (post-shapes),
+which made shape energy self-cancel in `blur1 - main` warps. The GPU frame now matches the real order
+(warp → blur → mv/shapes/waves → basic wave → comp). Also verified against source: warp `vColor` is 1 outside
+preset-blending (not an amplifier), and textured shapes sample the PREVIOUS frame (ours already did).
+
+Outcome: Goody's loop is UNCHANGED (equilibrium mean 0.034, 4.7% of texels above 0.1 — the echo amplifier tail is not
+a blur-order artifact; that hypothesis is now eliminated alongside comp-side loss and authored blur bounds). Fleet
+proxy: regression 30 → 31, truly-black 21 → 23, both-render 239 → 238, rotation 383 → 380 of 472 — a small drift on a
+proxy that compares GPU output against our own blur-less CPU approximation, so it cannot arbitrate real-butterchurn
+fidelity; the real order is kept. Remaining tail candidates are unchanged (warp gamma/decay interplay, bilinear
+boundary gain, echo `tex_zoom` footprint) and the browser A/B remains the decisive instrument.
+
 ## Verification
 
 - `scripts/diag_butterchurn_gap.ts` — the CPU-vs-GPU bucketing above; rerun to measure any further fix.

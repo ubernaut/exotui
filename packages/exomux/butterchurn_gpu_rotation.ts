@@ -4,7 +4,7 @@
 // Regenerate with: deno run -A --unstable-webgpu -c packages/exomux/deno.json scripts/audit_butterchurn_gpu.ts
 //
 // The presets the GPU butterchurn background auto-cycles: those that render to a
-// non-blank frame on the GPU. Of 472 presets in the catalog: 383 draw, 89 resolve to
+// non-blank frame on the GPU. Of 472 presets in the catalog: 380 draw, 92 resolve to
 // black/near-black on the GPU path and are skipped so auto-cycle does not strobe
 // through them. Every preset stays selectable by index through
 // `EXOMUX_BUTTERCHURN_CATALOG`; this only decides what the GPU field auto-cycles.
@@ -21,7 +21,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "$$$ Royal - Mashup (417)",
   "$$$ Royal - Mashup (431)",
   "$$$ Royal - Mashup (441)",
-  "$$$ Royal - Mashup (489)",
   "11",
   "269",
   "27",
@@ -152,7 +151,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "flexi - grind my glitch up [190]",
   "flexi - hyperspaceflight (bn cn Jelly 4)",
   "Flexi - infused with the spiral",
-  "flexi - infused with the spiral (jelly 4.x cn)",
   "flexi - inter state",
   "flexi - jelly fish mandala",
   "flexi - meta4free",
@@ -234,6 +232,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "martin - angel flight",
   "martin - another kind of groove",
   "martin - baby one more time",
+  "martin - basal ganglion",
   "martin - bombyx mori",
   "martin - bombyx mori [flexi′s logarithmic edit]",
   "Martin - bombyx mori mix2",
@@ -291,7 +290,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Milk Artist At our Best - FED - SlowFast Ft AdamFX n Martin - HD CosmoFX",
   "MilkDrop2077.R002",
   "MilkDrop2077.R012",
-  "MilkDrop2077.R033",
   "MilkDrop2077.R037",
   "never suggest things roam glance at sun for galactic upgrade",
   "NeW Adam Master Mashup FX 2 Geiss - Reaction Diffusion 34 + Swelling Spiral  + Liquid Fire  + Geiss an46",
@@ -302,7 +300,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "ORB - Depth Charge 2",
   "ORB - Fire and Fumes 2",
   "ORB - Planetary Alignment Acid Burn",
-  "orb - toxic goo",
   "ORB - Waaa",
   "phat + Eo.S. - Bass_responce_Red_Movements_Disorienting nebula3",
   "Phat + Zylot + Eo.S. - work with lines",
