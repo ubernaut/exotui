@@ -170,6 +170,12 @@ approximation and cannot see real-fidelity fixes; the readback probe and the bro
 record. The remaining truly-black tail is now investigable preset-by-preset with the same ablation harness
 (`Goody - Ego Decontructor` is the next candidate, still 0.00% on GPU).
 
+Harness scope, learned attempting Ego Decontructor: the published pack carries 100 presets with equations already
+converted to JS; our catalog stores RAW Milkdrop equations, and injecting them raises a `new Function` syntax error
+inside real butterchurn. A/B for non-pack presets therefore needs the EEL→JS preset converter
+(milkdrop-preset-converter) wired into the page first — that is the harness's one open extension. The instrument
+remains decisive for every fleet preset that also ships in the pack.
+
 ## Verification
 
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the

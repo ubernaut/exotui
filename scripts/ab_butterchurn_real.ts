@@ -18,6 +18,37 @@
 const TARGET = Deno.args[0] ?? "The Wild Vort";
 const scratch = await Deno.makeTempDir({ prefix: "bc-ab-" });
 
+// Presets outside the published 100-preset pack come from OUR catalog,
+// converted to the pack schema (init/frame/pixel → *_eqs_str).
+const { EXOMUX_BUTTERCHURN_CATALOG } = await import("../packages/exomux/butterchurn_catalog.ts");
+const catalogEntry = EXOMUX_BUTTERCHURN_CATALOG.find((entry) =>
+  entry.name.toLowerCase().includes(TARGET.toLowerCase())
+);
+const injected = catalogEntry
+  ? {
+    name: catalogEntry.name,
+    preset: {
+      baseVals: catalogEntry.baseVals,
+      init_eqs_str: catalogEntry.init ?? "",
+      frame_eqs_str: catalogEntry.frame ?? "",
+      pixel_eqs_str: catalogEntry.pixel ?? "",
+      warp: catalogEntry.warp ?? "",
+      comp: catalogEntry.comp ?? "",
+      waves: (catalogEntry.waves ?? []).map((wave) => ({
+        baseVals: wave.baseVals,
+        init_eqs_str: wave.init ?? "",
+        frame_eqs_str: wave.frame ?? "",
+        point_eqs_str: wave.point ?? "",
+      })),
+      shapes: (catalogEntry.shapes ?? []).map((shape) => ({
+        baseVals: shape.baseVals,
+        init_eqs_str: shape.init ?? "",
+        frame_eqs_str: shape.frame ?? "",
+      })),
+    },
+  }
+  : undefined;
+
 async function fetchTarball(url: string, into: string): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`fetch failed: ${url}`);
@@ -43,10 +74,12 @@ const page = `<!doctype html>
 (async () => {
   const out = (text) => { document.getElementById("out").textContent = text; };
   try {
+    const injected = INJECTED_PRESET;
     const presets = window.butterchurnPresets.getPresets();
-    const name = Object.keys(presets).find((key) => key.includes(${JSON.stringify(TARGET)}));
+    const packName = Object.keys(presets).find((key) => key.includes(${JSON.stringify(TARGET)}));
+    const name = packName ?? (injected ? injected.name : undefined);
     if (!name) { out("ABLATE:" + JSON.stringify({ error: "preset missing" })); return; }
-    const base = presets[name];
+    const base = packName ? presets[packName] : injected.preset;
     const audio = new AudioContext();
     if (audio.state === "suspended") await audio.resume();
     const osc = audio.createOscillator();
@@ -93,7 +126,10 @@ const page = `<!doctype html>
 })();
 </script>
 </body></html>`;
-await Deno.writeTextFile(`${scratch}/index.html`, page);
+await Deno.writeTextFile(
+  `${scratch}/index.html`,
+  page.replace("INJECTED_PRESET", JSON.stringify(injected ?? null)),
+);
 
 const server = Deno.serve({ port: 8141, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
   const path = new URL(request.url).pathname;
