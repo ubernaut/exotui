@@ -607,8 +607,12 @@ Acceptance:
       Completed August 16, 2026: `diff_view.ts` — LCS line diff, right-aligned number gutters with +/-/space markers
       and ranked sign glyphs, UnifiedDiffController (one code view plus an aligned gutter), SplitDiffController
       (aligned sides with filler rows; one offset drives both panes; code-view highlighting flows through).
-- [ ] Extend `TextBox` into a full text-area surface with selection-edge auto-scroll, soft/character/no-wrap modes,
-      configurable editing aliases, and optional syntax highlighting.
+- [x] Extend `TextBox` into a full text-area surface with selection-edge auto-scroll, soft/character/no-wrap modes,
+      configurable editing aliases, and optional syntax highlighting. Completed August 16, 2026: `text_area.ts`
+      composes TextBoxController with a viewport — soft wrap reuses the grapheme-safe word wrapper, character wrap
+      breaks at width, no-wrap scrolls horizontally; extendSelectionTo auto-scrolls the minimal distance on both
+      axes to keep the selection edge visible; hosts bind alias verbs onto canonical editing actions (unknown verbs
+      refuse); versioned HighlightSpans segment visual rows, and edits invalidate them until re-streamed.
 - [x] Deliver the bounded editor v2 foundation: visible grapheme-safe directional ranges, Shift/Ctrl-A selection,
       selection-aware atomic edits/paste, cell-width-aware Unicode projection, and failure-atomic bounded literal
       current-document find/replace with focused terminal tests.

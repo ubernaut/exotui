@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 443,
-    "bytes": 5119955,
+    "modules": 444,
+    "bytes": 5129305,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -176,7 +176,7 @@
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
-      "src/components/mod.ts": 1529,
+      "src/components/mod.ts": 1561,
       "src/components/modal.ts": 14435,
       "src/components/pad.ts": 10716,
       "src/components/progressbar.ts": 13822,
@@ -193,6 +193,7 @@
       "src/components/terminal_output.ts": 3236,
       "src/components/terminal_screen.ts": 11530,
       "src/components/text.ts": 2717,
+      "src/components/text_area.ts": 9318,
       "src/components/text_children.ts": 3856,
       "src/components/textbox.ts": 54205,
       "src/components/toast.ts": 4792,
@@ -835,8 +836,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 360,
-    "bytes": 4376070,
+    "modules": 361,
+    "bytes": 4385420,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -1012,7 +1013,7 @@
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
-      "src/components/mod.ts": 1529,
+      "src/components/mod.ts": 1561,
       "src/components/modal.ts": 14435,
       "src/components/pad.ts": 10716,
       "src/components/progressbar.ts": 13822,
@@ -1029,6 +1030,7 @@
       "src/components/terminal_output.ts": 3236,
       "src/components/terminal_screen.ts": 11530,
       "src/components/text.ts": 2717,
+      "src/components/text_area.ts": 9318,
       "src/components/text_children.ts": 3856,
       "src/components/textbox.ts": 54205,
       "src/components/toast.ts": 4792,

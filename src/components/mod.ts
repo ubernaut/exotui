@@ -28,6 +28,7 @@ export * from "./progressbar.ts";
 export * from "./radio_group.ts";
 export * from "./scroll_area.ts";
 export * from "./scroll_box_parity.ts";
+export * from "./text_area.ts";
 export * from "./slider.ts";
 export * from "./sparkline.ts";
 export * from "./spinner.ts";

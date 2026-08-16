@@ -432,6 +432,7 @@
     "TestKeyPressTarget",
     "TestMouseTarget",
     "Text",
+    "TextAreaController",
     "TextBox",
     "TextBoxController",
     "TextLineCache",
