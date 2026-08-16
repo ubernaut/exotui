@@ -493,7 +493,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **SEC-004 (P1; deps: SEC-001, SEC-003, ASY-008)** Add an isolated worker-plugin host with a schema-validated RPC
       surface, message limits, deadlines, and termination. **Accept:** plugin code cannot receive host object references
       or permissions outside its worker configuration.
-- [ ] **SEC-005 (P0; deps: TERM-001, TERM-002)** Add a streaming sanitizer for untrusted terminal text with allowlist
+- [x] **SEC-005 (P0; deps: TERM-001, TERM-002)** Add a streaming sanitizer for untrusted terminal text with allowlist
       profiles for SGR, links, cursor movement, and plain text. **Accept:** OSC/DCS/APC injection fixtures cannot change
       title, clipboard, input modes, or graphics under the default profile.
 - [x] **SEC-006 (P1; deps: SEC-001)** Add URL/action policies for schemes, hosts, file paths, and command launch with
