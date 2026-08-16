@@ -379,7 +379,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-009 (P2; deps: THEM-001, TXT-003, TXT-004)** Add named icon/glyph packs with width contracts, ASCII
       fallbacks, and terminal-profile validation. **Accept:** every icon occupies its declared cells under all supported
       width profiles.
-- [ ] **THEM-010 (P1; deps: THEM-001, THEM-002, THEM-003)** Define a versioned JSON theme interchange schema with
+- [x] **THEM-010 (P1; deps: THEM-001, THEM-002, THEM-003)** Define a versioned JSON theme interchange schema with
       migrations and canonical formatting. **Accept:** export/import is stable, unknown required fields fail closed, and
       old manifests migrate with a reviewable report.
 
