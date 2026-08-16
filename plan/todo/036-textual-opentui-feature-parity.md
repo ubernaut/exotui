@@ -646,7 +646,7 @@ Acceptance:
 
 ### T1 - Testing And Visual Regression (P1, Medium)
 
-- [ ] Extend `TerminalAppPilot` with selector/ID clicks, hover, mouse capture, modifiers, double/triple click, frame
+- [x] Extend `TerminalAppPilot` with selector/ID clicks, hover, mouse capture, modifiers, double/triple click, frame
       waits, and tooltip/notification helpers.
 - [ ] Capture styled spans, cursor state, hit regions, layout trees, and renderer stats in addition to plain text.
 - [ ] Add an HTML/SVG visual snapshot diff report and terminal-size/key-sequence test matrix.
@@ -664,6 +664,13 @@ asserting determinism and finite integer boxes, and 25 seeded random mutation se
 move) over a live tree asserting the incremental restyle equals the clean full cascade at every step. Every assertion
 message carries its seed, and the mulberry32 generator makes any failure reproducible from that seed alone. The existing
 generated flex-fixture parity suite (simple vs yoga) covers the cross-solver leg.
+
+Completed the pilot-extension checkbox Aug 16, 2026: `TerminalAppPilot` gained `targets()`/`target(id)`/`findTarget`
+(inspection-backed ID and selector lookup with a known-targets error), `clickTarget`/`hoverTarget` center clicks,
+`hover` (motion-without-press reaching drag handlers), `drag` (press-move-release with interpolated steps and capture
+routing verified outside target bounds), `capturedTarget()`, `doubleClick`/`tripleClick`, `waitFrames`, and
+`waitForText`/`waitForTextGone` tooltip/notification helpers. Modifiers pass through every pointer helper.
+Covered in `tests/testing_app_pilot.test.ts`.
 
 ### T2 - Devtools And Performance (P2, Medium)
 

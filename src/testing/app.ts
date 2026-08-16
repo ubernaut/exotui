@@ -4,7 +4,7 @@ import type { KeyPressEvent, MouseScrollEvent } from "../input_reader/types.ts";
 import type { TuiOptions } from "../tui.ts";
 import type { ConsoleSize, Stdin, Stdout } from "../types.ts";
 import type { Action } from "../app/actions.ts";
-import type { MouseInteractionDispatchResult } from "../app/mouse_bindings.ts";
+import type { MouseInteractionDispatchResult, MouseInteractionInspection } from "../app/mouse_bindings.ts";
 import type { Route } from "../app/router.ts";
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "../app/terminal_app.ts";
 import { createTestKeyPress, createTestMousePress, createTestMouseScroll, type TestKeyPressOptions } from "./input.ts";
@@ -47,6 +47,19 @@ export interface TerminalAppPilotWaitOptions {
 /** Press and release routing results from one pilot click. */
 export interface TerminalAppPilotClickResult {
   press: MouseInteractionDispatchResult;
+  release: MouseInteractionDispatchResult;
+}
+
+/** Options for one pilot drag gesture. */
+export interface TerminalAppPilotDragOptions extends TerminalAppPilotPointerOptions {
+  /** Intermediate motion events between press and release (default 1). */
+  steps?: number;
+}
+
+/** Press, motion, and release routing results from one pilot drag. */
+export interface TerminalAppPilotDragResult {
+  press: MouseInteractionDispatchResult;
+  moves: MouseInteractionDispatchResult[];
   release: MouseInteractionDispatchResult;
 }
 
@@ -117,6 +130,125 @@ export class TerminalAppPilot<TAction extends Action = Action, TRoute extends Ro
     this.app.tui.emit("mouseScroll", event);
     await this.settle();
     return result;
+  }
+
+  /** Returns every registered mouse target's inspection snapshot. */
+  targets(): MouseInteractionInspection[] {
+    this.#assertActive();
+    return this.app.mouse.inspect();
+  }
+
+  /** Resolves one registered mouse target by ID, throwing when absent. */
+  target(id: string): MouseInteractionInspection {
+    const found = this.targets().find((target) => target.id === id);
+    if (!found) {
+      const known = this.targets().map((target) => target.id).join(", ");
+      throw new Error(`Mouse target "${id}" is not registered. Known targets: ${known || "(none)"}.`);
+    }
+    return found;
+  }
+
+  /** Finds the topmost registered mouse target matching a selector predicate. */
+  findTarget(selector: (target: MouseInteractionInspection) => boolean): MouseInteractionInspection | undefined {
+    return this.targets().find(selector);
+  }
+
+  /** Clicks the center of one registered mouse target by ID. */
+  async clickTarget(id: string, options: TerminalAppPilotPointerOptions = {}): Promise<TerminalAppPilotClickResult> {
+    const { column, row, width, height } = this.target(id).bounds;
+    return await this.click(column + Math.floor(width / 2), row + Math.floor(height / 2), options);
+  }
+
+  /** Emits pointer motion without a press — the hover path to drag handlers. */
+  async hover(
+    x: number,
+    y: number,
+    options: Omit<TerminalAppPilotPointerOptions, "button"> = {},
+  ): Promise<MouseInteractionDispatchResult> {
+    this.#assertActive();
+    const event = createTestMousePress({ ...options, x, y, drag: true, release: false });
+    return await this.#dispatchMousePress(event);
+  }
+
+  /** Hovers the center of one registered mouse target by ID. */
+  async hoverTarget(
+    id: string,
+    options: Omit<TerminalAppPilotPointerOptions, "button"> = {},
+  ): Promise<MouseInteractionDispatchResult> {
+    const { column, row, width, height } = this.target(id).bounds;
+    return await this.hover(column + Math.floor(width / 2), row + Math.floor(height / 2), options);
+  }
+
+  /** Runs one complete press-move-release drag gesture with capture routing. */
+  async drag(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options: TerminalAppPilotDragOptions = {},
+  ): Promise<TerminalAppPilotDragResult> {
+    this.#assertActive();
+    const { steps = 1, ...pointer } = options;
+    const press = await this.#dispatchMousePress(createTestMousePress({ ...pointer, x: fromX, y: fromY }));
+    const moves: MouseInteractionDispatchResult[] = [];
+    const count = Math.max(1, Math.floor(steps));
+    for (let step = 1; step <= count; step += 1) {
+      const x = Math.round(fromX + ((toX - fromX) * step) / count);
+      const y = Math.round(fromY + ((toY - fromY) * step) / count);
+      moves.push(await this.#dispatchMousePress(createTestMousePress({ ...pointer, x, y, drag: true })));
+    }
+    const release = await this.#dispatchMousePress(
+      createTestMousePress({ ...pointer, x: toX, y: toY, release: true, button: undefined }),
+    );
+    return { press, moves, release };
+  }
+
+  /** The mouse target currently holding drag capture, if any. */
+  capturedTarget(): string | undefined {
+    this.#assertActive();
+    return this.app.mouse.captured();
+  }
+
+  /** Emits two full clicks at one position, as a double-click gesture. */
+  async doubleClick(
+    x: number,
+    y: number,
+    options: TerminalAppPilotPointerOptions = {},
+  ): Promise<TerminalAppPilotClickResult[]> {
+    return [await this.click(x, y, options), await this.click(x, y, options)];
+  }
+
+  /** Emits three full clicks at one position, as a triple-click gesture. */
+  async tripleClick(
+    x: number,
+    y: number,
+    options: TerminalAppPilotPointerOptions = {},
+  ): Promise<TerminalAppPilotClickResult[]> {
+    return [...await this.doubleClick(x, y, options), await this.click(x, y, options)];
+  }
+
+  /** Settles and renders a fixed number of frames. */
+  async waitFrames(count: number): Promise<void> {
+    this.#assertActive();
+    for (let frame = 0; frame < Math.max(0, Math.floor(count)); frame += 1) {
+      await this.settle();
+    }
+  }
+
+  /** Waits until terminal text appears — tooltip and notification assertions. */
+  async waitForText(text: string, options: TerminalAppPilotWaitOptions = {}): Promise<void> {
+    await this.waitFor(() => this.snapshot().includes(text), {
+      message: `Terminal text "${text}" did not appear.`,
+      ...options,
+    });
+  }
+
+  /** Waits until terminal text disappears — dismissal assertions. */
+  async waitForTextGone(text: string, options: TerminalAppPilotWaitOptions = {}): Promise<void> {
+    await this.waitFor(() => !this.snapshot().includes(text), {
+      message: `Terminal text "${text}" did not disappear.`,
+      ...options,
+    });
   }
 
   /** Emits one bracketed-paste payload and waits for resulting updates. */
