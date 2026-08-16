@@ -11,6 +11,7 @@ export * from "./commands.ts";
 export * from "./data_query_commands.ts";
 export * from "./data_table_commands.ts";
 export * from "./disposables.ts";
+export * from "./form_async_validation.ts";
 export * from "./form_commands.ts";
 export * from "./focus_commands.ts";
 export {
