@@ -34,6 +34,7 @@ export * from "./form_commands.ts";
 export * from "./form_dependencies.ts";
 export * from "./form_checkpoints.ts";
 export * from "./form_drafts.ts";
+export * from "./form_schema.ts";
 export * from "./focus_commands.ts";
 export {
   deleteFormPath,
