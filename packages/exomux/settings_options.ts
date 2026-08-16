@@ -111,7 +111,9 @@ export class ExomuxSettingsOptions {
           });
         })
       );
-      await this.#surface.render();
+      // An unsettled render (pass cap hit) must not commit its signature, so
+      // the next request re-renders instead of freezing a half-applied frame.
+      const settled = await this.#surface.render();
       if (this.#disposed) return;
       const captured = new Map<string, ExomuxOptionCells>();
       specs.forEach((spec, index) => {
@@ -121,7 +123,7 @@ export class ExomuxSettingsOptions {
         captured.set(spec.key, { width: rowWidth, cells });
       });
       this.#cells = captured;
-      this.#signature = signature;
+      if (settled) this.#signature = signature;
     } finally {
       this.#rendering = false;
     }

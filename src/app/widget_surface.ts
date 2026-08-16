@@ -150,8 +150,8 @@ export class WidgetSurface {
    * render) would otherwise be captured half-applied and blitted as a stale
    * ghost that persists until the next interaction.
    */
-  async render(): Promise<void> {
-    for (let pass = 0; pass < 6; pass += 1) {
+  async render(): Promise<boolean> {
+    for (let pass = 0; pass < 8; pass += 1) {
       for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
       this.#canvas.rerenderAll();
       this.#canvas.render();
@@ -159,8 +159,14 @@ export class WidgetSurface {
       // Deferred draws that arrived during this pass queue more update work;
       // an empty queue after a flush means the snapshot is settled.
       for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
-      if (this.#canvas.updateObjects.length === 0) break;
+      if (this.#canvas.updateObjects.length === 0) return true;
     }
+    // The pass cap tripped with work still pending: the buffer may hold a
+    // half-applied frame (a selection bar mid-scroll). Report it so the host
+    // schedules another render instead of freezing the mix until the next
+    // interaction.
+    for (let flush = 0; flush < 4; flush += 1) await Promise.resolve();
+    return this.#canvas.updateObjects.length === 0;
   }
 
   /** One rendered cell in surface-local coordinates, or undefined if untouched. */

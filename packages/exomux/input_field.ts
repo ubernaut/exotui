@@ -183,7 +183,9 @@ export class ExomuxInputField {
     const signature = this.#signature;
     this.#dirty = false;
     try {
-      await this.#surface.render();
+      // An unsettled render (pass cap hit mid-scroll) stays dirty so the
+      // next pass replaces the half-applied frame instead of freezing it.
+      if (!(await this.#surface.render())) this.#dirty = true;
     } finally {
       this.#rendering = false;
     }

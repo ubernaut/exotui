@@ -165,9 +165,9 @@ a write-path component on the real terminal.
 
 > **Landed:** tracking is now a thin sync-glitch band (1–4% of screen height) whose rows displace sharply in 2px
 > scanline pairs, filled with horizontal 24px streak segments and a bright seam on its lower edge — all geometry in
-> fixed pixel units so a resize changes nothing. Static/snow became discrete short-lived 2×2px flecks with density
-> fixed per area; luma noise became 2×2px film grain cross-faded between two hash frames (shimmer, not strobe) with
-> a quadratic dark-area falloff. Color bleeding and jitter/wavy lines are untouched per the user's verdict.
+> fixed pixel units so a resize changes nothing. Static/snow became discrete short-lived 2×2px flecks with density fixed
+> per area; luma noise became 2×2px film grain cross-faded between two hash frames (shimmer, not strobe) with a
+> quadratic dark-area falloff. Color bleeding and jitter/wavy lines are untouched per the user's verdict.
 
 User verdict after the hash fix: **color bleeding and jitter/wavy lines look great**; the other three artifacts do not.
 Tracking errors, static/snow, and luma noise either look unrealistic ("shitty") or break when the screen size changes.
@@ -182,6 +182,19 @@ Make a dedicated pass over those three effects in `generateExomuxShader`'s vhs b
   response curve; confirm it does not shimmer or re-pattern on resize.
 - Test on the user's machine across min→max resize; the Aug 15 screenshot (huge window, woven texture) is the regression
   reference.
+
+## UX-014 — Settings listbox: stale duplicate selection bar after wheel scroll (P1 bug, user, Aug 16) — **fix landed Aug 16 2026, awaiting the user's confirmation**
+
+**Report + screenshot:** after wheel-scrolling the theme/background pickers, the selection bar appears twice — the live
+row plus a stale bar frozen at the old screen position (the screenshot shows "Unit-01 Signal" and "jungle *" each
+rendered at two rows), stuck until the next interaction. **Root cause:** the composited `WidgetSurface.render()`
+convergence loop has a pass cap; when deferred List redraws outlast it (slow machine, rapid scrolls), the loop used to
+exit silently with a half-applied buffer, the host cleared its dirty flag, and nothing ever re-rendered — the mixed
+frame (old window rows + new window rows) froze on screen. Headless repro converges (fast machine), matching the UX-001
+pattern of environment-dependent timing. **Fix:** `render()` now reports settledness; every composited host (pickers,
+options, widgets, input fields, session list, network tree, start menu, background list) stays dirty on an unsettled
+render — or refuses to commit its snapshot signature — so another pass always replaces the mix. The pass cap also rose 6
+→ 8.
 
 ## Verification
 

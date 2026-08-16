@@ -146,7 +146,9 @@ export class ExomuxNetworkTree {
         });
         return [tree];
       });
-      await this.#surface.render();
+      // An unsettled render (pass cap hit mid-scroll) stays dirty so the
+      // next pass replaces the half-applied frame instead of freezing it.
+      if (!(await this.#surface.render())) this.#dirty = true;
       if (this.#disposed) return;
       this.#renderedSignature = signature;
     } finally {
