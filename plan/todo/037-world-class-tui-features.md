@@ -21,13 +21,13 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 79 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-008, TXT-010,
-LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002,
-ASY-004, ASY-007, ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier:
-TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001
-through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001.
-The remaining 121 items stay open below; a checked box means its implementation, focused tests, public export review,
-and relevant repository gates passed.
+As of Aug 16, 2026, 80 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-008, TXT-010,
+LOC-001 through LOC-008, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004,
+ASY-007, ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001
+through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
+HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
+remaining 120 items stay open below; a checked box means its implementation, focused tests, public export review, and
+relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -84,7 +84,7 @@ and relevant repository gates passed.
 - [x] **LOC-006 (P1; deps: LOC-001, LOC-002, LOC-003)** Make locale changes reactive and transactional across messages,
       formatters, layout measurement, and widget state. **Accept:** one locale switch produces one coherent frame and
       preserves focus, selection, and form values.
-- [ ] **LOC-007 (P2; deps: LOC-001, TXT-008, 023:L1)** Allow a subtree to override language, locale, and base direction
+- [x] **LOC-007 (P2; deps: LOC-001, TXT-008, 023:L1)** Allow a subtree to override language, locale, and base direction
       while inheriting unspecified preferences. **Accept:** nested locale fixtures isolate formatting and direction
       without changing sibling layout.
 - [x] **LOC-008 (P1; deps: LOC-002, LOC-003)** Add extraction and validation tooling for message IDs, parameters,
