@@ -35,6 +35,7 @@ export * from "./terminal_shell_workspace.ts";
 export * from "./terminal_session.ts";
 export * from "./terminal_services.ts";
 export * from "./cache_tags.ts";
+export * from "./conflict_resolvers.ts";
 export * from "./infinite_query.ts";
 export * from "./mutations.ts";
 export * from "./offline_queue.ts";
