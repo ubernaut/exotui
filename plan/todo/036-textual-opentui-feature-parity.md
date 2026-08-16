@@ -274,7 +274,13 @@ Acceptance:
 - [x] Add `align-content`, `justify-content: space-evenly`, and baseline alignment where text metrics exist.
 - [x] Add `aspect-ratio`, `box-sizing`, auto margins, percentage padding/margins/gaps, and correct relative-position
       offsets.
-- [ ] Add logical start/end edges and direction/RTL only if terminal ordering and hit testing can share one clear model.
+- [x] Add logical start/end edges and direction/RTL only if terminal ordering and hit testing can share one clear model.
+      Condition evaluated and met August 16, 2026 — the shared model is frozen data (LOGICAL_EDGE_MODEL): cells
+      stay VISUAL, logical edge names (`margin/padding/inset-inline-start/end`) resolve to physical edges at
+      computed-value time from the element's FINAL inherited `direction` (declaration order never matters),
+      document/focus order stays source order, hit testing is untouched because computed rects are physical, and
+      RTL flips only the flex row main axis. Bidi text reordering remains explicitly out of scope for cell
+      ordering.
 - [x] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
 - [x] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
       measured widgets.

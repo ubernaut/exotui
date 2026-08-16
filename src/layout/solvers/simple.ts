@@ -235,7 +235,12 @@ export class SimpleLayoutSolver implements LayoutSolver {
     if (children.length === 0) return [];
 
     const direction = flexAxisDirection(node.style.flexDirection);
-    const reverseMainAxis = flexMainAxisIsReverse(node.style.flexDirection);
+    // RTL flips the ROW main axis only: row starts from the right, and
+    // an authored row-reverse flips back. Columns and order untouched.
+    const rtlFlip = node.style.direction === "rtl" && direction === "row";
+    const reverseMainAxis = rtlFlip
+      ? !flexMainAxisIsReverse(node.style.flexDirection)
+      : flexMainAxisIsReverse(node.style.flexDirection);
     const mainGap = resolveAxisGap(node.style, direction === "row" ? "column" : "row", bounds);
     const crossGap = resolveAxisGap(node.style, direction === "row" ? "row" : "column", bounds);
     const items = new Array<FlexLayoutItem>(children.length);

@@ -200,6 +200,12 @@ export interface ComputedLayoutStyle {
   gridTemplateRowsLineNames?: string[][];
   gridAutoColumns: LayoutLengthValue;
   gridAutoRows: LayoutLengthValue;
+  /** Inline direction; logical edges resolve against it at computed-value time. */
+  direction: "ltr" | "rtl";
+  /** Raw logical-edge declarations, resolved once direction is final. */
+  logicalEdges?: Partial<
+    Record<"margin-start" | "margin-end" | "padding-start" | "padding-end" | "inset-start" | "inset-end", string>
+  >;
   gridAutoFlow: LayoutGridAutoFlow;
   /** Dense backfill: visual only — document and focus order never reorder. */
   gridAutoFlowDense: boolean;
@@ -346,6 +352,7 @@ export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
     gridTemplateAreas: [],
     gridAutoColumns: autoLength(),
     gridAutoRows: autoLength(),
+    direction: "ltr",
     gridAutoFlow: "row",
     gridAutoFlowDense: false,
     gridColumn: {},
@@ -415,6 +422,8 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
         },
       }
       : {}),
+    direction: style.direction,
+    ...(style.logicalEdges ? { logicalEdges: { ...style.logicalEdges } } : {}),
     gridAutoFlowDense: style.gridAutoFlowDense,
     gridAutoColumns: cloneLayoutLength(style.gridAutoColumns),
     gridAutoRows: cloneLayoutLength(style.gridAutoRows),
@@ -654,6 +663,40 @@ export const GRID_DENSE_PLACEMENT_SEMANTICS = Object.freeze({
   guidance: "Use dense only where visual position does not encode meaning; " +
     "readers and keyboard users traverse the source order.",
 });
+
+/**
+ * The one clear model logical edges and RTL share with terminal
+ * ordering and hit testing: cells stay VISUAL, logical edge names
+ * resolve to physical edges at computed-value time from the element's
+ * own final direction, document and focus order remain source order,
+ * and hit testing is untouched because computed rects are physical.
+ * Bidi text reordering is explicitly out of scope for cell ordering.
+ */
+export const LOGICAL_EDGE_MODEL = Object.freeze({
+  cells: "visual, always",
+  resolution: "logical names map to physical edges at computed-value time from the final direction",
+  ordering: "document and focus order are source order; RTL flips flex row axes only",
+  hitTesting: "untouched — computed rects are physical",
+  bidiText: "text reordering is out of scope for cell ordering",
+});
+
+/**
+ * Resolves pending logical-edge declarations against the FINAL
+ * direction — computed-value time, so declaration order never matters.
+ */
+export function resolveLogicalLayoutEdges(style: ComputedLayoutStyle): ComputedLayoutStyle {
+  if (!style.logicalEdges) return style;
+  const rtl = style.direction === "rtl";
+  let next = style;
+  for (const [logical, value] of Object.entries(style.logicalEdges)) {
+    const [box, side] = logical.split("-") as [string, "start" | "end"];
+    const physical = (side === "start") === !rtl ? "left" : "right";
+    const property = box === "inset" ? physical : `${box}-${physical}`;
+    next = applyLayoutDeclaration(next, property, value);
+  }
+  delete next.logicalEdges;
+  return next;
+}
 
 /** One `repeat(auto-fill|auto-fit, …)` template segment. */
 export interface LayoutGridAutoRepeat {
@@ -1158,6 +1201,20 @@ export function applyLayoutDeclaration(
         next.inset = applyBoxEdgeLength(next.inset, edge, parseLayoutLength(resolved, next.inset[edge]));
       }
       break;
+    case "direction":
+      next.direction = parseOneOf(firstCssWord(resolved) ?? resolved, ["ltr", "rtl"], next.direction);
+      break;
+    case "margin-inline-start":
+    case "margin-inline-end":
+    case "padding-inline-start":
+    case "padding-inline-end":
+    case "inset-inline-start":
+    case "inset-inline-end": {
+      const key = normalized.replace("-inline", "") as NonNullable<ComputedLayoutStyle["logicalEdges"]> extends
+        Partial<Record<infer K, string>> ? K : never;
+      next.logicalEdges = { ...next.logicalEdges, [key]: resolved };
+      break;
+    }
     case "margin":
       applyLengthBoxShorthand(next, "margin", resolved, true);
       break;

@@ -4,6 +4,7 @@ import {
   cloneComputedLayoutStyle,
   type ComputedLayoutStyle,
   defaultComputedLayoutStyle,
+  resolveLogicalLayoutEdges,
 } from "../layout/style.ts";
 import { LAYOUT_CSS_PROPERTY_FIELDS } from "../layout/capabilities.ts";
 import { cloneLayoutNode, type LayoutNode } from "../layout/solver.ts";
@@ -169,6 +170,7 @@ function applyNode(
   const style = defaultComputedLayoutStyle();
   style.color = inherited.color;
   style.visibility = inherited.visibility;
+  style.direction = inherited.direction;
   style.variables = { ...inherited.variables };
 
   const defaultMatches: MatchedRule[] = [];
@@ -214,7 +216,9 @@ function applyNode(
   const defaulted = defaultMatches.length > 0
     ? applyMatchedRules(style, defaultMatches, node.id, inherited, options.onDeclaration)
     : style;
-  next.style = applyMatchedRules(defaulted, matches, node.id, inherited, options.onDeclaration);
+  next.style = resolveLogicalLayoutEdges(
+    applyMatchedRules(defaulted, matches, node.id, inherited, options.onDeclaration),
+  );
 
   const childAncestors = appendAncestor(ancestors, node);
   next.children = new Array<LayoutNode>(node.children.length);
@@ -296,7 +300,7 @@ function applyCssInitial(style: ComputedLayoutStyle, property: string): Computed
 }
 
 /** Fields the cascade propagates parent-to-child; `unset` re-inherits these. */
-const INHERITED_LAYOUT_FIELDS: ReadonlySet<string> = new Set(["color", "visibility"]);
+const INHERITED_LAYOUT_FIELDS: ReadonlySet<string> = new Set(["color", "visibility", "direction"]);
 
 /** Browser-style `unset` (repo extension): inherit for inherited fields, initial otherwise. */
 function applyCssUnset(

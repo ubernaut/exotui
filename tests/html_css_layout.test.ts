@@ -675,6 +675,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
     "gridArea",
     "gridTemplateColumnsAutoRepeat",
     "gridTemplateRowsAutoRepeat",
+    "logicalEdges",
     "gridTemplateColumnsLineNames",
     "gridTemplateRowsLineNames",
     "dock",
@@ -698,7 +699,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
   ].sort();
 
   assertEquals([...report.normalizedStyleFields].sort(), expectedFields);
-  assertEquals(report.normalizedStyleFields.length, 70);
+  assertEquals(report.normalizedStyleFields.length, 72);
   assertEquals(report.invariantIds, [
     "cell-rounding",
     "overflow-inspection",
