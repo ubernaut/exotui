@@ -1917,6 +1917,7 @@
     "renderSceneDiffReport",
     "renderSceneHtml",
     "renderSceneSvg",
+    "runAriaPatternSuite",
     "runBackendContract",
     "runDifferential",
     "runModelTest",

@@ -622,7 +622,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **QAL-003 (P0; deps: TXT-001, TXT-002, TXT-003, TXT-004, TXT-006, TXT-008)** Vendor versioned Unicode conformance
       inputs and run segmentation, width tailoring, emoji, line-break, and bidi gates. **Accept:** an update requires an
       explicit expected-diff report by rule/data version.
-- [ ] **QAL-004 (P1; deps: 023:T3, WID-006)** Build reusable ARIA APG keyboard/role/state test suites for
+- [x] **QAL-004 (P1; deps: 023:T3, WID-006)** Build reusable ARIA APG keyboard/role/state test suites for
       browser-rendered composites. **Accept:** each supported pattern declares deviations and passes automated
       accessible-name/focus assertions.
 - [x] **QAL-005 (P1; deps: ASY-001, HIS-003)** Add deterministic fault injection for allocation proxies, storage,
