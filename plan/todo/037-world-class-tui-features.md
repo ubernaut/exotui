@@ -649,7 +649,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-001 (P2; deps: OBS-003)** Add size-classed pools for cell buffers, row spans, and transient frame packets
       with zeroing and ownership assertions. **Accept:** benchmarks show allocation reduction and tests detect
       use-after-release/double-release.
-- [ ] **PER-002 (P1; deps: TXT-002, TXT-003, SEC-009)** Add bounded caches for grapheme segmentation, width, styled-run
+- [x] **PER-002 (P1; deps: TXT-002, TXT-003, SEC-009)** Add bounded caches for grapheme segmentation, width, styled-run
       measurement, and locale formatting keyed by data/profile version. **Accept:** hit/miss/eviction metrics are
       exposed and version changes cannot reuse stale entries.
 - [ ] **PER-003 (P1; deps: OBS-003)** Implement a measured diff planner that chooses cell, span, row, region-clear, or
