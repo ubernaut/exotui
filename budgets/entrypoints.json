@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 427,
-    "bytes": 5035805,
+    "modules": 428,
+    "bytes": 5040414,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -58,7 +58,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4415,
+      "src/app/mod.ts": 4452,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -66,6 +66,7 @@
       "src/app/paste_stream.ts": 6843,
       "src/app/plugin_activation.ts": 4461,
       "src/app/plugin_capabilities.ts": 3611,
+      "src/app/plugin_catalog.ts": 4572,
       "src/app/plugin_compat.ts": 3130,
       "src/app/plugin_dependencies.ts": 7037,
       "src/app/plugin_lifecycle.ts": 5812,
@@ -816,8 +817,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 346,
-    "bytes": 4296224,
+    "modules": 347,
+    "bytes": 4300833,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -874,7 +875,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4415,
+      "src/app/mod.ts": 4452,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -882,6 +883,7 @@
       "src/app/paste_stream.ts": 6843,
       "src/app/plugin_activation.ts": 4461,
       "src/app/plugin_capabilities.ts": 3611,
+      "src/app/plugin_catalog.ts": 4572,
       "src/app/plugin_compat.ts": 3130,
       "src/app/plugin_dependencies.ts": 7037,
       "src/app/plugin_lifecycle.ts": 5812,

@@ -571,7 +571,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-008 (P2; deps: PLG-001, PLG-007)** Add versioned plugin-state migrations and a hot-upgrade protocol that can
       decline and request restart. **Accept:** migration runs before activation, retains a backup, and failure restores
       the prior plugin/state pair.
-- [ ] **PLG-009 (P2; deps: PLG-001, SEC-010, PKG-009)** Consume signed catalog metadata with package digests, provenance
+- [x] **PLG-009 (P2; deps: PLG-001, SEC-010, PKG-009)** Consume signed catalog metadata with package digests, provenance
       links, revocations, and offline snapshots. **Accept:** catalog compromise cannot substitute bytes without an
       integrity failure and no install is automatic.
 - [x] **PLG-010 (P1; deps: PLG-001, PLG-005, QAL-001)** Ship a headless plugin test host with fake capabilities,
