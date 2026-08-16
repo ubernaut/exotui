@@ -242,8 +242,24 @@ preset's converted-JS frame equations (the A/B harness already produces them via
 for N frames and diff every variable per frame against our EEL interpreter's scope for the same audio script. Any
 drift in the variables feeding comp uniforms (gamma, echo, q-vars) localizes the decay without touching shaders.
 
+### Aug 16 2026: the equation-diff instrument, built and validated
+
+`scripts/diff_butterchurn_equations.ts` runs a preset's frame equations in REAL butterchurn (headless Chromium, the
+real presetEquationRunner) and in our EEL interpreter under identical silence at 30 fps, and diffs every watched
+variable at checkpoints. Two probe bugs were flushed while building it (our `time` is seconds like the field passes;
+per-pixel programs legitimately overwrite `rot` per vertex, so our side now snapshots the frame scope PRE-pixel via
+the new `preset.debugWatch()/debugFrameValues()` hook, matching real's mdVSFrame semantics).
+
+**Validated on the pack path: our EEL engine matches real butterchurn on every watched variable for
+Goody - The Wild Vort** (largest drift `time` 0.132 — a constant phase offset from render pacing). The earlier Ego
+wave_r discrepancy was the INJECTED path: real butterchurn silently no-ops a converted preset whose equations fail
+to load and sits on blank-preset defaults (wave_r 1.0), so injected-preset diffs need load-error surfacing in the
+page before they can be trusted. Ego's comp-decay investigation continues with that fix as the next step; the
+equation engine itself is now positively vindicated for the pack-covered fleet.
+
 ## Verification
 
+- `scripts/diff_butterchurn_equations.ts` — per-variable frame-equation diff, real engine vs ours, under silence.
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
   per-term ablation matrix; the decisive instrument (needs network + a Chromium).
 - `scripts/diag_butterchurn_gap.ts` — the CPU-vs-GPU bucketing above; rerun to measure any further fix.

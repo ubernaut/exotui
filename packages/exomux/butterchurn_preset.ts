@@ -350,6 +350,8 @@ export class ExomuxButterchurnPreset {
   readonly meshHeight: number;
 
   readonly #scope: EelScope;
+  #debugWatch?: string[];
+  #debugFrameValues?: Record<string, number>;
   readonly #frameProgram: EelProgram | undefined;
   readonly #pixelProgram: EelProgram | undefined;
   /** Slot/value pairs restored before each frame: base values, then q inits. */
@@ -448,6 +450,16 @@ export class ExomuxButterchurnPreset {
     return this.#scope.get(name);
   }
 
+  /** Arms the post-frame-equations snapshot for the named variables. */
+  debugWatch(names: readonly string[]): void {
+    this.#debugWatch = [...names];
+  }
+
+  /** The armed snapshot from the last advance, pre-pixel-program. */
+  debugFrameValues(): Readonly<Record<string, number>> | undefined {
+    return this.#debugFrameValues;
+  }
+
   /**
    * Sets the render aspect. `width` and `height` are in cells; terminal cells
    * are about twice as tall as they are wide, which is folded in here so a
@@ -488,6 +500,15 @@ export class ExomuxButterchurnPreset {
 
     this.#frameProgram?.run();
     this.#readValues();
+    // Frame-scope snapshot for diagnostics: the per-pixel program below
+    // legitimately overwrites built-ins like `rot` per mesh vertex, so a
+    // faithful comparison against real butterchurn's mdVSFrame must read
+    // the values HERE, after the frame equations and before the mesh.
+    if (this.#debugWatch) {
+      const snapshot: Record<string, number> = {};
+      for (const name of this.#debugWatch) snapshot[name] = this.#scope.get(name);
+      this.#debugFrameValues = snapshot;
+    }
     this.#buildMesh(time);
     this.#buildWave(audio, time);
     this.#buildPrims(audio);
