@@ -33,6 +33,7 @@ export * from "./form_validation_timing.ts";
 export * from "./form_commands.ts";
 export * from "./form_dependencies.ts";
 export * from "./form_checkpoints.ts";
+export * from "./drag_drop.ts";
 export * from "./gestures.ts";
 export * from "./form_drafts.ts";
 export * from "./form_schema.ts";
