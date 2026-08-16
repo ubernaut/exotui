@@ -588,10 +588,13 @@ Acceptance:
 
 ### V1 - Close High-Value Widget And Content Gaps (P2, Large)
 
-- [ ] Audit the existing `ScrollArea` and terminal scrollback controllers against OpenTUI's `ScrollBox` before adding a
+- [x] Audit the existing `ScrollArea` and terminal scrollback controllers against OpenTUI's `ScrollBox` before adding a
       new abstraction; close only concrete gaps in bidirectional scrolling, sticky-edge behavior, viewport culling,
       configurable acceleration, `scrollChildIntoView`, scrollbar integration, nested input routing, and large-content
-      behavior.
+      behavior. Audited August 16, 2026: bidirectional scrolling, clamping, and scrollbar thumb/glyph/pointer
+      integration already existed; `scroll_box_parity.ts` closes exactly the gaps — StickyEdgeScroll (pinned-edge
+      follow that a user scroll unpins), cullToViewport, WheelAcceleration (caller clock), scrollChildIntoView with
+      margins, and routeNestedScroll (inner consumes to its edge, leftover chains unless contained).
 - [ ] Add a worker-backed Tree-sitter service and reusable code view with streaming highlighting, selection,
       concealment, diagnostics, and horizontal/vertical scrolling.
 - [ ] Build line-number/sign gutters and unified/split diff views with synchronized scrolling on that code-view core.

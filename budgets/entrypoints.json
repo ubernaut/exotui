@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 439,
-    "bytes": 5089990,
+    "modules": 440,
+    "bytes": 5096410,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -173,12 +173,13 @@
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
-      "src/components/mod.ts": 1489,
+      "src/components/mod.ts": 1529,
       "src/components/modal.ts": 14435,
       "src/components/pad.ts": 10716,
       "src/components/progressbar.ts": 13822,
       "src/components/radio_group.ts": 9307,
       "src/components/scroll_area.ts": 11950,
+      "src/components/scroll_box_parity.ts": 6380,
       "src/components/slider.ts": 11578,
       "src/components/sparkline.ts": 2149,
       "src/components/spinner.ts": 3258,
@@ -831,8 +832,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 356,
-    "bytes": 4346105,
+    "modules": 357,
+    "bytes": 4352525,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -1005,12 +1006,13 @@
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
-      "src/components/mod.ts": 1489,
+      "src/components/mod.ts": 1529,
       "src/components/modal.ts": 14435,
       "src/components/pad.ts": 10716,
       "src/components/progressbar.ts": 13822,
       "src/components/radio_group.ts": 9307,
       "src/components/scroll_area.ts": 11950,
+      "src/components/scroll_box_parity.ts": 6380,
       "src/components/slider.ts": 11578,
       "src/components/sparkline.ts": 2149,
       "src/components/spinner.ts": 3258,
