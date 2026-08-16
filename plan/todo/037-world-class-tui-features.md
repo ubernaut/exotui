@@ -484,7 +484,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **SEC-001 (P0; deps: —)** Define a runtime permission manifest for read, write, network, environment, subprocess,
       FFI, clipboard, notifications, and remote-session operations. **Accept:** every adapter can report
       required/optional grants before activation.
-- [ ] **SEC-002 (P1; deps: SEC-001)** Add a Deno permission adapter and external permission-broker adapter with deny
+- [x] **SEC-002 (P1; deps: SEC-001)** Add a Deno permission adapter and external permission-broker adapter with deny
       precedence and fail-closed disconnect behavior. **Accept:** permission tests cover prompt, granted, denied,
       revoked, and broker failure states.
 - [ ] **SEC-003 (P0; deps: SEC-001, 023:K1)** Give plugins per-instance capability grants instead of inheriting the host
