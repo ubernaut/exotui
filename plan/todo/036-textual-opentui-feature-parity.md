@@ -435,7 +435,7 @@ defaults, and the separate `inherit`/`unset` evaluation.
 
 - [x] Add mount, remove, move, attribute/class mutation, query/filter, and bounded recompose operations.
 - [x] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
-- [ ] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
+- [x] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
 - [ ] Preserve hydrated widget identity and state when unrelated markup branches change.
 - [ ] Add incremental style matching/layout caching and inspection of dirty reasons.
 - [ ] Integrate live `<scroll-area>`, `<modal>`, `<window>`, tooltips, menus, and dropdowns with existing controllers.
@@ -455,7 +455,11 @@ apply fully or reject without touching the tree. `LiveMarkupDispatcher` (second 
 `src/markup/live_dispatch.ts`) adds selector-routed dispatch: capture root-down, target (both listener kinds), bubble
 back up, registration-order invocation per node, stopPropagation finishing the current node before halting the walk,
 preventDefault reported in the dispatch result, and a live ancestor-path resolution so tree mutations between dispatches
-need no dispatcher bookkeeping.
+need no dispatcher bookkeeping. `LiveMarkupInvalidator` (third slice, same day, `src/markup/live_invalidation.ts`)
+connects change to recomputation: signal bindings mark their node dirty on every dependency change after the tracking
+run, the tree's mutation journal maps structural/attribute/text mutations to tree/style/layout reasons at the right
+nodes, and `flush()` coalesces all marks to the nearest dirty ancestors (descendants subsumed, reasons merged in stable
+order) so consumers re-process each affected subtree exactly once.
 
 ### W1 - Screen Stacks And Modal Lifecycle (P1, Medium)
 
