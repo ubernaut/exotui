@@ -38,6 +38,7 @@ export * from "./cache_tags.ts";
 export * from "./conflict_resolvers.ts";
 export * from "./infinite_query.ts";
 export * from "./mutations.ts";
+export * from "./core_metrics.ts";
 export * from "./observability.ts";
 export * from "./offline_queue.ts";
 export * from "./priority_scheduler.ts";
