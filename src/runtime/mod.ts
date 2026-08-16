@@ -37,6 +37,7 @@ export * from "./terminal_services.ts";
 export * from "./cache_tags.ts";
 export * from "./infinite_query.ts";
 export * from "./mutations.ts";
+export * from "./offline_queue.ts";
 export * from "./rate_limiter.ts";
 export * from "./retry_policy.ts";
 export * from "./stream_resource.ts";
