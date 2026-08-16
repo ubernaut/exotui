@@ -28,6 +28,7 @@ export * from "./route_prefetch.ts";
 export * from "./action_policies.ts";
 export * from "./calendar.ts";
 export * from "./content_integrity.ts";
+export * from "./time_picker.ts";
 export * from "./token_editor.ts";
 export * from "./transfer_list.ts";
 export * from "./background_jobs.ts";
