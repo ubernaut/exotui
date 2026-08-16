@@ -231,6 +231,17 @@ comp 0.35 (was oscillating 0.13–0.15); fleet buckets unchanged (396/5/14/5 —
 for Ego: its comp warps sampling coordinates through `sampler_noise_hq` — verify our generated noise textures match
 real butterchurn's (amplitude, distribution, smoothing, and the hq/lq variants' statistics).
 
+### Aug 16 2026: noise generation audited — matches; Ego needs the equation-diff instrument
+
+Our noise fill matches real butterchurn byte-for-byte in expectation: `random()·range + range/2` with the Uint8Array
+wrap idiosyncrasy presets were tuned against (zoom>1 variants land on [108,255]∪[0,68]), and the same Catmull-Rom
+lattice along both axes. The noise-texture hypothesis for Ego's comp decay is eliminated at the generation level.
+
+Next discriminator for the Ego class, buildable from parts that now exist: **equation-divergence diffing** — run the
+preset's converted-JS frame equations (the A/B harness already produces them via `convertPresetEquations`) in node
+for N frames and diff every variable per frame against our EEL interpreter's scope for the same audio script. Any
+drift in the variables feeding comp uniforms (gamma, echo, q-vars) localizes the decay without touching shaders.
+
 ## Verification
 
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
