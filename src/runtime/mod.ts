@@ -46,6 +46,7 @@ export * from "./offline_queue.ts";
 export * from "./priority_scheduler.ts";
 export * from "./rate_limiter.ts";
 export * from "./retry_policy.ts";
+export * from "./signal_exporters.ts";
 export * from "./signal_redaction.ts";
 export * from "./span_instrumentation.ts";
 export * from "./stream_resource.ts";
