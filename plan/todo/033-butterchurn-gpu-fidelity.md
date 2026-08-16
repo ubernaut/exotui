@@ -288,9 +288,17 @@ Per-preset classification of the remaining gap, every entry instrument-verified:
   base, weekly; the converted dir's 1,754 carry GLSL and the harness already uses it — Ego is not among them).
 - `Mandelverse`, `Hyperkaleidoscope Glow 2` — the two remaining 0.00% presets, not yet probed individually.
 
-The comp-shader class (Ego, Rainbox, infused) is the systematic remainder: loops healthy, comps darken where real
-comps sustain or saturate. Next probe for the class: stage-diff the translated comp WGSL for Rainbox (its GLSL IS
-in the converted dir, so a real-shader A/B reference exists for it).
+The comp-shader class (Ego, Rainbox, infused) is the systematic remainder — and the Rainbox stage-diff REFRAMED
+it: our comp translation is exact (`ret = main³`, byte-for-byte against the converted GLSL), and the cube explains
+the whole gap arithmetically — our loop equilibrates at 0.46 (0.46³ ≈ 0.10, dim cells) where real butterchurn's
+loop must sit near 1.0 (1.0³ = full white, as measured). The class is really a LOOP-EQUILIBRIUM-LEVEL divergence:
+our feedback loops run systematically dimmer than real butterchurn's for warp shaders built on blur DIFFERENCES
+(Rainbox warps on a blur2 edge field; Ego's comp differences blur1−blur3). Candidate mechanisms, in probe order:
+(1) blur sharpness — our blur targets are render/2^(level+1) of a 512-wide target; a softer blur weakens every
+difference field and lowers loop gain; (2) the 8-bit loop store quantizing away small per-frame gains near
+equilibrium; (3) geometry injection alpha. Next probe: read real butterchurn's internal main texture level in-page
+(the unminified build exposes renderer internals; bind its prev-frame texture to an FBO and readPixels) to get the
+real loop level for Rainbox, then A/B our blur kernel sharpness against theirs at equal resolution.
 
 ## Verification
 
