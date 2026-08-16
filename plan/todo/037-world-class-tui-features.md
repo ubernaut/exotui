@@ -357,7 +357,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-001 (P1; deps: —)** Replace the closed semantic-token union with a typed registry that retains the seven
       existing tokens as a compatibility profile. **Accept:** packages can declare namespaced tokens without weakening
       type checking or changing old themes.
-- [ ] **THEM-002 (P1; deps: THEM-001)** Let components publish required/optional token schemas, defaults, and state
+- [x] **THEM-002 (P1; deps: THEM-001)** Let components publish required/optional token schemas, defaults, and state
       coverage. **Accept:** theme validation identifies every missing token with component and state provenance.
 - [ ] **THEM-003 (P2; deps: THEM-001)** Add bounded computed-token expressions for reference, mix, alpha,
       lighten/darken, and conditional terminal color depth. **Accept:** cycles and unsupported functions fail during
