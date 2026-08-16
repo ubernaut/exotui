@@ -47,6 +47,10 @@ const MAX_RENDER_HEIGHT = 512;
  * vertically is the faithful shape.
  */
 const WAVE_RIBBON_CELLS = 1.5;
+/** Custom-wave/border line prims expand to ribbons this many cells tall. */
+const PRIM_RIBBON_CELLS = 1.5;
+/** Wave dots expand to quads this many cells across. */
+const PRIM_DOT_CELLS = 1.0;
 /**
  * Presets whose compiled pipelines are kept.
  *
@@ -109,7 +113,10 @@ const UNIFORM_SLOTS = {
   biases: 27, // bias1, bias2, bias3, unused
   randFrame: 28,
   randPreset: 29,
-  hueShader: 30,
+  hueShader: 30, // corner 0; corners 1-3 follow in the next three slots
+  hueShaderB: 31,
+  hueShaderC: 32,
+  hueShaderD: 33,
 } as const;
 
 /** Maps a template sampler name to the texture it reads and how it filters. */
@@ -218,7 +225,16 @@ fn shade(uv: vec2<f32>, uv_orig: vec2<f32>, vColor: vec4<f32>) -> vec3<f32> {
   let bias3 = ${s(UNIFORM_SLOTS.biases, "z")};
   let rand_frame = u.data[${UNIFORM_SLOTS.randFrame}];
   let rand_preset = u.data[${UNIFORM_SLOTS.randPreset}];
-  let hue_shader = u.data[${UNIFORM_SLOTS.hueShader}].xyz;
+  // Real butterchurn interpolates hue_shader across the comp quad's four
+  // animated corners (generateHueBase + per-vertex vColor); the uniform
+  // was a hardcoded (1,1,1) here, which pow(hue_shader, x) collapses to 1
+  // and with it every preset that mixes on that term (Hyperkaleidoscope's
+  // comp picked its degenerate branch and went black).
+  let hue_shader = mix(
+    mix(u.data[${UNIFORM_SLOTS.hueShaderD}].xyz, u.data[${UNIFORM_SLOTS.hueShaderC}].xyz, uv.x),
+    mix(u.data[${UNIFORM_SLOTS.hueShaderB}].xyz, u.data[${UNIFORM_SLOTS.hueShader}].xyz, uv.x),
+    uv.y,
+  );
   var ret: vec3<f32> = vec3<f32>(0.0);
   let rad = length(uv_orig - 0.5);
   let ang = atan2(uv_orig.x - 0.5, uv_orig.y - 0.5);
@@ -1323,7 +1339,26 @@ export class ExomuxButterchurnGpu {
       fractional(Math.sin(seed + 3.7) * 31415.926),
     );
     put(UNIFORM_SLOTS.randPreset, 0.31, 0.57, 0.73, 0.19);
-    put(UNIFORM_SLOTS.hueShader, 1, 1, 1);
+    // generateHueBase, verbatim: four slowly-cycling normalized corner
+    // colours; rand_start comes from the same fixed per-preset seeds as
+    // rand_preset above.
+    const hueSlots = [
+      UNIFORM_SLOTS.hueShader,
+      UNIFORM_SLOTS.hueShaderB,
+      UNIFORM_SLOTS.hueShaderC,
+      UNIFORM_SLOTS.hueShaderD,
+    ] as const;
+    const randStart = [0.31, 0.57, 0.73, 0.19] as const;
+    for (let corner = 0; corner < 4; corner += 1) {
+      let red = 0.6 + 0.3 * Math.sin(frame.time * 30.0 * 0.0143 + 3 + corner * 21 + randStart[3]);
+      let green = 0.6 + 0.3 * Math.sin(frame.time * 30.0 * 0.0107 + 1 + corner * 13 + randStart[1]);
+      let blue = 0.6 + 0.3 * Math.sin(frame.time * 30.0 * 0.0129 + 6 + corner * 9 + randStart[2]);
+      const maxShade = Math.max(red, green, blue);
+      red = 0.5 + 0.5 * (red / maxShade);
+      green = 0.5 + 0.5 * (green / maxShade);
+      blue = 0.5 + 0.5 * (blue / maxShade);
+      put(hueSlots[corner]!, red, green, blue);
+    }
     this.#device.queue.writeBuffer(this.#uniform, 0, data);
   }
 
@@ -1540,15 +1575,106 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
     source: GPUTexture,
     prims: readonly ExomuxButterchurnPrim[],
   ): void {
-    let total = 0;
-    for (const prim of prims) total += prim.vertexCount;
-    if (total === 0) return;
-    const floats = total * 8;
+    // Lines and dots must survive the box resolve down to cell size the
+    // same way the basic waveform does: a one-pixel line-strip at the
+    // render resolution averages to almost nothing per cell (the exact
+    // mechanism that blacked wave-driven presets — suksma's troll is
+    // 100% custom-wave energy in real butterchurn), while real
+    // butterchurn's canvas IS its output and keeps the pixel. Each line
+    // prim expands to a triangle-strip ribbon ~PRIM_RIBBON_CELLS tall
+    // and each dot to a quad, both sized in CELLS so the ink deposited
+    // per cell matches the CPU renderer's intent at any resolution.
+    const ribbonHalfPixels = (PRIM_RIBBON_CELLS / 2) * (this.#renderHeight / Math.max(1, this.#height));
+    const dotHalfPixels = (PRIM_DOT_CELLS / 2) * (this.#renderHeight / Math.max(1, this.#height));
+    const items: { topology: GPUPrimitiveTopology; additive: boolean; textured: boolean; count: number }[] = [];
+    let floats = 0;
+    for (const prim of prims) {
+      if (prim.kind === "line" && prim.vertexCount >= 2) floats += prim.vertexCount * 2 * 8;
+      else if (prim.kind === "dots") floats += prim.vertexCount * 6 * 8;
+      else floats += prim.vertexCount * 8;
+    }
+    if (floats === 0) return;
     if (this.#primData.length < floats) this.#primData = new Float32Array(floats);
+    const data = this.#primData;
+    const ndcX = (pixels: number): number => pixels * 2 / Math.max(1, this.#renderWidth);
+    const ndcY = (pixels: number): number => pixels * 2 / Math.max(1, this.#renderHeight);
     let cursor = 0;
     for (const prim of prims) {
-      this.#primData.set(prim.vertices.subarray(0, prim.vertexCount * 8), cursor);
+      const source8 = prim.vertices;
+      if (prim.kind === "line" && prim.vertexCount >= 2) {
+        for (let index = 0; index < prim.vertexCount; index += 1) {
+          const at = index * 8;
+          const prev = Math.max(0, index - 1) * 8;
+          const next = Math.min(prim.vertexCount - 1, index + 1) * 8;
+          // Direction in PIXEL space so thickness is isotropic on screen.
+          const dirX = (source8[next]! - source8[prev]!) * this.#renderWidth;
+          const dirY = (source8[next + 1]! - source8[prev + 1]!) * this.#renderHeight;
+          const length = Math.hypot(dirX, dirY) || 1;
+          const normalX = -dirY / length;
+          const normalY = dirX / length;
+          const offsetX = ndcX(normalX * ribbonHalfPixels);
+          const offsetY = ndcY(normalY * ribbonHalfPixels);
+          for (const side of [1, -1]) {
+            data[cursor] = source8[at]! + offsetX * side;
+            data[cursor + 1] = source8[at + 1]! + offsetY * side;
+            data[cursor + 2] = source8[at + 2]!;
+            data[cursor + 3] = source8[at + 3]!;
+            data[cursor + 4] = source8[at + 4]!;
+            data[cursor + 5] = source8[at + 5]!;
+            data[cursor + 6] = source8[at + 6]!;
+            data[cursor + 7] = source8[at + 7]!;
+            cursor += 8;
+          }
+        }
+        items.push({
+          topology: "triangle-strip",
+          additive: prim.additive,
+          textured: prim.textured,
+          count: prim.vertexCount * 2,
+        });
+        continue;
+      }
+      if (prim.kind === "dots") {
+        const halfX = ndcX(dotHalfPixels);
+        const halfY = ndcY(dotHalfPixels);
+        for (let index = 0; index < prim.vertexCount; index += 1) {
+          const at = index * 8;
+          const corners = [
+            [-halfX, -halfY],
+            [halfX, -halfY],
+            [-halfX, halfY],
+            [halfX, -halfY],
+            [halfX, halfY],
+            [-halfX, halfY],
+          ] as const;
+          for (const [cornerX, cornerY] of corners) {
+            data[cursor] = source8[at]! + cornerX;
+            data[cursor + 1] = source8[at + 1]! + cornerY;
+            data[cursor + 2] = source8[at + 2]!;
+            data[cursor + 3] = source8[at + 3]!;
+            data[cursor + 4] = source8[at + 4]!;
+            data[cursor + 5] = source8[at + 5]!;
+            data[cursor + 6] = source8[at + 6]!;
+            data[cursor + 7] = source8[at + 7]!;
+            cursor += 8;
+          }
+        }
+        items.push({
+          topology: "triangle-list",
+          additive: prim.additive,
+          textured: prim.textured,
+          count: prim.vertexCount * 6,
+        });
+        continue;
+      }
+      data.set(source8.subarray(0, prim.vertexCount * 8), cursor);
       cursor += prim.vertexCount * 8;
+      items.push({
+        topology: prim.kind === "line" ? "line-strip" : "triangle-list",
+        additive: prim.additive,
+        textured: prim.textured,
+        count: prim.vertexCount,
+      });
     }
     const bytes = floats * 4;
     if (!this.#primBuffer || this.#primBuffer.size < bytes) {
@@ -1569,15 +1695,10 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
     pass.setBindGroup(0, group);
     pass.setVertexBuffer(0, this.#primBuffer);
     let first = 0;
-    for (const prim of prims) {
-      const topology: GPUPrimitiveTopology = prim.kind === "dots"
-        ? "point-list"
-        : prim.kind === "line"
-        ? "line-strip"
-        : "triangle-list";
-      pass.setPipeline(this.#primPipeline(topology, prim.additive, prim.textured));
-      pass.draw(prim.vertexCount, 1, first);
-      first += prim.vertexCount;
+    for (const item of items) {
+      pass.setPipeline(this.#primPipeline(item.topology, item.additive, item.textured));
+      pass.draw(item.count, 1, first);
+      first += item.count;
     }
     pass.end();
   }
