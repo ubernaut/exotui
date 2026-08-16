@@ -18,6 +18,7 @@ export * from "./src/theme_tokens.ts";
 export * from "./src/theme_token_schemas.ts";
 export * from "./src/theme_expressions.ts";
 export * from "./src/theme_contrast.ts";
+export * from "./src/theme_oklch.ts";
 export * from "./src/theme_binding.ts";
 export * from "./src/theme_engine_cache.ts";
 export * from "./src/theme_engine_factory.ts";
