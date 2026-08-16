@@ -290,7 +290,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### High-Value Productivity Widgets
 
-- [ ] **WID-001 (P1; deps: LOC-001, LOC-004, INP-006)** Add calendar and date-range controllers with locale week rules,
+- [x] **WID-001 (P1; deps: LOC-001, LOC-004, INP-006)** Add calendar and date-range controllers with locale week rules,
       min/max dates, disabled dates, and keyboard range selection. **Accept:** daylight-saving boundaries cannot change
       the selected civil date.
 - [ ] **WID-002 (P2; deps: LOC-004, FRM-001)** Add time, duration, and time-zone pickers with step constraints and
