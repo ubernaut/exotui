@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 38 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
-INP-009, FRM-003, FRM-005, and FRM-006 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001
-through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001,
-ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 162 items stay open below; a checked
-box means its implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 39 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
+INP-009, FRM-003, FRM-005, FRM-006, and FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
+DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
+ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 161 items stay open below; a
+checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -180,7 +180,7 @@ box means its implementation, focused tests, public export review, and relevant 
 - [x] **FRM-006 (P1; deps: FRM-003, ASY-001)** Add a submission state machine covering validating, submitting,
       succeeded, failed, cancelled, and resubmitting with double-submit prevention. **Accept:** every transition is
       inspectable and cancellation restores a submittable state.
-- [ ] **FRM-007 (P1; deps: FRM-001, FRM-006)** Map structured server errors to fields, groups, and form-level summaries
+- [x] **FRM-007 (P1; deps: FRM-001, FRM-006)** Map structured server errors to fields, groups, and form-level summaries
       while preserving unknown errors. **Accept:** focus-next-error visits visible enabled fields in deterministic order
       and keeps a form-level fallback.
 - [ ] **FRM-008 (P2; deps: FRM-001, DAT-002, SEC-008)** Add versioned draft autosave with debounce, migrations,
