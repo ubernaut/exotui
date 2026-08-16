@@ -21,13 +21,13 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 104 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001
+As of Aug 16, 2026, 105 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001
 through LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
 ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, HIS-010, AUT-001, AUT-003, AUT-004, and
 AUT-007. Earlier: TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-007, SEC-008, and REM-001. The remaining 96 items stay open below; a checked box means its implementation,
-focused tests, public export review, and relevant repository gates passed.
+SEC-001, SEC-006 through SEC-008, and REM-001. The remaining 95 items stay open below; a checked box means its
+implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -496,7 +496,7 @@ focused tests, public export review, and relevant repository gates passed.
 - [ ] **SEC-005 (P0; deps: TERM-001, TERM-002)** Add a streaming sanitizer for untrusted terminal text with allowlist
       profiles for SGR, links, cursor movement, and plain text. **Accept:** OSC/DCS/APC injection fixtures cannot change
       title, clipboard, input modes, or graphics under the default profile.
-- [ ] **SEC-006 (P1; deps: SEC-001)** Add URL/action policies for schemes, hosts, file paths, and command launch with
+- [x] **SEC-006 (P1; deps: SEC-001)** Add URL/action policies for schemes, hosts, file paths, and command launch with
       visible confirmation of normalized targets. **Accept:** confusable or control-bearing targets are rejected before
       any host API call.
 - [x] **SEC-007 (P1; deps: TXT-001, TXT-009)** Expose UTS #39 confusable skeletons, mixed-script restriction levels, and
