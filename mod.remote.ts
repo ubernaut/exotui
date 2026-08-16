@@ -4,6 +4,7 @@ export * from "./src/remote/handshake.ts";
 export * from "./src/remote/session_auth.ts";
 export * from "./src/remote/frame_codec.ts";
 export * from "./src/remote/frame_flow.ts";
+export * from "./src/remote/session_resume.ts";
 export * from "./src/remote/input_sequencing.ts";
 export * from "./src/remote/transport_policy.ts";
 export type { ConsoleSize } from "./src/types.ts";

@@ -529,7 +529,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-005 (P0; deps: REM-004, ASY-005)** Add frame sequence numbers, acknowledgements, bounded send windows, and
       slow-client backpressure. **Accept:** a stalled client cannot grow host memory and resumes from the newest valid
       base.
-- [ ] **REM-006 (P1; deps: REM-004, REM-005, HIS-007)** Add reconnect tokens and bounded session resume from a
+- [x] **REM-006 (P1; deps: REM-004, REM-005, HIS-007)** Add reconnect tokens and bounded session resume from a
       checkpoint plus frame/input sequence. **Accept:** expired or replayed tokens fail, and successful resume neither
       duplicates input nor loses acknowledged output.
 - [x] **REM-007 (P0; deps: REM-001, INP-001)** Add input sequence acknowledgement, deduplication, gap detection, and
