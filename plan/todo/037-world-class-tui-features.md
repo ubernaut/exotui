@@ -21,10 +21,10 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 82 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
+As of Aug 16, 2026, 83 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
 LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
-ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through
-TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
+ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, HIS-010, and AUT-001. Earlier: TXT-001
+through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
 HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
 remaining 120 items stay open below; a checked box means its implementation, focused tests, public export review, and
 relevant repository gates passed.
@@ -385,7 +385,7 @@ relevant repository gates passed.
 
 ### Typed Commands And Safe Automation
 
-- [ ] **AUT-001 (P1; deps: —)** Extend commands with generic input, progress, result, and error types plus runtime
+- [x] **AUT-001 (P1; deps: —)** Extend commands with generic input, progress, result, and error types plus runtime
       descriptors for tooling. **Accept:** registry inspection exposes descriptors and invocation rejects incompatible
       input before executing.
 - [ ] **AUT-002 (P1; deps: AUT-001, FRM-010)** Let commands declare JSON-Schema-compatible argument definitions and
