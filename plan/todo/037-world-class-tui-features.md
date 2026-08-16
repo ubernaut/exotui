@@ -376,7 +376,7 @@ implementation, focused tests, public export review, and relevant repository gat
       mutating application state.
 - [x] **THEM-008 (P2; deps: THEM-001, 023:C1)** Add motion tokens for durations, easing, delay, and reduced-motion
       substitution. **Accept:** reduced motion resolves every nonessential transition to its declared static behavior.
-- [ ] **THEM-009 (P2; deps: THEM-001, TXT-003, TXT-004)** Add named icon/glyph packs with width contracts, ASCII
+- [x] **THEM-009 (P2; deps: THEM-001, TXT-003, TXT-004)** Add named icon/glyph packs with width contracts, ASCII
       fallbacks, and terminal-profile validation. **Accept:** every icon occupies its declared cells under all supported
       width profiles.
 - [ ] **THEM-010 (P1; deps: THEM-001, THEM-002, THEM-003)** Define a versioned JSON theme interchange schema with
