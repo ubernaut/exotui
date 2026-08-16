@@ -646,7 +646,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Measured Performance Architecture
 
-- [ ] **PER-001 (P2; deps: OBS-003)** Add size-classed pools for cell buffers, row spans, and transient frame packets
+- [x] **PER-001 (P2; deps: OBS-003)** Add size-classed pools for cell buffers, row spans, and transient frame packets
       with zeroing and ownership assertions. **Accept:** benchmarks show allocation reduction and tests detect
       use-after-release/double-release.
 - [ ] **PER-002 (P1; deps: TXT-002, TXT-003, SEC-009)** Add bounded caches for grapheme segmentation, width, styled-run
