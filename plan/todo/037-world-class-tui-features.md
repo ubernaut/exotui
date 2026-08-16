@@ -21,7 +21,7 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 75 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
+As of Aug 16, 2026, 76 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
 LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
 ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through
 TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
@@ -438,7 +438,7 @@ relevant repository gates passed.
 - [x] **ASY-007 (P2; deps: ASY-001)** Add scheduler priority aging and optional priority inheritance for tasks blocking
       higher-priority dependants. **Accept:** low-priority work cannot starve and inheritance is removed when the
       dependency settles.
-- [ ] **ASY-008 (P1; deps: ASY-001, ASY-005)** Version the worker request protocol and support transfer lists, worker
+- [x] **ASY-008 (P1; deps: ASY-001, ASY-005)** Version the worker request protocol and support transfer lists, worker
       affinity, load-aware routing, and per-task deadlines. **Accept:** incompatible workers are rejected before
       dispatch and transferred buffers are not copied.
 - [x] **ASY-009 (P2; deps: ASY-001)** Add task-local immutable context for trace IDs, locale, permissions, and request

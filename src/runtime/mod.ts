@@ -46,6 +46,7 @@ export * from "./stream_resource.ts";
 export * from "./supervisor.ts";
 export * from "./task_context.ts";
 export * from "./timeline.ts";
+export * from "./worker_protocol.ts";
 export * from "./task_group.ts";
 export * from "./terminal_workspace.ts";
 export * from "./worker_pool.ts";
