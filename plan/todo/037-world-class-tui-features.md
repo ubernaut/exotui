@@ -332,7 +332,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **TERM-003 (P1; deps: TERM-001, TERM-002)** Expose parsed, unsupported, malformed, and ignored ECMA-48/DEC
       operations as versioned events before screen application. **Accept:** consumers can audit behavior without
       reparsing raw bytes and unknown controls remain lossless.
-- [ ] **TERM-004 (P1; deps: TERM-001, TXT-003, TXT-005)** Track soft-wrap and logical-line metadata and reflow it on
+- [x] **TERM-004 (P1; deps: TERM-001, TXT-003, TXT-005)** Track soft-wrap and logical-line metadata and reflow it on
       resize while preserving hard breaks and cell styles. **Accept:** shrinking then expanding reconstructs logical
       lines and stable scrollback anchors.
 - [x] **TERM-005 (P2; deps: TERM-001)** Implement protected cells and selective erase semantics independently from

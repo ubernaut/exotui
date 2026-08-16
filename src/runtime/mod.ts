@@ -50,6 +50,7 @@ export * from "./resource_limits.ts";
 export * from "./cell_screen.ts";
 export * from "./selective_erase.ts";
 export * from "./line_attributes.ts";
+export * from "./reflow_screen.ts";
 export * from "./terminal_margins.ts";
 export * from "./terminal_parser.ts";
 export * from "./terminal_operations.ts";
