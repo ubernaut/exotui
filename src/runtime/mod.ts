@@ -49,6 +49,7 @@ export * from "./permission_adapters.ts";
 export * from "./resource_limits.ts";
 export * from "./cell_screen.ts";
 export * from "./selective_erase.ts";
+export * from "./terminal_margins.ts";
 export * from "./terminal_parser.ts";
 export * from "./terminal_operations.ts";
 export * from "./terminal_passthrough.ts";

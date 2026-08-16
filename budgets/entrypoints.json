@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 420,
-    "bytes": 5004700,
+    "modules": 421,
+    "bytes": 5011363,
     "paths": {
       "mod.ts": 2690,
       "src/api_stability.ts": 14939,
@@ -282,7 +282,7 @@
       "src/runtime/infinite_query.ts": 5781,
       "src/runtime/kitty_graphics.ts": 12748,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2654,
+      "src/runtime/mod.ts": 2693,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,
@@ -321,6 +321,7 @@
       "src/runtime/terminal_backend_registry.ts": 9894,
       "src/runtime/terminal_capabilities.ts": 20065,
       "src/runtime/terminal_color.ts": 2344,
+      "src/runtime/terminal_margins.ts": 6624,
       "src/runtime/terminal_operations.ts": 7445,
       "src/runtime/terminal_palette.ts": 9825,
       "src/runtime/terminal_parser.ts": 11207,
