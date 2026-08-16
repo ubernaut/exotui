@@ -348,7 +348,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **TERM-009 (P1; deps: TERM-003, ASY-003)** Add a correlated terminal query broker for DECRQSS, XTGETTCAP, device
       attributes, colors, and cell metrics with deadlines and reply ownership. **Accept:** interleaved replies resolve
       only their matching request and unsolicited input is not consumed.
-- [ ] **TERM-010 (P1; deps: TERM-003)** Add tmux/screen/SSH-safe passthrough encoders with nesting limits and exact
+- [x] **TERM-010 (P1; deps: TERM-003)** Add tmux/screen/SSH-safe passthrough encoders with nesting limits and exact
       capability diagnostics. **Accept:** golden streams round-trip through simulated multiplexer layers without double
       escaping.
 
