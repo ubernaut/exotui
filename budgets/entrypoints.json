@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 416,
-    "bytes": 4984433,
+    "modules": 417,
+    "bytes": 4989416,
     "paths": {
-      "mod.ts": 2645,
+      "mod.ts": 2690,
       "src/api_stability.ts": 14939,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -258,6 +258,7 @@
       "src/perf/frame_packets.ts": 3658,
       "src/perf/incremental_serialization.ts": 3416,
       "src/perf/pools.ts": 3968,
+      "src/perf/profile_tuner.ts": 4938,
       "src/perf/versioned_cache.ts": 4296,
       "src/perf/write_coalescer.ts": 4007,
       "src/permissions.ts": 27807,

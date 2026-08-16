@@ -673,7 +673,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PER-009 (P3; deps: TXT-001, QAL-003, PKG-010)** Evaluate optional WASM/SIMD kernels for Unicode scans, color
       quantization, and frame diffing behind pure TypeScript fallbacks. **Accept:** adoption requires corpus equality,
       browser/Deno portability, and an end-to-end win after boundary overhead.
-- [ ] **PER-010 (P3; deps: OBS-003, PER-002, PER-003, PER-006, SEC-009)** Add a bounded runtime-profile tuner that
+- [x] **PER-010 (P3; deps: OBS-003, PER-002, PER-003, PER-006, SEC-009)** Add a bounded runtime-profile tuner that
       recommends, but does not silently persist, cache/frame/diff settings from local measurements. **Accept:**
       recommendations include evidence, confidence, rollback values, and never transmit measurements.
 
