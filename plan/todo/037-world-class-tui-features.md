@@ -652,7 +652,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-002 (P1; deps: TXT-002, TXT-003, SEC-009)** Add bounded caches for grapheme segmentation, width, styled-run
       measurement, and locale formatting keyed by data/profile version. **Accept:** hit/miss/eviction metrics are
       exposed and version changes cannot reuse stale entries.
-- [ ] **PER-003 (P1; deps: OBS-003)** Implement a measured diff planner that chooses cell, span, row, region-clear, or
+- [x] **PER-003 (P1; deps: OBS-003)** Implement a measured diff planner that chooses cell, span, row, region-clear, or
       full-frame output by encoded byte cost. **Accept:** it never emits more bytes than the existing strategy beyond a
       declared fixed tolerance.
 - [ ] **PER-004 (P1; deps: PER-003, ASY-005)** Coalesce terminal writes under stream backpressure while preserving
