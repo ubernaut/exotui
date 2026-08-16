@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 407,
-    "bytes": 4945732,
+    "modules": 408,
+    "bytes": 4950791,
     "paths": {
       "mod.ts": 2407,
       "src/api_stability.ts": 14939,
@@ -402,12 +402,13 @@
       "src/utils/strings.ts": 15158,
       "src/view.ts": 746,
       "src/viewport.ts": 9033,
+      "src/visual/annotations.ts": 5025,
       "src/visual/axes.ts": 4329,
       "src/visual/downsample.ts": 6302,
       "src/visual/heatmap.ts": 4172,
       "src/visual/interactions.ts": 4768,
       "src/visual/marks.ts": 5499,
-      "src/visual/mod.ts": 223,
+      "src/visual/mod.ts": 257,
       "src/visual/scales.ts": 8445,
       "src/web/remote_terminal.ts": 49112
     }
