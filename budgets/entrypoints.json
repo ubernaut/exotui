@@ -1,10 +1,11 @@
 {
   "mod.ts": {
-    "modules": 435,
-    "bytes": 5072761,
+    "modules": 436,
+    "bytes": 5077038,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
+      "src/app/accessibility_tree.ts": 4236,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
       "src/app/action_journal_retention.ts": 27555,
@@ -61,7 +62,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4551,
+      "src/app/mod.ts": 4592,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -824,11 +825,12 @@
     }
   },
   "mod.web.ts": {
-    "modules": 350,
-    "bytes": 4318686,
+    "modules": 351,
+    "bytes": 4322963,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
+      "src/app/accessibility_tree.ts": 4236,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
       "src/app/action_journal_retention.ts": 27555,
@@ -885,7 +887,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4551,
+      "src/app/mod.ts": 4592,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,

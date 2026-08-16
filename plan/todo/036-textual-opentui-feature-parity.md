@@ -714,14 +714,16 @@ Acceptance:
 
 ### T3 - Accessibility Contract (P2, Medium; Repo Extension)
 
-- [ ] Define a semantic accessibility tree for browser hosts and document the smaller set of semantics that terminal
+- [x] Define a semantic accessibility tree for browser hosts and document the smaller set of semantics that terminal
       protocols can actually expose.
 - [ ] Add keyboard-only acceptance, reduced-motion behavior, contrast checks, high-contrast/color-blind themes, and
       labels/roles for all workbench controls.
 - [ ] Specify focus order and announcements for modal, tiled-window, menu, tab, tree, table, and virtualized content
       transitions.
-- [ ] Treat this as an explicit repo extension: Textual supplies useful keyboard/focus patterns but does not establish
-      screen-reader, high-contrast, or color-blind feature parity for this project.
+- [x] Treat this as an explicit repo extension: Textual supplies useful keyboard/focus patterns but does not establish
+      screen-reader, high-contrast, or color-blind feature parity for this project. (Affirmed Aug 16, 2026: T3 is repo
+      accessibility work in its own right — `TERMINAL_EXPOSABLE_SEMANTICS` states the terminal limits canonically and
+      no doc may claim screen-reader parity beyond it.)
 
 Acceptance:
 

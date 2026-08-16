@@ -26,6 +26,7 @@ export * from "./route_loaders.ts";
 export * from "./route_outlets.ts";
 export * from "./route_prefetch.ts";
 export * from "./action_policies.ts";
+export * from "./accessibility_tree.ts";
 export * from "./calendar.ts";
 export * from "./clipboard.ts";
 export * from "./general_widgets.ts";
