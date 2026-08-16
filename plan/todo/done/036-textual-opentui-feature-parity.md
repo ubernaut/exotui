@@ -425,8 +425,12 @@ Acceptance:
 
 ### C1 - Textual-Style CSS Authoring And Paint (P1, Large)
 
-- [ ] Add `dock`, named `layers`/`layer`, parent/content alignment, scrollbar styling, and border title/subtitle
-      placement to the normalized style model where they provide terminal value.
+- [x] Add `dock`, named `layers`/`layer`, parent/content alignment, scrollbar styling, and border title/subtitle
+      placement to the normalized style model where they provide terminal value. Verified complete August 16, 2026 —
+      every named feature had already landed and is under test (layout_dock.test.ts, layout_c1_paint_extras.test.ts):
+      dock pins children to running-remainder edges, named layers resolve to z-order in an engine post-pass, `align`
+      shifts block children into free space, and scrollbar styling plus border titles/subtitles ride the normalized
+      model as renderer-owned fields; only the checkbox had never been flipped.
 - [x] Expose L1's `box-sizing` through the authoring layer. Define scalar `offset` as a visual translation owned by
       paint/hit testing, distinct from L1's relative-position insets that participate in layout.
 - [x] Add Textual-style `!important`, `initial`, nested rules with `&`, scoped widget defaults, and multiple external
