@@ -435,6 +435,52 @@ function findExpressionEnd(body: string): number {
   throw new MessageFormatError("unterminated expression");
 }
 
+/** Static analysis of one message source, non-throwing. */
+export interface MessageFormatAnalysis {
+  /** External variables the message needs from the caller. */
+  readonly externalVariables: readonly string[];
+  readonly usesMatch: boolean;
+  /** Compile error text, when the message is invalid. */
+  readonly error?: string;
+}
+
+/** Analyzes a message without rendering it (for extraction/lint tooling). */
+export function analyzeMessageFormat(
+  source: string,
+  registry: MessageFormatFunctionRegistry = new MessageFormatFunctionRegistry(),
+): MessageFormatAnalysis {
+  try {
+    const compiled = compile(source, registry);
+    const external = new Set<string>();
+    const locals = new Set<string>();
+    for (const [name, declaration] of compiled.declarations) {
+      if (declaration.kind === "variable" && declaration.ref === name) continue; // .input: external
+      locals.add(name);
+    }
+    const visit = (expression: Expression): void => {
+      if (expression.kind === "variable" && !locals.has(expression.ref)) external.add(expression.ref);
+      for (const value of Object.values(expression.options)) {
+        if (typeof value !== "string" && !locals.has(value.variable)) external.add(value.variable);
+      }
+    };
+    for (const declaration of compiled.declarations.values()) visit(declaration);
+    for (const selector of compiled.selectors) visit(selector);
+    for (const element of [...compiled.pattern, ...compiled.variants.flatMap((variant) => variant.pattern)]) {
+      if (element.kind === "placeholder") visit(element.expression);
+    }
+    return {
+      externalVariables: [...external].sort(),
+      usesMatch: compiled.selectors.length > 0,
+    };
+  } catch (error) {
+    return {
+      externalVariables: [],
+      usesMatch: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 /** Compiles a MessageFormat 2 message against a locale context. */
 export function compileMessageFormat(
   source: string,

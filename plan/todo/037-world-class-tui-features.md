@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 49 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, INP-002 through INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001,
-INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006,
-HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157 items
-stay open below; a checked box means its implementation, focused tests, public export review, and relevant repository
-gates passed.
+As of Aug 16, 2026, 50 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003,
+INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004,
+HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157
+items stay open below; a checked box means its implementation, focused tests, public export review, and relevant
+repository gates passed.
 
 ## Feature Backlog
 
@@ -86,7 +86,7 @@ gates passed.
 - [ ] **LOC-007 (P2; deps: LOC-001, TXT-008, 023:L1)** Allow a subtree to override language, locale, and base direction
       while inheriting unspecified preferences. **Accept:** nested locale fixtures isolate formatting and direction
       without changing sibling layout.
-- [ ] **LOC-008 (P1; deps: LOC-002, LOC-003)** Add extraction and validation tooling for message IDs, parameters,
+- [x] **LOC-008 (P1; deps: LOC-002, LOC-003)** Add extraction and validation tooling for message IDs, parameters,
       selector exhaustiveness, stale keys, and untranslated defaults. **Accept:** CI emits source locations and fails on
       parameter-shape drift.
 - [ ] **LOC-009 (P1; deps: LOC-006, LOC-008, TXT-008)** Ship expansion, accented, mirrored-RTL, and mixed-script
