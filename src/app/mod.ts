@@ -16,6 +16,7 @@ export * from "./compose_sequences.ts";
 export * from "./preedit_provider.ts";
 export * from "./navigation_blockers.ts";
 export * from "./route_guards.ts";
+export * from "./route_loaders.ts";
 export * from "./composition.ts";
 export * from "./form_async_validation.ts";
 export * from "./form_server_errors.ts";
