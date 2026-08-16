@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 52 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-004, and DAT-004 landed Aug 16):
-TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001
-through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001.
-The remaining 157 items stay open below; a checked box means its implementation, focused tests, public export review,
-and relevant repository gates passed.
+As of Aug 16, 2026, 53 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, and DAT-004 landed Aug
+16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002,
+HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and
+REM-001. The remaining 157 items stay open below; a checked box means its implementation, focused tests, public export
+review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -420,7 +420,7 @@ and relevant repository gates passed.
 - [x] **ASY-001 (P0; deps: —)** Add structured task groups with parent-child cancellation, join, fail-fast/fail-late
       policy, and deterministic disposal. **Accept:** no child outlives its group unless explicitly detached to a
       supervisor.
-- [ ] **ASY-002 (P1; deps: ASY-001)** Add supervisor strategies for stop, resume, restart-one, and restart-all with
+- [x] **ASY-002 (P1; deps: ASY-001)** Add supervisor strategies for stop, resume, restart-one, and restart-all with
       bounded restart intensity. **Accept:** repeated failure trips the configured limit and exposes the causal error
       chain.
 - [x] **ASY-003 (P0; deps: ASY-001)** Add deadlines and timeout budgets that propagate remaining time through nested
