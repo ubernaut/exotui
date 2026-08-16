@@ -11,6 +11,7 @@ export * from "./commands.ts";
 export * from "./data_query_commands.ts";
 export * from "./data_table_commands.ts";
 export * from "./disposables.ts";
+export * from "./browser_editing.ts";
 export * from "./compose_sequences.ts";
 export * from "./preedit_provider.ts";
 export * from "./composition.ts";
