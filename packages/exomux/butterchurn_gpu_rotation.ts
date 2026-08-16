@@ -4,7 +4,7 @@
 // Regenerate with: deno run -A --unstable-webgpu -c packages/exomux/deno.json scripts/audit_butterchurn_gpu.ts
 //
 // The presets the GPU butterchurn background auto-cycles: those that render to a
-// non-blank frame on the GPU. Of 472 presets in the catalog: 457 draw, 15 resolve to
+// non-blank frame on the GPU. Of 472 presets in the catalog: 468 draw, 4 resolve to
 // black/near-black on the GPU path and are skipped so auto-cycle does not strobe
 // through them. Every preset stays selectable by index through
 // `EXOMUX_BUTTERCHURN_CATALOG`; this only decides what the GPU field auto-cycles.
@@ -26,6 +26,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "$$$ Royal - Mashup (441)",
   "$$$ Royal - Mashup (489)",
   "11",
+  "158",
   "269",
   "27",
   "286",
@@ -61,6 +62,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Adam Eatit Mashup FX 2 martin - disco mix + Lodus + Geiss + Ludicrous speed + Eos Ft Flexi n Hexocollie + Baked + Santa Fucking Claus",
   "AdamFx 2 Aderrasi - Airhandler (Last Breath - Calm)Ilusional Discontent2",
   "AdamFx 2 Geiss -Somewhat Distort Me 3_1",
+  "AdamFx 2 Geiss, Zylot and Flexi - Reaction Diffusion 3 (Overload Mix 2) EATIT4 (BCCNJ4)",
   "AdamFx 2 Geiss, Zylot and Flexi - Reaction Diffusion 3 (Overload Mix 2) EATIT4 hypno",
   "AdamFX Enterz Tha Mash With Martin + stahlregen - AdamFX - In Tha Mash Effectz E",
   "AdamFX Mashup 2 Martin - reflections on black tile + Raron N Flexi ",
@@ -151,6 +153,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "flexi + fishbrain - witchcraft [complex terraforming]",
   "Flexi + Geiss + Demon Lord - unholy tokamak clot-plot",
   "flexi + geiss - infused with the spiral (Heavy Oil Mix) nz+ rapery",
+  "flexi + geiss - pogo cubes vs. tokamak vs. game of life [stahls jelly 4.5 finish]",
   "flexi + geiss - pogo-cubes on tokamak matter (bccn Jelly V4)",
   "Flexi + Geiss - pogo-cubes on tokamak matter (Jelly 5.55)",
   "flexi + geiss - pogo-cubes on tokamak matter [mind over matter remix]2",
@@ -180,6 +183,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "flexi - grind my glitch up [190]",
   "flexi - hyperspaceflight (bn cn Jelly 4)",
   "Flexi - infused with the spiral",
+  "flexi - infused with the spiral (jelly 4.x cn)",
   "flexi - inter state",
   "flexi - jelly fish mandala",
   "flexi - meta4free",
@@ -199,6 +203,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "flexi - splatter effects 17 the wave, a google love story written in decay roam3-2 ",
   "flexi - swing out on the spiral",
   "Flexi - the distant point between derivative",
+  "Flexi - truly soft piece of software - this is generic texturing (Jelly) ",
   "flexi - what is the matrix",
   "Flexi - wild at range",
   "Flexi, fishbrain + Martin - witchery",
@@ -211,6 +216,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Flexi, Rovastar + Geiss - Fractopia vs bas relief",
   "flexi, stahlregen, geiss + tobias wolfboi - space gelatine burst - mash0000 - chromatidal pool mirror blasphemy",
   "Fumbling_Foo & Flexi, Martin, Orb, Unchained - Star Nova v7b",
+  "Fumbling_Foo + En D & Martin - Mandelverse",
   "Geiss + Flexi + Martin - disconnected",
   "Geiss + Rovastar - Notions Of Tonality 2",
   "Geiss - 3 layers (Tunnel Mix)",
@@ -277,6 +283,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "martin - amandio c - a different view of the green machine",
   "martin - angel flight",
   "martin - another kind of groove",
+  "martin - attack of the beast",
   "martin - baby one more time",
   "martin - basal ganglion",
   "martin - bombyx mori",
@@ -355,6 +362,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "ORB - Lazer Ride",
   "ORB - Magma Pool",
   "ORB - Pastel Primer",
+  "ORB - Planetary Alignment Acid Burn",
   "ORB - Solar Radiation",
   "orb - toxic goo",
   "ORB - Waaa",
@@ -378,6 +386,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Rovastar + Geiss - Hurricane Nightmare",
   "Rovastar + Geiss - Hurricane Nightmare (Gold Chrome Mix)",
   "Rovastar + Geiss - Hurricane Nightmare (Relief Mix)",
+  "Rovastar + Geiss - Hyperkaleidoscope Glow 2 motion blur (Jelly)",
   "Rovastar + Geiss - Hyperspace - kaleidoscope",
   "Rovastar + Geiss - Snapshot Of Space (LSB mix)",
   "Rovastar + Loadus + Geiss - FractalDrop (Triple Mix)",
@@ -389,6 +398,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Rovastar - Hyperspace",
   "Rovastar - Oozing Resistance",
   "Rovastar - Torrid Tales",
+  "Rovastar - Trippy Sperm (Jelly)",
   "Rovastar-altarsofmadness(forgottenrea",
   "Rozzor & Shreyas - Deeper Aesthetics",
   "sawtooth grin nz+ m10 w4",
@@ -406,6 +416,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "shifter - fuzzball 3d (glasses) false auralary2 undre thee bottom qoaguluste",
   "shifter - liquid circuitry - conjugoth",
   "shut down all survival paradigms",
+  "Stahlregen & Boz + Eo.S + Geiss + Phat + Rovastar + Zylot - Machine Code [Jelly]",
   "Stahlregen & Boz - Machine Code (Reaction Diffusion)_1 - Isosceles Tweak 08",
   "Stahlregen & flexi + Geiss + Rovastar + Shifter - Fractal Feedback (for Hexcollie)",
   "stahlregen & geiss + rovastar - fields of flowers (mashup 9 - space flower rmx) - mash0001 - pack em in, we got a long haul + flashlight",

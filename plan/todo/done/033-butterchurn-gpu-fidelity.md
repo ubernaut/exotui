@@ -1,7 +1,10 @@
 # Butterchurn GPU render fidelity — closing the GPU-vs-CPU gap
 
-Status: in progress; fourth systematic fix (UNORM feedback rectification) landed Aug 16 2026 — regression 36 → 30,
-truly-black 29 → 21, rotation 369 → 383 of 472. The remaining ~21 (comp-side echo dynamics) are the open tail. Driven by
+Status: **COMPLETE, August 16 2026.** Final fleet (steady-state, real-audio, 360-frame warmup): **regression 1 of
+472, truly black 0, auto-cycle rotation 468 of 472** — from 69/54/306 when this plan opened. The single remaining
+entry (`martin - unholy amulet 2`, GPU 2.19% vs the 3% threshold, CPU 7.1%) renders visibly dim, and real
+butterchurn's own reference for it is dim (mean 0.061, no dominant term in the ablation) — a sub-threshold
+brightness delta, not a broken preset. Driven by
 user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
 
 ## The real numbers (measured, not guessed)
@@ -331,6 +334,25 @@ zeros (for future catalog builds), and `guardWgslSqrt` applies the same clamp te
 matched, idempotent, `(E)·0.0` as the type-agnostic zero — so the pre-translated vendored catalog gets it today.
 Measured: Mandelverse's comp went **0.0002 → 0.873 mean, 97% lit**. The guard applies to every preset's shaders;
 the fleet re-measure with it is the next run of record.
+
+### Aug 16 2026: prim ribbons + real hue_shader — the fleet closes
+
+Working the final gap list produced the last two class fixes. Custom waves, wave dots, and shape borders drew as
+one-pixel line-strips/point-lists that the 6×6 box resolve averages away — the basic waveform's old disease, now
+cured the same way: line prims expand to triangle-strip ribbons ~1.5 cells tall (pixel-space normals, isotropic
+thickness) and dots to one-cell quads, sized in CELLS so deposited ink matches intent at any resolution. And
+`hue_shader` was a hardcoded (1,1,1) — which `pow(hue_shader, x)` collapses to 1, forcing degenerate branches —
+now replaced with real butterchurn's generateHueBase verbatim: four slowly-cycling normalized corner colours
+interpolated bilinearly across the comp quad.
+
+Measured on the way in: suksma's troll (100% custom-wave energy in real) 2% → 13–17% lit; Hyperkaleidoscope's comp
+0.003 → 0.083 / 26% lit (real: 0.092 / 35%); Trippy Sperm 17.5% lit; pogo cubes emits all its geometry and closed
+with the combined fixes.
+
+**Definitive fleet run (all fixes: UV ring, scripted-audio instruments, blur range compression, 30 fps cadence,
+sqrt NaN guard, prim ribbons, hue_shader):** both-render 405, both-blank 5, regression **1**, truly black **0**,
+rotation **468 of 472**. The session's seven systematic fixes each came from an instrument built to find it, and
+every instrument ships in scripts/ for whatever the fleet does next.
 
 ## Verification
 
