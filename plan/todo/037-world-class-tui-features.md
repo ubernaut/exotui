@@ -670,7 +670,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-008 (P2; deps: HIS-007, REM-004)** Add incremental, schema-aware serialization for workspace, journal,
       frame, and cache snapshots. **Accept:** unchanged subtrees reuse prior bytes/hashes and full decode matches
       canonical serialization.
-- [ ] **PER-009 (P3; deps: TXT-001, QAL-003, PKG-010)** Evaluate optional WASM/SIMD kernels for Unicode scans, color
+- [x] **PER-009 (P3; deps: TXT-001, QAL-003, PKG-010)** Evaluate optional WASM/SIMD kernels for Unicode scans, color
       quantization, and frame diffing behind pure TypeScript fallbacks. **Accept:** adoption requires corpus equality,
       browser/Deno portability, and an end-to-end win after boundary overhead.
 - [x] **PER-010 (P3; deps: OBS-003, PER-002, PER-003, PER-006, SEC-009)** Add a bounded runtime-profile tuner that
