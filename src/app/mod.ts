@@ -66,6 +66,7 @@ export * from "./split_pane_commands.ts";
 export * from "./table_commands.ts";
 export * from "./tabs_commands.ts";
 export * from "./terminal_commands.ts";
+export * from "./paste_stream.ts";
 export * from "./terminal_input.ts";
 export * from "./theme_commands.ts";
 export * from "./theme_plugin.ts";

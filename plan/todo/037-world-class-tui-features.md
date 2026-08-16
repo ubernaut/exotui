@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 34 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, and
-LOC-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
-NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 166 items stay open below; a checked box means its implementation, focused
-tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 35 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
+and INP-009 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001,
+FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006,
+ASY-010, SEC-001, SEC-008, and REM-001. The remaining 165 items stay open below; a checked box means its implementation,
+focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -121,7 +121,7 @@ tests, public export review, and relevant repository gates passed.
 - [ ] **INP-008 (P2; deps: INP-001, INP-006, SEC-001)** Add typed drag-and-drop payloads for text, files, and
       application data with host policy checks before reads. **Accept:** denied files expose metadata only, accepted
       drops are cancellable, and browser/Kitty-capable adapters share events.
-- [ ] **INP-009 (P1; deps: INP-001, TXT-002)** Stream large pastes through configurable byte, line, and rate limits
+- [x] **INP-009 (P1; deps: INP-001, TXT-002)** Stream large pastes through configurable byte, line, and rate limits
       while preserving one logical paste transaction. **Accept:** oversized input is rejected or truncated by declared
       policy without freezing the render loop.
 - [x] **INP-010 (P0; deps: INP-001, INP-006)** Reconcile focus loss, transport disconnect, and capture disposal by
