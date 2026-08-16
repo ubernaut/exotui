@@ -311,7 +311,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **WID-007 (P1; deps: TXT-005, 023:V1)** Add a lazy JSON/YAML structured inspector with path copy, type-aware
       search, folding, and reference-cycle markers. **Accept:** large documents parse off-thread and never stringify
       cycles implicitly.
-- [ ] **WID-008 (P2; deps: TXT-005, 023:V1)** Add a virtualized hex/binary viewer with byte/word grouping, endian
+- [x] **WID-008 (P2; deps: TXT-005, 023:V1)** Add a virtualized hex/binary viewer with byte/word grouping, endian
       interpretation, offset navigation, diff overlays, and bounded edits. **Accept:** edits map exactly to source
       offsets and cannot extend data without explicit policy.
 - [x] **WID-009 (P2; deps: INP-006, HIS-001, 023:W2)** Add a virtualized kanban board with keyboard/pointer card

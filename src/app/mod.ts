@@ -41,6 +41,7 @@ export * from "./syntax_service.ts";
 export * from "./code_view.ts";
 export * from "./diff_view.ts";
 export * from "./structure_inspector.ts";
+export * from "./hex_viewer.ts";
 export * from "./background_jobs.ts";
 export * from "./command_aliases.ts";
 export * from "./command_arguments.ts";

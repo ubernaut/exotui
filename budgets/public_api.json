@@ -153,6 +153,7 @@
     "HTML_CSS_LAYOUT_OPTION_ID",
     "HTML_CSS_LAYOUT_WINDOW_ID",
     "HealthMonitor",
+    "HexViewerController",
     "HistoryBusyError",
     "HistoryOperationError",
     "HistoryPoisonedError",

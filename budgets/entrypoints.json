@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 445,
-    "bytes": 5135358,
+    "modules": 446,
+    "bytes": 5141526,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -55,6 +55,7 @@
       "src/app/forms.ts": 102512,
       "src/app/general_widgets.ts": 6316,
       "src/app/gestures.ts": 5607,
+      "src/app/hex_viewer.ts": 6135,
       "src/app/history.ts": 48881,
       "src/app/history_branches.ts": 4450,
       "src/app/hit_targets.ts": 4263,
@@ -65,7 +66,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4855,
+      "src/app/mod.ts": 4888,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -837,8 +838,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 362,
-    "bytes": 4391473,
+    "modules": 363,
+    "bytes": 4397641,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -892,6 +893,7 @@
       "src/app/forms.ts": 102512,
       "src/app/general_widgets.ts": 6316,
       "src/app/gestures.ts": 5607,
+      "src/app/hex_viewer.ts": 6135,
       "src/app/history.ts": 48881,
       "src/app/history_branches.ts": 4450,
       "src/app/hit_targets.ts": 4263,
@@ -902,7 +904,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4855,
+      "src/app/mod.ts": 4888,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
