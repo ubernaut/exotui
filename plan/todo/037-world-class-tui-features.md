@@ -574,7 +574,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PLG-009 (P2; deps: PLG-001, SEC-010, PKG-009)** Consume signed catalog metadata with package digests, provenance
       links, revocations, and offline snapshots. **Accept:** catalog compromise cannot substitute bytes without an
       integrity failure and no install is automatic.
-- [ ] **PLG-010 (P1; deps: PLG-001, PLG-005, QAL-001)** Ship a headless plugin test host with fake capabilities,
+- [x] **PLG-010 (P1; deps: PLG-001, PLG-005, QAL-001)** Ship a headless plugin test host with fake capabilities,
       lifecycle fault injection, RPC assertions, and manifest contract tests. **Accept:** plugin authors can verify
       install-to-dispose with zero ambient Deno permissions.
 
