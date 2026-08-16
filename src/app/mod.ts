@@ -91,6 +91,7 @@ export * from "./pad_commands.ts";
 export * from "./plugins.ts";
 export * from "./plugin_slot_adapters.ts";
 export * from "./plugin_capabilities.ts";
+export * from "./plugin_manifest.ts";
 export * from "./worker_plugin_host.ts";
 export * from "./plugin_slots.ts";
 export * from "./property_grid.ts";

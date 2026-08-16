@@ -547,7 +547,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Governed Plugin Ecosystem
 
-- [ ] **PLG-001 (P1; deps: 023:K1)** Define a versioned plugin manifest covering identity, package version, host API
+- [x] **PLG-001 (P1; deps: 023:K1)** Define a versioned plugin manifest covering identity, package version, host API
       range, entrypoints, contributions, permissions, and state schema. **Accept:** manifests validate without importing
       plugin code.
 - [ ] **PLG-002 (P1; deps: PLG-001)** Add host/plugin compatibility resolution with SemVer ranges, feature requirements,
