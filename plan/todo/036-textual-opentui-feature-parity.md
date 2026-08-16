@@ -650,13 +650,20 @@ Acceptance:
       waits, and tooltip/notification helpers.
 - [ ] Capture styled spans, cursor state, hit regions, layout trees, and renderer stats in addition to plain text.
 - [ ] Add an HTML/SVG visual snapshot diff report and terminal-size/key-sequence test matrix.
-- [ ] Add solver fuzz/property tests and incremental-vs-full equivalence tests.
+- [x] Add solver fuzz/property tests and incremental-vs-full equivalence tests.
 
 Acceptance:
 
 - Every accepted milestone has unit, integration, terminal, and browser evidence proportional to its risk.
 - Visual changes produce a reviewable artifact rather than only a pass/fail checksum.
 - Randomized failures retain a reproducible seed and minimal fixture.
+
+Completed the fuzz/property checkbox Aug 16, 2026: `tests/layout_property_fuzz.test.ts` runs 40 seeded random layout
+trees (block/flex/grid mixes with docks, aligns, offsets, and intrinsic/percent/parent-axis units) through the engine
+asserting determinism and finite integer boxes, and 25 seeded random mutation sequences (class/text/attribute/mount/
+move) over a live tree asserting the incremental restyle equals the clean full cascade at every step. Every assertion
+message carries its seed, and the mulberry32 generator makes any failure reproducible from that seed alone. The existing
+generated flex-fixture parity suite (simple vs yoga) covers the cross-solver leg.
 
 ### T2 - Devtools And Performance (P2, Medium)
 
