@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 412,
-    "bytes": 4969360,
+    "modules": 413,
+    "bytes": 4973414,
     "paths": {
-      "mod.ts": 2451,
+      "mod.ts": 2498,
       "src/api_stability.ts": 14939,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -256,6 +256,7 @@
       "src/perf/entrypoint_budget.ts": 3868,
       "src/perf/pools.ts": 3968,
       "src/perf/versioned_cache.ts": 4296,
+      "src/perf/write_coalescer.ts": 4007,
       "src/permissions.ts": 27807,
       "src/pointer_input.ts": 48537,
       "src/remote/handshake.ts": 34016,

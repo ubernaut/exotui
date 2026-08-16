@@ -655,7 +655,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-003 (P1; deps: OBS-003)** Implement a measured diff planner that chooses cell, span, row, region-clear, or
       full-frame output by encoded byte cost. **Accept:** it never emits more bytes than the existing strategy beyond a
       declared fixed tolerance.
-- [ ] **PER-004 (P1; deps: PER-003, ASY-005)** Coalesce terminal writes under stream backpressure while preserving
+- [x] **PER-004 (P1; deps: PER-003, ASY-005)** Coalesce terminal writes under stream backpressure while preserving
       synchronization boundaries and urgent cursor teardown. **Accept:** partial-write fixtures reconstruct exact output
       and memory stays bounded for a stalled sink.
 - [ ] **PER-005 (P2; deps: ASY-008, REM-004)** Define transferable frame packets with packed glyph/style tables for

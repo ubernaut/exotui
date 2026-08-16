@@ -63,5 +63,6 @@ export * from "./src/perf/benchmark.ts";
 export * from "./src/perf/pools.ts";
 export * from "./src/perf/cache_budget.ts";
 export * from "./src/perf/diff_planner.ts";
+export * from "./src/perf/write_coalescer.ts";
 export * from "./src/perf/entrypoint_budget.ts";
 export * from "./src/perf/versioned_cache.ts";
