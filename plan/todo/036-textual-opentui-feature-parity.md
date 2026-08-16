@@ -595,8 +595,12 @@ Acceptance:
       Kitty graphics, Sixel, and zellij identity — are now conservative allow-list detections that fail closed, and
       the graphics entries carry "detection only — no renderer is implied or shipped" in their labeled metadata,
       asserted under test.
-- [ ] Add renderer idle/live-request accounting, frame statistics, scheduler diagnostics, and a reusable debug/console
-      overlay rather than demo-local instrumentation.
+- [x] Add renderer idle/live-request accounting, frame statistics, scheduler diagnostics, and a reusable debug/console
+      overlay rather than demo-local instrumentation. Completed August 16, 2026: `render_accounting.ts` — live
+      requests name their reason and stay pending until a painted frame consumes them, idle wakes that paint
+      nothing count as skipped, frame timings roll on the caller's clock; SchedulerDiagnostics pulls queue
+      depth/running from registered providers; renderDebugOverlay assembles accounting, queues, DiagnosticsHub
+      data, and a console tail into width-clipped text rows any host paints.
 - [ ] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions.
 
 Completed slice July 16, 2026: renderer-neutral OSC services now sanitize control injection, default every side effect

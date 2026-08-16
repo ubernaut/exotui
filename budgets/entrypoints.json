@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 452,
-    "bytes": 5208369,
+    "modules": 453,
+    "bytes": 5214653,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -300,7 +300,7 @@
       "src/runtime/kitty_keyboard.ts": 5301,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2885,
+      "src/runtime/mod.ts": 2925,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,
@@ -314,6 +314,7 @@
       "src/runtime/pty_backend.ts": 15906,
       "src/runtime/rate_limiter.ts": 5813,
       "src/runtime/reflow_screen.ts": 3555,
+      "src/runtime/render_accounting.ts": 6244,
       "src/runtime/render_loop.ts": 9560,
       "src/runtime/renderer_backends.ts": 19533,
       "src/runtime/resource.ts": 10288,
