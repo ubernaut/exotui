@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 51 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, and ASY-004 landed Aug 16): TXT-001 through
-TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
-HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
-remaining 157 items stay open below; a checked box means its implementation, focused tests, public export review, and
-relevant repository gates passed.
+As of Aug 16, 2026, 52 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-004, and DAT-004 landed Aug 16):
+TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001
+through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001.
+The remaining 157 items stay open below; a checked box means its implementation, focused tests, public export review,
+and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -140,7 +140,7 @@ relevant repository gates passed.
 - [x] **DAT-003 (P1; deps: DAT-001)** Deduplicate concurrent loads and expose join, supersede, and force-new policies.
       **Accept:** N identical callers invoke one loader, receive independently cancellable handles, and settle
       consistently.
-- [ ] **DAT-004 (P1; deps: DAT-001, ASY-003, ASY-004)** Add retry classification, exponential backoff with jitter,
+- [x] **DAT-004 (P1; deps: DAT-001, ASY-003, ASY-004)** Add retry classification, exponential backoff with jitter,
       retry-after support, and a per-origin circuit breaker. **Accept:** permanent errors do not retry, deadlines stop
       retries, and circuit state is observable.
 - [ ] **DAT-005 (P1; deps: DAT-001, HIS-003)** Add typed mutation resources with optimistic patches, server

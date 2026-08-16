@@ -35,6 +35,7 @@ export * from "./terminal_shell_workspace.ts";
 export * from "./terminal_session.ts";
 export * from "./terminal_services.ts";
 export * from "./rate_limiter.ts";
+export * from "./retry_policy.ts";
 export * from "./timeline.ts";
 export * from "./task_group.ts";
 export * from "./terminal_workspace.ts";
