@@ -25,6 +25,7 @@ export * from "./route_guards.ts";
 export * from "./route_loaders.ts";
 export * from "./route_outlets.ts";
 export * from "./route_prefetch.ts";
+export * from "./command_progress.ts";
 export * from "./typed_commands.ts";
 export * from "./composition.ts";
 export * from "./form_async_validation.ts";
