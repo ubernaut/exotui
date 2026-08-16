@@ -366,7 +366,12 @@ Acceptance:
       fr → auto passes with per-track content bounds measured from span-1 items (columns via width intrinsics, rows
       via measured height at the resolved column width, computed only when a track needs them); implicit tracks accept
       every new form through gridAutoColumns/gridAutoRows.
-- [ ] Add named Grid lines and make template-area behavior backend-neutral; keep Yoga explicitly Flex-only.
+- [x] Add named Grid lines and make template-area behavior backend-neutral; keep Yoga explicitly Flex-only.
+      Completed August 16, 2026: `[name]` groups collect per line (bracket-aware tokenizer), placements accept
+      named lines plus implicit `<area>-start/-end` and bare-area names; `resolveGridTemplateArea` and
+      `resolveNamedGridPlacement` are exported style-level helpers shared by every solver adapter (the simple
+      solver's private copy was deleted); line names shift correctly past an expanded auto repeat; Yoga's
+      capability matrix keeps grid and both new fields explicitly unsupported.
 - [ ] Add dense placement only with deterministic document/focus order and clear accessibility semantics.
 - [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
 - [ ] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.

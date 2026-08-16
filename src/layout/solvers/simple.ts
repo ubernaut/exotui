@@ -16,7 +16,9 @@ import {
   type LayoutJustifyContent,
   type LayoutLengthResolutionContext,
   type LayoutLengthValue,
+  resolveGridTemplateArea,
   resolveLayoutLength,
+  resolveNamedGridPlacement,
 } from "../style.ts";
 import {
   type ComputedLayoutBox,
@@ -337,11 +339,15 @@ export class SimpleLayoutSolver implements LayoutSolver {
       bounds.height,
       rowGap,
     );
+    const columnLineNames = shiftGridLineNames(node.style.gridTemplateColumnsLineNames, columnTemplate);
+    const rowLineNames = shiftGridLineNames(node.style.gridTemplateRowsLineNames, rowTemplate);
     const placed = placeGridChildren(children, {
       columns: columnTemplate.template.length,
       rows: rowTemplate.template.length,
       autoFlow: node.style.gridAutoFlow,
       areas: node.style.gridTemplateAreas,
+      ...(columnLineNames ? { columnLineNames } : {}),
+      ...(rowLineNames ? { rowLineNames } : {}),
     });
     let columnCount = Math.max(1, columnTemplate.template.length);
     let rowCount = Math.max(1, rowTemplate.template.length);
@@ -596,6 +602,8 @@ interface AlignedFlexItem {
 }
 
 interface GridPlacementBounds {
+  columnLineNames?: readonly (readonly string[])[];
+  rowLineNames?: readonly (readonly string[])[];
   columns: number;
   rows: number;
   autoFlow: ComputedLayoutStyle["gridAutoFlow"];
@@ -639,18 +647,30 @@ function placeGridChildren(children: readonly LayoutNode[], bounds: GridPlacemen
   const candidates = new Array<GridPlacementCandidate>(children.length);
   for (let index = 0; index < children.length; index += 1) {
     const child = children[index]!;
-    const area = child.style.gridArea ? gridTemplateAreaBounds(bounds.areas ?? [], child.style.gridArea) : undefined;
-    const hasExplicitColumn = gridPlacementHasExplicitLine(child.style.gridColumn);
-    const hasExplicitRow = gridPlacementHasExplicitLine(child.style.gridRow);
+    const gridColumn = resolveNamedGridPlacement(
+      child.style.gridColumn,
+      bounds.columnLineNames,
+      bounds.areas ?? [],
+      "column",
+    );
+    const gridRow = resolveNamedGridPlacement(
+      child.style.gridRow,
+      bounds.rowLineNames,
+      bounds.areas ?? [],
+      "row",
+    );
+    const area = child.style.gridArea ? resolveGridTemplateArea(bounds.areas ?? [], child.style.gridArea) : undefined;
+    const hasExplicitColumn = gridPlacementHasExplicitLine(gridColumn);
+    const hasExplicitRow = gridPlacementHasExplicitLine(gridRow);
     candidates[index] = {
       index,
       node: child,
-      columnSpan: hasExplicitColumn ? gridPlacementSpan(child.style.gridColumn) : area?.columnSpan ??
-        gridPlacementSpan(child.style.gridColumn),
-      rowSpan: hasExplicitRow ? gridPlacementSpan(child.style.gridRow) : area?.rowSpan ??
-        gridPlacementSpan(child.style.gridRow),
-      explicitColumn: gridPlacementStart(child.style.gridColumn) ?? area?.column,
-      explicitRow: gridPlacementStart(child.style.gridRow) ?? area?.row,
+      columnSpan: hasExplicitColumn ? gridPlacementSpan(gridColumn) : area?.columnSpan ??
+        gridPlacementSpan(gridColumn),
+      rowSpan: hasExplicitRow ? gridPlacementSpan(gridRow) : area?.rowSpan ??
+        gridPlacementSpan(gridRow),
+      explicitColumn: gridPlacementStart(gridColumn) ?? area?.column,
+      explicitRow: gridPlacementStart(gridRow) ?? area?.row,
     };
   }
 
@@ -777,6 +797,21 @@ function expandGridAutoRepeat(
     repeatTrackCount: count * autoRepeat.tracks.length,
     mode: autoRepeat.mode,
   };
+}
+
+/** Shifts declared line names past an expanded auto repeat. */
+function shiftGridLineNames(
+  lineNames: readonly (readonly string[])[] | undefined,
+  template: ReturnType<typeof expandGridAutoRepeat>,
+): readonly (readonly string[])[] | undefined {
+  if (!lineNames || template.repeatTrackCount === 0) return lineNames;
+  const shifted: string[][] = [];
+  for (let index = 0; index < lineNames.length; index += 1) {
+    const target = index > template.repeatStart ? index + template.repeatTrackCount : index;
+    while (shifted.length <= target) shifted.push([]);
+    shifted[target] = [...lineNames[index]!];
+  }
+  return shifted;
 }
 
 /** The auto-fit collapse set: repeat tracks no item occupies. */
@@ -1094,40 +1129,6 @@ function gridPlacementStart(placement: ComputedLayoutStyle["gridColumn"]): numbe
     return Math.max(0, placement.end - placement.span - 1);
   }
   return undefined;
-}
-
-function gridTemplateAreaBounds(
-  areas: readonly (readonly string[])[],
-  name: string,
-): { column: number; row: number; columnSpan: number; rowSpan: number } | undefined {
-  let minRow = Number.POSITIVE_INFINITY;
-  let maxRow = -1;
-  let minColumn = Number.POSITIVE_INFINITY;
-  let maxColumn = -1;
-
-  for (const [row, cells] of areas.entries()) {
-    for (const [column, cell] of cells.entries()) {
-      if (cell !== name) continue;
-      minRow = Math.min(minRow, row);
-      maxRow = Math.max(maxRow, row);
-      minColumn = Math.min(minColumn, column);
-      maxColumn = Math.max(maxColumn, column);
-    }
-  }
-
-  if (maxRow < 0 || maxColumn < 0) return undefined;
-  for (let row = minRow; row <= maxRow; row += 1) {
-    for (let column = minColumn; column <= maxColumn; column += 1) {
-      if (areas[row]?.[column] !== name) return undefined;
-    }
-  }
-
-  return {
-    column: minColumn,
-    row: minRow,
-    columnSpan: maxColumn - minColumn + 1,
-    rowSpan: maxRow - minRow + 1,
-  };
 }
 
 function gridAlignmentOffset(available: number, size: number, alignment: ComputedLayoutStyle["justifySelf"]): number {

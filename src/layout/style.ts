@@ -133,6 +133,10 @@ export interface LayoutGridPlacement {
   start?: number;
   end?: number;
   span?: number;
+  /** A named start line, resolved against the template's line names. */
+  startName?: string;
+  /** A named end line, resolved against the template's line names. */
+  endName?: string;
 }
 
 /** Public interface describing box model edges. */
@@ -190,6 +194,10 @@ export interface ComputedLayoutStyle {
   gridTemplateAreas: string[][];
   gridTemplateColumnsAutoRepeat?: LayoutGridAutoRepeat;
   gridTemplateRowsAutoRepeat?: LayoutGridAutoRepeat;
+  /** Names declared before/after each column track (index = line - 1). */
+  gridTemplateColumnsLineNames?: string[][];
+  /** Names declared before/after each row track (index = line - 1). */
+  gridTemplateRowsLineNames?: string[][];
   gridAutoColumns: LayoutLengthValue;
   gridAutoRows: LayoutLengthValue;
   gridAutoFlow: LayoutGridAutoFlow;
@@ -388,6 +396,12 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
           insertAt: style.gridTemplateColumnsAutoRepeat.insertAt,
         },
       }
+      : {}),
+    ...(style.gridTemplateColumnsLineNames
+      ? { gridTemplateColumnsLineNames: style.gridTemplateColumnsLineNames.map((names) => [...names]) }
+      : {}),
+    ...(style.gridTemplateRowsLineNames
+      ? { gridTemplateRowsLineNames: style.gridTemplateRowsLineNames.map((names) => [...names]) }
       : {}),
     ...(style.gridTemplateRowsAutoRepeat
       ? {
@@ -635,6 +649,8 @@ export interface LayoutGridAutoRepeat {
 export interface LayoutGridTrackTemplate {
   tracks: LayoutLengthValue[];
   autoRepeat?: LayoutGridAutoRepeat;
+  /** Names at each line: `lineNames[i]` sits before track `i`. */
+  lineNames?: string[][];
 }
 
 /**
@@ -664,8 +680,22 @@ export function parseGridTemplateTrackList(
   const trimmed = value.trim().toLowerCase();
   if (!trimmed || trimmed === "none") return { tracks: [] };
   const tracks: LayoutLengthValue[] = [];
+  const lineNames: string[][] = [];
+  let sawName = false;
   let autoRepeat: LayoutGridAutoRepeat | undefined;
+  const nameAt = (index: number): string[] => {
+    while (lineNames.length <= index) lineNames.push([]);
+    return lineNames[index]!;
+  };
   for (const token of tokenizeGridTrackList(trimmed)) {
+    if (token.startsWith("[") && token.endsWith("]")) {
+      const names = token.slice(1, -1).split(/\s+/).filter((name) => /^[a-z_][\w-]*$/.test(name));
+      if (names.length > 0) {
+        sawName = true;
+        nameAt(tracks.length).push(...names);
+      }
+      continue;
+    }
     if (!token.startsWith("repeat(")) {
       tracks.push(parseLayoutLength(token, autoLength()));
       continue;
@@ -690,7 +720,89 @@ export function parseGridTemplateTrackList(
       for (const track of repeated) tracks.push(cloneLayoutLength(track));
     }
   }
-  return { tracks, ...(autoRepeat ? { autoRepeat } : {}) };
+  if (sawName) nameAt(tracks.length);
+  return { tracks, ...(autoRepeat ? { autoRepeat } : {}), ...(sawName ? { lineNames } : {}) };
+}
+
+/**
+ * Resolves one named template area to its track rectangle. Shared by
+ * every solver adapter so template-area behavior stays backend-neutral;
+ * a non-rectangular area refuses rather than guessing.
+ */
+export function resolveGridTemplateArea(
+  areas: readonly (readonly string[])[],
+  name: string,
+): { column: number; row: number; columnSpan: number; rowSpan: number } | undefined {
+  let minRow = Number.POSITIVE_INFINITY;
+  let maxRow = -1;
+  let minColumn = Number.POSITIVE_INFINITY;
+  let maxColumn = -1;
+  for (const [row, cells] of areas.entries()) {
+    for (const [column, cell] of cells.entries()) {
+      if (cell !== name) continue;
+      minRow = Math.min(minRow, row);
+      maxRow = Math.max(maxRow, row);
+      minColumn = Math.min(minColumn, column);
+      maxColumn = Math.max(maxColumn, column);
+    }
+  }
+  if (maxRow < 0 || maxColumn < 0) return undefined;
+  for (let row = minRow; row <= maxRow; row += 1) {
+    for (let column = minColumn; column <= maxColumn; column += 1) {
+      if (areas[row]?.[column] !== name) return undefined;
+    }
+  }
+  return {
+    column: minColumn,
+    row: minRow,
+    columnSpan: maxColumn - minColumn + 1,
+    rowSpan: maxRow - minRow + 1,
+  };
+}
+
+/**
+ * Resolves a placement's named lines to numeric lines. Explicit
+ * `[name]` declarations win; template areas contribute the implicit
+ * `<area>-start`/`<area>-end` lines, and a bare area name means the
+ * area's own extent, exactly as in CSS.
+ */
+export function resolveNamedGridPlacement(
+  placement: LayoutGridPlacement,
+  lineNames: readonly (readonly string[])[] | undefined,
+  areas: readonly (readonly string[])[],
+  axis: "column" | "row",
+): LayoutGridPlacement {
+  if (placement.startName === undefined && placement.endName === undefined) return placement;
+  const lineFor = (name: string, edge: "start" | "end"): number | undefined => {
+    if (lineNames) {
+      for (let index = 0; index < lineNames.length; index += 1) {
+        if (lineNames[index]!.includes(name)) return index + 1;
+      }
+    }
+    const explicit = name.endsWith("-start") || name.endsWith("-end");
+    const base = explicit ? name.replace(/-(start|end)$/, "") : name;
+    const area = resolveGridTemplateArea(areas, base);
+    if (!area) return undefined;
+    const start = axis === "column" ? area.column + 1 : area.row + 1;
+    const span = axis === "column" ? area.columnSpan : area.rowSpan;
+    const wantsEnd = explicit ? name.endsWith("-end") : edge === "end";
+    return wantsEnd ? start + span : start;
+  };
+  const resolved: LayoutGridPlacement = { ...placement };
+  if (placement.startName !== undefined) {
+    const line = lineFor(placement.startName, "start");
+    if (line !== undefined) resolved.start = line;
+    delete resolved.startName;
+  }
+  if (placement.endName !== undefined) {
+    const line = lineFor(placement.endName, "end");
+    if (line !== undefined) resolved.end = line;
+    delete resolved.endName;
+  }
+  if (resolved.start !== undefined && resolved.end !== undefined && resolved.end > resolved.start) {
+    resolved.span = resolved.end - resolved.start;
+  }
+  return resolved;
 }
 
 function parseGridTemplateAreas(
@@ -743,6 +855,14 @@ export function parseGridPlacement(
     placement.start = startLine;
   }
 
+  const namePattern = /^[a-z_][\w-]*$/;
+  if (
+    placement.start === undefined && placement.span === undefined &&
+    startPart !== "auto" && namePattern.test(startPart)
+  ) {
+    placement.startName = startPart;
+  }
+
   const endSpan = parseGridSpan(endPart);
   const endLine = parsePositiveInteger(endPart);
   if (endSpan !== undefined) {
@@ -752,9 +872,13 @@ export function parseGridPlacement(
     placement.span = Math.max(1, endLine - placement.start);
   } else if (endLine !== undefined) {
     placement.end = endLine;
+  } else if (endPart && endPart !== "auto" && namePattern.test(endPart)) {
+    placement.endName = endPart;
   }
 
-  if (placement.start === undefined && placement.span === undefined) return { ...fallback };
+  if (placement.start === undefined && placement.span === undefined && placement.startName === undefined) {
+    return { ...fallback };
+  }
   return placement;
 }
 
@@ -918,6 +1042,8 @@ export function applyLayoutDeclaration(
       next.gridTemplateColumns = template.tracks;
       if (template.autoRepeat) next.gridTemplateColumnsAutoRepeat = template.autoRepeat;
       else delete next.gridTemplateColumnsAutoRepeat;
+      if (template.lineNames) next.gridTemplateColumnsLineNames = template.lineNames;
+      else delete next.gridTemplateColumnsLineNames;
       break;
     }
     case "grid-template-rows": {
@@ -928,6 +1054,8 @@ export function applyLayoutDeclaration(
       next.gridTemplateRows = template.tracks;
       if (template.autoRepeat) next.gridTemplateRowsAutoRepeat = template.autoRepeat;
       else delete next.gridTemplateRowsAutoRepeat;
+      if (template.lineNames) next.gridTemplateRowsLineNames = template.lineNames;
+      else delete next.gridTemplateRowsLineNames;
       break;
     }
     case "grid-template-areas":
@@ -1271,12 +1399,13 @@ function applyBorderShorthand(style: ComputedLayoutStyle, value: string): void {
 function tokenizeGridTrackList(value: string): string[] {
   // calc(...) contains spaces; keep each parenthesized group one token so a
   // track list like "25vw calc(100% - 30) 1fr" splits into three tracks.
+  // [name lists] likewise stay one token for the line-name pass.
   const tokens: string[] = [];
   let depth = 0;
   let current = "";
   for (const char of value) {
-    if (char === "(") depth += 1;
-    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "(" || char === "[") depth += 1;
+    else if (char === ")" || char === "]") depth = Math.max(0, depth - 1);
     if (depth === 0 && /\s/.test(char)) {
       if (current) tokens.push(current);
       current = "";

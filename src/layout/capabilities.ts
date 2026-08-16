@@ -123,6 +123,8 @@ const fieldCapabilityMatrix = {
   gridTemplateAreas: field("supported", "unsupported"),
   gridTemplateColumnsAutoRepeat: field("supported", "unsupported"),
   gridTemplateRowsAutoRepeat: field("supported", "unsupported"),
+  gridTemplateColumnsLineNames: field("supported", "unsupported"),
+  gridTemplateRowsLineNames: field("supported", "unsupported"),
   gridAutoColumns: field("supported", "unsupported"),
   gridAutoRows: field("supported", "unsupported"),
   gridAutoFlow: field("supported", "unsupported"),
