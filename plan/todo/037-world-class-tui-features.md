@@ -613,7 +613,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Verification And Conformance Engineering
 
-- [ ] **QAL-001 (P0; deps: —)** Add model-based state-machine tests for each controller, deriving random command
+- [x] **QAL-001 (P0; deps: —)** Add model-based state-machine tests for each controller, deriving random command
       sequences and invariants from a compact reference model. **Accept:** failures retain seed, shrunk sequence,
       initial state, and final inspection.
 - [x] **QAL-002 (P0; deps: TERM-001, TERM-002)** Fuzz terminal parsing with arbitrary byte chunks, control nesting,
