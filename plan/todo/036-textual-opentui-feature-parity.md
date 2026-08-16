@@ -716,7 +716,7 @@ Acceptance:
 
 - [x] Define a semantic accessibility tree for browser hosts and document the smaller set of semantics that terminal
       protocols can actually expose.
-- [ ] Add keyboard-only acceptance, reduced-motion behavior, contrast checks, high-contrast/color-blind themes, and
+- [x] Add keyboard-only acceptance, reduced-motion behavior, contrast checks, high-contrast/color-blind themes, and
       labels/roles for all workbench controls.
 - [ ] Specify focus order and announcements for modal, tiled-window, menu, tab, tree, table, and virtualized content
       transitions.
