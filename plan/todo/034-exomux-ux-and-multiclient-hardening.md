@@ -225,6 +225,21 @@ colors let the per-cell diff suppress unchanged cells. Remaining knob if 4K@60 s
 butterchurn's updateHz setting (30 Hz halves the PTY write volume). Diagnosis details in the session memory
 (`butterchurn-4k-perf-diagnosis`).
 
+## UX-016 — Pincushion mouse offset stays stale until restart (P1 bug, user, Aug 16) — **fixed Aug 16 2026**
+
+Changing the CRT pincushion distortion updated Ghostty's shader immediately (the originating process rewrites the
+GLSL and SIGUSR2-reloads Ghostty) but the mouse warp lagged until an exomux restart. Root cause: the pincushion
+pointer transform reads the process-local `controller.shaderConfig`, and nothing synced that signal ACROSS running
+exomux processes — a second attached client (or the desktop process, when the change came from another client) kept
+warping the mouse against distortion parameters Ghostty was no longer drawing.
+
+**Fix:** `watchExomuxShaderConfig` in config.ts watches the config file's directory, debounces, reloads, and
+delivers the shader section only when it differs from what was last delivered; every client adopts foreign shader
+changes into `shaderConfig.value` directly (skipping onShadersChanged, so adopting never rewrites files or
+re-triggers a Ghostty reload — no write loops). A process's own persisted write round-trips identical and stays
+silent. The watcher lives for the client attachment and closes in the run loop's finally. Covered by test:
+cross-process magnitude change adopted exactly once; identical rewrites silent.
+
 ## Verification
 
 - UX-001: headless corner-drag repro test (frame-buffer scan per tick), plus the user's live confirm; the fix gets a

@@ -254,3 +254,45 @@ Deno.test("image background: decodes a JPEG and dispatches PNG/JPEG by signature
   }
   assert(red > 0 && blue > 0, "both colour bands of the JPEG should land on screen");
 });
+
+Deno.test("shader config watcher delivers cross-process changes, once each", async () => {
+  const { exomuxConfigFilePath, loadExomuxConfig, watchExomuxShaderConfig, writeExomuxConfig } = await import(
+    "../config.ts"
+  );
+  const directory = await Deno.makeTempDir({ prefix: "exomux-shaderwatch-" });
+  const path = exomuxConfigFilePath(directory);
+  const base = await loadExomuxConfig(path); // creates defaults on first load
+
+  const delivered: number[] = [];
+  const watcher = watchExomuxShaderConfig(path, (shaders) => {
+    delivered.push(shaders.effects.pincushion.params?.["magnitude"] ?? -1);
+  }, { debounceMs: 20 });
+  try {
+    // Another process changes the pincushion distortion.
+    const changed = {
+      ...base,
+      shaders: {
+        ...base.shaders,
+        effects: {
+          ...base.shaders.effects,
+          pincushion: {
+            ...base.shaders.effects.pincushion,
+            enabled: true,
+            params: { magnitude: 0.125 },
+          },
+        },
+      },
+    };
+    await writeExomuxConfig(path, changed);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assertEquals(delivered, [0.125]); // adopted, exactly once
+
+    // An unrelated rewrite with IDENTICAL shaders stays silent.
+    await writeExomuxConfig(path, { ...changed, themeId: changed.themeId });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assertEquals(delivered, [0.125]);
+  } finally {
+    watcher.close();
+    await Deno.remove(directory, { recursive: true });
+  }
+});

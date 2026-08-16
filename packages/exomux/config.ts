@@ -155,3 +155,75 @@ function basename(path: string): string {
   const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return index < 0 ? path : path.slice(index + 1);
 }
+
+/**
+ * Watches the config file for shader changes made by OTHER exomux
+ * processes. Every running desktop applies the pincushion pointer
+ * transform from its own in-memory `shaderConfig`, so without this a
+ * second attached client kept warping the mouse with STALE distortion
+ * parameters until restart while Ghostty (reloaded by the process that
+ * made the change) was already drawing the new curve. The watcher
+ * observes the config's directory (writes land via replace), debounces,
+ * reloads, and delivers the shader section only when it actually
+ * differs from what was last delivered — a process's own persisted
+ * write round-trips to an identical value and stays silent.
+ */
+export function watchExomuxShaderConfig(
+  path: string,
+  onShaders: (shaders: ExomuxShaderConfig) => void,
+  options: { readonly debounceMs?: number } = {},
+): { close(): void } {
+  const debounceMs = Math.max(1, options.debounceMs ?? 200);
+  const separator = path.lastIndexOf("/");
+  const directory = separator > 0 ? path.slice(0, separator) : ".";
+  let watcher: Deno.FsWatcher | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let closed = false;
+  let lastDelivered: string | undefined;
+
+  const deliver = async (): Promise<void> => {
+    if (closed) return;
+    try {
+      const config = await loadExomuxConfig(path);
+      const signature = JSON.stringify(config.shaders);
+      if (signature === lastDelivered) return;
+      lastDelivered = signature;
+      onShaders(config.shaders);
+    } catch {
+      // A half-written or briefly missing file resolves on the next event.
+    }
+  };
+
+  (async () => {
+    try {
+      watcher = Deno.watchFs(directory);
+    } catch {
+      return; // no watch support: the feature degrades to restart-to-apply
+    }
+    try {
+      for await (const event of watcher) {
+        if (closed) break;
+        if (!event.paths.some((candidate) => candidate === path)) continue;
+        if (timer !== undefined) clearTimeout(timer);
+        timer = setTimeout(() => {
+          void deliver();
+        }, debounceMs);
+        Deno.unrefTimer?.(timer);
+      }
+    } catch {
+      // The watcher ends with the process or on close(); either is fine.
+    }
+  })();
+
+  return {
+    close() {
+      closed = true;
+      if (timer !== undefined) clearTimeout(timer);
+      try {
+        watcher?.close();
+      } catch {
+        // already closed
+      }
+    },
+  };
+}

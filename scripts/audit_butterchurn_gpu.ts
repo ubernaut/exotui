@@ -38,7 +38,7 @@ const THEME = exomuxTheme("midnight");
 const CELLS = WIDTH * HEIGHT;
 
 /** Frames rendered before measuring, giving the async GPU pipeline time to land. */
-const WARMUP_FRAMES = 80;
+const WARMUP_FRAMES = 360;
 /** Real-time gap per frame so readbacks keep up with the sim clock. */
 const FRAME_SLEEP_MS = 6;
 /**

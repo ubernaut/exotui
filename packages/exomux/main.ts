@@ -37,6 +37,7 @@ import {
   loadExomuxConfig,
   persistExomuxBackgroundImage,
   resetExomuxConfig,
+  watchExomuxShaderConfig,
   writeExomuxConfig,
 } from "./config.ts";
 import { exomuxBackgroundSettingsFor, withExomuxBackgroundString } from "./model.ts";
@@ -362,6 +363,16 @@ async function runExomuxClientSession(
     ...(applyShaders ? { onShadersChanged: applyShaders } : {}),
     ...(renameSession ? { onRenameSession: renameSession } : {}),
   });
+  // Adopt shader changes made by OTHER exomux processes immediately: the
+  // pincushion pointer transform reads this process's shaderConfig, and a
+  // stale copy warps the mouse against a curve Ghostty is no longer drawing
+  // (the change's originating process already rewrote the GLSL and reloaded
+  // Ghostty). Setting the signal directly skips onShadersChanged, so adopting
+  // never rewrites files or re-triggers a Ghostty reload.
+  const shaderWatcher = watchExomuxShaderConfig(configPath, (shaders) => {
+    if (JSON.stringify(shaders) === JSON.stringify(controller.shaderConfig.peek())) return;
+    controller.shaderConfig.value = shaders;
+  });
   // When the block cursor is enabled under Ghostty, hide Ghostty's own pointer
   // while typing to cut the double-cursor — a managed config with its include.
   if (ghostty) {
@@ -384,19 +395,23 @@ async function runExomuxClientSession(
       ? ` · replaced unresponsive host pid ${connection.recovery.pid}`
       : " · cleared crashed host state";
   }
-  await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
-  const runtime = await createExomuxTerminalApp({ controller });
-  liveRuntime = runtime;
-  bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
-  runtime.start();
-  if (!bindingsAreLoopAware()) return undefined;
-  // Wait out this attachment: the tui's destroy fires on quit and on switch.
-  await new Promise<void>((resolve) => {
-    runtime.app.tui.on("destroy", () => resolve());
-  });
-  if (!requestedSwitch) return undefined;
-  await runtime.destroy().catch(() => undefined);
-  return requestedSwitch;
+  try {
+    await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
+    const runtime = await createExomuxTerminalApp({ controller });
+    liveRuntime = runtime;
+    bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
+    runtime.start();
+    if (!bindingsAreLoopAware()) return undefined;
+    // Wait out this attachment: the tui's destroy fires on quit and on switch.
+    await new Promise<void>((resolve) => {
+      runtime.app.tui.on("destroy", () => resolve());
+    });
+    if (!requestedSwitch) return undefined;
+    await runtime.destroy().catch(() => undefined);
+    return requestedSwitch;
+  } finally {
+    shaderWatcher.close();
+  }
 }
 
 /** The client loop needs the destroy event; always true today, seam for tests. */
