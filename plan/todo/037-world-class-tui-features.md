@@ -317,7 +317,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **WID-009 (P2; deps: INP-006, HIS-001, 023:W2)** Add a virtualized kanban board with keyboard/pointer card
       movement, swimlanes, WIP limits, and optimistic move hooks. **Accept:** rejected moves return cards to stable
       positions without losing focus.
-- [ ] **WID-010 (P2; deps: VIS-001, DAT-008)** Add a virtualized event-timeline/feed widget with grouping, sticky time
+- [x] **WID-010 (P2; deps: VIS-001, DAT-008)** Add a virtualized event-timeline/feed widget with grouping, sticky time
       headers, live-tail policy, and jump-to-event. **Accept:** out-of-order events insert deterministically without
       moving a user who paused live-tail.
 
