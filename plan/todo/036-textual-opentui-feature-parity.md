@@ -575,7 +575,12 @@ Acceptance:
       without 1049 and wipes it on exit; split-footer restricts the scroll region so shell output scrolls above a
       stable footer; the frozen SCREEN_MODE_LIMITS statement says buffered-main must not be called inline mode and an
       inline contract stays unspecified until a host needs one.
-- [ ] Add styled scrollback snapshots and reusable streaming off-screen surfaces for Markdown, code, and process output.
+- [x] Add styled scrollback snapshots and reusable streaming off-screen surfaces for Markdown, code, and process output.
+      Completed August 16, 2026: `offscreen_surface.ts` — bounded styled-line surface whose snapshots freeze the
+      history WITH the count of lines the bound already dropped (never silently complete); streaming writers for
+      Markdown (headings/bullets/inline code/emphasis), code (pluggable Highlighter scopes), and process output
+      (SGR color/bold tracked, other escapes dropped), all chunk-boundary safe; live screens already expose
+      color-preserving styled scrollback via scrollbackCellRows, now under test.
 - [ ] Complete structured Kitty keyboard press/repeat/release and base-layout metadata while keeping legacy input paths.
 - [x] Add terminal theme/palette detection, title/background control, OSC 52 clipboard, desktop notifications, raw OSC
       subscriptions, and capability diagnostics with conservative fallbacks.
