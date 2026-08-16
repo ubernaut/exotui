@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 95 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
+As of Aug 16, 2026, 96 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
 LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
 ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, HIS-010, AUT-001, AUT-003, AUT-004, and
 AUT-007. Earlier: TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 105 items stay open below; a checked box means its implementation, focused
+SEC-001, SEC-008, and REM-001. The remaining 104 items stay open below; a checked box means its implementation, focused
 tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -93,7 +93,7 @@ tests, public export review, and relevant repository gates passed.
 - [x] **LOC-009 (P1; deps: LOC-006, LOC-008, TXT-008)** Ship expansion, accented, mirrored-RTL, and mixed-script
       pseudo-locales for layout and bidi stress testing. **Accept:** every workbench surface runs under each
       pseudo-locale with no missing-key fallback.
-- [ ] **LOC-010 (P2; deps: LOC-002, OBS-004, SEC-008)** Add privacy-safe missing-translation telemetry containing key,
+- [x] **LOC-010 (P2; deps: LOC-002, OBS-004, SEC-008)** Add privacy-safe missing-translation telemetry containing key,
       locale, bundle version, and fallback path but never runtime parameter values. **Accept:** redaction tests prove
       user-supplied message data cannot enter reports.
 
@@ -683,7 +683,7 @@ tests, public export review, and relevant repository gates passed.
    TERM-001, TERM-002, SEC-001, SEC-005, SEC-008, QAL-001 through QAL-003, and QAL-006.
 2. **Application data foundation:** ASY-002, DAT-001 through DAT-006, FRM-001 through FRM-007, HIS-001 through HIS-004,
    HIS-006, HIS-009, and NAV-001 through NAV-006. Land each family as its own ICC task.
-3. **International product surface:** LOC-001 through LOC-009, TXT-007 through TXT-009, INP-001 through INP-010, FRM-008
+3. **International product surface:** LOC-001 through LOC-010, TXT-007 through TXT-009, INP-001 through INP-010, FRM-008
    through FRM-010, and NAV-007 through NAV-010. Complete 023:L1 and 023:T3 prerequisites first.
 4. **Terminal and design-system depth:** TERM-003 through TERM-010 and THEM-001 through THEM-010, followed by the 023:C1
    integration points.
