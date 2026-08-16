@@ -24,7 +24,7 @@ const { EXOMUX_BUTTERCHURN_CATALOG } = await import("../packages/exomux/butterch
 const catalogEntry = EXOMUX_BUTTERCHURN_CATALOG.find((entry) =>
   entry.name.toLowerCase().includes(TARGET.toLowerCase())
 );
-const injected = catalogEntry
+const catalogInjected = catalogEntry
   ? {
     name: catalogEntry.name,
     preset: {
@@ -63,6 +63,27 @@ await fetchTarball("https://registry.npmjs.org/butterchurn/-/butterchurn-2.6.7.t
 await fetchTarball("https://registry.npmjs.org/butterchurn-presets/-/butterchurn-presets-2.4.7.tgz", `${scratch}/bcp`);
 await Deno.copyFile(`${scratch}/bc/package/lib/butterchurn.min.js`, `${scratch}/butterchurn.min.js`);
 await Deno.copyFile(`${scratch}/bcp/package/lib/butterchurnPresets.min.js`, `${scratch}/butterchurnPresets.min.js`);
+
+// The tarball also ships ~1,754 individually converted preset JSONs —
+// far more than the 100 in the bundled pack. Prefer an exact converted
+// file for the target so the A/B covers most of the fleet.
+let convertedPreset: { name: string; preset: unknown } | undefined;
+try {
+  const convertedDir = `${scratch}/bcp/package/presets/converted`;
+  for await (const entry of Deno.readDir(convertedDir)) {
+    if (entry.isFile && entry.name.toLowerCase().includes(TARGET.toLowerCase())) {
+      convertedPreset = {
+        name: entry.name.replace(/\.json$/, ""),
+        preset: JSON.parse(await Deno.readTextFile(`${convertedDir}/${entry.name}`)),
+      };
+      break;
+    }
+  }
+} catch {
+  // no converted directory in this tarball layout — pack search still applies
+}
+
+const injected = convertedPreset ?? catalogInjected;
 
 const page = `<!doctype html>
 <html><body>

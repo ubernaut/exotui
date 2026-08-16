@@ -170,6 +170,13 @@ approximation and cannot see real-fidelity fixes; the readback probe and the bro
 record. The remaining truly-black tail is now investigable preset-by-preset with the same ablation harness
 (`Goody - Ego Decontructor` is the next candidate, still 0.00% on GPU).
 
+Second lead from the widened harness (the tarball ships 1,754 individually converted preset JSONs, now searched
+before the 100-preset pack): `Rovastar + Geiss - Hurricane Nightmare (Posterize Mix)` — the converted-dir relative
+of our truly-black Hurricane variants — baselines at 0.316 in real butterchurn, and the dominant single ablation is
+**basicWaveOff → 0.039**: the BASIC WAVEFORM carries this class's energy (shapes 0.159 and waves 0.196 contribute;
+echo/gamma do not). Next investigation: our basic-waveform injection path (mode, alpha, additive blend, sample
+count) against real butterchurn's drawBasicWaveform for the Hurricane class.
+
 Harness scope, learned attempting Ego Decontructor: the published pack carries 100 presets with equations already
 converted to JS; our catalog stores RAW Milkdrop equations, and injecting them raises a `new Function` syntax error
 inside real butterchurn. A/B for non-pack presets therefore needs the EEL→JS preset converter

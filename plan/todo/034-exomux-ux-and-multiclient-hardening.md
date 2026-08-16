@@ -117,7 +117,7 @@ background-config modal does), and route config changes through the existing Gho
 Note the pincushion pointer-warp precedent (`exomuxPincushionSource`): any shader that displaces the display may need a
 matching pointer-transform hook.
 
-## UX-010 — VHS distortion shader with per-effect intensities (P2 feature, user, Aug 15)
+## UX-010 — VHS distortion shader with per-effect intensities (P2 feature, user, Aug 15) — **shipped Aug 15 2026** (all five effects registered through EXOMUX_SHADER_EFFECTS/PARAMS; realism follow-up tracked as UX-013)
 
 Ship a VHS distortion shader for Ghostty, registered through `EXOMUX_SHADER_EFFECTS`/`EXOMUX_SHADER_PARAMS` so the
 shader manager (UX-009) and the param system pick it up automatically. **One intensity setting per effect**, mixable
