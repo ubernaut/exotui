@@ -354,7 +354,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Design Tokens And Theme Engineering
 
-- [ ] **THEM-001 (P1; deps: —)** Replace the closed semantic-token union with a typed registry that retains the seven
+- [x] **THEM-001 (P1; deps: —)** Replace the closed semantic-token union with a typed registry that retains the seven
       existing tokens as a compatibility profile. **Accept:** packages can declare namespaced tokens without weakening
       type checking or changing old themes.
 - [ ] **THEM-002 (P1; deps: THEM-001)** Let components publish required/optional token schemas, defaults, and state

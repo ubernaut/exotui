@@ -14,6 +14,7 @@ export * from "./src/selection.ts";
 export * from "./src/permissions.ts";
 export * from "./src/secrets.ts";
 export * from "./src/theme.ts";
+export * from "./src/theme_tokens.ts";
 export * from "./src/theme_binding.ts";
 export * from "./src/theme_engine_cache.ts";
 export * from "./src/theme_engine_factory.ts";
