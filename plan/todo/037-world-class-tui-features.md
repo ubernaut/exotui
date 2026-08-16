@@ -541,7 +541,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-009 (P2; deps: REM-002, REM-007, SEC-008)** Support explicitly consented multi-client sessions with visible
       participant indicators and viewer/controller/moderator roles; hidden spectators are forbidden. **Accept:** joining
       and control transfer require host policy, are announced to all participants, and are revocable.
-- [ ] **REM-010 (P1; deps: REM-002, REM-005, SEC-009)** Add session lifecycle policy for idle expiry, absolute lifetime,
+- [x] **REM-010 (P1; deps: REM-002, REM-005, SEC-009)** Add session lifecycle policy for idle expiry, absolute lifetime,
       tenant quotas, detach behavior, and graceful drain. **Accept:** each termination reason is deterministic and
       disposal releases the terminal backend exactly once.
 
