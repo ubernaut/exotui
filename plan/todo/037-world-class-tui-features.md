@@ -359,7 +359,7 @@ implementation, focused tests, public export review, and relevant repository gat
       type checking or changing old themes.
 - [x] **THEM-002 (P1; deps: THEM-001)** Let components publish required/optional token schemas, defaults, and state
       coverage. **Accept:** theme validation identifies every missing token with component and state provenance.
-- [ ] **THEM-003 (P2; deps: THEM-001)** Add bounded computed-token expressions for reference, mix, alpha,
+- [x] **THEM-003 (P2; deps: THEM-001)** Add bounded computed-token expressions for reference, mix, alpha,
       lighten/darken, and conditional terminal color depth. **Accept:** cycles and unsupported functions fail during
       compilation, not during render.
 - [ ] **THEM-004 (P1; deps: THEM-001, THEM-003)** Add contrast constraints between semantic foreground/background token
