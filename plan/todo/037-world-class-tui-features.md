@@ -580,7 +580,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Distribution And Developer Experience
 
-- [ ] **PKG-001 (P1; deps: —)** Add a deno-tui init command that creates terminal, browser, remote-client, and library
+- [x] **PKG-001 (P1; deps: —)** Add a deno-tui init command that creates terminal, browser, remote-client, and library
       templates from versioned built-in assets. **Accept:** every generated template formats, type-checks, tests, and
       uses only declared permissions.
 - [ ] **PKG-002 (P2; deps: PKG-001)** Add generators for widgets, controllers, commands, routes, themes, workers, tests,
