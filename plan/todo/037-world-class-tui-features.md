@@ -634,7 +634,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **QAL-007 (P2; deps: QAL-001)** Add targeted mutation testing for parsers, layout invariants, selection, history,
       security policies, and protocol codecs. **Accept:** surviving mutations are reported by owning feature ID and
       never auto-waived.
-- [ ] **QAL-008 (P1; deps: PKG-005)** Run a downstream compatibility matrix against pinned example applications and
+- [x] **QAL-008 (P1; deps: PKG-005)** Run a downstream compatibility matrix against pinned example applications and
       third-party adapter fixtures. **Accept:** public API/behavior changes produce a migration report before baseline
       updates.
 - [x] **QAL-009 (P2; deps: TERM-003, 023:T1)** Differentially run protocol/render fixtures through supported terminal
