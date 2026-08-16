@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 31 of 200 features are verified and checked (TXT-004, TXT-005, and LOC-001 landed Aug 16): TXT-001
-through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
-HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
-remaining 172 items stay open below; a checked box means its implementation, focused tests, public export review, and
-relevant repository gates passed.
+As of Aug 16, 2026, 32 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, and LOC-001 landed Aug 16):
+TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001
+through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001.
+The remaining 172 items stay open below; a checked box means its implementation, focused tests, public export review,
+and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -58,7 +58,7 @@ relevant repository gates passed.
 - [ ] **TXT-009 (P1; deps: TXT-008)** Add a UTS #55 source-code display mode that isolates lexical atoms and visibly
       diagnoses bidi controls, confusables, and disguised line breaks. **Accept:** security fixtures cannot make
       distinct token streams render as an indistinguishable line without a warning.
-- [ ] **TXT-010 (P1; deps: TXT-002, TXT-003, TXT-005)** Replace ad hoc tab/control handling with configurable tab stops,
+- [x] **TXT-010 (P1; deps: TXT-002, TXT-003, TXT-005)** Replace ad hoc tab/control handling with configurable tab stops,
       visible-control renderers, and reversible cell mappings. **Accept:** cursor movement, selection, wrapping, and
       copy agree for default and custom tab-stop sets.
 
