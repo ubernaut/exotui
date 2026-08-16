@@ -667,7 +667,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PER-007 (P1; deps: SEC-009, OBS-003)** Add one hierarchical cache budget coordinator with priority, pinning,
       cost estimation, and eviction callbacks. **Accept:** aggregate cache use respects its cap and active frame
       resources cannot be evicted.
-- [ ] **PER-008 (P2; deps: HIS-007, REM-004)** Add incremental, schema-aware serialization for workspace, journal,
+- [x] **PER-008 (P2; deps: HIS-007, REM-004)** Add incremental, schema-aware serialization for workspace, journal,
       frame, and cache snapshots. **Accept:** unchanged subtrees reuse prior bytes/hashes and full decode matches
       canonical serialization.
 - [ ] **PER-009 (P3; deps: TXT-001, QAL-003, PKG-010)** Evaluate optional WASM/SIMD kernels for Unicode scans, color
