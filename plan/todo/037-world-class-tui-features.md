@@ -559,7 +559,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-004 (P0; deps: PLG-001, SEC-003)** Present a permission diff on install/update and require host approval for
       newly requested capabilities. **Accept:** an update cannot retain a grant that the new manifest no longer
       declares.
-- [ ] **PLG-005 (P1; deps: PLG-001, SEC-004)** Provide typed RPC proxies for isolated plugin commands, data sources,
+- [x] **PLG-005 (P1; deps: PLG-001, SEC-004)** Provide typed RPC proxies for isolated plugin commands, data sources,
       themes, and widgets with cancellation and schema validation. **Accept:** malformed or late replies fail only the
       calling contribution.
 - [ ] **PLG-006 (P2; deps: PLG-001, PLG-003)** Add lazy activation events for command, route, file type, language, and
