@@ -14,6 +14,7 @@ export * from "./disposables.ts";
 export * from "./browser_editing.ts";
 export * from "./compose_sequences.ts";
 export * from "./preedit_provider.ts";
+export * from "./crash_recovery.ts";
 export * from "./history_branches.ts";
 export * from "./journal_store.ts";
 export * from "./navigation_blockers.ts";

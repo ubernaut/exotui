@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 62 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, HIS-005, HIS-008, ASY-002, ASY-004,
-ASY-009, DAT-004, DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001
-through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001,
-ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 138 items stay open below; a checked
-box means its implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 63 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, HIS-005, HIS-008, HIS-010, ASY-002,
+ASY-004, ASY-009, DAT-004, DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
+DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
+ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 137 items stay open below; a
+checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -251,7 +251,7 @@ box means its implementation, focused tests, public export review, and relevant 
       migration failure preserves the original bytes.
 - [x] **HIS-009 (P1; deps: HIS-001, HIS-006)** Enforce count, byte, and age budgets with checkpoint-aware pruning.
       **Accept:** pruning never removes the base needed by retained entries and reports reclaimed cost.
-- [ ] **HIS-010 (P2; deps: HIS-003, HIS-006, HIS-007, HIS-008)** Add crash-recovery replay that stops at the first
+- [x] **HIS-010 (P2; deps: HIS-003, HIS-006, HIS-007, HIS-008)** Add crash-recovery replay that stops at the first
       invalid or non-idempotent action and offers a safe partial restore. **Accept:** torn-write fixtures cannot
       duplicate external effects or corrupt the saved journal.
 
@@ -687,7 +687,7 @@ box means its implementation, focused tests, public export review, and relevant 
 4. **Terminal and design-system depth:** TERM-003 through TERM-010 and THEM-001 through THEM-010, followed by the 023:C1
    integration points.
 5. **End-user differentiation:** VIS-001 through VIS-010, WID-001 through WID-010, AUT-001 through AUT-010, DAT-007
-   through DAT-010, and HIS-005, HIS-008, HIS-007, HIS-008, HIS-010.
+   through DAT-010, and HIS-005, HIS-008, HIS-010, HIS-007, HIS-008, HIS-010.
 6. **Trustworthy extensibility:** ASY-004, ASY-007, ASY-009, OBS-001 through OBS-010, LOC-010, SEC-002 through SEC-004,
    SEC-006, SEC-007, SEC-009, SEC-010, then PLG-001 through PLG-008 and PLG-010 after 023:K1.
 7. **Distributed and packaged runtime:** REM-001 through REM-010, PKG-001 through PKG-010, then PLG-009 after PKG-009.
