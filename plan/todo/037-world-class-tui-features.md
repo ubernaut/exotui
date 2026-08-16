@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 33 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, and LOC-002 landed
-Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001,
-NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001,
-SEC-008, and REM-001. The remaining 167 items stay open below; a checked box means its implementation, focused tests,
-public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 34 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, and
+LOC-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
+NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
+SEC-001, SEC-008, and REM-001. The remaining 166 items stay open below; a checked box means its implementation, focused
+tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -73,7 +73,7 @@ public export review, and relevant repository gates passed.
 - [ ] **LOC-003 (P1; deps: LOC-001, LOC-002)** Compile and render Unicode MessageFormat 2 messages, including selectors,
       plural categories, local variables, and safe custom-function registration. **Accept:** conformance fixtures
       produce stable parts and unregistered functions fail before rendering.
-- [ ] **LOC-004 (P1; deps: LOC-001)** Provide cached locale-aware number, date/time, relative-time, duration, list,
+- [x] **LOC-004 (P1; deps: LOC-001)** Provide cached locale-aware number, date/time, relative-time, duration, list,
       unit, and display-name formatters behind one disposable registry. **Accept:** cache keys include every semantic
       option and formatter output matches the host Intl implementation.
 - [ ] **LOC-005 (P2; deps: LOC-002, LOC-003, LOC-004, TXT-003)** Support long, short, and narrow localized variants
