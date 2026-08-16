@@ -270,7 +270,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **VIS-004 (P2; deps: VIS-001, THEM-006)** Add heatmap and matrix rendering with quantized color scales and
       explicit missing/outlier cells. **Accept:** truecolor, 256-color, 16-color, and monochrome outputs preserve the
       configured ordering.
-- [ ] **VIS-005 (P2; deps: TXT-003, VIS-001)** Add braille, sextant, quadrant, and full-cell 2D mark backends selected
+- [x] **VIS-005 (P2; deps: TXT-003, VIS-001)** Add braille, sextant, quadrant, and full-cell 2D mark backends selected
       independently from Three ASCII sampling. **Accept:** identical points map to identical logical coordinates and
       unsupported glyph sets degrade explicitly.
 - [x] **VIS-006 (P1; deps: VIS-001, ASY-008)** Add streaming min/max and LTTB-style downsampling with worker offload and

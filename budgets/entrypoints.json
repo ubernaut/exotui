@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 405,
-    "bytes": 4936003,
+    "modules": 406,
+    "bytes": 4941530,
     "paths": {
       "mod.ts": 2407,
       "src/api_stability.ts": 14939,
@@ -405,7 +405,8 @@
       "src/visual/axes.ts": 4329,
       "src/visual/downsample.ts": 6302,
       "src/visual/interactions.ts": 4768,
-      "src/visual/mod.ts": 165,
+      "src/visual/marks.ts": 5499,
+      "src/visual/mod.ts": 193,
       "src/visual/scales.ts": 8445,
       "src/web/remote_terminal.ts": 49112
     }
