@@ -26,7 +26,8 @@ export function normalizeTerminalDimension(value: number | undefined, fallback?:
 export function detectTerminalMultiplexer(
   term: string,
   env: (name: string) => string | undefined,
-): "none" | "tmux" | "screen" {
+): "none" | "tmux" | "screen" | "zellij" {
+  if (env("ZELLIJ")) return "zellij";
   if (env("TMUX") || /^tmux/i.test(term)) return "tmux";
   if (env("STY") || /^screen/i.test(term)) return "screen";
   return "none";

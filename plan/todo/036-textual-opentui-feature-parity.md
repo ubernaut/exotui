@@ -588,9 +588,13 @@ Acceptance:
       passes every non-kitty byte through unchanged — the legacy input path is untouched by construction.
 - [x] Add terminal theme/palette detection, title/background control, OSC 52 clipboard, desktop notifications, raw OSC
       subscriptions, and capability diagnostics with conservative fallbacks.
-- [ ] Audit Unicode-width mode, truecolor/ANSI-256 depth, synchronized updates, hyperlinks, focus and bracketed-paste
+- [x] Audit Unicode-width mode, truecolor/ANSI-256 depth, synchronized updates, hyperlinks, focus and bracketed-paste
       support, Kitty/Sixel protocol support, and terminal/multiplexer identity. Keep capability detection distinct from
-      actually shipping a renderer for a detected graphics protocol.
+      actually shipping a renderer for a detected graphics protocol. Audited August 16, 2026: depth, hyperlinks,
+      focus, and bracketed paste were already detected; the gaps — mode-2027 width, DEC 2026 synchronized updates,
+      Kitty graphics, Sixel, and zellij identity — are now conservative allow-list detections that fail closed, and
+      the graphics entries carry "detection only — no renderer is implied or shipped" in their labeled metadata,
+      asserted under test.
 - [ ] Add renderer idle/live-request accounting, frame statistics, scheduler diagnostics, and a reusable debug/console
       overlay rather than demo-local instrumentation.
 - [ ] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions.

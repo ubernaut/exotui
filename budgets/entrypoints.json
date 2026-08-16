@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 452,
-    "bytes": 5205754,
+    "bytes": 5208369,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -340,7 +340,7 @@
       "src/runtime/telemetry.ts": 9701,
       "src/runtime/terminal_backend.ts": 8617,
       "src/runtime/terminal_backend_registry.ts": 9894,
-      "src/runtime/terminal_capabilities.ts": 20065,
+      "src/runtime/terminal_capabilities.ts": 22631,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_margins.ts": 6624,
       "src/runtime/terminal_operations.ts": 7445,
@@ -358,7 +358,7 @@
       "src/runtime/terminal_shell_workspace.ts": 11329,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10559,
-      "src/runtime/terminal_values.ts": 1111,
+      "src/runtime/terminal_values.ts": 1160,
       "src/runtime/terminal_workspace.ts": 42685,
       "src/runtime/timeline.ts": 6163,
       "src/runtime/trace_sampling.ts": 3854,
@@ -459,7 +459,7 @@
   },
   "mod.app.ts": {
     "modules": 128,
-    "bytes": 1824411,
+    "bytes": 1824460,
     "paths": {
       "mod.app.ts": 4347,
       "src/app/actions.ts": 3908,
@@ -555,7 +555,7 @@
       "src/runtime/storage.ts": 11461,
       "src/runtime/telemetry.ts": 9701,
       "src/runtime/terminal_backend.ts": 8617,
-      "src/runtime/terminal_values.ts": 1111,
+      "src/runtime/terminal_values.ts": 1160,
       "src/runtime/worker_pool.ts": 7395,
       "src/selection.ts": 10964,
       "src/signals/computed.ts": 2359,
@@ -593,7 +593,7 @@
   },
   "mod.remote.ts": {
     "modules": 35,
-    "bytes": 227172,
+    "bytes": 227221,
     "paths": {
       "mod.remote.ts": 755,
       "src/app/terminal_input.ts": 12222,
@@ -615,7 +615,7 @@
       "src/runtime/output_line_buffer.ts": 2379,
       "src/runtime/process_session.ts": 11761,
       "src/runtime/terminal_backend.ts": 8617,
-      "src/runtime/terminal_values.ts": 1111,
+      "src/runtime/terminal_values.ts": 1160,
       "src/signals/computed.ts": 2359,
       "src/signals/dependency_tracking.ts": 1179,
       "src/signals/effect.ts": 2952,
@@ -725,7 +725,7 @@
   },
   "mod.terminal.ts": {
     "modules": 47,
-    "bytes": 429640,
+    "bytes": 432255,
     "paths": {
       "mod.terminal.ts": 900,
       "src/components/bounded_follow_lines.ts": 3469,
@@ -741,7 +741,7 @@
       "src/runtime/pty_backend.ts": 15906,
       "src/runtime/terminal_backend.ts": 8617,
       "src/runtime/terminal_backend_registry.ts": 9894,
-      "src/runtime/terminal_capabilities.ts": 20065,
+      "src/runtime/terminal_capabilities.ts": 22631,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_palette.ts": 9825,
       "src/runtime/terminal_screen.ts": 42308,
@@ -751,7 +751,7 @@
       "src/runtime/terminal_shell.ts": 13178,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10559,
-      "src/runtime/terminal_values.ts": 1111,
+      "src/runtime/terminal_values.ts": 1160,
       "src/runtime/terminal_workspace.ts": 42685,
       "src/signals/computed.ts": 2359,
       "src/signals/dependency_tracking.ts": 1179,
@@ -845,7 +845,7 @@
   },
   "mod.web.ts": {
     "modules": 363,
-    "bytes": 4424771,
+    "bytes": 4427386,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -1126,7 +1126,7 @@
       "src/runtime/telemetry.ts": 9701,
       "src/runtime/terminal_backend.ts": 8617,
       "src/runtime/terminal_backend_registry.ts": 9894,
-      "src/runtime/terminal_capabilities.ts": 20065,
+      "src/runtime/terminal_capabilities.ts": 22631,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_palette.ts": 9825,
       "src/runtime/terminal_screen.ts": 42308,
@@ -1136,7 +1136,7 @@
       "src/runtime/terminal_shell_workspace.ts": 11329,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10559,
-      "src/runtime/terminal_values.ts": 1111,
+      "src/runtime/terminal_values.ts": 1160,
       "src/runtime/terminal_workspace.ts": 42685,
       "src/runtime/worker_pool.ts": 7395,
       "src/runtime/worker_protocol.ts": 6353,

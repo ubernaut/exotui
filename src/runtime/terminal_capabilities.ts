@@ -11,7 +11,7 @@ export type TerminalMouseProtocol = "none" | "x10" | "vt200" | "sgr";
 export type TerminalTextMode = "ascii" | "unicode";
 
 /** Terminal multiplexer detected from environment variables. */
-export type TerminalMultiplexer = "none" | "tmux" | "screen";
+export type TerminalMultiplexer = "none" | "tmux" | "screen" | "zellij";
 
 /** Severity for terminal portability diagnostics. */
 export type TerminalDiagnosticSeverity = "info" | "warning";
@@ -20,6 +20,10 @@ export type TerminalDiagnosticSeverity = "info" | "warning";
 export type TerminalCapabilityId =
   | "interactive"
   | "unicode"
+  | "widthMode2027"
+  | "synchronizedUpdates"
+  | "kittyGraphics"
+  | "sixel"
   | "hyperlinks"
   | "mouse"
   | "sgrMouse"
@@ -33,6 +37,14 @@ export interface TerminalCapabilities {
   interactive: boolean;
   colorDepth: TerminalColorDepth;
   unicode: boolean;
+  /** Mode 2027 grapheme-cluster width negotiation is likely available. */
+  widthMode2027: boolean;
+  /** DEC 2026 synchronized updates are likely available. */
+  synchronizedUpdates: boolean;
+  /** DETECTION ONLY: no graphics renderer is implied or shipped. */
+  kittyGraphics: boolean;
+  /** DETECTION ONLY: no graphics renderer is implied or shipped. */
+  sixel: boolean;
   hyperlinks: boolean;
   mouse: boolean;
   sgrMouse: boolean;
@@ -148,6 +160,22 @@ const TERMINAL_CAPABILITY_METADATA: Record<
     label: "OSC 8 Hyperlinks",
     description: "Terminal is likely to support clickable OSC 8 hyperlinks.",
   },
+  widthMode2027: {
+    label: "Mode 2027 Width",
+    description: "Terminal likely negotiates grapheme-cluster width handling (mode 2027).",
+  },
+  synchronizedUpdates: {
+    label: "Synchronized Updates",
+    description: "Terminal likely supports DEC 2026 begin/end synchronized update guards.",
+  },
+  kittyGraphics: {
+    label: "Kitty Graphics (detected)",
+    description: "Protocol detection only — no graphics renderer is implied or shipped for it.",
+  },
+  sixel: {
+    label: "Sixel Graphics (detected)",
+    description: "Protocol detection only — no graphics renderer is implied or shipped for it.",
+  },
   mouse: {
     label: "Mouse Input",
     description: "Terminal can report mouse presses or scroll events.",
@@ -196,6 +224,11 @@ export function detectTerminalCapabilities(
     interactive: environment.interactive,
     colorDepth: environment.colorDepth,
     unicode,
+    widthMode2027: environment.interactive && supportsMode2027(environment.term, environment.termProgram),
+    synchronizedUpdates: environment.interactive &&
+      supportsSynchronizedUpdates(environment.term, environment.termProgram),
+    kittyGraphics: environment.interactive && supportsKittyGraphics(environment.term, environment.termProgram),
+    sixel: environment.interactive && supportsSixel(environment.term, environment.termProgram),
     hyperlinks: environment.interactive && supportsHyperlinks(environment.term, environment.termProgram, env),
     mouse: environment.interactive && !isLinuxConsole(environment.term),
     sgrMouse: environment.interactive && modern,
@@ -558,6 +591,29 @@ function isModernTerminal(
   if (env("WT_SESSION") || env("VTE_VERSION")) return true;
   if (/iTerm\.app|Apple_Terminal|WezTerm|vscode|Hyper/i.test(termProgram)) return true;
   return /xterm|screen|tmux|rxvt|kitty|wezterm|alacritty|foot/i.test(term);
+}
+
+// The four audited detections are conservative allow-lists: a terminal
+// absent from the list reports false and the feature fails closed.
+// Graphics entries are DETECTION ONLY — no renderer is implied.
+function supportsMode2027(term: string, termProgram: string): boolean {
+  if (/ghostty|WezTerm|contour/i.test(termProgram)) return true;
+  return /xterm-kitty|contour|foot|ghostty/i.test(term);
+}
+
+function supportsSynchronizedUpdates(term: string, termProgram: string): boolean {
+  if (/ghostty|WezTerm|iTerm\.app|contour/i.test(termProgram)) return true;
+  return /xterm-kitty|wezterm|foot|contour|alacritty|ghostty/i.test(term);
+}
+
+function supportsKittyGraphics(term: string, termProgram: string): boolean {
+  if (/ghostty|WezTerm/i.test(termProgram)) return true;
+  return /xterm-kitty|ghostty|wezterm/i.test(term);
+}
+
+function supportsSixel(term: string, termProgram: string): boolean {
+  if (/WezTerm|mlterm|contour/i.test(termProgram)) return true;
+  return /wezterm|foot|mlterm|contour|xterm-sixel|yaft/i.test(term);
 }
 
 function isDumbTerminal(term: string): boolean {
