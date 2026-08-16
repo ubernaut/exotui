@@ -607,7 +607,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PKG-009 (P1; deps: SEC-010)** Generate SPDX SBOMs and OIDC-backed build provenance for release artifacts and
       link them from release metadata. **Accept:** a clean consumer can verify artifact digest, source revision, builder
       identity, and dependency inventory.
-- [ ] **PKG-010 (P1; deps: SEC-001)** Report per-entrypoint bundle size, dependency graph, startup imports, required
+- [x] **PKG-010 (P1; deps: SEC-001)** Report per-entrypoint bundle size, dependency graph, startup imports, required
       permissions, and unstable-runtime APIs against checked-in budgets. **Accept:** CI attributes every budget increase
       to a changed dependency or module path.
 
