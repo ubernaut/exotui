@@ -50,6 +50,7 @@ export * from "./resource_limits.ts";
 export * from "./terminal_parser.ts";
 export * from "./terminal_operations.ts";
 export * from "./terminal_passthrough.ts";
+export * from "./terminal_queries.ts";
 export * from "./terminal_sanitizer.ts";
 export * from "./retry_policy.ts";
 export * from "./signal_exporters.ts";

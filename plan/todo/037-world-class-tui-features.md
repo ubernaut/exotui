@@ -345,7 +345,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **TERM-008 (P3; deps: TERM-001, TXT-003)** Model double-width and double-height line attributes with explicit
       degradation in cell-only renderers. **Accept:** screen inspection retains logical attributes even when a host
       renders a documented fallback.
-- [ ] **TERM-009 (P1; deps: TERM-003, ASY-003)** Add a correlated terminal query broker for DECRQSS, XTGETTCAP, device
+- [x] **TERM-009 (P1; deps: TERM-003, ASY-003)** Add a correlated terminal query broker for DECRQSS, XTGETTCAP, device
       attributes, colors, and cell metrics with deadlines and reply ownership. **Accept:** interleaved replies resolve
       only their matching request and unsolicited input is not consumed.
 - [x] **TERM-010 (P1; deps: TERM-003)** Add tmux/screen/SSH-safe passthrough encoders with nesting limits and exact
