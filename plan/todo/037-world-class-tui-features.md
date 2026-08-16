@@ -21,8 +21,8 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 47 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-004, INP-002 through INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001,
+As of Aug 16, 2026, 48 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-005, INP-002 through INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001,
 INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006,
 HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157 items
 stay open below; a checked box means its implementation, focused tests, public export review, and relevant repository
@@ -77,7 +77,7 @@ gates passed.
 - [x] **LOC-004 (P1; deps: LOC-001)** Provide cached locale-aware number, date/time, relative-time, duration, list,
       unit, and display-name formatters behind one disposable registry. **Accept:** cache keys include every semantic
       option and formatter output matches the host Intl implementation.
-- [ ] **LOC-005 (P2; deps: LOC-002, LOC-003, LOC-004, TXT-003)** Support long, short, and narrow localized variants
+- [x] **LOC-005 (P2; deps: LOC-002, LOC-003, LOC-004, TXT-003)** Support long, short, and narrow localized variants
       selected by measured cell width rather than string length. **Accept:** resize tests choose the widest fitting
       variant without oscillation or mid-cluster clipping.
 - [ ] **LOC-006 (P1; deps: LOC-001, LOC-002, LOC-003)** Make locale changes reactive and transactional across messages,
