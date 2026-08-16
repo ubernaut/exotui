@@ -592,7 +592,7 @@ function windowWidget(): MarkupWidgetDescriptor {
   return { kind: "window", focusable: false, actions: [] };
 }
 
-function defaultActionsForKind(kind: MarkupWidgetKind): readonly MarkupWidgetEvent["type"][] {
+export function defaultActionsForKind(kind: MarkupWidgetKind): readonly MarkupWidgetEvent["type"][] {
   if (kind === "button") return ["press", "key"];
   if (kind === "checkbox") return ["toggle", "press", "key"];
   if (kind === "combobox") return ["toggle", "select", "key"];

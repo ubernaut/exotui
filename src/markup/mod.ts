@@ -9,6 +9,7 @@ export * from "./layout_worker.ts";
 export * from "./live_dispatch.ts";
 export * from "./live_invalidation.ts";
 export * from "./live_tree.ts";
+export * from "./rehydrate.ts";
 export * from "./support.ts";
 export * from "./widgets.ts";
 export * from "./window_history.ts";

@@ -436,7 +436,7 @@ defaults, and the separate `inherit`/`unset` evaluation.
 - [x] Add mount, remove, move, attribute/class mutation, query/filter, and bounded recompose operations.
 - [x] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
 - [x] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
-- [ ] Preserve hydrated widget identity and state when unrelated markup branches change.
+- [x] Preserve hydrated widget identity and state when unrelated markup branches change.
 - [ ] Add incremental style matching/layout caching and inspection of dirty reasons.
 - [ ] Integrate live `<scroll-area>`, `<modal>`, `<window>`, tooltips, menus, and dropdowns with existing controllers.
 
@@ -459,7 +459,10 @@ need no dispatcher bookkeeping. `LiveMarkupInvalidator` (third slice, same day, 
 connects change to recomputation: signal bindings mark their node dirty on every dependency change after the tracking
 run, the tree's mutation journal maps structural/attribute/text mutations to tree/style/layout reasons at the right
 nodes, and `flush()` coalesces all marks to the nearest dirty ancestors (descendants subsumed, reasons merged in stable
-order) so consumers re-process each affected subtree exactly once.
+order) so consumers re-process each affected subtree exactly once. `rehydrateMarkupWidgets` (fourth slice, same day,
+`src/markup/rehydrate.ts`) preserves hydrated widget identity across tree changes: unchanged id+tag nodes keep their
+controllers (and every piece of user state they hold), new nodes hydrate fresh, and removed or retagged nodes get their
+controllers disposed — ownership transfers wholly to the returned hydration.
 
 ### W1 - Screen Stacks And Modal Lifecycle (P1, Medium)
 
