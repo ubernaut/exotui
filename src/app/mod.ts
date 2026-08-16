@@ -91,6 +91,7 @@ export * from "./mouse_bindings.ts";
 export * from "./pad_commands.ts";
 export * from "./plugins.ts";
 export * from "./plugin_slot_adapters.ts";
+export * from "./plugin_activation.ts";
 export * from "./plugin_capabilities.ts";
 export * from "./plugin_compat.ts";
 export * from "./plugin_dependencies.ts";

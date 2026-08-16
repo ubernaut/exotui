@@ -562,7 +562,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-005 (P1; deps: PLG-001, SEC-004)** Provide typed RPC proxies for isolated plugin commands, data sources,
       themes, and widgets with cancellation and schema validation. **Accept:** malformed or late replies fail only the
       calling contribution.
-- [ ] **PLG-006 (P2; deps: PLG-001, PLG-003)** Add lazy activation events for command, route, file type, language, and
+- [x] **PLG-006 (P2; deps: PLG-001, PLG-003)** Add lazy activation events for command, route, file type, language, and
       explicit startup while enforcing one activation attempt at a time. **Accept:** unrelated plugins are not loaded
       and a failed activation can be retried only by policy.
 - [ ] **PLG-007 (P1; deps: PLG-003, PLG-004, HIS-003)** Make plugin install/enable/disable/uninstall transactional with
