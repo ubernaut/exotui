@@ -371,7 +371,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-006 (P1; deps: THEM-001, THEM-005)** Quantize semantic palettes to ANSI-256, ANSI-16, and monochrome by
       minimizing perceptual and role-collision error. **Accept:** the report lists per-token error and critical roles
       never collapse to the same style without a fallback marker.
-- [ ] **THEM-007 (P2; deps: THEM-001, 023:C1)** Add density and scale tokens for compact, comfortable, and
+- [x] **THEM-007 (P2; deps: THEM-001, 023:C1)** Add density and scale tokens for compact, comfortable, and
       touch-oriented component geometry. **Accept:** switching density changes declared spacing/hit targets without
       mutating application state.
 - [ ] **THEM-008 (P2; deps: THEM-001, 023:C1)** Add motion tokens for durations, easing, delay, and reduced-motion
