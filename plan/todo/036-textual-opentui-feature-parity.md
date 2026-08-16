@@ -343,12 +343,29 @@ Acceptance:
 
 ### L2 - Evaluate A Taffy WASM Backend (P0, Medium Spike)
 
-- [ ] Identify a maintained WASM distribution or build a minimal pinned bridge from Taffy 0.12.x.
+- [x] Identify a maintained WASM distribution or build a minimal pinned bridge from Taffy 0.12.x. Identified
+      August 16, 2026: `npm:taffy-layout@2.0.3` (maintained wasm-bindgen bindings with measurement callbacks and
+      TS types), pinned in deno.jsonc and adapted in `src/layout/solvers/taffy_wasm.ts` — exported as
+      `./layout/taffy-wasm`, trees freed per solve so no Taffy handle survives into public API.
 - [x] Implement an experimental `LayoutSolver` adapter without exposing Taffy handles in public APIs.
-- [ ] Prove Deno terminal import, browser import, GitHub Pages bundling, worker execution, disposal, and cache behavior.
-- [ ] Compare simple, Yoga, and Taffy output over the L0 corpus and large nested trees.
-- [ ] Measure cold-load size/time, steady layout time, memory, and cross-boundary overhead.
-- [x] Write an adoption decision: replace Yoga, complement Yoga for Grid/Block, or reject/defer Taffy.
+- [x] Prove Deno terminal import, browser import, GitHub Pages bundling, worker execution, disposal, and cache behavior.
+      Proven August 16, 2026: Deno import/worker/disposal/cache are hermetic tests (layout_taffy_wasm.test.ts);
+      browser import via a Pages-style static bundle (deno bundle + wasm asset alongside, served and executed in
+      headless Chromium with correct layout output) is recorded by scripts/probe_taffy_wasm.ts in
+      budgets/taffy_spike.json.
+- [x] Compare simple, Yoga, and Taffy output over the L0 corpus and large nested trees. Compared August 16, 2026:
+      flex grow/basis geometry agrees across all three within one cell; grid fr/cell tracks and spans agree with
+      the simple solver; seeded 341-node benchmark trees produce an identical box census and root geometry; text
+      leaves measure through the shared terminal metrics.
+- [x] Measure cold-load size/time, steady layout time, memory, and cross-boundary overhead. Measured August 16,
+      2026 (budgets/taffy_spike.json): 500 KiB wasm, ~74 ms import+init; steady 341-node solve ~30 ms vs simple's
+      ~13 ms (the JS↔WASM style/handle churn dominates at cell granularity); ~16.7 MiB heap churn over 10 solves
+      (GC-able style objects); flat 200-leaf solve ~8 ms ≈ 40 µs per node round trip.
+- [x] Write an adoption decision: replace Yoga, complement Yoga for Grid/Block, or reject/defer Taffy. Decision
+      updated August 16, 2026 with the real candidate: COMPLEMENT, caller-loaded and optional. The simple solver
+      stays the default (2.3x faster at cell granularity, no wasm cold load, full repo feature set); taffy-wasm is
+      the conformance cross-check and an option for grid-heavy browser hosts; Yoga remains flex-only. Not a
+      replacement while cross-boundary overhead dominates terminal-scale trees.
 
 Completed spike July 16, 2026: `./layout/taffy` is an explicitly experimental, caller-loaded 0.12.x bridge protocol with
 strict manifest/result validation, intrinsic-measurement callbacks, deterministic cell projection, lifecycle isolation,
@@ -383,9 +400,11 @@ Acceptance:
       auto-placement scan now keeps a forward-only sparse cursor by default, and dense searches from zero to
       backfill holes; placement never reorders children — the layout result stays in source order, which IS the
       focus order — and the frozen GRID_DENSE_PLACEMENT_SEMANTICS statement declares the contract for hosts.
-- [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
-      (August 16, 2026: remains gated on L2 Taffy WASM, which is externally blocked; the no-emulation half of the
-      decision is already binding — nothing may fake subgrid with parent-coordinate shortcuts in the meantime.)
+- [x] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
+      Evaluated August 16, 2026, after L2 landed the real candidate with corpus-level parity evidence:
+      `taffy-layout@2.0.3` does not expose subgrid in its API, so subgrid stays unavailable through the only real
+      backend; it remains deferred until a Taffy distribution ships it, and the no-emulation rule stands — nothing
+      fakes subgrid with parent-coordinate shortcuts.
 - [x] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
       Completed August 16, 2026: adjacent block-sibling vertical margins collapse to the larger of the two (only
       in gap-less flow — a gap is explicit spacing; no collapse-through or parent-child collapse); replaced/custom

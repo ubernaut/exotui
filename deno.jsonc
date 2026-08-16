@@ -12,7 +12,8 @@
     "./terminal": "./mod.terminal.ts",
     "./testing": "./mod.testing.ts",
     "./layout/yoga": "./src/layout/solvers/yoga.ts",
-    "./layout/taffy": "./src/layout/taffy.ts"
+    "./layout/taffy": "./src/layout/taffy.ts",
+    "./layout/taffy-wasm": "./src/layout/solvers/taffy_wasm.ts"
   },
   "publish": {
     "include": [
@@ -36,6 +37,7 @@
     "three": "npm:three@0.185.1",
     "three/tsl": "npm:three@0.185.1/tsl",
     "three/webgpu": "npm:three@0.185.1/webgpu",
+    "taffy-layout": "npm:taffy-layout@2.0.3",
     "yoga-layout": "npm:yoga-layout@3.2.1"
   },
   "compilerOptions": {

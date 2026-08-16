@@ -16,6 +16,8 @@
     "npm:jpeg-js@0.4.4": "0.4.4",
     "npm:markdown-it@15.0.0": "15.0.0",
     "npm:pngjs@7.0.0": "7.0.0",
+    "npm:taffy-layout@*": "2.0.3",
+    "npm:taffy-layout@2.0.3": "2.0.3",
     "npm:three@0.185.1": "0.185.1",
     "npm:yoga-layout@3.2.1": "3.2.1"
   },
@@ -271,6 +273,9 @@
     "punycode.js@2.3.1": {
       "integrity": "sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA=="
     },
+    "taffy-layout@2.0.3": {
+      "integrity": "sha512-gKR7T3GvdI1itN8ZvMACk739aVXS3bWdNVYfDcKJej02Fl448+hjd8TszlMzV942BtsgHYiGcjSpVjZafeXs8g=="
+    },
     "three@0.185.1": {
       "integrity": "sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg=="
     },
@@ -313,6 +318,7 @@
       "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0",
       "npm:pngjs@7.0.0",
+      "npm:taffy-layout@2.0.3",
       "npm:three@0.185.1",
       "npm:yoga-layout@3.2.1"
     ]

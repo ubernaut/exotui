@@ -1,0 +1,27 @@
+{
+  "note": "L2 spike evidence for taffy-layout@2.0.3; run scripts/probe_taffy_wasm.ts to regenerate (needs headless Chromium)",
+  "environment": "linux-x86_64 deno 2.9.2",
+  "candidate": "npm:taffy-layout@2.0.3",
+  "coldLoad": {
+    "wasmSizeKb": 500,
+    "importAndInitMs": 73.5
+  },
+  "steadyLayout": {
+    "trees": "depth 4 breadth 4 (341 nodes)",
+    "taffyMsPerSolve": 29.6,
+    "simpleMsPerSolve": 12.81
+  },
+  "memory": {
+    "heapDeltaKbOver10Solves": 16713
+  },
+  "crossBoundary": {
+    "flat200LeafSolveMs": 8.28
+  },
+  "browser": {
+    "pagesStyleStaticBundle": true,
+    "layout": {
+      "x": 40,
+      "width": 40
+    }
+  }
+}
