@@ -16,6 +16,7 @@ export * from "./form_server_errors.ts";
 export * from "./form_submission.ts";
 export * from "./form_validation_timing.ts";
 export * from "./form_commands.ts";
+export * from "./form_dependencies.ts";
 export * from "./focus_commands.ts";
 export {
   deleteFormPath,

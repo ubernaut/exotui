@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 39 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
-INP-009, FRM-003, FRM-005, FRM-006, and FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
-DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
-ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 161 items stay open below; a
-checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 40 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
+INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through
+DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003,
+ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 160 items stay open below; a checked box means
+its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -172,7 +172,7 @@ checked box means its implementation, focused tests, public export review, and r
 - [x] **FRM-003 (P1; deps: FRM-001, ASY-003)** Add abortable asynchronous field and schema validators with revision
       guards. **Accept:** stale completions cannot overwrite newer results and submit waits only for the active
       revision.
-- [ ] **FRM-004 (P1; deps: FRM-001, FRM-003)** Build an explicit field-dependency graph for conditional visibility,
+- [x] **FRM-004 (P1; deps: FRM-001, FRM-003)** Build an explicit field-dependency graph for conditional visibility,
       enablement, derived values, and revalidation. **Accept:** cycles are diagnosed and a source edit recomputes each
       affected field at most once.
 - [x] **FRM-005 (P2; deps: FRM-003)** Support per-field validation timing policies for change, blur, idle, submit, and
