@@ -55,8 +55,17 @@ const WAVE_RIBBON_CELLS = 1.5;
  * seconds ahead of the switch.
  */
 const MAX_CACHED_PRESETS = 6;
-/** Feedback format. Half floats keep highlights from clipping between passes. */
-const MAIN_FORMAT: GPUTextureFormat = "rgba16float";
+/**
+ * Feedback format. Real butterchurn stores every pass in 8-bit UNORM, and
+ * preset dynamics depend on it: a high-pass warp (`blur1 - main`) produces
+ * signed values that UNORM stores rectify to zero, pumping net energy into
+ * the feedback loop every cycle. In half-float the negatives survive, the
+ * oscillation cancels, and the echo-amplifier class settles at ~0.03
+ * luminance instead of saturating (033 readback probe, Aug 16 2026:
+ * 12-13% negative texels, mean pinned at 0.034). Clipping at 1.0 is part of
+ * the same authored-against contract.
+ */
+const MAIN_FORMAT: GPUTextureFormat = "rgba8unorm";
 /** Uniform block, as vec4 slots; see `UNIFORM_SLOTS` for the layout. */
 const UNIFORM_VEC4S = 34;
 
@@ -760,6 +769,68 @@ export class ExomuxButterchurnGpu {
     this.#mainIndex = 1 - this.#mainIndex;
     if (!this.#mapping) this.#requestReadback();
     return true;
+  }
+
+  /**
+   * Dev probe (033): reads the current feedback texture back and summarizes
+   * its channel distribution — the evidence channel for the echo-amplifier
+   * class, whose loop luminance cannot be inferred from resolved cells.
+   * Not called by the runtime; scripts/probe_butterchurn_readback.ts drives it.
+   */
+  async debugMainStats(): Promise<
+    { mean: number; min: number; max: number; negativeShare: number; aboveTenth: number } | undefined
+  > {
+    if (this.#lost) return undefined;
+    const texture = this.#main[this.#mainIndex]!;
+    const bytesPerRow = alignBytesPerRow(this.#renderWidth * 4);
+    const buffer = this.#device.createBuffer({
+      size: bytesPerRow * this.#renderHeight,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    try {
+      const encoder = this.#device.createCommandEncoder();
+      encoder.copyTextureToBuffer(
+        { texture },
+        { buffer, bytesPerRow },
+        [this.#renderWidth, this.#renderHeight],
+      );
+      this.#device.queue.submit([encoder.finish()]);
+      await buffer.mapAsync(GPUMapMode.READ);
+      const words = new Uint8Array(buffer.getMappedRange());
+      let sum = 0;
+      let min = Infinity;
+      let max = -Infinity;
+      let negatives = 0;
+      let aboveTenth = 0;
+      let count = 0;
+      for (let row = 0; row < this.#renderHeight; row += 1) {
+        const base = row * bytesPerRow;
+        for (let column = 0; column < this.#renderWidth; column += 1) {
+          for (let channel = 0; channel < 3; channel += 1) {
+            const value = words[base + column * 4 + channel]! / 255;
+            if (!Number.isFinite(value)) continue;
+            sum += value;
+            if (value < min) min = value;
+            if (value > max) max = value;
+            if (value < 0) negatives += 1;
+            if (value > 0.1) aboveTenth += 1;
+            count += 1;
+          }
+        }
+      }
+      buffer.unmap();
+      return count === 0 ? undefined : {
+        mean: sum / count,
+        min,
+        max,
+        negativeShare: negatives / count,
+        aboveTenth: aboveTenth / count,
+      };
+    } catch {
+      return undefined;
+    } finally {
+      buffer.destroy();
+    }
   }
 
   destroy(): void {

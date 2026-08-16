@@ -1,8 +1,8 @@
 # Butterchurn GPU render fidelity — closing the GPU-vs-CPU gap
 
-Status: in progress; third systematic fix (MilkDrop motion vectors + screen borders as GPU seed geometry) landed Aug 15
-2026 — regression 58 → 36. The residual echo-amplifier class is characterised below. Driven by user direction: "GPU
-curation isn't really ideal. it'd be better to fix the broken presets."
+Status: in progress; fourth systematic fix (UNORM feedback rectification) landed Aug 16 2026 — regression 36 → 30,
+truly-black 29 → 21, rotation 369 → 383 of 472. The remaining ~21 (comp-side echo dynamics) are the open tail. Driven by
+user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
 
 ## The real numbers (measured, not guessed)
 
@@ -87,8 +87,24 @@ Intel) is expensive. They stay out of the auto-cycle rotation (so no strobe) and
 `Goody - The Wild Vort`-class presets whose picture is an **echo amplifier**: the warp is a pure high-pass
 (`blur1 − main`) and the additive full-screen textured shape re-injects only ~0.75× of the previous frame, so with our
 pipeline the loop settles near 0.03 luminance — below the cell rasterizer's `MIN_INK` (0.1) — while real butterchurn
-reaches saturation. Diagnosing needs a pixel-level readback probe of the intermediate passes (what does `main` hold
-after 100 frames?), not more shader reading; tracked as the next step.
+reaches saturation.
+
+### Aug 16 2026: the readback probe and the UNORM rectification fix
+
+The probe (`scripts/probe_butterchurn_readback.ts`, driving `ExomuxButterchurnGpu.debugMainStats()`) read the feedback
+texture directly and settled the question: after 120 frames Goody's loop held a **signed oscillating field** — 12–13% of
+texels negative (min ≈ −0.4), mean pinned at 0.034. Real butterchurn stores every pass in 8-bit UNORM, whose stores
+rectify negatives to zero — a nonlinearity that pumps net energy into the loop each cycle; our half-float feedback
+("keep highlights from clipping") faithfully preserved the negatives and let the oscillation cancel. **Fix:**
+`MAIN_FORMAT` is now `rgba8unorm`, matching the storage contract presets were authored against. Fleet measurement:
+regression 36 → 30, truly-black 29 → 21, both-render 233 → 239, auto-cycle rotation 369 → 383 of 472.
+
+**Remaining tail (~21):** rectification raised Goody's loop mean 0.034 → 0.043 (all-positive now) but it still
+equilibrates below `MIN_INK` — the injected energy (mv grid at 0.2 alpha + 0.75× echo shape) balances the high-pass loss
+linearly, so real butterchurn's saturation must come from comp-side dynamics or a loop term we still model differently.
+Next probe: compare the comp output (not just main) against the loop, and check whether real butterchurn's blur textures
+store range-compressed values whose decompression amplifies (`scale1` > 1 in the authored data rather than our hardcoded
+1).
 
 ## Verification
 

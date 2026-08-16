@@ -465,6 +465,11 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
   /** Show a "no GPU" notice instead of the software renderer when none is found. */
   readonly #errorWithoutGpu: boolean;
   #gpu: ExomuxButterchurnGpu | undefined;
+
+  /** Dev accessor for diagnostics scripts (033 readback probe); may be undefined. */
+  debugGpu(): ExomuxButterchurnGpu | undefined {
+    return this.#gpu;
+  }
   #gpuState: "idle" | "starting" | "ready" | "unavailable" = "idle";
   #gpuPresets = new Map<string, boolean>();
   /** Readback count last seen, and how many frames it has sat still. */
