@@ -743,8 +743,11 @@ sizes × labeled key sequences (modifiers preserved) and returns reproducible la
 
 - [ ] Add a live layout/style/event inspector, filtered console, worker/resource view, key diagnostic tool, and
       hot-reload error surface.
-- [ ] Surface dirty/invalidation reasons, selected solver capabilities, frame timing, cell-diff size, cache behavior,
-      task ownership, and leaked-resource warnings without requiring demo-local instrumentation.
+- [x] Surface dirty/invalidation reasons, selected solver capabilities, frame timing, cell-diff size, cache behavior,
+      task ownership, and leaked-resource warnings without requiring demo-local instrumentation. Completed
+      August 16, 2026: `diagnostics_hub.ts` — bounded invalidation journal with reasons, caller-clock frame and
+      cell-diff rolling stats, pull-based cache and task-ownership providers, solver capability tallies, and
+      threshold-based leak warnings naming the owner; snapshot() assembles the typed report any host renders.
 - [x] Add repeatable large-tree/layout/render benchmarks with cold/warm separation and checked-in comparison reports.
       Completed August 16, 2026: seed-deterministic trees (mulberry32), cold solve on a fresh intrinsic cache vs
       warm re-solves on the primed one, caller-owned clock (tests drive a fake clock exactly);

@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 447,
-    "bytes": 5173794,
+    "modules": 448,
+    "bytes": 5180260,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -395,11 +395,12 @@
       "src/theme_workspace.ts": 6821,
       "src/tooling/attestations.ts": 5459,
       "src/tooling/codemods.ts": 6900,
+      "src/tooling/diagnostics_hub.ts": 6428,
       "src/tooling/example_registry.ts": 2124,
       "src/tooling/generators.ts": 5161,
       "src/tooling/init_templates.ts": 4799,
       "src/tooling/launcher_template.ts": 2261,
-      "src/tooling/mod.ts": 295,
+      "src/tooling/mod.ts": 333,
       "src/tooling/release_channels.ts": 4405,
       "src/tui.ts": 10229,
       "src/types.ts": 1614,
