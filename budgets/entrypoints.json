@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 451,
-    "bytes": 5200416,
+    "modules": 452,
+    "bytes": 5205754,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 14939,
@@ -297,9 +297,10 @@
       "src/runtime/health_snapshot.ts": 3455,
       "src/runtime/infinite_query.ts": 5781,
       "src/runtime/kitty_graphics.ts": 12748,
+      "src/runtime/kitty_keyboard.ts": 5301,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2848,
+      "src/runtime/mod.ts": 2885,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,

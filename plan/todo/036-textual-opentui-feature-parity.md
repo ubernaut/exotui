@@ -581,7 +581,11 @@ Acceptance:
       Markdown (headings/bullets/inline code/emphasis), code (pluggable Highlighter scopes), and process output
       (SGR color/bold tracked, other escapes dropped), all chunk-boundary safe; live screens already expose
       color-preserving styled scrollback via scrollbackCellRows, now under test.
-- [ ] Complete structured Kitty keyboard press/repeat/release and base-layout metadata while keeping legacy input paths.
+- [x] Complete structured Kitty keyboard press/repeat/release and base-layout metadata while keeping legacy input paths.
+      Completed August 16, 2026: `kitty_keyboard.ts` — explicit flag bits with push/pop enter/exit (nested apps
+      restore the outer set), full CSI-u parse (key:shifted:base-layout, modifier bits, press/repeat/release event
+      types, associated text), kittyShortcutKey matching on the PHYSICAL base-layout key, and a stream decoder that
+      passes every non-kitty byte through unchanged — the legacy input path is untouched by construction.
 - [x] Add terminal theme/palette detection, title/background control, OSC 52 clipboard, desktop notifications, raw OSC
       subscriptions, and capability diagnostics with conservative fallbacks.
 - [ ] Audit Unicode-width mode, truecolor/ANSI-256 depth, synchronized updates, hyperlinks, focus and bracketed-paste
