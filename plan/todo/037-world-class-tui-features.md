@@ -329,7 +329,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **TERM-002 (P0; deps: TERM-001)** Enforce configurable bounds for control-string bytes, parameters, nesting, and
       incomplete-sequence lifetime. **Accept:** adversarial streams have linear processing cost and recover to ground
       state with a diagnostic.
-- [ ] **TERM-003 (P1; deps: TERM-001, TERM-002)** Expose parsed, unsupported, malformed, and ignored ECMA-48/DEC
+- [x] **TERM-003 (P1; deps: TERM-001, TERM-002)** Expose parsed, unsupported, malformed, and ignored ECMA-48/DEC
       operations as versioned events before screen application. **Accept:** consumers can audit behavior without
       reparsing raw bytes and unknown controls remain lossless.
 - [ ] **TERM-004 (P1; deps: TERM-001, TXT-003, TXT-005)** Track soft-wrap and logical-line metadata and reflow it on
