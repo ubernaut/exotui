@@ -50,3 +50,50 @@ Deno.test("failures, unknown commands, and disposal behave", async () => {
   dispose();
   assertEquals(registry.has("boom"), false);
 });
+
+Deno.test("cancellation releases owned resources and can never become success (AUT-004)", async () => {
+  const registry = createTypedCommandRegistry();
+  const released: string[] = [];
+  let resolveBody!: (value: string) => void;
+  registry.register<undefined, string>({
+    id: "long.task",
+    run: (_input, context) => {
+      context.own(() => released.push("temp-file"));
+      context.own(() => released.push("lock"));
+      return new Promise((resolve) => resolveBody = resolve);
+    },
+  });
+
+  const handle = registry.start<string>("long.task", undefined);
+  await Promise.resolve(); // the body has started and owns its resources
+  handle.cancel("user pressed escape");
+  const outcome = await handle.settled;
+  assertEquals(outcome, { status: "cancelled", reason: "user pressed escape" });
+  assertEquals(released, ["lock", "temp-file"]); // reverse-order scope teardown
+
+  // A late body resolution cannot rewrite the outcome to success.
+  resolveBody("too late");
+  await Promise.resolve();
+  assertEquals(await handle.settled, { status: "cancelled", reason: "user pressed escape" });
+});
+
+Deno.test("deadlines cancel via the caller's clock; signals observe (AUT-004)", async () => {
+  const registry = createTypedCommandRegistry();
+  let sawAbort = false;
+  registry.register({
+    id: "slow",
+    run: (_input, context) =>
+      new Promise((_resolve, reject) => {
+        context.signal.addEventListener("abort", () => {
+          sawAbort = true;
+          reject(new Error("aborted"));
+        });
+      }),
+  });
+  const handle = registry.start("slow", undefined, { deadlineMs: 500 });
+  await Promise.resolve(); // the body starts and registers its abort listener
+  assertEquals(registry.advance(400), 0);
+  assertEquals(registry.advance(500), 1);
+  assertEquals(await handle.settled, { status: "cancelled", reason: "deadline" });
+  assert(sawAbort);
+});
