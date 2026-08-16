@@ -595,7 +595,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PKG-005 (P1; deps: QAL-001)** Publish a downstream contract-test package for third-party backends, solvers,
       widgets, themes, and plugins. **Accept:** adapters receive a stable conformance report without importing internal
       tests.
-- [ ] **PKG-006 (P2; deps: —)** Generate and verify browser/npm-compatible ESM artifacts and declarations from the same
+- [x] **PKG-006 (P2; deps: —)** Generate and verify browser/npm-compatible ESM artifacts and declarations from the same
       source while retaining JSR as canonical. **Accept:** Deno, Node, bundler, and browser smoke projects import only
       supported subpaths.
 - [ ] **PKG-007 (P2; deps: PKG-001, SEC-001)** Provide a compiled-launcher template that embeds app code but

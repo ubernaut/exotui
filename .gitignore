@@ -8,3 +8,4 @@ docs/assets/*.map
 packages/exomux/exomux
 # Butterchurn debug-mode logs (created only when the debug overlay is enabled).
 logs/
+dist/
