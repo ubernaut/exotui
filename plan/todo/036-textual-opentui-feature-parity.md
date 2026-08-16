@@ -380,7 +380,14 @@ Acceptance:
 - [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
       (August 16, 2026: remains gated on L2 Taffy WASM, which is externally blocked; the no-emulation half of the
       decision is already binding — nothing may fake subgrid with parent-coordinate shortcuts in the meantime.)
-- [ ] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
+- [x] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
+      Completed August 16, 2026: adjacent block-sibling vertical margins collapse to the larger of the two (only
+      in gap-less flow — a gap is explicit spacing; no collapse-through or parent-child collapse); replaced/custom
+      widgets declaring one intrinsic axis plus an aspect ratio get the other derived in intrinsic measurement, so
+      max-content widths and grid content tracks see it; explicit cell heights may exceed their container in BLOCK
+      flow only (flex/grid shrink-stretch semantics untouched), and container children with visible overflow spill
+      into the ancestor's scroll extent while clipping children and local text overflow stay contained. Block auto
+      height and auto-margin centering verified under test.
 - [x] Keep floats and full browser table layout out unless a concrete TUI use case justifies them. Decision
       recorded August 16, 2026 as a tested capability note: evaluated, no concrete TUI use case justifies either,
       and no emulation path will be added without one.

@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 446,
-    "bytes": 5166138,
+    "bytes": 5168656,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -238,7 +238,7 @@
       "src/layout/recipe.ts": 10290,
       "src/layout/responsive.ts": 11067,
       "src/layout/solver.ts": 6079,
-      "src/layout/solvers/simple.ts": 88064,
+      "src/layout/solvers/simple.ts": 90582,
       "src/layout/split_pane.ts": 6206,
       "src/layout/style.ts": 64359,
       "src/layout/tiled_workspace.ts": 44644,
@@ -839,7 +839,7 @@
   },
   "mod.web.ts": {
     "modules": 363,
-    "bytes": 4422253,
+    "bytes": 4424771,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -1061,7 +1061,7 @@
       "src/layout/recipe.ts": 10290,
       "src/layout/responsive.ts": 11067,
       "src/layout/solver.ts": 6079,
-      "src/layout/solvers/simple.ts": 88064,
+      "src/layout/solvers/simple.ts": 90582,
       "src/layout/split_pane.ts": 6206,
       "src/layout/style.ts": 64359,
       "src/layout/tiled_workspace.ts": 44644,

@@ -88,11 +88,20 @@ export class SimpleLayoutSolver implements LayoutSolver {
     fillAllocated = false,
     containingBlock: Rectangle = allocated,
     marginOverride?: BoxEdges<number>,
+    allowHeightOverflow = false,
   ): ComputedLayoutBox {
     const previousParent = activeLengthParent;
     activeLengthParent = { width: containingBlock.width, height: containingBlock.height };
     try {
-      return this.#layoutNodeScoped(node, allocated, isRoot, fillAllocated, containingBlock, marginOverride);
+      return this.#layoutNodeScoped(
+        node,
+        allocated,
+        isRoot,
+        fillAllocated,
+        containingBlock,
+        marginOverride,
+        allowHeightOverflow,
+      );
     } finally {
       activeLengthParent = previousParent;
     }
@@ -105,6 +114,7 @@ export class SimpleLayoutSolver implements LayoutSolver {
     fillAllocated: boolean,
     containingBlock: Rectangle,
     marginOverride?: BoxEdges<number>,
+    allowHeightOverflow = false,
   ): ComputedLayoutBox {
     const style = node.style;
     const margin = isRoot
@@ -122,6 +132,7 @@ export class SimpleLayoutSolver implements LayoutSolver {
       fillAllocated,
       this.#defaultTextHeight,
       this.#intrinsicMeasurementCache,
+      allowHeightOverflow,
     );
     const contentRect = insetRectangleByEdges(rect, style.border, padding);
     const visible = style.visibility === "visible" && style.display !== "none";
@@ -174,6 +185,12 @@ export class SimpleLayoutSolver implements LayoutSolver {
     const children = layoutChildren(node);
     const gap = resolveAxisGap(node.style, "row", bounds);
     let cursor = bounds.row;
+    // Adjacent sibling margins collapse to the larger of the two, the
+    // deterministic terminal subset of CSS collapsing: only between
+    // in-flow siblings and only when no gap is set (a gap means the
+    // author asked for explicit spacing). No collapse-through, no
+    // parent-child collapse.
+    let previousBottomMargin: number | undefined;
 
     for (const child of children) {
       const preferred = preferredBlockChildSize(
@@ -183,6 +200,10 @@ export class SimpleLayoutSolver implements LayoutSolver {
         this.#intrinsicMeasurementCache,
       );
       const childMargins = resolveBlockMargins(child.style, bounds, preferred.width);
+      if (gap === 0 && previousBottomMargin !== undefined) {
+        cursor -= Math.min(previousBottomMargin, childMargins.top);
+      }
+      previousBottomMargin = childMargins.bottom;
       const allocatedHeight = preferred.height + childMargins.top + childMargins.bottom;
       const childBounds = {
         column: bounds.column,
@@ -190,7 +211,7 @@ export class SimpleLayoutSolver implements LayoutSolver {
         width: bounds.width,
         height: allocatedHeight,
       };
-      const box = this.#layoutNode(child, childBounds, false, false, bounds, childMargins);
+      const box = this.#layoutNode(child, childBounds, false, false, bounds, childMargins, true);
       boxes.push(box);
       cursor = childBounds.row + childBounds.height + gap;
     }
@@ -1418,6 +1439,7 @@ function resolveNodeRect(
   fillAllocated: boolean,
   defaultTextHeight: number,
   measurementCache?: LayoutMeasurementCache,
+  allowHeightOverflow = false,
 ): Rectangle {
   const style = node.style;
   const horizontalExtras = style.border.left + style.border.right + padding.left + padding.right;
@@ -1447,6 +1469,10 @@ function resolveNodeRect(
     : undefined;
   const fallbackHeight = isRoot || fillAllocated ? allocated.height : intrinsic.height + verticalExtras;
   let height = resolveOuterSize(style.height, allocated.height, fallbackHeight, verticalExtras, boxSizing, heightPair);
+  // Block flow lets an explicit taller-than-container child overflow —
+  // that is what nested overflow clips or scrolls. Flex/grid children
+  // keep their shrink/stretch semantics.
+  const heightMayOverflow = allowHeightOverflow && style.height.unit === "cell" && !isRoot;
   height = clampOuterSize(
     height,
     allocated.height,
@@ -1455,6 +1481,7 @@ function resolveNodeRect(
     verticalExtras,
     boxSizing,
     heightPair,
+    heightMayOverflow,
   );
 
   const ratio = validAspectRatio(style.aspectRatio);
@@ -1504,7 +1531,7 @@ function resolveNodeRect(
     column: allocated.column,
     row: allocated.row,
     width: Math.min(width, allocated.width),
-    height: Math.min(height, allocated.height),
+    height: heightMayOverflow ? height : Math.min(height, allocated.height),
   };
 }
 
@@ -1536,12 +1563,18 @@ function clampOuterSize(
   extras: number,
   boxSizing: NonNullable<ComputedLayoutStyle["boxSizing"]>,
   intrinsic?: IntrinsicSizePair,
+  allowOverflow = false,
 ): number {
   const lower = resolveOuterSize(min, available, 0, extras, boxSizing, intrinsic);
   const upper = max.unit === "auto"
     ? Number.MAX_SAFE_INTEGER
     : resolveOuterSize(max, available, available, extras, boxSizing, intrinsic);
-  return Math.min(Math.max(0, Math.floor(available)), Math.max(lower, Math.min(upper, Math.max(0, Math.floor(size)))));
+  const clamped = Math.max(lower, Math.min(upper, Math.max(0, Math.floor(size))));
+  // An explicit cell size may exceed its container: that overflow is
+  // exactly what nested overflow handling clips or scrolls. Everything
+  // else still shrinks to the allocation.
+  if (allowOverflow) return clamped;
+  return Math.min(Math.max(0, Math.floor(available)), clamped);
 }
 
 function clampOuterSizeWithoutAllocation(
@@ -1571,7 +1604,7 @@ function preferredBlockChildSize(
   measurementCache?: LayoutMeasurementCache,
 ): LayoutIntrinsicSize {
   const padding = resolveBoxEdges(authoredLengths(node.style)?.padding, node.style.padding, bounds.width);
-  const rect = resolveNodeRect(node, bounds, padding, false, false, defaultTextHeight, measurementCache);
+  const rect = resolveNodeRect(node, bounds, padding, false, false, defaultTextHeight, measurementCache, true);
   return { width: rect.width, height: rect.height };
 }
 
@@ -2079,6 +2112,16 @@ function measureNodeIntrinsic(
         ? measured.height
         : Math.max(defaultTextHeight, Math.floor(node.intrinsic.height)),
     };
+    // A replaced/custom widget declaring ONE intrinsic axis plus an
+    // aspect ratio gets the other axis derived, like a replaced element.
+    const ratio = validAspectRatio(node.style.aspectRatio);
+    if (ratio !== undefined) {
+      if (node.intrinsic.width !== undefined && node.intrinsic.height === undefined) {
+        measured = { width: measured.width, height: Math.max(1, Math.round(measured.width / ratio)) };
+      } else if (node.intrinsic.height !== undefined && node.intrinsic.width === undefined) {
+        measured = { width: Math.max(1, Math.round(measured.height * ratio)), height: measured.height };
+      }
+    }
   }
   if (cacheKey) measurementCache?.set(cacheKey, measured);
   return measured;
@@ -2259,6 +2302,17 @@ function scrollSize(
   for (const child of children) {
     right = Math.max(right, child.rect.column + child.rect.width + child.margin.right);
     bottom = Math.max(bottom, child.rect.row + child.rect.height + child.margin.bottom);
+    // A child clipping its own overflow contributes only its rect; a
+    // child with VISIBLE overflow lets that content spill upward into
+    // this ancestor's scroll extent, which is what nesting means.
+    if (child.children.length > 0) {
+      if (child.overflowX === "visible") {
+        right = Math.max(right, child.contentRect.column + child.scrollWidth);
+      }
+      if (child.overflowY === "visible") {
+        bottom = Math.max(bottom, child.contentRect.row + child.scrollHeight);
+      }
+    }
   }
   return {
     width: Math.max(contentRect.width, right - contentRect.column),
