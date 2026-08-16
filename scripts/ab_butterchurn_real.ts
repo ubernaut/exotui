@@ -16,38 +16,12 @@
  */
 
 const TARGET = Deno.args[0] ?? "The Wild Vort";
-const scratch = await Deno.makeTempDir({ prefix: "bc-ab-" });
-
-// Presets outside the published 100-preset pack come from OUR catalog,
-// converted to the pack schema (init/frame/pixel → *_eqs_str).
-const { EXOMUX_BUTTERCHURN_CATALOG } = await import("../packages/exomux/butterchurn_catalog.ts");
-const catalogEntry = EXOMUX_BUTTERCHURN_CATALOG.find((entry) =>
-  entry.name.toLowerCase().includes(TARGET.toLowerCase())
-);
-const catalogInjected = catalogEntry
-  ? {
-    name: catalogEntry.name,
-    preset: {
-      baseVals: catalogEntry.baseVals,
-      init_eqs_str: catalogEntry.init ?? "",
-      frame_eqs_str: catalogEntry.frame ?? "",
-      pixel_eqs_str: catalogEntry.pixel ?? "",
-      warp: catalogEntry.warp ?? "",
-      comp: catalogEntry.comp ?? "",
-      waves: (catalogEntry.waves ?? []).map((wave) => ({
-        baseVals: wave.baseVals,
-        init_eqs_str: wave.init ?? "",
-        frame_eqs_str: wave.frame ?? "",
-        point_eqs_str: wave.point ?? "",
-      })),
-      shapes: (catalogEntry.shapes ?? []).map((shape) => ({
-        baseVals: shape.baseVals,
-        init_eqs_str: shape.init ?? "",
-        frame_eqs_str: shape.frame ?? "",
-      })),
-    },
-  }
-  : undefined;
+// BC_AB_TMP overrides the temp root for sandboxes where /tmp is
+// namespaced per process and a spawned node cannot see Deno's files.
+const scratch = await Deno.makeTempDir({
+  prefix: "bc-ab-",
+  ...(Deno.env.get("BC_AB_TMP") ? { dir: Deno.env.get("BC_AB_TMP")! } : {}),
+});
 
 async function fetchTarball(url: string, into: string): Promise<void> {
   const response = await fetch(url);
@@ -61,6 +35,10 @@ async function fetchTarball(url: string, into: string): Promise<void> {
 
 await fetchTarball("https://registry.npmjs.org/butterchurn/-/butterchurn-2.6.7.tgz", `${scratch}/bc`);
 await fetchTarball("https://registry.npmjs.org/butterchurn-presets/-/butterchurn-presets-2.4.7.tgz", `${scratch}/bcp`);
+await fetchTarball(
+  "https://registry.npmjs.org/milkdrop-preset-converter-aws/-/milkdrop-preset-converter-aws-0.1.6.tgz",
+  `${scratch}/mpc`,
+);
 await Deno.copyFile(`${scratch}/bc/package/lib/butterchurn.min.js`, `${scratch}/butterchurn.min.js`);
 await Deno.copyFile(`${scratch}/bcp/package/lib/butterchurnPresets.min.js`, `${scratch}/butterchurnPresets.min.js`);
 
@@ -82,6 +60,69 @@ try {
 } catch {
   // no converted directory in this tarball layout — pack search still applies
 }
+
+// Presets outside the published 100-preset pack come from OUR catalog,
+// converted to the pack schema (init/frame/pixel → *_eqs_str).
+const { EXOMUX_BUTTERCHURN_CATALOG } = await import("../packages/exomux/butterchurn_catalog.ts");
+const catalogEntry = EXOMUX_BUTTERCHURN_CATALOG.find((entry) =>
+  entry.name.toLowerCase().includes(TARGET.toLowerCase())
+);
+/**
+ * Converts raw Milkdrop EEL equations to the executable JS real
+ * butterchurn expects, via the converter's local (non-AWS) equation
+ * path running in node. Shaders are NOT converted — our catalog holds
+ * WGSL — so catalog-injected A/B runs the preset's DYNAMICS under
+ * MilkDrop's default warp/comp, which is faithful exactly for the
+ * wave/shape-driven presets and documented as such.
+ */
+async function convertEquations(
+  init: string,
+  frame: string,
+  pixel: string,
+): Promise<{ init_eqs_str: string; frame_eqs_str: string; pixel_eqs_str: string }> {
+  const probe = `
+    global.window = global;
+    const m = require(${JSON.stringify(`${scratch}/mpc/package/dist/milkdrop-preset-converter-aws.min.js`)});
+    const api = m.default || m;
+    Promise.resolve(api.convertPresetEquations(
+      ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)}, "",
+    )).then((result) => console.log(JSON.stringify(result)));
+  `;
+  const run = new Deno.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
+  const output = await run.output();
+  if (!output.success) throw new Error("equation conversion failed: " + new TextDecoder().decode(output.stderr));
+  return JSON.parse(new TextDecoder().decode(output.stdout).trim().split("\n").pop()!);
+}
+
+const catalogInjected = catalogEntry
+  ? {
+    name: catalogEntry.name,
+    preset: {
+      baseVals: catalogEntry.baseVals,
+      ...(await convertEquations(catalogEntry.init ?? "", catalogEntry.frame ?? "", catalogEntry.pixel ?? "")),
+      // Our catalog stores WGSL; default shaders carry the A/B instead.
+      warp: "",
+      comp: "",
+      waves: await Promise.all((catalogEntry.waves ?? []).map(async (wave) => {
+        const converted = await convertEquations(wave.init ?? "", wave.frame ?? "", wave.point ?? "");
+        return {
+          baseVals: wave.baseVals,
+          init_eqs_str: converted.init_eqs_str,
+          frame_eqs_str: converted.frame_eqs_str,
+          point_eqs_str: converted.pixel_eqs_str,
+        };
+      })),
+      shapes: await Promise.all((catalogEntry.shapes ?? []).map(async (shape) => {
+        const converted = await convertEquations(shape.init ?? "", shape.frame ?? "", "");
+        return {
+          baseVals: shape.baseVals,
+          init_eqs_str: converted.init_eqs_str,
+          frame_eqs_str: converted.frame_eqs_str,
+        };
+      })),
+    },
+  }
+  : undefined;
 
 const injected = convertedPreset ?? catalogInjected;
 

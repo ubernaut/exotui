@@ -198,6 +198,24 @@ Fleet re-measurement with real audio (and the shape-UV fix in place): both-rende
 74 → 5, regression **31 → 14**, truly black **23 → 5**. The regenerated auto-cycle rotation grew **381 → 458 of
 472** (14 skipped). The tail is now five presets.
 
+### Aug 16 2026: harness converts catalog EEL; Ego class localized to custom shaders
+
+The harness's open extension landed: `milkdrop-preset-converter-aws`'s LOCAL equation path (`convertPresetEquations`,
+plain JS, no AWS) now converts our catalog's raw EEL to executable JS in a spawned node, so any of the 472 fleet
+presets can be A/B'd — with the documented boundary that catalog-injected runs use MilkDrop's DEFAULT warp/comp
+(our catalog stores WGSL, which real butterchurn cannot execute). `BC_AB_TMP` points the harness at a shared temp
+root for sandboxes whose /tmp is namespaced per process.
+
+First use localized the Ego class: `Goody - Ego Decontructor` under default shaders is dim EVEN IN REAL BUTTERCHURN
+(baseline 0.055; no single geometry ablation dominates), so its energy lives in its custom warp/comp — which our
+GPU runs as translated WGSL and yields 0.00% while the CPU approximation shows 15.1%. The next probe for this class
+is stage-by-stage readback of the translated warp/comp for Ego specifically; a true reference A/B would need the
+original GLSL from jberg's full collections (only 1,754 of the fleet ship converted in the npm pack).
+
+Current gap list (real-audio diag, run of record): `beta106at shape - mash0000` 0.00%, `EVET + Flexi - Rainbox
+Splash Poolz` 0.60%, `pogo cubes vs. tokamak` 1.23%, `flexi - infused with the spiral` 0.30%, `Flexi - truly soft
+piece of software` 0.45% — plus ~9 more dim entries; five truly black in total.
+
 ## Verification
 
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
