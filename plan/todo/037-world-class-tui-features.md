@@ -616,7 +616,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **QAL-001 (P0; deps: —)** Add model-based state-machine tests for each controller, deriving random command
       sequences and invariants from a compact reference model. **Accept:** failures retain seed, shrunk sequence,
       initial state, and final inspection.
-- [ ] **QAL-002 (P0; deps: TERM-001, TERM-002)** Fuzz terminal parsing with arbitrary byte chunks, control nesting,
+- [x] **QAL-002 (P0; deps: TERM-001, TERM-002)** Fuzz terminal parsing with arbitrary byte chunks, control nesting,
       malformed UTF-8, and resize interleavings. **Accept:** sanitizer builds show no crash/hang and every case respects
       parser budgets.
 - [ ] **QAL-003 (P0; deps: TXT-001, TXT-002, TXT-003, TXT-004, TXT-006, TXT-008)** Vendor versioned Unicode conformance
