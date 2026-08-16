@@ -741,8 +741,12 @@ sizes × labeled key sequences (modifiers preserved) and returns reproducible la
 
 ### T2 - Devtools And Performance (P2, Medium)
 
-- [ ] Add a live layout/style/event inspector, filtered console, worker/resource view, key diagnostic tool, and
-      hot-reload error surface.
+- [x] Add a live layout/style/event inspector, filtered console, worker/resource view, key diagnostic tool, and
+      hot-reload error surface. Completed August 16, 2026: `devtools.ts` — id-keyed live LayoutInspectorController
+      (selection survives re-ingest; pick-at-cell selects the deepest hit; box-model + path reports), bounded
+      FilteredConsoleController (level + substring filters), workerResourceRows off a DiagnosticsHub snapshot,
+      KeyDiagnosticsController pairing raw sequences with their decoding and flagging unhandled ones, and
+      HotReloadErrorSurface that holds the latest failure until a successful reload clears it.
 - [x] Surface dirty/invalidation reasons, selected solver capabilities, frame timing, cell-diff size, cache behavior,
       task ownership, and leaked-resource warnings without requiring demo-local instrumentation. Completed
       August 16, 2026: `diagnostics_hub.ts` — bounded invalidation journal with reasons, caller-clock frame and

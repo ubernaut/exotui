@@ -7,3 +7,4 @@ export * from "./launcher_template.ts";
 export * from "./attestations.ts";
 export * from "./release_channels.ts";
 export * from "./diagnostics_hub.ts";
+export * from "./devtools.ts";
