@@ -362,7 +362,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-003 (P2; deps: THEM-001)** Add bounded computed-token expressions for reference, mix, alpha,
       lighten/darken, and conditional terminal color depth. **Accept:** cycles and unsupported functions fail during
       compilation, not during render.
-- [ ] **THEM-004 (P1; deps: THEM-001, THEM-003)** Add contrast constraints between semantic foreground/background token
+- [x] **THEM-004 (P1; deps: THEM-001, THEM-003)** Add contrast constraints between semantic foreground/background token
       pairs with error and auto-repair modes. **Accept:** repairs are deterministic, reported as a diff, and never alter
       locked brand tokens.
 - [ ] **THEM-005 (P2; deps: THEM-001, THEM-004)** Generate tonal palettes in OKLCH from seed hues with light/dark
