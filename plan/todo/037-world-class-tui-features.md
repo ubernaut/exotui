@@ -517,7 +517,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-001 (P0; deps: —)** Add a version/capability handshake before remote terminal traffic, with
       mandatory/optional feature negotiation. **Accept:** incompatible major versions close with a machine-readable
       reason before accepting input.
-- [ ] **REM-002 (P0; deps: REM-001, SEC-001)** Add an authentication/authorization adapter that yields a short-lived
+- [x] **REM-002 (P0; deps: REM-001, SEC-001)** Add an authentication/authorization adapter that yields a short-lived
       session principal and explicit roles. **Accept:** the protocol carries no credential material after setup and role
       changes revoke capabilities immediately.
 - [ ] **REM-003 (P0; deps: REM-001, REM-002)** Require a secure-transport policy and expose verified transport
