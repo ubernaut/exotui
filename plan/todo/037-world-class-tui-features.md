@@ -281,7 +281,7 @@ implementation, focused tests, public export review, and relevant repository gat
       rather than only cells.
 - [x] **VIS-008 (P2; deps: VIS-001, VIS-002)** Add annotations, threshold bands, event markers, and reference lines with
       collision policies. **Accept:** annotations remain attached through resize, pan, zoom, and data-window changes.
-- [ ] **VIS-009 (P2; deps: VIS-007, DAT-008)** Link multiple charts through shared domains, cursors, brushes, and
+- [x] **VIS-009 (P2; deps: VIS-007, DAT-008)** Link multiple charts through shared domains, cursors, brushes, and
       selection signals without cyclic updates. **Accept:** one interaction produces one revision across all linked
       views.
 - [ ] **VIS-010 (P2; deps: VIS-001, VIS-003, VIS-004)** Export a chart as data, deterministic ANSI cells, SVG, and a
