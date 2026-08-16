@@ -434,7 +434,7 @@ defaults, and the separate `inherit`/`unset` evaluation.
 ### D1 - Make The Markup Tree Live (P1, Large)
 
 - [x] Add mount, remove, move, attribute/class mutation, query/filter, and bounded recompose operations.
-- [ ] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
+- [x] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
 - [ ] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
 - [ ] Preserve hydrated widget identity and state when unrelated markup branches change.
 - [ ] Add incremental style matching/layout caching and inspection of dirty reasons.
@@ -451,7 +451,11 @@ mount (fragment parse, deterministic `<id>~<n>` collision rewrite), remove, move
 mutation (id is index-owned and immutable), selector `query`/`first` with exclude/predicate filters reusing
 `matchesCssSelector`, and atomic bounded `recompose`. Every successful mutation bumps one revision and lands in a
 bounded, acknowledgeable journal so the later invalidation slice can key off "what changed since revision N". Mutations
-apply fully or reject without touching the tree.
+apply fully or reject without touching the tree. `LiveMarkupDispatcher` (second slice, same day,
+`src/markup/live_dispatch.ts`) adds selector-routed dispatch: capture root-down, target (both listener kinds), bubble
+back up, registration-order invocation per node, stopPropagation finishing the current node before halting the walk,
+preventDefault reported in the dispatch result, and a live ancestor-path resolution so tree mutations between dispatches
+need no dispatcher bookkeeping.
 
 ### W1 - Screen Stacks And Modal Lifecycle (P1, Medium)
 
