@@ -600,7 +600,7 @@ Acceptance:
 - [x] Deliver the bounded editor v2 foundation: visible grapheme-safe directional ranges, Shift/Ctrl-A selection,
       selection-aware atomic edits/paste, cell-width-aware Unicode projection, and failure-atomic bounded literal
       current-document find/replace with focused terminal tests.
-- [ ] Add cross-container selectable text and a clipboard abstraction shared by terminal OSC 52 and browser clipboard.
+- [x] Add cross-container selectable text and a clipboard abstraction shared by terminal OSC 52 and browser clipboard.
 - [ ] Add only genuinely missing general widgets: masked input, selection list, content switcher/collapsible, and richer
       loading/digits surfaces. Reuse DataTable, Tree/FileExplorer, Markdown, logs, and existing controls.
 - [ ] Keep QR, ASCII-art fonts, native audio, and niche first-party OpenTUI packages as optional follow-ups unless an
