@@ -284,7 +284,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **VIS-009 (P2; deps: VIS-007, DAT-008)** Link multiple charts through shared domains, cursors, brushes, and
       selection signals without cyclic updates. **Accept:** one interaction produces one revision across all linked
       views.
-- [ ] **VIS-010 (P2; deps: VIS-001, VIS-003, VIS-004)** Export a chart as data, deterministic ANSI cells, SVG, and a
+- [x] **VIS-010 (P2; deps: VIS-001, VIS-003, VIS-004)** Export a chart as data, deterministic ANSI cells, SVG, and a
       structured description through one snapshot model. **Accept:** all formats declare scale/domain metadata and match
       the rendered series revision.
 

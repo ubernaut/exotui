@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 410,
-    "bytes": 4959052,
+    "modules": 411,
+    "bytes": 4964434,
     "paths": {
       "mod.ts": 2407,
       "src/api_stability.ts": 14939,
@@ -404,12 +404,13 @@
       "src/viewport.ts": 9033,
       "src/visual/annotations.ts": 5025,
       "src/visual/axes.ts": 4329,
+      "src/visual/chart_export.ts": 5347,
       "src/visual/downsample.ts": 6302,
       "src/visual/heatmap.ts": 4172,
       "src/visual/interactions.ts": 4768,
       "src/visual/linked_charts.ts": 2476,
       "src/visual/marks.ts": 5499,
-      "src/visual/mod.ts": 322,
+      "src/visual/mod.ts": 357,
       "src/visual/scales.ts": 8445,
       "src/visual/series.ts": 5720,
       "src/web/remote_terminal.ts": 49112
