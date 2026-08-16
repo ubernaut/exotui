@@ -1,0 +1,120 @@
+{
+  "note": "representative host baselines for the benchmark suite; timings are indicative per host and never gate CI directly",
+  "environment": "linux-x86_64 deno 2.9.2; browser: google-chrome",
+  "hosts": {
+    "terminal": [
+      {
+        "name": "small",
+        "nodes": 13,
+        "boxes": 13,
+        "coldCacheMisses": 34,
+        "warmCacheHits": 39,
+        "coldMs": 7.79,
+        "warmMs": 0.88
+      },
+      {
+        "name": "deep",
+        "nodes": 127,
+        "boxes": 127,
+        "coldCacheMisses": 460,
+        "warmCacheHits": 897,
+        "coldMs": 16.58,
+        "warmMs": 5.54
+      },
+      {
+        "name": "broad",
+        "nodes": 157,
+        "boxes": 157,
+        "coldCacheMisses": 362,
+        "warmCacheHits": 939,
+        "coldMs": 6.58,
+        "warmMs": 3.3
+      },
+      {
+        "name": "large",
+        "nodes": 781,
+        "boxes": 781,
+        "coldCacheMisses": 1698,
+        "warmCacheHits": 5388,
+        "coldMs": 38.35,
+        "warmMs": 19.26
+      }
+    ],
+    "worker": [
+      {
+        "name": "small",
+        "nodes": 13,
+        "boxes": 13,
+        "coldCacheMisses": 34,
+        "warmCacheHits": 39,
+        "coldMs": 8.33,
+        "warmMs": 0.57
+      },
+      {
+        "name": "deep",
+        "nodes": 127,
+        "boxes": 127,
+        "coldCacheMisses": 460,
+        "warmCacheHits": 897,
+        "coldMs": 16.5,
+        "warmMs": 5.66
+      },
+      {
+        "name": "broad",
+        "nodes": 157,
+        "boxes": 157,
+        "coldCacheMisses": 362,
+        "warmCacheHits": 939,
+        "coldMs": 6.71,
+        "warmMs": 3.32
+      },
+      {
+        "name": "large",
+        "nodes": 781,
+        "boxes": 781,
+        "coldCacheMisses": 1698,
+        "warmCacheHits": 5388,
+        "coldMs": 37.13,
+        "warmMs": 17.17
+      }
+    ],
+    "browser": [
+      {
+        "name": "small",
+        "nodes": 13,
+        "boxes": 13,
+        "coldCacheMisses": 34,
+        "warmCacheHits": 39,
+        "coldMs": 7.1,
+        "warmMs": 0.6
+      },
+      {
+        "name": "deep",
+        "nodes": 127,
+        "boxes": 127,
+        "coldCacheMisses": 460,
+        "warmCacheHits": 897,
+        "coldMs": 18.9,
+        "warmMs": 5.63
+      },
+      {
+        "name": "broad",
+        "nodes": 157,
+        "boxes": 157,
+        "coldCacheMisses": 362,
+        "warmCacheHits": 939,
+        "coldMs": 4.9,
+        "warmMs": 2.43
+      },
+      {
+        "name": "large",
+        "nodes": 781,
+        "boxes": 781,
+        "coldCacheMisses": 1698,
+        "warmCacheHits": 5388,
+        "coldMs": 30.9,
+        "warmMs": 16.77
+      }
+    ]
+  }
+}

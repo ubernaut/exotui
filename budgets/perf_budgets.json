@@ -1,0 +1,22 @@
+{
+  "note": "warm-path budgets derived from the slowest collected host baseline with 3x headroom; catches order-of-magnitude regressions, not scheduler noise",
+  "derivedFrom": "budgets/perf_baselines.json",
+  "cases": [
+    {
+      "name": "small",
+      "warmBudgetMs": 2.64
+    },
+    {
+      "name": "deep",
+      "warmBudgetMs": 16.98
+    },
+    {
+      "name": "broad",
+      "warmBudgetMs": 9.96
+    },
+    {
+      "name": "large",
+      "warmBudgetMs": 57.78
+    }
+  ]
+}

@@ -758,7 +758,12 @@ sizes × labeled key sequences (modifiers preserved) and returns reproducible la
       `budgets/layout_benchmarks.json` is the checked-in comparison report — deterministic node/box/cache fields
       are CI-gated against a live run, indicative timings are environment-labeled and never asserted;
       `scripts/run_layout_benchmarks.ts` regenerates it.
-- [ ] Define performance budgets only after collecting representative terminal, browser, and worker baselines.
+- [x] Define performance budgets only after collecting representative terminal, browser, and worker baselines.
+      Completed August 16, 2026: `scripts/collect_perf_baselines.ts` runs the suite on all three hosts — this
+      process (terminal), a Deno Worker, and headless Chromium via a bundled page — asserts the deterministic
+      fields agree across hosts, records `budgets/perf_baselines.json`, and derives `budgets/perf_budgets.json`
+      (slowest host's warm timing with 3x headroom per case). The CI gate checks structure, cross-host
+      determinism, and budget consistency; live timings never gate.
 
 Acceptance:
 
