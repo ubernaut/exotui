@@ -6370,7 +6370,12 @@ function paintedStyleKey(spec: PaintedStyle): number {
   return foreground * 33_554_432 + background * 2 + (spec.bold ? 1 : 0);
 }
 
-const MAX_PAINT_STYLE_CACHE = 8192;
+// Butterchurn's quantized palette alone can reach ~10k distinct keys
+// (17 levels per channel x bold) on a fullscreen 383x101 desktop, so the
+// cap must sit ABOVE the worst single-frame palette or the cache clears
+// itself mid-frame and every cell re-runs createAnsiStyle — measured at
+// ~38ms/frame of styling against a 16.7ms budget (034 UX-015).
+const MAX_PAINT_STYLE_CACHE = 32768;
 /**
  * Shared across painters and frames. A painter is rebuilt every repaint, so a
  * per-instance cache re-ran `createAnsiStyle` for every colour on every frame —
@@ -6383,9 +6388,18 @@ function paintedStyle(spec: PaintedStyle): Style {
   let style = paintStyleCache.get(key);
   if (style) return style;
   style = createAnsiStyle({ foreground: spec.foreground, background: spec.background, bold: spec.bold });
-  // Themes and gradients are bounded in practice; the cap is only here so a
-  // long-lived session cannot grow this without limit.
-  if (paintStyleCache.size >= MAX_PAINT_STYLE_CACHE) paintStyleCache.clear();
+  // A long-lived session cannot grow this without limit — but overflow
+  // evicts only the OLDEST half (Map iteration is insertion order), so a
+  // pathological palette can never wipe the whole desktop's styles
+  // mid-frame the way clear-all did.
+  if (paintStyleCache.size >= MAX_PAINT_STYLE_CACHE) {
+    let toEvict = MAX_PAINT_STYLE_CACHE >> 1;
+    for (const staleKey of paintStyleCache.keys()) {
+      if (toEvict <= 0) break;
+      paintStyleCache.delete(staleKey);
+      toEvict -= 1;
+    }
+  }
   paintStyleCache.set(key, style);
   return style;
 }

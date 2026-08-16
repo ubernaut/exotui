@@ -208,6 +208,23 @@ options, widgets, input fields, session list, network tree, start menu, backgrou
 render — or refuses to commit its snapshot signature — so another pass always replaces the mix. The pass cap also rose 6
 → 8.
 
+## UX-015 — Butterchurn drags the whole desktop at 4K fullscreen (P1 perf, user, Aug 16) — **fixed Aug 16 2026**
+
+At ghostty fullscreen (383×101 = 38,683 cells) the desktop stuttered and input lagged with the butterchurn
+background. Measured diagnosis: the GPU render cost is size-independent (fixed 512-wide target, cell-resolution
+readback); the cost was the paint style cache. Butterchurn's quantized palette (COLOR_STEP 16 → 17 levels/channel,
+× bold) can exceed the 8,192-entry cap in a single fullscreen frame, and the overflow policy was **clear-all** — the
+cache wiped itself repeatedly mid-frame, ~31,800 of 38,683 cells missed every frame, and styling alone cost
+~38 ms/frame against a 16.7 ms budget (every clear also evicted the chrome/window styles, so everything re-missed).
+
+**Fix:** `MAX_PAINT_STYLE_CACHE` 8,192 → 32,768 — above the worst single-frame palette — and overflow now evicts
+only the oldest half (insertion-order FIFO) instead of clearing, so a pathological palette can never wipe the
+desktop's styles mid-frame. Measured with the real quantized palette at 383×101: **38 → 4.2 ms/frame**, misses
+31,800 → ~117/frame, cache stable at ~3.5k entries. Escape-sequence volume also drops because repeated quantized
+colors let the per-cell diff suppress unchanged cells. Remaining knob if 4K@60 still feels heavy on the laptop:
+butterchurn's updateHz setting (30 Hz halves the PTY write volume). Diagnosis details in the session memory
+(`butterchurn-4k-perf-diagnosis`).
+
 ## Verification
 
 - UX-001: headless corner-drag repro test (frame-buffer scan per tick), plus the user's live confirm; the fix gets a
