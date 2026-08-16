@@ -38,7 +38,9 @@ library export.
   not just the wallpaper.
 - **Backgrounds that are alive.** Fourteen theme-derived fields — a rain background running a 2-D fluid simulation (the
   desktop floods; the drain plug is clickable), ivy that grows fruit, circuits, fire, matrix rain — and a butterchurn
-  visualizer driving a 472-preset MilkDrop catalog off your microphone, with both WebGPU and CPU renderers.
+  visualizer driving a 472-preset MilkDrop catalog off your microphone, with both WebGPU and CPU renderers — the GPU
+  pipeline is validated against real butterchurn frame-by-frame, and 468 of the 472 presets hold a live picture in the
+  auto-cycle rotation.
 - **The terminal is the GPU.** Under Ghostty, exomux manages real display shaders: CRT scanlines, barrel distortion
   (with pointer-warp compensation so your mouse still lands where it looks), and a five-artifact VHS effect — plus a
   manager window for chaining your own GLSL files.
@@ -48,7 +50,7 @@ library export.
   it to that shell's working directory.
 - **Engineered like it matters.** The write path survives saturated ptys and self-heals truncated frames; multiple
   clients attached to one session stay in live sync; resumed full-screen apps are asked to repaint themselves; a debug
-  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 518
+  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 434
   tests.
 
 ## Who it's for
@@ -73,11 +75,25 @@ library export.
 - `createTerminalApp()`: commands, key bindings, focus traversal, mouse routing, routes, settings, undo/redo history,
   plugins, and clean shutdown in one definition.
 - Layout: grids, flex, split panes, a window-manager controller, and an HTML/CSS-style markup tree with terminal-cell
-  media queries and an optional Yoga backend.
+  media queries; CSS Grid with `minmax()`, `fit-content()`, `auto-fill`/`auto-fit`, named lines, and dense placement;
+  logical RTL edges; and optional Yoga and Taffy (WASM) backends.
 - Terminal emulation: process and PTY sessions, screen and scrollback controllers, OSC services (titles, OSC 52
-  clipboard, notifications, color queries) — enough to host full-screen apps inside your app.
+  clipboard, notifications, color queries), structured Kitty keyboard input (press/repeat/release with base-layout
+  shortcut matching), a renderer-neutral screen-mode policy (alternate, buffered main-screen, split-footer), and
+  conservative capability detection (truecolor, synchronized updates, Kitty/Sixel graphics, multiplexer identity) —
+  enough to host full-screen apps inside your app.
 - Themes as semantic tokens with packs, pipelines, and validation; a Markdown component with a renderer-neutral document
   model.
+- Code and data surfaces: a worker-backed streaming syntax service with a reusable code view, unified and split diff
+  views with gutters, a full text-area (wrap modes, selection-edge auto-scroll, editing aliases), and tree-grid,
+  JSON/YAML inspector, and hex-viewer controllers.
+- Built-in devtools: a live layout inspector, filtered console, key diagnostics, hot-reload error surface, a diagnostics
+  hub (invalidation reasons, frame and cell-diff stats, cache behavior, leak warnings), and renderer idle/live
+  accounting with a reusable debug overlay.
+- Accessibility as data: a semantic tree with an honest ARIA projection, ARIA APG pattern test suites, high-contrast and
+  color-blind-safe palettes, and reduced-motion contracts.
+- Performance discipline: seed-deterministic layout benchmarks with cold/warm separation, CI-gated comparison reports,
+  and budgets derived from real terminal, worker, and browser baselines.
 - Browser (`./web`) and remote-terminal (`./remote`) entrypoints that reuse the same controllers and projections.
 - Three.js ASCII renderer (`./three-ascii`) with WebGPU post-processing, glyph/block/mixed output, and adaptive budgets.
 - A headless testing harness: in-memory terminal, interaction pilot, and snapshot helpers — the same tools this
@@ -95,9 +111,11 @@ library export.
 - Thirteen themes and fourteen animated backgrounds, cycled from the settings window or prefix `b`; organic backgrounds
   slowly overgrow idle windows and retreat when you focus them.
 - Butterchurn audio visualizer: 472 real MilkDrop presets (equations and shaders), GPU and CPU renderers, mic-driven,
-  with a preset browser and favorites.
+  with a preset browser and favorites; the GPU pipeline is validated against real butterchurn and keeps 468 of the 472
+  presets in the auto-cycle rotation.
 - Ghostty shader management: CRT scanlines, pincushion (pointer-warped), VHS with five independent artifact intensities,
-  and a shader-manager window for enabling, reordering, and adding custom GLSL entries.
+  and a shader-manager window for enabling, reordering, and adding custom GLSL entries; shader changes apply live to
+  every attached client, pointer warp included.
 - Network panel: remembered SSH hosts plus live Tailscale devices; per-machine actions (shell, system monitor, ping, OSC
   52 address copies); lazy remote tmux/exomux session discovery with attach and focus-if-open; `/` fuzzy filter.
 - Paste-to-scp: dropping a local file path on a remote shell offers a confirmed `scp` into that shell's captured working
@@ -115,7 +133,7 @@ deno task exomux            # or: ./visualization exomux
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
 
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 518
+It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 434
 tests, and it reaches the toolkit only through the public entrypoints listed below.
 
 ```sh
@@ -202,18 +220,20 @@ screenshot tooling stay behind their owning entrypoints or tasks.
 
 The export map in `deno.jsonc` defines the supported package boundaries:
 
-| Import target   | Source                       | Runtime  | Stability    |
-| --------------- | ---------------------------- | -------- | ------------ |
-| `.`             | `mod.ts`                     | terminal | stable       |
-| `./app`         | `mod.app.ts`                 | terminal | beta         |
-| `./web`         | `mod.web.ts`                 | browser  | beta         |
-| `./remote`      | `mod.remote.ts`              | remote   | experimental |
-| `./three-ascii` | `mod.three_ascii.ts`         | shared   | experimental |
-| `./theme`       | `mod.theme.ts`               | shared   | beta         |
-| `./runtime`     | `mod.runtime.ts`             | shared   | beta         |
-| `./terminal`    | `mod.terminal.ts`            | terminal | beta         |
-| `./testing`     | `mod.testing.ts`             | terminal | beta         |
-| `./layout/yoga` | `src/layout/solvers/yoga.ts` | shared   | experimental |
+| Import target         | Source                             | Runtime  | Stability    |
+| --------------------- | ---------------------------------- | -------- | ------------ |
+| `.`                   | `mod.ts`                           | terminal | stable       |
+| `./app`               | `mod.app.ts`                       | terminal | beta         |
+| `./web`               | `mod.web.ts`                       | browser  | beta         |
+| `./remote`            | `mod.remote.ts`                    | remote   | experimental |
+| `./three-ascii`       | `mod.three_ascii.ts`               | shared   | experimental |
+| `./theme`             | `mod.theme.ts`                     | shared   | beta         |
+| `./runtime`           | `mod.runtime.ts`                   | shared   | beta         |
+| `./terminal`          | `mod.terminal.ts`                  | terminal | beta         |
+| `./testing`           | `mod.testing.ts`                   | terminal | beta         |
+| `./layout/yoga`       | `src/layout/solvers/yoga.ts`       | shared   | experimental |
+| `./layout/taffy`      | `src/layout/taffy.ts`              | shared   | experimental |
+| `./layout/taffy-wasm` | `src/layout/solvers/taffy_wasm.ts` | shared   | experimental |
 
 Use `./app` for new terminal applications and the root entrypoint for compatibility or low-level composition. Focused
 entrypoints let application and tooling authors avoid taking a dependency on the broad terminal surface. Package
@@ -267,16 +287,16 @@ The main design rule is separation between state, projection, and host rendering
 
 ### Component Families
 
-| Family        | Representative APIs                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------ |
-| Foundation    | `Box`, `Frame`, `Label`, `Text`, `View`                                                    |
-| Input         | `Button`, `CheckBox`, `ComboBox`, `Input`, `TextBox`, `RadioGroup`, `Slider`               |
-| Navigation    | `List`, `VirtualList`, `Tabs`, `MenuBar`, `Tree`, `FileExplorer`, `Breadcrumbs`, `Stepper` |
-| Data and text | `Table`, `DataTableController`, `Pad`, `ScrollArea`, `LogViewer`                           |
-| Feedback      | `ProgressBar`, `Spinner`, `EmptyState`, `StatusBar`, `ToastStack`                          |
-| Overlays      | `Modal`, `ContextMenu`, `CommandPalette`, `KeyHelp`                                        |
-| Dashboard     | `Sparkline`, `Gauge`, `Chart`, `MetricSeriesController`                                    |
-| Visualization | `ThreeAscii`, system monitor panels, Neon Three scenes                                     |
+| Family        | Representative APIs                                                                                                                                       |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation    | `Box`, `Frame`, `Label`, `Text`, `View`                                                                                                                   |
+| Input         | `Button`, `CheckBox`, `ComboBox`, `Input`, `TextBox`, `RadioGroup`, `Slider`                                                                              |
+| Navigation    | `List`, `VirtualList`, `Tabs`, `MenuBar`, `Tree`, `FileExplorer`, `Breadcrumbs`, `Stepper`                                                                |
+| Data and text | `Table`, `DataTableController`, `Pad`, `ScrollArea`, `LogViewer`, `TextAreaController`, `CodeViewController`, `TreeGridController`, `HexViewerController` |
+| Feedback      | `ProgressBar`, `Spinner`, `EmptyState`, `StatusBar`, `ToastStack`                                                                                         |
+| Overlays      | `Modal`, `ContextMenu`, `CommandPalette`, `KeyHelp`                                                                                                       |
+| Dashboard     | `Sparkline`, `Gauge`, `Chart`, `MetricSeriesController`                                                                                                   |
+| Visualization | `ThreeAscii`, system monitor panels, Neon Three scenes                                                                                                    |
 
 `deno task component-catalog` is the authoritative component inventory. It supports text and JSON output and includes
 category, capability, controller, and Three.js metadata.
@@ -330,8 +350,9 @@ slider.dispose();
 
 `GridLayout`, `HorizontalLayout`, and `VerticalLayout` cover declarative terminal grids. `flexRects()`, split panes,
 responsive recipes, and `WindowManagerController` support application shells and tiled workspaces. The markup path adds
-an HTML/CSS-style tree with terminal-cell media queries, Flexbox, Grid, absolute positioning, overflow inspection, and
-an optional Yoga backend.
+an HTML/CSS-style tree with terminal-cell media queries, Flexbox, a broad CSS Grid subset (`minmax()`, `fit-content()`,
+`auto-fill`/`auto-fit` repetition, named lines, template areas, dense placement, content-based tracks), logical RTL
+edges, absolute positioning, overflow inspection, and optional Yoga and experimental Taffy (WASM) backends.
 
 See [HTML/CSS-Style Layout](https://github.com/ubernaut/exotui/blob/main/docs/html-css-layout.md),
 `examples/layout_recipe_report.ts`, `examples/html_css_layout.ts`, and `examples/window_manager_demo.ts` for executable

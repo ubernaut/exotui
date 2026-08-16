@@ -35,6 +35,7 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
     "./testing",
     "./layout/yoga",
     "./layout/taffy",
+    "./layout/taffy-wasm",
   ]);
   assertEquals(packageEntrypointFor(".")?.path, "./mod.ts");
   assertEquals(packageEntrypointFor("./mod.web.ts")?.specifier, "./web");
@@ -52,6 +53,7 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
     "./three-ascii",
     "./layout/yoga",
     "./layout/taffy",
+    "./layout/taffy-wasm",
   ]);
   assertEquals(filterPackageEntrypoints({ stability: "beta" }).map((entrypoint) => entrypoint.specifier), [
     "./app",
@@ -151,6 +153,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
         "./testing": "./mod.testing.ts",
         "./layout/yoga": "./src/layout/solvers/yoga.ts",
         "./layout/taffy": "./src/layout/taffy.ts",
+        "./layout/taffy-wasm": "./src/layout/solvers/taffy_wasm.ts",
       },
     },
     packageEntrypoints,
@@ -181,7 +184,8 @@ Deno.test("package export validation compares deno export maps with the stabilit
       exists: (path) =>
         path !== "mod.app.ts" && path !== "mod.remote.ts" && path !== "mod.three_ascii.ts" && path !== "mod.theme.ts" &&
         path !== "mod.runtime.ts" && path !== "mod.terminal.ts" && path !== "mod.testing.ts" &&
-        path !== "src/layout/solvers/yoga.ts" && path !== "src/layout/taffy.ts",
+        path !== "src/layout/solvers/yoga.ts" && path !== "src/layout/taffy.ts" &&
+        path !== "src/layout/solvers/taffy_wasm.ts",
     },
   );
   assertEquals(invalid.ok, false);
@@ -195,6 +199,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
     "./testing",
     "./layout/yoga",
     "./layout/taffy",
+    "./layout/taffy-wasm",
   ]);
   assertEquals(invalid.mismatchedExports, [{ specifier: "./web", expected: "./mod.web.ts", actual: "./wrong.ts" }]);
   assertEquals(invalid.unexpectedExports, ["./extra"]);
@@ -208,6 +213,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
     "./mod.testing.ts",
     "./src/layout/solvers/yoga.ts",
     "./src/layout/taffy.ts",
+    "./src/layout/solvers/taffy_wasm.ts",
   ]);
   assertEquals(invalid.byStability.stable.ok, true);
   assertEquals(invalid.byStability.beta.ok, false);
@@ -220,6 +226,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
     "./three-ascii",
     "./layout/yoga",
     "./layout/taffy",
+    "./layout/taffy-wasm",
   ]);
 });
 
@@ -238,7 +245,9 @@ Deno.test("package check guards stable entrypoint against new demo-only modules"
     formatStableDemoExportValidation(current),
     [
       "ok stable exports contain no new demo-only modules",
-      "legacy allowed: src/markup/demo_fixtures.ts, src/three_ascii/demo_presets.ts",
+      "legacy allowed: src/canvas/pixel_samplers.ts, src/markup/demo_fixtures.ts, " +
+      "src/three_ascii/demo_presets.ts, src/tooling/codemods.ts, src/tooling/example_registry.ts, " +
+      "src/visual/downsample.ts",
     ].join("\n"),
   );
 

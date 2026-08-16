@@ -19,7 +19,8 @@ export interface PackageEntrypointManifest {
     | "./terminal"
     | "./testing"
     | "./layout/yoga"
-    | "./layout/taffy";
+    | "./layout/taffy"
+    | "./layout/taffy-wasm";
   path:
     | "./mod.ts"
     | "./mod.app.ts"
@@ -31,7 +32,8 @@ export interface PackageEntrypointManifest {
     | "./mod.terminal.ts"
     | "./mod.testing.ts"
     | "./src/layout/solvers/yoga.ts"
-    | "./src/layout/taffy.ts";
+    | "./src/layout/taffy.ts"
+    | "./src/layout/solvers/taffy_wasm.ts";
   runtime: PackageRuntime;
   stability: ApiStabilityTier;
   description: string;
@@ -238,6 +240,19 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "lifecycle and failure diagnostics",
     ],
     excludes: ["bundled Taffy runtime", "default solver selection", "unverified JavaScript/WASM distributions"],
+  },
+  {
+    specifier: "./layout/taffy-wasm",
+    path: "./src/layout/solvers/taffy_wasm.ts",
+    runtime: "shared",
+    stability: "experimental",
+    description: "Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.",
+    includes: [
+      "flex, grid, and block solve via Taffy's own algorithms",
+      "shared terminal-cell text measurement",
+      "per-solve tree disposal (no Taffy handles in public API)",
+    ],
+    excludes: ["default solver selection", "the caller-supplied bridge protocol (see ./layout/taffy)"],
   },
 ] as const satisfies readonly PackageEntrypointManifest[];
 

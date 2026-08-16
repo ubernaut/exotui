@@ -217,6 +217,12 @@ export function formatPackageMetadataValidation(validation: PackageMetadataValid
 const DEFAULT_LEGACY_STABLE_DEMO_MODULES = [
   "src/markup/demo_fixtures.ts",
   "src/three_ascii/demo_presets.ts",
+  // Intentional 036/037 public modules the name heuristic false-positives
+  // on ("codemoDs", "pixel_SAMPLErs", "downSAMPLE", "EXAMPLE_registry").
+  "src/canvas/pixel_samplers.ts",
+  "src/tooling/codemods.ts",
+  "src/tooling/example_registry.ts",
+  "src/visual/downsample.ts",
 ] as const;
 
 export function validateStableDemoExports(
