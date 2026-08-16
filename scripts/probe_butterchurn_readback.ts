@@ -17,6 +17,8 @@ import { exomuxTheme } from "../packages/exomux/model.ts";
 const BOUNDS = { column: 0, row: 0, width: 96, height: 28 };
 const THEME = exomuxTheme("midnight");
 const CHECKPOINTS = [2, 5, 10, 20, 40, 80, 120];
+// 30 fps by default; EXOMUX_PROBE_STEP_MS overrides (the old cadence was 125).
+const STEP_MS = Number(Deno.env.get("EXOMUX_PROBE_STEP_MS") ?? "33.34");
 
 // Preset name substrings may be passed as CLI args; the default trio
 // covers the classes the plan tracks.
@@ -34,11 +36,16 @@ function presetIndex(name: string): number {
 }
 
 for (const name of TARGETS) {
-  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: presetIndex(name), autoCycle: false , audio: createScriptedExomuxAudio() });
+  const field = new ExomuxButterchurnField({
+    gpu: true,
+    presetIndex: presetIndex(name),
+    autoCycle: false,
+    audio: createScriptedExomuxAudio(),
+  });
   let now = 0;
   console.log(`\n=== ${name}`);
   for (let frame = 1; frame <= 120; frame += 1) {
-    now += 125;
+    now += STEP_MS;
     field.advance({ bounds: BOUNDS, now });
     await new Promise((resolve) => setTimeout(resolve, 6));
     if (CHECKPOINTS.includes(frame)) {

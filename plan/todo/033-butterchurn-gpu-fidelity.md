@@ -257,6 +257,41 @@ to load and sits on blank-preset defaults (wave_r 1.0), so injected-preset diffs
 page before they can be trusted. Ego's comp-decay investigation continues with that fix as the next step; the
 equation engine itself is now positively vindicated for the pack-covered fleet.
 
+### Aug 16 2026: the whole tail classified with the instruments; 30 fps cadence fix
+
+Two more instrument corrections landed while sweeping the tail. The converter's real signature is
+`convertPresetEquations(versionSlot, init, frame, pixel)` — our calls had every equation shifted one stage (found
+when Ego's "frame" turned out to be its pixel program); with the fix, the injected path runs the true equations and
+Ego's q4/q5 "divergence" resolved to integrator phase-sensitivity (`pulse` accumulates thresholds; both engines
+produce equivalent dynamics modulo phase — the equation engine is vindicated for Ego too). And the probes/diag/audit
+drove frames at 125 ms (8 fps): decay is wall-clock rebased but geometry injects once per ADVANCE, so loop-driven
+presets equilibrated ~4x low. All instruments now step at 30 fps.
+
+Fleet at real cadence: both-render 396 → 380*, regression **14 → 11**, truly black **5 → 3** (*a handful of
+near-threshold presets moved across the 3% line in both directions; hulk spirit left the black set exactly as the
+30 fps readback predicted, reaching 0.083 vs real's 0.131). The regenerated auto-cycle rotation is **461 of 472**
+(11 skipped — exactly the remaining regression set).
+
+Per-preset classification of the remaining gap, every entry instrument-verified:
+
+- `hulk spirit cum` — WAS a cadence artifact; healthy at 30 fps. Off the list.
+- `truly soft piece of software` — real butterchurn is ALSO dim (0.033 mean, 1.7% lit); our comp crush parallels
+  the real one and the CPU approximation (4.1%) is the outlier. Not a GPU fidelity bug.
+- `infused with the spiral` — our comp reaches 16–20% lit at 30 fps internally but rasterizes 0.97%; borderline
+  resolve/threshold case, loop healthy. Real is bright (0.61) on shader energy alone: comp-shader gain differs.
+- `Rainbox Splash Poolz` — loop healthy (0.46, 100% lit), comp crushes to 0.5% lit while real saturates FULL WHITE
+  on shader dynamics alone. Comp-shader divergence class.
+- `pogo cubes vs. tokamak` — loop under-establishes even at 30 fps (0.02); shapes+waves+mv all contribute in real.
+  Loop-gain class.
+- `Ego Decontructor` — equations vindicated; comp is a difference-of-blurs that dies as OUR loop saturates flat.
+  Class: comp-shader dynamics. Full-shader A/B impossible for now: its GLSL is not in any published pack (checked
+  base, weekly; the converted dir's 1,754 carry GLSL and the harness already uses it — Ego is not among them).
+- `Mandelverse`, `Hyperkaleidoscope Glow 2` — the two remaining 0.00% presets, not yet probed individually.
+
+The comp-shader class (Ego, Rainbox, infused) is the systematic remainder: loops healthy, comps darken where real
+comps sustain or saturate. Next probe for the class: stage-diff the translated comp WGSL for Rainbox (its GLSL IS
+in the converted dir, so a real-shader A/B reference exists for it).
+
 ## Verification
 
 - `scripts/diff_butterchurn_equations.ts` — per-variable frame-equation diff, real engine vs ours, under silence.

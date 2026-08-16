@@ -84,8 +84,11 @@ async function convertEquations(
     global.window = global;
     const m = require(${JSON.stringify(`${scratch}/mpc/package/dist/milkdrop-preset-converter-aws.min.js`)});
     const api = m.default || m;
+    // Signature: (versionSlot, init, frame, pixel) — the first argument
+    // is consumed before the equation slots; passing init there shifts
+    // every equation into the wrong stage (found empirically Aug 16).
     Promise.resolve(api.convertPresetEquations(
-      ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)}, "",
+      "", ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)},
     )).then((result) => console.log(JSON.stringify(result)));
   `;
   const run = new Deno.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });

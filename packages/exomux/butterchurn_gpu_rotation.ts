@@ -4,7 +4,7 @@
 // Regenerate with: deno run -A --unstable-webgpu -c packages/exomux/deno.json scripts/audit_butterchurn_gpu.ts
 //
 // The presets the GPU butterchurn background auto-cycles: those that render to a
-// non-blank frame on the GPU. Of 472 presets in the catalog: 458 draw, 14 resolve to
+// non-blank frame on the GPU. Of 472 presets in the catalog: 461 draw, 11 resolve to
 // black/near-black on the GPU path and are skipped so auto-cycle does not strobe
 // through them. Every preset stays selectable by index through
 // `EXOMUX_BUTTERCHURN_CATALOG`; this only decides what the GPU field auto-cycles.
@@ -26,6 +26,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "$$$ Royal - Mashup (441)",
   "$$$ Royal - Mashup (489)",
   "11",
+  "158",
   "269",
   "27",
   "286",
@@ -91,6 +92,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "baked - River of Illusion Dillusion [Bubble]",
   "bdrv + al shifter - feathers (angel wings)_phat_remix4 bdrv et  AL  rmxmix bdrv et.AL5",
   "bdrv - ultramix2 #43",
+  "beta106at shape - mash0000 - hulk spirit cum",
   "beta106i - Brilliance (Space-Time Breaking) - mash0000 - it′s 2009 and you haven′t replaced your analog tv with digital",
   "beta106i - Burning Form (Seething Mass) - mash0000 - fire paint easter egg internals",
   "beta106i - Inhuman Emotion (Regret) - mash0000 - genetic mutant incubators in the hands of toddlers",
@@ -331,6 +333,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "martin - the bridge of khazad-dum [flexi's growth raised to the power of transcendence mix]",
   "martin - the forge of Isengard",
   "martin - tunnel race",
+  "martin - unholy amulet 2",
   "martin - violet flash",
   "martin - witchcraft reloaded",
   "martin [shadow harlequins shape code] - fata morgana",

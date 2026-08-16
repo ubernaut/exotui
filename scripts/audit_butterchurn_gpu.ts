@@ -58,10 +58,15 @@ function coverage(field: ExomuxButterchurnField): number {
 
 async function audit(index: number): Promise<{ name: string; cov: number; keep: boolean }> {
   const name = EXOMUX_BUTTERCHURN_CATALOG[index]!.name;
-  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: index, autoCycle: false, audio: createScriptedExomuxAudio() });
+  const field = new ExomuxButterchurnField({
+    gpu: true,
+    presetIndex: index,
+    autoCycle: false,
+    audio: createScriptedExomuxAudio(),
+  });
   let now = 0;
   for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
-    now += 125;
+    now += 1000 / 30;
     field.advance({ bounds: BOUNDS, now });
     await new Promise((resolve) => setTimeout(resolve, FRAME_SLEEP_MS));
   }

@@ -80,8 +80,11 @@ async function convertEquations(
     global.window = global;
     const m = require(${JSON.stringify(`${scratch}/mpc/package/dist/milkdrop-preset-converter-aws.min.js`)});
     const api = m.default || m;
+    // Signature: (versionSlot, init, frame, pixel) — the first argument
+    // is consumed before the equation slots; passing init there shifts
+    // every equation into the wrong stage (found empirically Aug 16).
     Promise.resolve(api.convertPresetEquations(
-      ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)}, "",
+      "", ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)},
     )).then((result) => console.log(JSON.stringify(result)));
   `;
   const run = new Deno.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
@@ -242,7 +245,9 @@ for (let frame = 0; frame < FRAMES; frame += 1) {
 
 // ── the diff ──────────────────────────────────────────────────────────
 console.log(`preset: ${real.preset}`);
-console.log("var          " + real.trajectory!.map((sample) => `f${sample.frame}`.padStart(9)).join("") + "  (real / ours)");
+console.log(
+  "var          " + real.trajectory!.map((sample) => `f${sample.frame}`.padStart(9)).join("") + "  (real / ours)",
+);
 const drifts: { key: string; drift: number }[] = [];
 for (const key of WATCH) {
   const realRow = real.trajectory!.map((sample) => sample[key]);
@@ -262,4 +267,6 @@ for (const key of WATCH) {
   console.log(key.padEnd(12) + cells.join("") + (drift > 0.01 ? `  ← drift ${drift.toFixed(3)}` : ""));
 }
 drifts.sort((a, b) => b.drift - a.drift);
-console.log("\nlargest drifts: " + drifts.slice(0, 5).map((entry) => `${entry.key}=${entry.drift.toFixed(3)}`).join(", "));
+console.log(
+  "\nlargest drifts: " + drifts.slice(0, 5).map((entry) => `${entry.key}=${entry.drift.toFixed(3)}`).join(", "),
+);

@@ -18,7 +18,7 @@ const HEIGHT = 28;
 const BOUNDS = { column: 0, row: 0, width: WIDTH, height: HEIGHT };
 const THEME = exomuxTheme("midnight");
 const CELLS = WIDTH * HEIGHT;
-const WARMUP_FRAMES = 80;
+const WARMUP_FRAMES = 120;
 const FRAME_SLEEP_MS = 6;
 const RENDER = 0.03; // matches the audit's keep threshold
 const BLACK = 0.005; // below this, treat as truly-black (nothing drawn)
@@ -32,10 +32,15 @@ function coverage(field: ExomuxButterchurnField): number {
 }
 
 async function cover(index: number, gpu: boolean): Promise<number> {
-  const field = new ExomuxButterchurnField({ gpu, presetIndex: index, autoCycle: false , audio: createScriptedExomuxAudio() });
+  const field = new ExomuxButterchurnField({
+    gpu,
+    presetIndex: index,
+    autoCycle: false,
+    audio: createScriptedExomuxAudio(),
+  });
   let now = 0;
   for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
-    now += 125;
+    now += 1000 / 30;
     field.advance({ bounds: BOUNDS, now });
     if (gpu) await new Promise((resolve) => setTimeout(resolve, FRAME_SLEEP_MS));
   }
