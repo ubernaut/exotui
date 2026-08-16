@@ -323,7 +323,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Terminal Model Completeness And Hardening
 
-- [ ] **TERM-001 (P0; deps: TXT-001, TXT-002)** Replace chunk-local terminal decoding with an incremental UTF-8/control
+- [x] **TERM-001 (P0; deps: TXT-001, TXT-002)** Replace chunk-local terminal decoding with an incremental UTF-8/control
       parser that preserves incomplete bytes and escape sequences between writes. **Accept:** every split point of a
       corpus produces the same screen as one contiguous write.
 - [ ] **TERM-002 (P0; deps: TERM-001)** Enforce configurable bounds for control-string bytes, parameters, nesting, and

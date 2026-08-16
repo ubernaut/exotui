@@ -47,6 +47,7 @@ export * from "./priority_scheduler.ts";
 export * from "./rate_limiter.ts";
 export * from "./permission_adapters.ts";
 export * from "./resource_limits.ts";
+export * from "./terminal_parser.ts";
 export * from "./retry_policy.ts";
 export * from "./signal_exporters.ts";
 export * from "./signal_redaction.ts";
