@@ -487,7 +487,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **SEC-002 (P1; deps: SEC-001)** Add a Deno permission adapter and external permission-broker adapter with deny
       precedence and fail-closed disconnect behavior. **Accept:** permission tests cover prompt, granted, denied,
       revoked, and broker failure states.
-- [ ] **SEC-003 (P0; deps: SEC-001, 023:K1)** Give plugins per-instance capability grants instead of inheriting the host
+- [x] **SEC-003 (P0; deps: SEC-001, 023:K1)** Give plugins per-instance capability grants instead of inheriting the host
       application's full service registry. **Accept:** an undeclared capability cannot be discovered through typed
       slots, commands, or install hooks.
 - [ ] **SEC-004 (P1; deps: SEC-001, SEC-003, ASY-008)** Add an isolated worker-plugin host with a schema-validated RPC
