@@ -45,6 +45,7 @@ export * from "./priority_scheduler.ts";
 export * from "./rate_limiter.ts";
 export * from "./retry_policy.ts";
 export * from "./signal_redaction.ts";
+export * from "./span_instrumentation.ts";
 export * from "./stream_resource.ts";
 export * from "./structured_logs.ts";
 export * from "./supervisor.ts";
