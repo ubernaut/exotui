@@ -183,6 +183,21 @@ inside real butterchurn. A/B for non-pack presets therefore needs the EEL→JS p
 (milkdrop-preset-converter) wired into the page first — that is the harness's one open extension. The instrument
 remains decisive for every fleet preset that also ships in the pack.
 
+### Aug 16 2026: the instruments were driving both renderers with SILENCE
+
+Chasing the Hurricane lead found a bug in the instruments, not the renderer: `diag_butterchurn_gap.ts`,
+`probe_butterchurn_readback.ts`, and `audit_butterchurn_gpu.ts` all constructed their fields without an audio
+source, so in a sandbox (no mic) every preset ran on silence. Under silence a mode-1 waveform degenerates — angle is
+`left(i)·π/2 + t`, constant when the waveform is all zeros, so all 256 points collapse to ONE location and the GPU
+ribbon rasterizes nothing — while the CPU's fixed `WAVE_INK` budget still deposits. The whole
+"CPU renders, GPU can't" bucket was contaminated with audio degeneracy that had nothing to do with fidelity:
+driven with the shared scripted source (`audio_scripted.ts`, now wired into all three instruments), Hurricane
+Nightmare reaches loop 0.29 / 91% above MIN_INK on our GPU — matching real butterchurn's 0.316 baseline.
+
+Fleet re-measurement with real audio (and the shape-UV fix in place): both-render **238 → 396** of 472, both-blank
+74 → 5, regression **31 → 14**, truly black **23 → 5**. The regenerated auto-cycle rotation grew **381 → 458 of
+472** (14 skipped). The tail is now five presets.
+
 ## Verification
 
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the

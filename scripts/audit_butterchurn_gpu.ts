@@ -27,6 +27,7 @@
 
 import { EXOMUX_BUTTERCHURN_CATALOG } from "../packages/exomux/butterchurn_catalog.ts";
 import { ExomuxButterchurnField } from "../packages/exomux/butterchurn_background.ts";
+import { createScriptedExomuxAudio } from "../packages/exomux/audio_scripted.ts";
 import { exomuxTheme } from "../packages/exomux/model.ts";
 
 const OUTPUT = new URL("../packages/exomux/butterchurn_gpu_rotation.ts", import.meta.url);
@@ -57,7 +58,7 @@ function coverage(field: ExomuxButterchurnField): number {
 
 async function audit(index: number): Promise<{ name: string; cov: number; keep: boolean }> {
   const name = EXOMUX_BUTTERCHURN_CATALOG[index]!.name;
-  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: index, autoCycle: false });
+  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: index, autoCycle: false, audio: createScriptedExomuxAudio() });
   let now = 0;
   for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
     now += 125;

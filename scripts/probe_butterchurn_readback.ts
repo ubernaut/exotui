@@ -11,6 +11,7 @@
 
 import { EXOMUX_BUTTERCHURN_CATALOG } from "../packages/exomux/butterchurn_catalog.ts";
 import { ExomuxButterchurnField } from "../packages/exomux/butterchurn_background.ts";
+import { createScriptedExomuxAudio } from "../packages/exomux/audio_scripted.ts";
 import { exomuxTheme } from "../packages/exomux/model.ts";
 
 const BOUNDS = { column: 0, row: 0, width: 96, height: 28 };
@@ -31,7 +32,7 @@ function presetIndex(name: string): number {
 }
 
 for (const name of TARGETS) {
-  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: presetIndex(name), autoCycle: false });
+  const field = new ExomuxButterchurnField({ gpu: true, presetIndex: presetIndex(name), autoCycle: false , audio: createScriptedExomuxAudio() });
   let now = 0;
   console.log(`\n=== ${name}`);
   for (let frame = 1; frame <= 120; frame += 1) {
