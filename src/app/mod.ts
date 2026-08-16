@@ -25,6 +25,7 @@ export * from "./route_guards.ts";
 export * from "./route_loaders.ts";
 export * from "./route_outlets.ts";
 export * from "./route_prefetch.ts";
+export * from "./background_jobs.ts";
 export * from "./command_aliases.ts";
 export * from "./command_arguments.ts";
 export * from "./command_history.ts";

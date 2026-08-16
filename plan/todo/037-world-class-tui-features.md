@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 90 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
+As of Aug 16, 2026, 91 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
 LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
 ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, HIS-010, AUT-001, AUT-003, AUT-004, and
 AUT-007. Earlier: TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 110 items stay open below; a checked box means its implementation, focused
+SEC-001, SEC-008, and REM-001. The remaining 109 items stay open below; a checked box means its implementation, focused
 tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -406,7 +406,7 @@ tests, public export review, and relevant repository gates passed.
 - [x] **AUT-007 (P1; deps: AUT-001, HIS-001)** Add dry-run/preview hooks that return a structured change set before
       mutating state or external resources. **Accept:** commands marked destructive cannot run from automation without
       preview acknowledgement or explicit host override.
-- [ ] **AUT-008 (P1; deps: AUT-003, AUT-004, ASY-002)** Add a background-job manager with attach/detach, pause when
+- [x] **AUT-008 (P1; deps: AUT-003, AUT-004, ASY-002)** Add a background-job manager with attach/detach, pause when
       supported, retry, cancellation, and completion notifications. **Accept:** jobs survive route/window disposal only
       when explicitly detached and remain inspectable.
 - [x] **AUT-009 (P2; deps: AUT-001, SEC-008)** Persist a bounded invocation history with duration, outcome, and redacted
