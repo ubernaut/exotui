@@ -620,7 +620,7 @@ Acceptance:
 - [x] Define typed host-owned UI slots with append, replace, and single-winner policies plus deterministic ordering and
       disposal.
 - [x] Let core, markup, and optional JSX adapters contribute to slots without granting plugins layout ownership.
-- [ ] Evaluate a Deno-native JSX reconciler after the live markup tree is stable; do not require React, Solid, Bun, or a
+- [x] Evaluate a Deno-native JSX reconciler after the live markup tree is stable; do not require React, Solid, Bun, or a
       native Zig runtime.
 
 Completed slice July 16, 2026: the framework-neutral plugin-slot registry preserves host fallback UI, orders by priority
@@ -637,6 +637,16 @@ inspection, and atomic live-remap rollback without hidden timers.
 data-only context. It preflights multi-registration sources, rolls partial contribution setup back in reverse order,
 isolates conversion/render/disposal failures, preserves unrelated registrations and host fallback UI, and never exposes
 layout controllers or ownership to plugins.
+
+Completed the JSX evaluation Aug 16, 2026 — K1 is fully complete. Verdict: a Deno-native JSX layer is viable and small,
+and no external framework is needed. Evidence: `src/markup/jsx.ts` (~190 lines) supplies the automatic-runtime
+factories (`jsx`/`jsxs`/`Fragment` — the exact shape Deno's built-in `react-jsx` transform targets, so a TSX file needs
+only a per-file `@jsxImportSource` pragma) plus a classic `h` factory for plain TypeScript, producing frozen data-only
+elements; `JsxReconciler` maps element trees onto the stable `LiveMarkupTree` with minimal mutations — keyed matching
+moves existing nodes instead of remounting, attribute/class/text diffs go through the D1 mutation journal, and
+departures are removed. Re-render of an unchanged structure produces zero mount mutations (`tests/markup_jsx.test.ts`).
+React, Solid, Bun, and native Zig runtimes remain unnecessary; adopting repo-wide `compilerOptions.jsx` is deliberately
+NOT recommended — per-file pragmas or `h` keep the dependency surface zero.
 
 Acceptance:
 
