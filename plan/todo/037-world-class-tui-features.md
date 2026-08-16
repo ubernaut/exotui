@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 64 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+As of Aug 16, 2026, 65 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
 LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, HIS-005, HIS-008, HIS-010, ASY-002,
 ASY-004, ASY-009, DAT-004, DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
 DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
-ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 136 items stay open below; a
+ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 135 items stay open below; a
 checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -210,7 +210,7 @@ checked box means its implementation, focused tests, public export review, and r
 - [x] **NAV-005 (P1; deps: NAV-001, DAT-001, ASY-001)** Add route-owned abortable loaders and actions whose resources
       dispose with the route scope. **Accept:** leaving a route cancels work and late results cannot update the new
       route.
-- [ ] **NAV-006 (P1; deps: NAV-003, NAV-005)** Add route-level error and not-found boundaries with retry and parent
+- [x] **NAV-006 (P1; deps: NAV-003, NAV-005)** Add route-level error and not-found boundaries with retry and parent
       fallback. **Accept:** one failing outlet does not destroy sibling state or the global window layout.
 - [ ] **NAV-007 (P2; deps: NAV-002, NAV-005, DAT-002)** Prefetch route code and data from explicit intent signals such
       as focus, hover, or command search. **Accept:** prefetch obeys budget/cancellation policy and activation reuses
