@@ -535,7 +535,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **REM-007 (P0; deps: REM-001, INP-001)** Add input sequence acknowledgement, deduplication, gap detection, and
       role checks. **Accept:** reordered/replayed input cannot execute twice and missing input forces an explicit
       recovery policy.
-- [ ] **REM-008 (P2; deps: REM-004, REM-005, OBS-003)** Adapt frame rate, color depth, compression, and optional
+- [x] **REM-008 (P2; deps: REM-004, REM-005, OBS-003)** Adapt frame rate, color depth, compression, and optional
       graphics to measured latency/bandwidth under host-set quality floors. **Accept:** adaptation is hysteretic,
       inspectable, and never changes logical layout.
 - [ ] **REM-009 (P2; deps: REM-002, REM-007, SEC-008)** Support explicitly consented multi-client sessions with visible
