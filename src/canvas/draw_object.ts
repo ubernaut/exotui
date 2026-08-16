@@ -134,7 +134,13 @@ export class DrawObject<Type extends string = string> {
       updateObjects.push(objectUnder);
     }
 
-    this.canvas.drawnObjects.push(this);
+    // draw() must be idempotent: visibility recomputations re-invoke it on
+    // already-registered objects, and a duplicate registration is immortal —
+    // erase() removes one entry, so the twin keeps painting its last state
+    // forever (the accumulating stale selection bars in composited Lists).
+    if (!this.canvas.drawnObjects.includes(this)) {
+      this.canvas.drawnObjects.push(this);
+    }
     this.canvas.drawnOrderVersion += 1;
   }
 

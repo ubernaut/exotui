@@ -224,7 +224,11 @@ export class Component extends EventEmitter<
     const { children } = this.parent;
     children.splice(children.indexOf(this), 1);
 
-    for (const child of this.children) {
+    // Each child's destroy() splices itself out of this very array; iterating
+    // it live skips every other child, leaving them alive with their draw
+    // objects painting a frozen frame (the accumulating stale rows in
+    // composited Lists). A snapshot destroys them all.
+    for (const child of [...this.children]) {
       child.destroy();
     }
 

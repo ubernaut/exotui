@@ -443,6 +443,12 @@ export class List extends Component {
 
   /** Full-width highlight drawn over the selected row, above the base rows. */
   #drawSelectionHighlight(style: Style): void {
+    // draw() re-runs (a scroll, a visibility flip) must not orphan the
+    // previous highlight: it is a live sub-component, not a tracked draw
+    // object, so an overwrite would leave it painting its frozen state
+    // forever — surviving even the List's own destroy and accumulating one
+    // stale selection bar per redraw.
+    this.subComponents.selection?.destroy();
     const reserve = this.#scrollbar ? 1 : 0;
     const label = new Computed(() => {
       const items = this.items.value;

@@ -183,7 +183,19 @@ Make a dedicated pass over those three effects in `generateExomuxShader`'s vhs b
 - Test on the user's machine across min→max resize; the Aug 15 screenshot (huge window, woven texture) is the regression
   reference.
 
-## UX-014 — Settings listbox: stale duplicate selection bar after wheel scroll (P1 bug, user, Aug 16) — **fix landed Aug 16 2026, awaiting the user's confirmation**
+## UX-014 — Settings listbox: stale duplicate selection bars (P1 bug, user, Aug 16) — **root cause found and fixed Aug 16 2026 (second pass), awaiting the user's confirmation**
+
+> **Second pass (the real fix):** the user's follow-up screenshot — bars accumulating in _three different themes'_
+> accent colors, worsening with every click — reproduced headlessly once theme clicks (which remount the composited
+> pickers) interleaved with scrolls. Two compounding one-line library bugs: (1) `DrawObject.draw()` re-registered an
+> already-registered object on every visibility recomputation, and `erase()` removes only one entry, so the twin kept
+> painting its frozen frame forever; (2) `Component.destroy()` iterated `children` while each child spliced itself out
+> of that array, so **every other child survived destroy** with live draw objects. Both fixed (idempotent registration;
+> snapshot iteration), plus two hardening fixes surfaced en route: `Text.draw()` now calls `super.draw()` (its `#drawn`
+> latch never set, inviting repeated draws), and the List's selection highlight destroys its predecessor instead of
+> orphaning it. Regression guards: `tests/list_teardown.test.ts` (object counts pinned across scroll/destroy/remount)
+> and exomux `tests/picker_churn.test.ts` (the click/scroll churn). The earlier settledness fix below remains correct
+> but was not the cause. **Not** fixable by terminating the host — the client renders; reinstall picks the fix up.
 
 **Report + screenshot:** after wheel-scrolling the theme/background pickers, the selection bar appears twice — the live
 row plus a stale bar frozen at the old screen position (the screenshot shows "Unit-01 Signal" and "jungle *" each

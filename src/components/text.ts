@@ -73,6 +73,12 @@ export class Text extends Component {
   }
 
   override draw(): void {
+    // Without the base call, #drawn never latches and the visibility
+    // subscription re-invokes draw() on every recompute — leaking one
+    // TextObject per call (the accumulating stale selection bars in
+    // composited Lists). The base also erases the previous object on a
+    // legitimate redraw.
+    super.draw();
     const text = new TextObject({
       canvas: this.tui.canvas,
       view: this.view,
