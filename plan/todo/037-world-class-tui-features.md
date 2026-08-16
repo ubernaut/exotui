@@ -335,7 +335,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **TERM-004 (P1; deps: TERM-001, TXT-003, TXT-005)** Track soft-wrap and logical-line metadata and reflow it on
       resize while preserving hard breaks and cell styles. **Accept:** shrinking then expanding reconstructs logical
       lines and stable scrollback anchors.
-- [ ] **TERM-005 (P2; deps: TERM-001)** Implement protected cells and selective erase semantics independently from
+- [x] **TERM-005 (P2; deps: TERM-001)** Implement protected cells and selective erase semantics independently from
       ordinary erase. **Accept:** DECSCA/DECSED/DECSEL fixtures preserve protected content exactly.
 - [x] **TERM-006 (P2; deps: TERM-001)** Implement bounded rectangular copy, fill, erase, attribute-change, and
       reverse-attribute operations. **Accept:** overlapping copy and clipped rectangle cases match DEC operation
