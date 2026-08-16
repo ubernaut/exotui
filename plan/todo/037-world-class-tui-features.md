@@ -299,7 +299,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **WID-003 (P1; deps: TXT-002, FRM-002)** Add a token/tag editor with quoted parsing, async suggestions, duplicate
       policy, reordering, and per-token validation. **Accept:** all editing and selection operations are grapheme-safe
       and undoable.
-- [ ] **WID-004 (P1; deps: INP-006, HIS-001)** Add a virtualized transfer-list controller with search, bulk selection,
+- [x] **WID-004 (P1; deps: INP-006, HIS-001)** Add a virtualized transfer-list controller with search, bulk selection,
       reorder, and move previews. **Accept:** moving filtered items preserves source order and stable IDs across both
       lists.
 - [x] **WID-005 (P1; deps: FRM-001, FRM-004)** Add a property-grid widget with grouped rows, inline editors,
