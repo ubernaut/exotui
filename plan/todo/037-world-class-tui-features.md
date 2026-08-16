@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 40 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, LOC-002, LOC-004,
-INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through
-DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003,
-ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 160 items stay open below; a checked box means
-its implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 41 of 200 features are verified and checked (TXT-004 through TXT-006, TXT-010, LOC-001, LOC-002,
+LOC-004, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
+DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
+ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 159 items stay open below; a
+checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -46,7 +46,7 @@ its implementation, focused tests, public export review, and relevant repository
 - [x] **TXT-005 (P0; deps: TXT-002, TXT-003)** Add an immutable text index mapping UTF-16 offsets, code points,
       graphemes, cells, and source byte offsets. **Accept:** every conversion round-trips where representable and
       returns an explicit boundary result otherwise.
-- [ ] **TXT-006 (P1; deps: TXT-001, TXT-002, TXT-003)** Implement UAX #14 line-break opportunities with locale-tailoring
+- [x] **TXT-006 (P1; deps: TXT-001, TXT-002, TXT-003)** Implement UAX #14 line-break opportunities with locale-tailoring
       hooks and terminal-specific emergency wrapping. **Accept:** LineBreakTest passes, forced breaks remain lossless,
       and wrapping never separates a grapheme.
 - [ ] **TXT-007 (P2; deps: TXT-006, LOC-001)** Define a lazy hyphenation-provider interface with language tags,
