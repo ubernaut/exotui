@@ -7,6 +7,7 @@ export * from "./grapheme.ts";
 export * from "./width.ts";
 export * from "./emoji.ts";
 export * from "./text_index.ts";
+export * from "./confusables.ts";
 export * from "./controls.ts";
 export * from "./hyphenation.ts";
 export * from "./line_break.ts";
