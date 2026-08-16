@@ -14,6 +14,7 @@ export * from "./disposables.ts";
 export * from "./browser_editing.ts";
 export * from "./compose_sequences.ts";
 export * from "./preedit_provider.ts";
+export * from "./route_guards.ts";
 export * from "./composition.ts";
 export * from "./form_async_validation.ts";
 export * from "./form_server_errors.ts";

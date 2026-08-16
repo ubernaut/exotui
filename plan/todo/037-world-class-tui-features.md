@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 53 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, and DAT-004 landed Aug
-16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002,
-HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and
-REM-001. The remaining 157 items stay open below; a checked box means its implementation, focused tests, public export
-review, and relevant repository gates passed.
+As of Aug 16, 2026, 54 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, DAT-004, and NAV-004
+landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001,
+NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001,
+SEC-008, and REM-001. The remaining 146 items stay open below; a checked box means its implementation, focused tests,
+public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -204,7 +204,7 @@ review, and relevant repository gates passed.
 - [ ] **NAV-003 (P1; deps: NAV-001, NAV-002, 023:W1)** Add nested route trees and named outlets without creating a
       second screen stack. **Accept:** parent lifecycle and outlet focus order remain deterministic during child
       replacement.
-- [ ] **NAV-004 (P1; deps: NAV-001, ASY-001)** Add ordered synchronous/asynchronous guards that can allow, cancel, or
+- [x] **NAV-004 (P1; deps: NAV-001, ASY-001)** Add ordered synchronous/asynchronous guards that can allow, cancel, or
       redirect with loop detection. **Accept:** concurrent navigation aborts obsolete guards and a redirect cycle yields
       one structured error.
 - [ ] **NAV-005 (P1; deps: NAV-001, DAT-001, ASY-001)** Add route-owned abortable loaders and actions whose resources
