@@ -1445,6 +1445,7 @@
     "routeTerminalMouse",
     "routeTerminalPaste",
     "runBidiConformance",
+    "runCodemod",
     "runDataPipeline",
     "runEmojiConformance",
     "runGraphemeConformance",

@@ -586,7 +586,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PKG-002 (P2; deps: PKG-001)** Add generators for widgets, controllers, commands, routes, themes, workers, tests,
       and examples that update exports intentionally. **Accept:** generated code passes API policy and never overwrites
       an edited file without a diff/confirmation.
-- [ ] **PKG-003 (P1; deps: —)** Publish versioned AST codemods for deprecated API migrations with dry-run and
+- [x] **PKG-003 (P1; deps: —)** Publish versioned AST codemods for deprecated API migrations with dry-run and
       idempotence checks. **Accept:** running a migration twice produces no second diff and unsupported syntax is
       reported with locations.
 - [ ] **PKG-004 (P1; deps: PKG-001)** Create a machine-readable example registry and local playground launcher with

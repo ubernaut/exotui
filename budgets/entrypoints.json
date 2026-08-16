@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 423,
-    "bytes": 5018857,
+    "modules": 425,
+    "bytes": 5025867,
     "paths": {
-      "mod.ts": 2690,
+      "mod.ts": 2728,
       "src/api_stability.ts": 14939,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -377,6 +377,8 @@
       "src/theme_token_schemas.ts": 4368,
       "src/theme_tokens.ts": 4246,
       "src/theme_workspace.ts": 6821,
+      "src/tooling/codemods.ts": 6900,
+      "src/tooling/mod.ts": 72,
       "src/tui.ts": 10229,
       "src/types.ts": 1614,
       "src/unicode/bidi.ts": 22164,
