@@ -568,7 +568,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-007 (P1; deps: PLG-003, PLG-004, HIS-003)** Make plugin install/enable/disable/uninstall transactional with
       rollback of every contribution. **Accept:** fault injection at each lifecycle step leaves the host registry
       identical to a known state.
-- [ ] **PLG-008 (P2; deps: PLG-001, PLG-007)** Add versioned plugin-state migrations and a hot-upgrade protocol that can
+- [x] **PLG-008 (P2; deps: PLG-001, PLG-007)** Add versioned plugin-state migrations and a hot-upgrade protocol that can
       decline and request restart. **Accept:** migration runs before activation, retains a backup, and failure restores
       the prior plugin/state pair.
 - [ ] **PLG-009 (P2; deps: PLG-001, SEC-010, PKG-009)** Consume signed catalog metadata with package digests, provenance
