@@ -532,7 +532,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **REM-006 (P1; deps: REM-004, REM-005, HIS-007)** Add reconnect tokens and bounded session resume from a
       checkpoint plus frame/input sequence. **Accept:** expired or replayed tokens fail, and successful resume neither
       duplicates input nor loses acknowledged output.
-- [ ] **REM-007 (P0; deps: REM-001, INP-001)** Add input sequence acknowledgement, deduplication, gap detection, and
+- [x] **REM-007 (P0; deps: REM-001, INP-001)** Add input sequence acknowledgement, deduplication, gap detection, and
       role checks. **Accept:** reordered/replayed input cannot execute twice and missing input forces an explicit
       recovery policy.
 - [ ] **REM-008 (P2; deps: REM-004, REM-005, OBS-003)** Adapt frame rate, color depth, compression, and optional
