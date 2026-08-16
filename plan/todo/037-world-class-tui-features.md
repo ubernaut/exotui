@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 57 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+As of Aug 16, 2026, 58 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
 LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, DAT-004, DAT-005, and
 NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 143 items stay open below; a checked box means its implementation, focused
+SEC-001, SEC-008, and REM-001. The remaining 142 items stay open below; a checked box means its implementation, focused
 tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -215,7 +215,7 @@ tests, public export review, and relevant repository gates passed.
 - [ ] **NAV-007 (P2; deps: NAV-002, NAV-005, DAT-002)** Prefetch route code and data from explicit intent signals such
       as focus, hover, or command search. **Accept:** prefetch obeys budget/cancellation policy and activation reuses
       valid results.
-- [ ] **NAV-008 (P1; deps: NAV-004, FRM-006)** Add composable unsaved-change blockers that return an inspectable reason
+- [x] **NAV-008 (P1; deps: NAV-004, FRM-006)** Add composable unsaved-change blockers that return an inspectable reason
       and use the existing modal stack for confirmation. **Accept:** multiple blockers resolve in stable order and
       forced teardown never awaits UI.
 - [ ] **NAV-009 (P1; deps: NAV-001, TXT-005, 023:W1)** Restore route-owned focus, selection, and scroll anchors after
