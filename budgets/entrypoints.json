@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 414,
-    "bytes": 4977117,
+    "modules": 415,
+    "bytes": 4980960,
     "paths": {
-      "mod.ts": 2543,
+      "mod.ts": 2588,
       "src/api_stability.ts": 14939,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -254,6 +254,7 @@
       "src/perf/cache_budget.ts": 4339,
       "src/perf/diff_planner.ts": 4882,
       "src/perf/entrypoint_budget.ts": 3868,
+      "src/perf/frame_cadence.ts": 3798,
       "src/perf/frame_packets.ts": 3658,
       "src/perf/pools.ts": 3968,
       "src/perf/versioned_cache.ts": 4296,
