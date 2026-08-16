@@ -21,10 +21,10 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 41 of 200 features are verified and checked (TXT-004 through TXT-006, TXT-010, LOC-001, LOC-002,
+As of Aug 16, 2026, 42 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001, LOC-002,
 LOC-004, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010,
 DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
-ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 159 items stay open below; a
+ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 158 items stay open below; a
 checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -49,7 +49,7 @@ checked box means its implementation, focused tests, public export review, and r
 - [x] **TXT-006 (P1; deps: TXT-001, TXT-002, TXT-003)** Implement UAX #14 line-break opportunities with locale-tailoring
       hooks and terminal-specific emergency wrapping. **Accept:** LineBreakTest passes, forced breaks remain lossless,
       and wrapping never separates a grapheme.
-- [ ] **TXT-007 (P2; deps: TXT-006, LOC-001)** Define a lazy hyphenation-provider interface with language tags,
+- [x] **TXT-007 (P2; deps: TXT-006, LOC-001)** Define a lazy hyphenation-provider interface with language tags,
       soft-hyphen preservation, and a no-dictionary fallback. **Accept:** providers can be unloaded, line measurement
       remains deterministic, and copied text reconstructs the original string.
 - [ ] **TXT-008 (P1; deps: TXT-001, TXT-002, TXT-005, 023:L1)** Add UAX #9 paragraph layout that preserves logical
