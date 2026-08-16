@@ -372,7 +372,11 @@ Acceptance:
       `resolveNamedGridPlacement` are exported style-level helpers shared by every solver adapter (the simple
       solver's private copy was deleted); line names shift correctly past an expanded auto repeat; Yoga's
       capability matrix keeps grid and both new fields explicitly unsupported.
-- [ ] Add dense placement only with deterministic document/focus order and clear accessibility semantics.
+- [x] Add dense placement only with deterministic document/focus order and clear accessibility semantics.
+      Completed August 16, 2026: `grid-auto-flow` parses `row|column dense` (bare `dense` implies row); the
+      auto-placement scan now keeps a forward-only sparse cursor by default, and dense searches from zero to
+      backfill holes; placement never reorders children — the layout result stays in source order, which IS the
+      focus order — and the frozen GRID_DENSE_PLACEMENT_SEMANTICS statement declares the contract for hosts.
 - [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
 - [ ] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
 - [ ] Keep floats and full browser table layout out unless a concrete TUI use case justifies them.

@@ -201,6 +201,8 @@ export interface ComputedLayoutStyle {
   gridAutoColumns: LayoutLengthValue;
   gridAutoRows: LayoutLengthValue;
   gridAutoFlow: LayoutGridAutoFlow;
+  /** Dense backfill: visual only — document and focus order never reorder. */
+  gridAutoFlowDense: boolean;
   gridColumn: LayoutGridPlacement;
   gridRow: LayoutGridPlacement;
   gridArea?: string;
@@ -345,6 +347,7 @@ export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
     gridAutoColumns: autoLength(),
     gridAutoRows: autoLength(),
     gridAutoFlow: "row",
+    gridAutoFlowDense: false,
     gridColumn: {},
     gridRow: {},
     width: autoLength(),
@@ -412,6 +415,7 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
         },
       }
       : {}),
+    gridAutoFlowDense: style.gridAutoFlowDense,
     gridAutoColumns: cloneLayoutLength(style.gridAutoColumns),
     gridAutoRows: cloneLayoutLength(style.gridAutoRows),
     gridColumn: { ...style.gridColumn },
@@ -636,6 +640,20 @@ export function parseGridTrackList(
 ): LayoutLengthValue[] {
   return parseGridTemplateTrackList(value, { tracks: cloneLayoutLengths(fallback) }).tracks;
 }
+
+/**
+ * The accessibility contract for dense placement: backfill is VISUAL
+ * only. Document order, focus order, and screen-reader order remain the
+ * source order deterministically — dense never reorders children, it
+ * only chooses which grid cell each auto-placed child renders into.
+ */
+export const GRID_DENSE_PLACEMENT_SEMANTICS = Object.freeze({
+  visualOnly: true,
+  documentOrder: "source order, always",
+  focusOrder: "source order, always",
+  guidance: "Use dense only where visual position does not encode meaning; " +
+    "readers and keyboard users traverse the source order.",
+});
 
 /** One `repeat(auto-fill|auto-fit, …)` template segment. */
 export interface LayoutGridAutoRepeat {
@@ -1067,9 +1085,15 @@ export function applyLayoutDeclaration(
     case "grid-auto-rows":
       next.gridAutoRows = parseLayoutLength(resolved, next.gridAutoRows);
       break;
-    case "grid-auto-flow":
-      next.gridAutoFlow = parseOneOf(firstCssWord(resolved) ?? resolved, ["row", "column"], next.gridAutoFlow);
+    case "grid-auto-flow": {
+      const words = resolved.trim().toLowerCase().split(/\s+/);
+      const flow = words.find((word) => word === "row" || word === "column");
+      const dense = words.includes("dense");
+      if (!flow && !dense) break;
+      if (flow) next.gridAutoFlow = flow as LayoutGridAutoFlow;
+      next.gridAutoFlowDense = dense;
       break;
+    }
     case "grid-column":
       next.gridColumn = parseGridPlacement(resolved, next.gridColumn);
       break;

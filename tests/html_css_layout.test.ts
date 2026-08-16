@@ -698,7 +698,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
   ].sort();
 
   assertEquals([...report.normalizedStyleFields].sort(), expectedFields);
-  assertEquals(report.normalizedStyleFields.length, 69);
+  assertEquals(report.normalizedStyleFields.length, 70);
   assertEquals(report.invariantIds, [
     "cell-rounding",
     "overflow-inspection",
@@ -757,7 +757,7 @@ Deno.test("layout diagnostics validate values and only report winning solver dec
         display: inline;
         flex-direction: sideways;
         justify-content: stretch;
-        grid-auto-flow: dense;
+        grid-auto-flow: sideways;
         grid-template-areas: "a a" "a b";
         width: 10px;
         margin: auto;

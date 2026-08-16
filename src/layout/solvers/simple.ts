@@ -345,6 +345,7 @@ export class SimpleLayoutSolver implements LayoutSolver {
       columns: columnTemplate.template.length,
       rows: rowTemplate.template.length,
       autoFlow: node.style.gridAutoFlow,
+      dense: node.style.gridAutoFlowDense,
       areas: node.style.gridTemplateAreas,
       ...(columnLineNames ? { columnLineNames } : {}),
       ...(rowLineNames ? { rowLineNames } : {}),
@@ -604,6 +605,7 @@ interface AlignedFlexItem {
 interface GridPlacementBounds {
   columnLineNames?: readonly (readonly string[])[];
   rowLineNames?: readonly (readonly string[])[];
+  dense?: boolean;
   columns: number;
   rows: number;
   autoFlow: ComputedLayoutStyle["gridAutoFlow"];
@@ -630,6 +632,9 @@ interface GridPlacementCandidate {
 interface FindGridSlotOptions {
   preferredColumn?: number;
   preferredRow?: number;
+  /** Sparse-flow cursor: the fully-auto scan starts here, not at zero. */
+  startColumn?: number;
+  startRow?: number;
   columnSpan: number;
   rowSpan: number;
   maxColumns?: number;
@@ -674,6 +679,10 @@ function placeGridChildren(children: readonly LayoutNode[], bounds: GridPlacemen
     };
   }
 
+  // The sparse auto-flow cursor: dense always searches from zero, the
+  // CSS-sparse default only ever moves forward.
+  let cursorColumn = 0;
+  let cursorRow = 0;
   for (let phase = 0; phase < 3; phase += 1) {
     for (const candidate of candidates) {
       const explicitColumn = candidate.explicitColumn !== undefined;
@@ -714,8 +723,13 @@ function placeGridChildren(children: readonly LayoutNode[], bounds: GridPlacemen
           scanColumns: autoColumns,
           scanRows: autoRows,
           autoFlow: bounds.autoFlow,
+          ...(bounds.dense ? {} : { startColumn: cursorColumn, startRow: cursorRow }),
         });
 
+      if (candidate.explicitColumn === undefined && candidate.explicitRow === undefined && !bounds.dense) {
+        cursorColumn = position.column;
+        cursorRow = position.row;
+      }
       occupyGridCells(occupied, position.row, position.column, candidate.rowSpan, candidate.columnSpan);
       placed[candidate.index] = {
         node: candidate.node,
@@ -1055,17 +1069,25 @@ function findGridSlot(occupied: Set<string>, options: FindGridSlotOptions): { co
     }
   }
 
+  const startColumn = Math.max(0, options.startColumn ?? 0);
+  const startRow = Math.max(0, options.startRow ?? 0);
   if (options.autoFlow === "column") {
-    for (let column = 0; column < limit; column += 1) {
-      for (let row = 0; row < scanRows || row < limit && options.maxRows === undefined; row += 1) {
+    for (let column = startColumn; column < limit; column += 1) {
+      const firstRow = column === startColumn ? startRow : 0;
+      for (let row = firstRow; row < scanRows || row < limit && options.maxRows === undefined; row += 1) {
         if (gridCellsAvailable(occupied, row, column, options.rowSpan, options.columnSpan, options)) {
           return { column, row };
         }
       }
     }
   } else {
-    for (let row = 0; row < limit; row += 1) {
-      for (let column = 0; column < scanColumns || column < limit && options.maxColumns === undefined; column += 1) {
+    for (let row = startRow; row < limit; row += 1) {
+      const firstColumn = row === startRow ? startColumn : 0;
+      for (
+        let column = firstColumn;
+        column < scanColumns || column < limit && options.maxColumns === undefined;
+        column += 1
+      ) {
         if (gridCellsAvailable(occupied, row, column, options.rowSpan, options.columnSpan, options)) {
           return { column, row };
         }

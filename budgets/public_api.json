@@ -145,6 +145,7 @@
     "FrameCadenceController",
     "FrameScheduler",
     "FrameUnicodeCharacters",
+    "GRID_DENSE_PLACEMENT_SEMANTICS",
     "Gauge",
     "GestureRecognizer",
     "GridLayout",
