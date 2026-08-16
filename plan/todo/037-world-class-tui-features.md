@@ -21,10 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of July 17, 2026, 28 of 200 features are verified and checked: TXT-001 through TXT-003, INP-001, INP-006, INP-010,
-DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009,
-ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 172 items stay open below; a
-checked box means its implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 29 of 200 features are verified and checked (TXT-004 landed Aug 16): TXT-001 through TXT-003,
+INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004,
+HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 172
+items stay open below; a checked box means its implementation, focused tests, public export review, and relevant
+repository gates passed.
 
 ## Feature Backlog
 
@@ -39,7 +40,7 @@ checked box means its implementation, focused tests, public export review, and r
 - [x] **TXT-003 (P0; deps: TXT-001, TXT-002)** Introduce named terminal-width profiles that tailor UAX #11 ambiguous,
       combining, private-use, and unassigned characters without mutating global state. **Accept:** each profile reports
       its policy and passes a shared width corpus in terminal and browser hosts.
-- [ ] **TXT-004 (P0; deps: TXT-001, TXT-002, TXT-003)** Resolve complete UTS #51 emoji sequences, variation selectors,
+- [x] **TXT-004 (P0; deps: TXT-001, TXT-002, TXT-003)** Resolve complete UTS #51 emoji sequences, variation selectors,
       keycaps, flags, tag sequences, and ZWJ families as one measured cell span. **Accept:** emoji-test data yields
       stable cluster counts and configured widths across chunk boundaries.
 - [ ] **TXT-005 (P0; deps: TXT-002, TXT-003)** Add an immutable text index mapping UTF-16 offsets, code points,
