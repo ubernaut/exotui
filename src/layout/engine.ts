@@ -40,11 +40,42 @@ export class LayoutEngine {
         this.#onDiagnostic(diagnostic);
       }
     }
-    return this.solver.solve({
+    const result = this.solver.solve({
       root: options.root,
       bounds: options.bounds,
     });
+    applyLayoutVisualOffsets(options.root, result);
+    return result;
   }
+}
+
+/**
+ * Applies C1 scalar `offset` translations as an engine post-pass: the styled
+ * node's solved box subtree (rects, content rects, hit regions) moves without
+ * touching siblings, scroll metadata, or normal flow — and because it runs
+ * after solving, every backend supports it identically.
+ */
+function applyLayoutVisualOffsets(node: LayoutNode, result: LayoutSolverResult): void {
+  const { offsetX, offsetY } = node.style;
+  if ((offsetX !== 0 || offsetY !== 0) && Number.isFinite(offsetX) && Number.isFinite(offsetY)) {
+    const box = result.byId.get(node.id);
+    if (box) translateLayoutBoxSubtree(box, Math.trunc(offsetX), Math.trunc(offsetY));
+  }
+  for (const child of node.children) applyLayoutVisualOffsets(child, result);
+}
+
+function translateLayoutBoxSubtree(
+  box: LayoutSolverResult["root"],
+  columns: number,
+  rows: number,
+): void {
+  box.rect = { ...box.rect, column: box.rect.column + columns, row: box.rect.row + rows };
+  box.contentRect = { ...box.contentRect, column: box.contentRect.column + columns, row: box.contentRect.row + rows };
+  box.hitRegions = box.hitRegions.map((region) => ({
+    ...region,
+    bounds: { ...region.bounds, column: region.bounds.column + columns, row: region.bounds.row + rows },
+  }));
+  for (const child of box.children) translateLayoutBoxSubtree(child, columns, rows);
 }
 
 /** Error thrown when a solver cannot handle a layout tree. */

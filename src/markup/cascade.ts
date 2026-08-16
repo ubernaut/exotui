@@ -9,9 +9,11 @@ import { LAYOUT_CSS_PROPERTY_FIELDS } from "../layout/capabilities.ts";
 import { cloneLayoutNode, type LayoutNode } from "../layout/solver.ts";
 import {
   parseCssDeclarations,
+  parseCssStylesheet,
   selectorParts,
   type TuiCssDeclaration,
   type TuiCssMediaQuery,
+  type TuiCssRule,
   type TuiCssStylesheet,
 } from "./css.ts";
 
@@ -32,6 +34,13 @@ export interface ApplyCssCascadeOptions extends TuiCssEnvironment {
   states?: Record<string, readonly TuiCssNodeState[]>;
   baseStyle?: ComputedLayoutStyle;
   viewport?: TuiCssViewport;
+  /**
+   * Textual-style scoped widget defaults: per-tag CSS applied below every
+   * user rule regardless of specificity, with each entry's selectors scoped
+   * to its tag's subtree (the sheet is wrapped as `tag { ... }`, so `&` and
+   * bare descendants compose the same way nested rules do).
+   */
+  scopedDefaults?: Readonly<Record<string, string>>;
   onDeclaration?: (declaration: AppliedTuiCssDeclaration) => void;
 }
 
@@ -66,7 +75,20 @@ export function applyCssCascade(
   const normalizedVariables = normalizeVariables(options.variables ?? {});
   const baseStyle = options.baseStyle ? cloneComputedLayoutStyle(options.baseStyle) : defaultComputedLayoutStyle();
   baseStyle.variables = { ...baseStyle.variables, ...normalizedVariables };
-  return applyNode(root, [], baseStyle, stylesheet, options);
+  return applyNode(root, [], baseStyle, stylesheet, buildScopedDefaultRules(options.scopedDefaults), options);
+}
+
+/** Parses per-tag default CSS into rules scoped beneath that tag. */
+function buildScopedDefaultRules(defaults: Readonly<Record<string, string>> | undefined): TuiCssRule[] {
+  if (!defaults) return [];
+  const rules: TuiCssRule[] = [];
+  for (const tag of Object.keys(defaults).sort()) {
+    if (!/^[A-Za-z][\w-]*$/.test(tag)) continue;
+    for (const rule of parseCssStylesheet(`${tag} { ${defaults[tag]} }`).rules) {
+      rules.push({ ...rule, order: rules.length });
+    }
+  }
+  return rules;
 }
 
 /** Returns true when a CSS-like selector matches a layout node path. */
@@ -117,6 +139,7 @@ function applyNode(
   ancestors: readonly LayoutNode[],
   inherited: ComputedLayoutStyle,
   stylesheet: TuiCssStylesheet,
+  defaultsRules: readonly TuiCssRule[],
   options: ApplyCssCascadeOptions,
 ): LayoutNode {
   const next = cloneLayoutNode(node);
@@ -124,6 +147,20 @@ function applyNode(
   style.color = inherited.color;
   style.visibility = inherited.visibility;
   style.variables = { ...inherited.variables };
+
+  const defaultMatches: MatchedRule[] = [];
+  for (const rule of defaultsRules) {
+    if (matchesCssSelector(rule.selector, node, ancestors, options.states ?? {}, options)) {
+      defaultMatches.push({
+        declarations: rule.declarations,
+        specificity: rule.specificity,
+        order: rule.order,
+        selector: rule.selector,
+        source: "stylesheet",
+      });
+    }
+  }
+  defaultMatches.sort((left, right) => left.specificity - right.specificity || left.order - right.order);
 
   const matches: MatchedRule[] = [];
   for (const rule of stylesheet.rules) {
@@ -151,12 +188,22 @@ function applyNode(
       source: "inline",
     });
   }
-  next.style = applyMatchedRules(style, matches, node.id, options.onDeclaration);
+  const defaulted = defaultMatches.length > 0
+    ? applyMatchedRules(style, defaultMatches, node.id, inherited, options.onDeclaration)
+    : style;
+  next.style = applyMatchedRules(defaulted, matches, node.id, inherited, options.onDeclaration);
 
   const childAncestors = appendAncestor(ancestors, node);
   next.children = new Array<LayoutNode>(node.children.length);
   for (let index = 0; index < node.children.length; index += 1) {
-    next.children[index] = applyNode(node.children[index]!, childAncestors, next.style, stylesheet, options);
+    next.children[index] = applyNode(
+      node.children[index]!,
+      childAncestors,
+      next.style,
+      stylesheet,
+      defaultsRules,
+      options,
+    );
   }
   return next;
 }
@@ -180,6 +227,7 @@ function applyMatchedRules(
   style: ComputedLayoutStyle,
   matches: readonly MatchedRule[],
   nodeId: string,
+  inherited: ComputedLayoutStyle,
   onDeclaration: ApplyCssCascadeOptions["onDeclaration"],
 ): ComputedLayoutStyle {
   let next = style;
@@ -197,8 +245,13 @@ function applyMatchedRules(
       source: match.source,
       selector: match.selector,
     });
-    next = value.trim().toLowerCase() === "initial"
+    const keyword = value.trim().toLowerCase();
+    next = keyword === "initial"
       ? applyCssInitial(next, declaration.property)
+      : keyword === "inherit"
+      ? applyCssFieldCopy(next, declaration.property, inherited)
+      : keyword === "unset"
+      ? applyCssUnset(next, declaration.property, inherited)
       : applyLayoutDeclaration(next, declaration.property, value);
   };
   for (const match of matches) {
@@ -216,12 +269,35 @@ function applyMatchedRules(
  * Textual-style `initial`. Unknown properties reset nothing.
  */
 function applyCssInitial(style: ComputedLayoutStyle, property: string): ComputedLayoutStyle {
+  return applyCssFieldCopy(style, property, defaultComputedLayoutStyle());
+}
+
+/** Fields the cascade propagates parent-to-child; `unset` re-inherits these. */
+const INHERITED_LAYOUT_FIELDS: ReadonlySet<string> = new Set(["color", "visibility"]);
+
+/** Browser-style `unset` (repo extension): inherit for inherited fields, initial otherwise. */
+function applyCssUnset(
+  style: ComputedLayoutStyle,
+  property: string,
+  inherited: ComputedLayoutStyle,
+): ComputedLayoutStyle {
   const fields = LAYOUT_CSS_PROPERTY_FIELDS[property];
   if (!fields || fields.length === 0) return style;
-  const defaults = defaultComputedLayoutStyle();
+  const inheritedOnly = fields.every((field) => INHERITED_LAYOUT_FIELDS.has(field));
+  return inheritedOnly ? applyCssFieldCopy(style, property, inherited) : applyCssInitial(style, property);
+}
+
+/** Copies every normalized field a property owns from a source style. */
+function applyCssFieldCopy(
+  style: ComputedLayoutStyle,
+  property: string,
+  from: ComputedLayoutStyle,
+): ComputedLayoutStyle {
+  const fields = LAYOUT_CSS_PROPERTY_FIELDS[property];
+  if (!fields || fields.length === 0) return style;
   const next = cloneComputedLayoutStyle(style);
   const target = next as unknown as Record<string, unknown>;
-  const source = defaults as unknown as Record<string, unknown>;
+  const source = from as unknown as Record<string, unknown>;
   for (const field of fields) {
     const value = source[field];
     target[field] = value !== null && typeof value === "object" ? structuredClone(value) : value;

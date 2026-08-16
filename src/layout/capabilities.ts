@@ -145,6 +145,10 @@ const fieldCapabilityMatrix = {
   overflowX: field("metadata", "partial"),
   overflowY: field("metadata", "partial"),
   zIndex: field("metadata", "metadata"),
+  // Visual offsets translate solved boxes in a solver-independent engine
+  // post-pass, so every backend supports them.
+  offsetX: { simple: "supported", yoga: "supported", taffy: "supported" },
+  offsetY: { simple: "supported", yoga: "supported", taffy: "supported" },
   color: field("outside-solver", "outside-solver"),
   backgroundColor: field("outside-solver", "outside-solver"),
   borderColor: field("outside-solver", "outside-solver"),
@@ -229,6 +233,9 @@ export const LAYOUT_CSS_PROPERTY_FIELDS: Readonly<Record<string, readonly Layout
   "overflow-x": fields("overflowX"),
   "overflow-y": fields("overflowY"),
   "z-index": fields("zIndex"),
+  "offset": fields("offsetX", "offsetY"),
+  "offset-x": fields("offsetX"),
+  "offset-y": fields("offsetY"),
   color: fields("color"),
   background: fields("backgroundColor"),
   "background-color": fields("backgroundColor"),

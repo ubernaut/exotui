@@ -68,6 +68,8 @@ export function inspectTuiCssSupport(): TuiCssSupportReport {
       "nested rules with &",
       "!important",
       "initial resets",
+      "inherit and unset (repo extensions)",
+      "scoped widget defaults",
     ],
     pseudoStates: [
       "active",

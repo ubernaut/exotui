@@ -376,16 +376,16 @@ Acceptance:
 
 - [ ] Add `dock`, named `layers`/`layer`, parent/content alignment, scrollbar styling, and border title/subtitle
       placement to the normalized style model where they provide terminal value.
-- [ ] Expose L1's `box-sizing` through the authoring layer. Define scalar `offset` as a visual translation owned by
+- [x] Expose L1's `box-sizing` through the authoring layer. Define scalar `offset` as a visual translation owned by
       paint/hit testing, distinct from L1's relative-position insets that participate in layout.
-- [ ] Add Textual-style `!important`, `initial`, nested rules with `&`, scoped widget defaults, and multiple external
+- [x] Add Textual-style `!important`, `initial`, nested rules with `&`, scoped widget defaults, and multiple external
       stylesheet composition. Evaluate browser-style `inherit` and `unset` separately as repo extensions, not Textual
       parity claims.
 - [x] Add high-value pseudo-classes: `focus-within`, `empty`, `enabled`, `first/last-of-type`, `light`, `dark`, `odd`,
       `even`, and explicit renderer-mode states that keep buffered main-screen and true inline modes distinct.
 - [ ] Add renderer-neutral opacity/tint/hatch and a bounded transition/timeline API for numeric/color/offset styles.
 - [ ] Add local markup/CSS hot reload with parse diagnostics and last-known-good rollback.
-- [ ] Decide whether the lightweight parser remains sufficient or whether a `css-tree` adapter is justified by the new
+- [x] Decide whether the lightweight parser remains sufficient or whether a `css-tree` adapter is justified by the new
       grammar and diagnostics.
 
 Acceptance:
@@ -393,6 +393,17 @@ Acceptance:
 - Cascade fixtures cover nesting, scope, specificity, important rules, resets, variables, and dynamic states.
 - Dock/layer/visual-offset behavior shares overlay and hit-test ownership in terminal and browser hosts.
 - A malformed hot-reload does not destroy the live UI or its controller state.
+
+Completed authoring slice Aug 16, 2026 (second C1 slice): scalar `offset: x y` (plus `offset-x`/`offset-y`) is a
+paint-owned visual translation — an engine post-pass moves the styled node's solved box subtree and hit regions without
+touching siblings, scroll metadata, or normal flow, so every backend supports it identically; `box-sizing` authoring had
+already landed with L1. `inherit` and `unset` are implemented as documented repo extensions (field-copy from the
+parent's computed style; `unset` re-inherits only the propagated fields — color, visibility — and resets everything
+else), and Textual-style scoped widget defaults arrived as a per-tag CSS map applied below every user rule regardless of
+specificity, scoped to the tag's subtree through the nested-rule machinery. Parser decision: the lightweight parser
+remains sufficient — nesting, `!important`, keyword values, and the defaults tier all landed inside it with bounded
+grammars; a `css-tree` adapter is unjustified until a future feature demands complex value grammars (transitions are the
+likeliest candidate; revisit there).
 
 Completed cascade-language slice Aug 16, 2026: `!important` (applied after every normal declaration while preserving
 specificity/source order among importants, so an important stylesheet rule beats a normal inline style and an important

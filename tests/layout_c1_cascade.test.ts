@@ -196,3 +196,110 @@ Deno.test("C1 support report lists the new cascade surface", () => {
   assert(report.pseudoStates.includes("dark"));
   assert(report.lengthUnits.includes("min-content"));
 });
+
+Deno.test("C1 scalar offset translates boxes and hit regions without reflow", () => {
+  const result = createMarkupLayout({
+    markup: `
+      <window id="main">
+        <panel id="moved">M</panel>
+        <panel id="still">S</panel>
+      </window>
+    `,
+    css: `
+      panel { width: 6; height: 2; }
+      #moved { offset: 3 1; }
+    `,
+    bounds: { column: 0, row: 0, width: 40, height: 12 },
+    widgets: false,
+  });
+  const moved = result.layout.byId.get("moved")!;
+  const still = result.layout.byId.get("still")!;
+  // The translated box moved visually; its sibling stayed in normal flow at
+  // the un-offset position (row 2, not 3).
+  assertEquals(moved.rect, { column: 3, row: 1, width: 6, height: 2 });
+  assertEquals(moved.hitRegions[0]!.bounds.column, 3);
+  assertEquals(still.rect.row, 2);
+  // Scroll metadata is untouched by a visual translation.
+  assertEquals(result.layout.root.scrollHeight, result.layout.root.rect.height);
+
+  const longhand = createMarkupLayout({
+    markup: `<window id="main"><panel id="moved">M</panel></window>`,
+    css: `#moved { width: 4; height: 1; offset-x: -2; offset-y: 2; }`,
+    bounds: { column: 10, row: 0, width: 20, height: 8 },
+    widgets: false,
+  });
+  assertEquals(longhand.layout.byId.get("moved")!.rect.column, 8);
+  assertEquals(longhand.layout.byId.get("moved")!.rect.row, 2);
+
+  const invalid = createMarkupLayout({
+    markup: `<window id="main"><panel id="moved">M</panel></window>`,
+    css: `#moved { offset: 3; }`,
+    bounds: { column: 0, row: 0, width: 20, height: 8 },
+    widgets: false,
+  });
+  assertEquals(invalid.layout.byId.get("moved")!.rect.column, 0);
+});
+
+Deno.test("C1 inherit copies the parent's computed value; unset resets or re-inherits", () => {
+  const result = createMarkupLayout({
+    markup: `
+      <window id="main">
+        <panel id="wide"><panel id="kid">K</panel></panel>
+      </window>
+    `,
+    css: `
+      #wide { width: 17; color: red; }
+      #kid { width: inherit; color: blue; }
+    `,
+    bounds: { column: 0, row: 0, width: 40, height: 10 },
+    widgets: false,
+  });
+  assertEquals(styled(result.styledRoot, "kid").style.width, { unit: "cell", value: 17 });
+
+  const unset = createMarkupLayout({
+    markup: `
+      <window id="main">
+        <panel id="wide"><panel id="kid">K</panel></panel>
+      </window>
+    `,
+    css: `
+      #wide { width: 17; color: red; }
+      panel panel { width: 9; color: blue; }
+      #kid { width: unset; color: unset; }
+    `,
+    bounds: { column: 0, row: 0, width: 40, height: 10 },
+    widgets: false,
+  });
+  const kid = styled(unset.styledRoot, "kid");
+  // width is not an inherited field: unset behaves as initial (auto).
+  assertEquals(kid.style.width, { unit: "auto", value: 0 });
+  // color is inherited: unset re-inherits the parent's red.
+  assertEquals(kid.style.color, "red");
+});
+
+Deno.test("C1 scoped widget defaults sit below user rules and stay in their subtree", () => {
+  const result = createMarkupLayout({
+    markup: `
+      <window id="main">
+        <button id="plain"><panel id="icon" class="icon">i</panel></button>
+        <button id="styled-button">B</button>
+        <panel id="loose" class="icon">x</panel>
+      </window>
+    `,
+    css: `button { height: 3; }`,
+    bounds: { column: 0, row: 0, width: 40, height: 14 },
+    widgets: false,
+    cascade: {
+      scopedDefaults: {
+        button: "width: 7; height: 1; .icon { width: 2; }",
+      },
+    },
+  });
+  // The default width applies; the default height loses to the user rule even
+  // though the user selector's specificity is no higher.
+  assertEquals(styled(result.styledRoot, "plain").style.width, { unit: "cell", value: 7 });
+  assertEquals(styled(result.styledRoot, "plain").style.height, { unit: "cell", value: 3 });
+  // The nested default is scoped to the widget's subtree.
+  assertEquals(styled(result.styledRoot, "icon").style.width, { unit: "cell", value: 2 });
+  assertEquals(styled(result.styledRoot, "loose").style.width, { unit: "auto", value: 0 });
+});

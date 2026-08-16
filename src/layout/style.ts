@@ -171,6 +171,14 @@ export interface ComputedLayoutStyle {
   /** Box used by width, height, and aspect-ratio calculations. */
   boxSizing?: LayoutBoxSizing;
   inset: BoxEdges<LayoutLengthValue>;
+  /**
+   * Scalar visual translation in cells (C1 `offset: x y`). Owned by paint and
+   * hit testing: the subtree's computed boxes and hit regions move, but
+   * siblings, scroll metadata, and normal flow are untouched — unlike
+   * relative-position insets, which participate in layout.
+   */
+  offsetX: number;
+  offsetY: number;
   margin: BoxEdges<number>;
   padding: BoxEdges<number>;
   border: BoxEdges<number>;
@@ -274,6 +282,8 @@ export function defaultComputedLayoutStyle(): ComputedLayoutStyle {
       bottom: autoLength(),
       left: autoLength(),
     },
+    offsetX: 0,
+    offsetY: 0,
     margin: { ...ZERO_BOX_EDGES },
     padding: { ...ZERO_BOX_EDGES },
     border: { ...ZERO_BOX_EDGES },
@@ -581,6 +591,14 @@ export function parseLayoutInteger(value: string | undefined, fallback = 0): num
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
 }
 
+/** Signed whole-cell offset component; undefined on junk so shorthands fail closed. */
+function parseSignedOffsetCells(value: string | undefined): number | undefined {
+  const trimmed = value?.trim().toLowerCase();
+  if (!trimmed || !/^[+-]?\d+(?:ch|cells?)?$/.test(trimmed)) return undefined;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function parseSignedLayoutInteger(value: string | undefined, fallback = 0): number {
   if (value === undefined) return fallback;
   const parsed = Number.parseFloat(value.trim());
@@ -811,6 +829,28 @@ export function applyLayoutDeclaration(
     case "z-index":
       next.zIndex = Math.floor(Number.parseFloat(resolved)) || 0;
       break;
+    case "offset": {
+      const parts = resolved.split(/\s+/);
+      if (parts.length !== 2) return style;
+      const x = parseSignedOffsetCells(parts[0]);
+      const y = parseSignedOffsetCells(parts[1]);
+      if (x === undefined || y === undefined) return style;
+      next.offsetX = x;
+      next.offsetY = y;
+      break;
+    }
+    case "offset-x": {
+      const x = parseSignedOffsetCells(resolved);
+      if (x === undefined) return style;
+      next.offsetX = x;
+      break;
+    }
+    case "offset-y": {
+      const y = parseSignedOffsetCells(resolved);
+      if (y === undefined) return style;
+      next.offsetY = y;
+      break;
+    }
     case "color":
       next.color = resolved || undefined;
       break;
