@@ -123,11 +123,14 @@ export class SimpleLayoutSolver implements LayoutSolver {
     );
     const contentRect = insetRectangleByEdges(rect, style.border, padding);
     const visible = style.visibility === "visible" && style.display !== "none";
+    const docked = this.#layoutDockedChildren(node, contentRect);
+    const flowRect = docked.remaining;
     const children = style.display === "flex"
-      ? this.#layoutFlexChildren(node, contentRect)
+      ? this.#layoutFlexChildren(node, flowRect)
       : style.display === "grid"
-      ? this.#layoutGridChildren(node, contentRect)
-      : this.#layoutBlockChildren(node, contentRect);
+      ? this.#layoutGridChildren(node, flowRect)
+      : this.#layoutBlockChildren(node, flowRect);
+    children.unshift(...docked.boxes);
     this.#layoutAbsoluteChildrenInto(children, node, contentRect);
     const scroll = scrollSize(node, contentRect, children);
 
@@ -362,6 +365,70 @@ export class SimpleLayoutSolver implements LayoutSolver {
       boxes[index] = this.#layoutNode(item.node, itemBounds, false, true, bounds, margin);
     }
     return boxes;
+  }
+
+  /**
+   * Lays out docked children in document order, each pinning to an edge of
+   * the running remaining rectangle (Textual dock semantics): top/bottom
+   * docks span the remaining width at their preferred height, left/right
+   * docks span the remaining height at their preferred (intrinsic when auto)
+   * width. Returns the docked boxes and the area left for normal flow.
+   */
+  #layoutDockedChildren(
+    node: LayoutNode,
+    bounds: Rectangle,
+  ): { boxes: ComputedLayoutBox[]; remaining: Rectangle } {
+    const boxes: ComputedLayoutBox[] = [];
+    let remaining = { ...bounds };
+    for (const child of node.children) {
+      const dock = child.style.dock;
+      if (dock === undefined || child.style.display === "none" || child.style.position === "absolute") continue;
+      const margin = resolveBoxEdges(authoredLengths(child.style)?.margin, child.style.margin, remaining.width);
+      let childBounds: Rectangle;
+      if (dock === "top" || dock === "bottom") {
+        const preferred = preferredBlockChildSize(
+          child,
+          remaining,
+          this.#defaultTextHeight,
+          this.#intrinsicMeasurementCache,
+        );
+        const height = Math.min(remaining.height, preferred.height + margin.top + margin.bottom);
+        childBounds = {
+          column: remaining.column,
+          row: dock === "top" ? remaining.row : remaining.row + remaining.height - height,
+          width: remaining.width,
+          height,
+        };
+        remaining = {
+          column: remaining.column,
+          row: dock === "top" ? remaining.row + height : remaining.row,
+          width: remaining.width,
+          height: remaining.height - height,
+        };
+      } else {
+        const preferred = preferredAbsoluteChildSize(
+          child,
+          remaining,
+          this.#defaultTextHeight,
+          this.#intrinsicMeasurementCache,
+        );
+        const width = Math.min(remaining.width, preferred.width + margin.left + margin.right);
+        childBounds = {
+          column: dock === "left" ? remaining.column : remaining.column + remaining.width - width,
+          row: remaining.row,
+          width,
+          height: remaining.height,
+        };
+        remaining = {
+          column: dock === "left" ? remaining.column + width : remaining.column,
+          row: remaining.row,
+          width: remaining.width - width,
+          height: remaining.height,
+        };
+      }
+      boxes.push(this.#layoutNode(child, childBounds, false, true, bounds, margin));
+    }
+    return { boxes, remaining };
   }
 
   #layoutAbsoluteChildrenInto(target: ComputedLayoutBox[], node: LayoutNode, bounds: Rectangle): void {
@@ -829,7 +896,9 @@ function shrinkGridTracksToFit(sizes: number[], available: number): void {
 function layoutChildren(node: LayoutNode): LayoutNode[] {
   const children: LayoutNode[] = [];
   for (const child of node.children) {
-    if (child.style.display !== "none" && child.style.position !== "absolute") children.push(child);
+    if (child.style.display !== "none" && child.style.position !== "absolute" && child.style.dock === undefined) {
+      children.push(child);
+    }
   }
   sortLayoutChildrenByOrder(children);
   return children;
@@ -1816,6 +1885,7 @@ function intrinsicNodeSignature(
     "\u001f" + (node.intrinsic?.height ?? "") +
     "\u001f" + node.style.display +
     "\u001f" + node.style.position +
+    "\u001f" + (node.style.dock ?? "") +
     "\u001f" + node.style.order +
     "\u001f" + node.style.flexDirection +
     "\u001f" + layoutLengthSignature(node.style.flexBasis) +

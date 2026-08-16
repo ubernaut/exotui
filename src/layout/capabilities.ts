@@ -149,6 +149,7 @@ const fieldCapabilityMatrix = {
   // post-pass, so every backend supports them.
   offsetX: { simple: "supported", yoga: "supported", taffy: "supported" },
   offsetY: { simple: "supported", yoga: "supported", taffy: "supported" },
+  dock: field("supported", "unsupported"),
   opacity: field("outside-solver", "outside-solver"),
   tint: field("outside-solver", "outside-solver"),
   hatch: field("outside-solver", "outside-solver"),
@@ -239,6 +240,7 @@ export const LAYOUT_CSS_PROPERTY_FIELDS: Readonly<Record<string, readonly Layout
   "offset": fields("offsetX", "offsetY"),
   "offset-x": fields("offsetX"),
   "offset-y": fields("offsetY"),
+  dock: fields("dock"),
   opacity: fields("opacity"),
   tint: fields("tint"),
   hatch: fields("hatch"),

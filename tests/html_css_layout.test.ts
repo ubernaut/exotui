@@ -673,6 +673,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
   const expectedFields = [
     ...Object.keys(defaultComputedLayoutStyle()),
     "gridArea",
+    "dock",
     "tint",
     "hatch",
     "color",
@@ -682,7 +683,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
   ].sort();
 
   assertEquals([...report.normalizedStyleFields].sort(), expectedFields);
-  assertEquals(report.normalizedStyleFields.length, 53);
+  assertEquals(report.normalizedStyleFields.length, 54);
   assertEquals(report.invariantIds, [
     "cell-rounding",
     "overflow-inspection",

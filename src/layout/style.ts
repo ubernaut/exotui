@@ -137,6 +137,9 @@ export interface BoxEdges<T = number> {
 }
 
 /** Public interface describing the normalized style used by layout solvers. */
+/** Edge a docked node pins to (Textual-style `dock`). */
+export type LayoutDock = "top" | "right" | "bottom" | "left";
+
 /** Background hatch fill: one repeated glyph and an optional color. */
 export interface LayoutHatch {
   readonly glyph: string;
@@ -194,6 +197,12 @@ export interface ComputedLayoutStyle {
    */
   offsetX: number;
   offsetY: number;
+  /**
+   * Textual-style edge docking: a docked node leaves normal flow, pins to
+   * its container's content edge, and reserves that strip — siblings flow in
+   * the remaining area. Docks apply in document order.
+   */
+  dock?: LayoutDock;
   margin: BoxEdges<number>;
   padding: BoxEdges<number>;
   border: BoxEdges<number>;
@@ -896,6 +905,16 @@ export function applyLayoutDeclaration(
       const y = parseSignedOffsetCells(resolved);
       if (y === undefined) return style;
       next.offsetY = y;
+      break;
+    }
+    case "dock": {
+      if (resolved === "none") {
+        next.dock = undefined;
+        break;
+      }
+      const dock = resolved.trim().toLowerCase();
+      if (dock !== "top" && dock !== "right" && dock !== "bottom" && dock !== "left") return style;
+      next.dock = dock;
       break;
     }
     case "opacity": {
