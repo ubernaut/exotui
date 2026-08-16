@@ -625,7 +625,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **QAL-004 (P1; deps: 023:T3, WID-006)** Build reusable ARIA APG keyboard/role/state test suites for
       browser-rendered composites. **Accept:** each supported pattern declares deviations and passes automated
       accessible-name/focus assertions.
-- [ ] **QAL-005 (P1; deps: ASY-001, HIS-003)** Add deterministic fault injection for allocation proxies, storage,
+- [x] **QAL-005 (P1; deps: ASY-001, HIS-003)** Add deterministic fault injection for allocation proxies, storage,
       workers, transports, clocks, permissions, and every lifecycle hook. **Accept:** each injected failure proves
       cleanup and a classified user-visible outcome.
 - [ ] **QAL-006 (P0; deps: ASY-010, HIS-006)** Add a test runtime that records/replays time, random values, input,
