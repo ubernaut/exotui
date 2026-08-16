@@ -7,3 +7,4 @@ export * from "./interactions.ts";
 export * from "./linked_charts.ts";
 export * from "./marks.ts";
 export * from "./scales.ts";
+export * from "./series.ts";

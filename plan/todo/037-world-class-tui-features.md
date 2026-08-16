@@ -264,7 +264,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **VIS-002 (P1; deps: VIS-001, LOC-004)** Add collision-aware axes, ticks, grid lines, and locale-aware labels
       measured in terminal cells. **Accept:** labels never split graphemes and deterministic thinning preserves
       endpoints.
-- [ ] **VIS-003 (P1; deps: VIS-001, VIS-002)** Add line, stepped-line, area, stacked-area, and scatter series to the
+- [x] **VIS-003 (P1; deps: VIS-001, VIS-002)** Add line, stepped-line, area, stacked-area, and scatter series to the
       existing chart surface. **Accept:** clipping, missing values, multiple scales, and zero-sized viewports have
       golden fixtures.
 - [x] **VIS-004 (P2; deps: VIS-001, THEM-006)** Add heatmap and matrix rendering with quantized color scales and
