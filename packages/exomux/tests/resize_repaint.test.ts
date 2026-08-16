@@ -2,7 +2,7 @@ import { assert, assertEquals } from "./deps.ts";
 import { createTestMousePress, createTestTerminalApp } from "@ubernaut/deno-tui/testing";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef, exomuxStartMenuLayout } from "../app.ts";
 import { createExomuxController, EXOMUX_SESSIONS_WINDOW_ID, EXOMUX_SETTINGS_WINDOW_ID } from "../controller.ts";
-import { FakeExomuxClient, session } from "./app.test.ts";
+import { FakeExomuxClient, session } from "./fakes.ts";
 
 function snapshot(
   harness: { canvas: { frameBuffer: (string | Uint8Array)[][] } },

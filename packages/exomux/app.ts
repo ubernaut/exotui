@@ -294,7 +294,7 @@ export function exomuxStartMenuItems(controller: ExomuxController): readonly Exo
   if (!overButterchurn || preset === undefined) return START_MENU_ITEMS;
   const favorited = controller.isButterchurnFavorite(preset);
   const context: readonly ExomuxStartMenuItem[] = [
-    { id: "favorite", label: `Favorite ${favorited ? "☑" : "☐"}` },
+    { id: "favorite", label: `Favorite bg ${favorited ? "☑" : "☐"}` },
   ];
   // Below "Settings", not at the top: it reads as an extension of it, not a new
   // primary command. Falls back to appending if the config item ever moves.

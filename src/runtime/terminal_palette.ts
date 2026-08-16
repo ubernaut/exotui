@@ -119,6 +119,26 @@ export interface ResolvedTerminalCellStyle {
  * `column`/`row` address the cell for the `ground` callback (pass the same
  * coordinate space the ground expects).
  */
+interface MemoizedTerminalCellStyle {
+  foreground: TerminalRgb;
+  /** Undefined when the background must blend the per-position ground. */
+  background?: TerminalRgb;
+  bold: boolean;
+}
+
+/**
+ * Per-options memo for {@linkcode resolveTerminalCellStyle}. A screen holds
+ * thousands of cells but only dozens of distinct color signatures, and the
+ * expensive work (palette decoding, WCAG contrast lifting, dim mixing) depends
+ * only on that signature plus the options object — so a caller that reuses one
+ * options object per paint pass resolves each signature once instead of once
+ * per cell. Only the transparent unset-background blend is position-dependent
+ * and stays per-cell. Bounded so hostile content full of unique truecolor
+ * cells degrades to the uncached path instead of growing without limit.
+ */
+const cellStyleMemos = new WeakMap<TerminalCellStyleOptions, Map<string, MemoizedTerminalCellStyle>>();
+const CELL_STYLE_MEMO_LIMIT = 4096;
+
 export function resolveTerminalCellStyle(
   cell: Pick<TerminalScreenCell, "char" | "foreground" | "background" | "bold">,
   column: number,
@@ -128,28 +148,42 @@ export function resolveTerminalCellStyle(
 ): ResolvedTerminalCellStyle {
   const opacity = options.opacity ?? 1;
   const transparent = options.ground !== undefined && opacity < 1;
-  const explicit = terminalPaletteRgb(cell.background, true);
-  const ground = explicit ??
-    (transparent
-      ? mixTerminalRgb(options.ground!(column, row), options.defaultBackground, opacity)
-      : options.defaultBackground);
-  let background = cursor ? options.cursorBackground : ground;
-  let foreground = cursor
-    ? options.cursorForeground
-    : cell.background === undefined && options.contrastLift
-    ? terminalReadableForegroundRgb(cell.foreground, options.defaultBackground, options.defaultForeground) ??
-      options.defaultForeground
-    : terminalPaletteRgb(cell.foreground, false) ?? options.defaultForeground;
-  if (options.dimToward) {
-    background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
-    foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
+  if (cursor) {
+    let background = options.cursorBackground;
+    let foreground = options.cursorForeground;
+    if (options.dimToward) {
+      background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
+      foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
+    }
+    return { glyph: cell.char || " ", foreground, background, bold: true };
   }
-  return {
-    glyph: cell.char || " ",
-    foreground,
-    background,
-    bold: cursor || cell.bold === true,
-  };
+  let memo = cellStyleMemos.get(options);
+  if (memo === undefined) {
+    memo = new Map();
+    cellStyleMemos.set(options, memo);
+  }
+  const key = `${cell.foreground ?? ""}\u001f${cell.background ?? ""}\u001f${cell.bold ? "b" : ""}`;
+  let entry = memo.get(key);
+  if (entry === undefined) {
+    const explicit = terminalPaletteRgb(cell.background, true);
+    let background = explicit ?? (transparent ? undefined : options.defaultBackground);
+    let foreground = cell.background === undefined && options.contrastLift
+      ? terminalReadableForegroundRgb(cell.foreground, options.defaultBackground, options.defaultForeground) ??
+        options.defaultForeground
+      : terminalPaletteRgb(cell.foreground, false) ?? options.defaultForeground;
+    if (options.dimToward) {
+      if (background !== undefined) background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
+      foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
+    }
+    entry = { foreground, background, bold: cell.bold === true };
+    if (memo.size < CELL_STYLE_MEMO_LIMIT) memo.set(key, entry);
+  }
+  let background = entry.background;
+  if (background === undefined) {
+    background = mixTerminalRgb(options.ground!(column, row), options.defaultBackground, opacity);
+    if (options.dimToward) background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
+  }
+  return { glyph: cell.char || " ", foreground: entry.foreground, background, bold: entry.bold };
 }
 
 function xtermPaletteRgb(index: number): TerminalRgb {
