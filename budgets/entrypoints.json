@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 437,
-    "bytes": 5080373,
+    "modules": 438,
+    "bytes": 5083565,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -38,6 +38,7 @@
       "src/app/disposables.ts": 2297,
       "src/app/drag_drop.ts": 4947,
       "src/app/event_timeline.ts": 4627,
+      "src/app/focus_announcements.ts": 3150,
       "src/app/focus_commands.ts": 3739,
       "src/app/form_async_validation.ts": 7703,
       "src/app/form_checkpoints.ts": 3145,
@@ -62,7 +63,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4638,
+      "src/app/mod.ts": 4680,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -826,8 +827,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 354,
-    "bytes": 4336488,
+    "modules": 355,
+    "bytes": 4339680,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -864,6 +865,7 @@
       "src/app/disposables.ts": 2297,
       "src/app/drag_drop.ts": 4947,
       "src/app/event_timeline.ts": 4627,
+      "src/app/focus_announcements.ts": 3150,
       "src/app/focus_commands.ts": 3739,
       "src/app/form_async_validation.ts": 7703,
       "src/app/form_checkpoints.ts": 3145,
@@ -888,7 +890,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4638,
+      "src/app/mod.ts": 4680,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,

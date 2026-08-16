@@ -27,6 +27,7 @@ export * from "./route_outlets.ts";
 export * from "./route_prefetch.ts";
 export * from "./action_policies.ts";
 export * from "./accessibility_tree.ts";
+export * from "./focus_announcements.ts";
 export * from "./workbench_accessibility.ts";
 export * from "./calendar.ts";
 export * from "./clipboard.ts";

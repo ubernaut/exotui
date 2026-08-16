@@ -718,7 +718,7 @@ Acceptance:
       protocols can actually expose.
 - [x] Add keyboard-only acceptance, reduced-motion behavior, contrast checks, high-contrast/color-blind themes, and
       labels/roles for all workbench controls.
-- [ ] Specify focus order and announcements for modal, tiled-window, menu, tab, tree, table, and virtualized content
+- [x] Specify focus order and announcements for modal, tiled-window, menu, tab, tree, table, and virtualized content
       transitions.
 - [x] Treat this as an explicit repo extension: Textual supplies useful keyboard/focus patterns but does not establish
       screen-reader, high-contrast, or color-blind feature parity for this project. (Affirmed Aug 16, 2026: T3 is repo
@@ -730,6 +730,12 @@ Acceptance:
 - Browser semantics and keyboard behavior have automated coverage plus a documented manual audit path.
 - Reduced-motion and contrast requirements are enforceable release gates.
 - Terminal documentation makes no unsupported screen-reader claims.
+
+Completed T3 Aug 16, 2026: `AccessibilityNode` + ARIA serialization with the honest terminal projection and the
+canonical `TERMINAL_EXPOSABLE_SEMANTICS` limits statement; contrast-gated high-contrast (7:1) and Okabe-Ito
+color-blind-safe (4.5:1) palettes; roles/labels for ten workbench control surfaces; the workbench reduced-motion set;
+a pointer-free keyboard acceptance run; and `FOCUS_TRANSITION_SPEC` covering all eleven transitions with machine-usable
+focus rules and fail-closed announcement templates. T3 milestone complete — unblocks 037 WID-006 and QAL-004.
 
 ## Recommended Sequence
 
