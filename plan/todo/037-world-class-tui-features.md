@@ -21,10 +21,10 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 76 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
-LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
-ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through
-TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
+As of Aug 16, 2026, 77 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
+LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-007, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004,
+ASY-007, ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001
+through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
 HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
 remaining 134 items stay open below; a checked box means its implementation, focused tests, public export review, and
 relevant repository gates passed.
@@ -117,7 +117,7 @@ relevant repository gates passed.
 - [x] **INP-006 (P1; deps: INP-001)** Normalize mouse, touch, pen, pressure, buttons, and coordinates into a pointer
       event contract with capture ownership. **Accept:** equivalent mouse and touch interactions drive the same
       controller state in browser tests.
-- [ ] **INP-007 (P2; deps: INP-006)** Add bounded tap, long-press, pan, and pinch recognizers that emit semantic
+- [x] **INP-007 (P2; deps: INP-006)** Add bounded tap, long-press, pan, and pinch recognizers that emit semantic
       gestures without hiding raw pointer events. **Accept:** thresholds are configurable, cancellation releases
       capture, and mouse fallback remains intact.
 - [ ] **INP-008 (P2; deps: INP-001, INP-006, SEC-001)** Add typed drag-and-drop payloads for text, files, and
