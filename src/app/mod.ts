@@ -29,6 +29,7 @@ export * from "./background_jobs.ts";
 export * from "./command_aliases.ts";
 export * from "./command_arguments.ts";
 export * from "./command_history.ts";
+export * from "./command_macros.ts";
 export * from "./command_pipelines.ts";
 export * from "./command_preview.ts";
 export * from "./command_progress.ts";
