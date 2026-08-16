@@ -631,7 +631,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **QAL-006 (P0; deps: ASY-010, HIS-006)** Add a test runtime that records/replays time, random values, input,
       resource completions, and resize events. **Accept:** a captured failing run reproduces byte-identical state/frame
       checkpoints offline.
-- [ ] **QAL-007 (P2; deps: QAL-001)** Add targeted mutation testing for parsers, layout invariants, selection, history,
+- [x] **QAL-007 (P2; deps: QAL-001)** Add targeted mutation testing for parsers, layout invariants, selection, history,
       security policies, and protocol codecs. **Accept:** surviving mutations are reported by owning feature ID and
       never auto-waived.
 - [ ] **QAL-008 (P1; deps: PKG-005)** Run a downstream compatibility matrix against pinned example applications and
