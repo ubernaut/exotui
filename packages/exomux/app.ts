@@ -246,28 +246,20 @@ const MAX_CLASSIFIED_INPUT_BYTES = EXOMUX_PROTOCOL_LIMITS.inputBytes * CLASSIFIE
 const MIN_CLASSIFIED_KEY_RESERVATION_BYTES = 64;
 
 /**
- * Longest the background may stall behind sustained input before it advances
- * anyway. The recency check alone never clears while a key repeats or a paste
- * streams, which froze a lively field (butterchurn at 60 Hz) solid for as long
- * as the user kept typing; this caps the stall so it keeps moving at a few fps.
- */
-const EXOMUX_MAX_BACKGROUND_STALL_MS = 200;
-
-/**
- * Keeps animation behind explicit input and control work without treating child
- * output as interaction. `msSinceLastAdvance` is how long the field has actually
- * been frozen: past the stall cap it advances even mid-input, so sustained typing
- * slows the background to a few fps instead of pausing it until the user stops.
+ * Animation only yields to in-flight control barriers now. It used to also
+ * yield to keyboard recency (with a 200ms stall cap) because every advance
+ * forced a ~100ms full desktop repaint that would have wrecked input latency;
+ * the cell-style memo made repaints ~10ms, and the surviving gate read as
+ * "the background freezes on every keystroke" (user report, Aug 16 2026).
+ * The unused parameters keep the exported signature stable.
  */
 export function exomuxMetaballsMayAdvance(
-  now: number,
-  lastInputActivityAt: number,
+  _now: number,
+  _lastInputActivityAt: number,
   hasPendingBarrier: boolean,
-  msSinceLastAdvance = 0,
+  _msSinceLastAdvance = 0,
 ): boolean {
-  if (hasPendingBarrier) return false;
-  if (now - lastInputActivityAt >= EXOMUX_METABALL_FRAME_INTERVAL_MS) return true;
-  return msSinceLastAdvance >= EXOMUX_MAX_BACKGROUND_STALL_MS;
+  return !hasPendingBarrier;
 }
 
 type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "favorite";
