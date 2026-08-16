@@ -553,7 +553,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-002 (P1; deps: PLG-001)** Add host/plugin compatibility resolution with SemVer ranges, feature requirements,
       and explainable rejection. **Accept:** resolution is deterministic and never chooses an incompatible plugin
       because it is newest.
-- [ ] **PLG-003 (P1; deps: PLG-001, PLG-002)** Resolve plugin dependencies and optional peer capabilities as a DAG with
+- [x] **PLG-003 (P1; deps: PLG-001, PLG-002)** Resolve plugin dependencies and optional peer capabilities as a DAG with
       cycle and version-conflict diagnostics. **Accept:** activation order is stable and one failed optional peer does
       not block unrelated plugins.
 - [x] **PLG-004 (P0; deps: PLG-001, SEC-003)** Present a permission diff on install/update and require host approval for

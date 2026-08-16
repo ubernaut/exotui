@@ -93,6 +93,7 @@ export * from "./plugins.ts";
 export * from "./plugin_slot_adapters.ts";
 export * from "./plugin_capabilities.ts";
 export * from "./plugin_compat.ts";
+export * from "./plugin_dependencies.ts";
 export * from "./plugin_manifest.ts";
 export * from "./plugin_permission_diff.ts";
 export * from "./worker_plugin_host.ts";
