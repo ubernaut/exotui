@@ -21,13 +21,13 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 74 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
-LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-009,
-DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through TXT-003,
-INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004,
-HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 134
-items stay open below; a checked box means its implementation, focused tests, public export review, and relevant
-repository gates passed.
+As of Aug 16, 2026, 75 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
+LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
+ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through
+TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
+HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
+remaining 134 items stay open below; a checked box means its implementation, focused tests, public export review, and
+relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -435,7 +435,7 @@ repository gates passed.
 - [x] **ASY-006 (P1; deps: ASY-005)** Add disposable AsyncIterable operators for map, filter, merge, switch-latest,
       debounce, throttle, buffer, window, and retry. **Accept:** operator cancellation closes upstream iterators and
       ordering semantics have marble tests.
-- [ ] **ASY-007 (P2; deps: ASY-001)** Add scheduler priority aging and optional priority inheritance for tasks blocking
+- [x] **ASY-007 (P2; deps: ASY-001)** Add scheduler priority aging and optional priority inheritance for tasks blocking
       higher-priority dependants. **Accept:** low-priority work cannot starve and inheritance is removed when the
       dependency settles.
 - [ ] **ASY-008 (P1; deps: ASY-001, ASY-005)** Version the worker request protocol and support transfer lists, worker
