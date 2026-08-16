@@ -603,7 +603,10 @@ Acceptance:
       consumes the stream incrementally, owns anchor/focus selection, applies concealment through an explicit
       source→display column map (spans and selection land on the right display cells), ranks diagnostics into gutter
       signs, and culls rendering to the scrolled window on both axes.
-- [ ] Build line-number/sign gutters and unified/split diff views with synchronized scrolling on that code-view core.
+- [x] Build line-number/sign gutters and unified/split diff views with synchronized scrolling on that code-view core.
+      Completed August 16, 2026: `diff_view.ts` — LCS line diff, right-aligned number gutters with +/-/space markers
+      and ranked sign glyphs, UnifiedDiffController (one code view plus an aligned gutter), SplitDiffController
+      (aligned sides with filler rows; one offset drives both panes; code-view highlighting flows through).
 - [ ] Extend `TextBox` into a full text-area surface with selection-edge auto-scroll, soft/character/no-wrap modes,
       configurable editing aliases, and optional syntax highlighting.
 - [x] Deliver the bounded editor v2 foundation: visible grapheme-safe directional ranges, Shift/Ctrl-A selection,

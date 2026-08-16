@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 442,
-    "bytes": 5112281,
+    "modules": 443,
+    "bytes": 5119955,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -36,6 +36,7 @@
       "src/app/crash_recovery.ts": 4143,
       "src/app/data_query_commands.ts": 24651,
       "src/app/data_table_commands.ts": 3806,
+      "src/app/diff_view.ts": 7642,
       "src/app/disposables.ts": 2297,
       "src/app/drag_drop.ts": 4947,
       "src/app/event_timeline.ts": 4627,
@@ -64,7 +65,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4781,
+      "src/app/mod.ts": 4813,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -834,8 +835,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 359,
-    "bytes": 4368396,
+    "modules": 360,
+    "bytes": 4376070,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -870,6 +871,7 @@
       "src/app/crash_recovery.ts": 4143,
       "src/app/data_query_commands.ts": 24651,
       "src/app/data_table_commands.ts": 3806,
+      "src/app/diff_view.ts": 7642,
       "src/app/disposables.ts": 2297,
       "src/app/drag_drop.ts": 4947,
       "src/app/event_timeline.ts": 4627,
@@ -898,7 +900,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4781,
+      "src/app/mod.ts": 4813,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
