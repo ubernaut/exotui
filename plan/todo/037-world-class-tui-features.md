@@ -589,7 +589,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PKG-003 (P1; deps: —)** Publish versioned AST codemods for deprecated API migrations with dry-run and
       idempotence checks. **Accept:** running a migration twice produces no second diff and unsupported syntax is
       reported with locations.
-- [ ] **PKG-004 (P1; deps: PKG-001)** Create a machine-readable example registry and local playground launcher with
+- [x] **PKG-004 (P1; deps: PKG-001)** Create a machine-readable example registry and local playground launcher with
       capability/permission declarations. **Accept:** docs embed only examples that compile against the current public
       entrypoint.
 - [x] **PKG-005 (P1; deps: QAL-001)** Publish a downstream contract-test package for third-party backends, solvers,

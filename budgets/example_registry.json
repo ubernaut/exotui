@@ -1,0 +1,401 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "action_middleware",
+      "path": "examples/action_middleware.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/action_middleware.ts"
+    },
+    {
+      "name": "adopter_workbench",
+      "path": "examples/adopter_workbench.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/adopter_workbench.ts"
+    },
+    {
+      "name": "app_plugin_catalog",
+      "path": "examples/app_plugin_catalog.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/app_plugin_catalog.ts"
+    },
+    {
+      "name": "app_shell",
+      "path": "examples/app_shell.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/app_shell.ts"
+    },
+    {
+      "name": "batteries_included",
+      "path": "examples/batteries_included.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/batteries_included.ts"
+    },
+    {
+      "name": "cached_pipeline",
+      "path": "examples/cached_pipeline.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/cached_pipeline.ts"
+    },
+    {
+      "name": "cached_resource",
+      "path": "examples/cached_resource.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/cached_resource.ts"
+    },
+    {
+      "name": "calculator",
+      "path": "examples/calculator.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/calculator.ts"
+    },
+    {
+      "name": "command_search_index",
+      "path": "examples/command_search_index.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/command_search_index.ts"
+    },
+    {
+      "name": "dashboard",
+      "path": "examples/dashboard.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/dashboard.ts"
+    },
+    {
+      "name": "data_query",
+      "path": "examples/data_query.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/data_query.ts"
+    },
+    {
+      "name": "demo",
+      "path": "examples/demo.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/demo.ts"
+    },
+    {
+      "name": "demo_gallery",
+      "path": "examples/demo_gallery.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/demo_gallery.ts"
+    },
+    {
+      "name": "floating_window_demo",
+      "path": "examples/floating_window_demo.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/floating_window_demo.ts"
+    },
+    {
+      "name": "form_workflow",
+      "path": "examples/form_workflow.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/form_workflow.ts"
+    },
+    {
+      "name": "html_css_layout",
+      "path": "examples/html_css_layout.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/html_css_layout.ts"
+    },
+    {
+      "name": "html_css_layout_worker",
+      "path": "examples/html_css_layout_worker.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/html_css_layout_worker.ts"
+    },
+    {
+      "name": "html_css_workbench",
+      "path": "examples/html_css_workbench.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/html_css_workbench.ts"
+    },
+    {
+      "name": "layout",
+      "path": "examples/layout.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/layout.ts"
+    },
+    {
+      "name": "layout_recipe_report",
+      "path": "examples/layout_recipe_report.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/layout_recipe_report.ts"
+    },
+    {
+      "name": "runtime_workloads",
+      "path": "examples/runtime_workloads.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/runtime_workloads.ts"
+    },
+    {
+      "name": "table_selection_workflow",
+      "path": "examples/table_selection_workflow.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/table_selection_workflow.ts"
+    },
+    {
+      "name": "terminal_app",
+      "path": "examples/terminal_app.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/terminal_app.ts"
+    },
+    {
+      "name": "terminal_command_workflow",
+      "path": "examples/terminal_command_workflow.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/terminal_command_workflow.ts"
+    },
+    {
+      "name": "theme_bindings",
+      "path": "examples/theme_bindings.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_bindings.ts"
+    },
+    {
+      "name": "theme_engine_commands",
+      "path": "examples/theme_engine_commands.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_engine_commands.ts"
+    },
+    {
+      "name": "theme_engines",
+      "path": "examples/theme_engines.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_engines.ts"
+    },
+    {
+      "name": "theme_gallery",
+      "path": "examples/theme_gallery.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_gallery.ts"
+    },
+    {
+      "name": "theme_manifest",
+      "path": "examples/theme_manifest.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_manifest.ts"
+    },
+    {
+      "name": "theme_pipeline",
+      "path": "examples/theme_pipeline.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_pipeline.ts"
+    },
+    {
+      "name": "theme_resolver",
+      "path": "examples/theme_resolver.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_resolver.ts"
+    },
+    {
+      "name": "theme_workspace",
+      "path": "examples/theme_workspace.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/theme_workspace.ts"
+    },
+    {
+      "name": "three_ascii",
+      "path": "examples/three_ascii.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/three_ascii.ts"
+    },
+    {
+      "name": "window_manager_demo",
+      "path": "examples/window_manager_demo.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/window_manager_demo.ts"
+    },
+    {
+      "name": "windowing_system_launcher",
+      "path": "examples/windowing_system_launcher.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/windowing_system_launcher.ts"
+    },
+    {
+      "name": "worker_pool",
+      "path": "examples/worker_pool.ts",
+      "capabilities": [
+        "demo"
+      ],
+      "permissions": [
+        "-A"
+      ],
+      "command": "deno run -A examples/worker_pool.ts"
+    }
+  ]
+}
