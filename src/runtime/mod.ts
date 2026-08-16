@@ -40,6 +40,7 @@ export * from "./infinite_query.ts";
 export * from "./mutations.ts";
 export * from "./core_metrics.ts";
 export * from "./observability.ts";
+export * from "./observability_context.ts";
 export * from "./offline_queue.ts";
 export * from "./priority_scheduler.ts";
 export * from "./rate_limiter.ts";
