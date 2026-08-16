@@ -664,7 +664,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PER-006 (P2; deps: OBS-002, OBS-003, ASY-010)** Adapt frame cadence to dirty work, input latency, background
       state, and sink pressure within configured latency/fps limits. **Accept:** a synthetic workload meets
       input-latency floors and becomes idle without polling.
-- [ ] **PER-007 (P1; deps: SEC-009, OBS-003)** Add one hierarchical cache budget coordinator with priority, pinning,
+- [x] **PER-007 (P1; deps: SEC-009, OBS-003)** Add one hierarchical cache budget coordinator with priority, pinning,
       cost estimation, and eviction callbacks. **Accept:** aggregate cache use respects its cap and active frame
       resources cannot be evicted.
 - [ ] **PER-008 (P2; deps: HIS-007, REM-004)** Add incremental, schema-aware serialization for workspace, journal,
