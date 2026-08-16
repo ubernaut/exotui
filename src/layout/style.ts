@@ -136,9 +136,17 @@ export interface BoxEdges<T = number> {
   left: T;
 }
 
-/** Public interface describing the normalized style used by layout solvers. */
 /** Edge a docked node pins to (Textual-style `dock`). */
 export type LayoutDock = "top" | "right" | "bottom" | "left";
+
+/** Horizontal child alignment inside a container (Textual-style `align`). */
+export type LayoutHorizontalAlign = "left" | "center" | "right";
+
+/** Vertical child alignment inside a container. */
+export type LayoutVerticalAlign = "top" | "middle" | "bottom";
+
+/** Placement of a border title or subtitle along its edge. */
+export type LayoutTitleAlign = "left" | "center" | "right";
 
 /** Background hatch fill: one repeated glyph and an optional color. */
 export interface LayoutHatch {
@@ -155,6 +163,7 @@ export const LAYOUT_HATCH_PATTERNS: Readonly<Record<string, string>> = Object.fr
   vertical: "│",
 });
 
+/** Public interface describing the normalized style used by layout solvers. */
 export interface ComputedLayoutStyle {
   display: LayoutDisplay;
   position: LayoutPosition;
@@ -203,6 +212,26 @@ export interface ComputedLayoutStyle {
    * the remaining area. Docks apply in document order.
    */
   dock?: LayoutDock;
+  /**
+   * Named paint layers (Textual-style): a container declares the order with
+   * `layers`, a descendant assigns itself with `layer`, and the engine
+   * post-pass raises the subtree's z-order by the layer's index — later
+   * names paint above earlier ones.
+   */
+  layers?: readonly string[];
+  layer?: string;
+  /** Container-level child alignment for block flow (Textual `align`). */
+  alignHorizontal?: LayoutHorizontalAlign;
+  alignVertical?: LayoutVerticalAlign;
+  /** Renderer-owned scrollbar styling, consumed by scroll-area renderers. */
+  scrollbarColor?: string;
+  scrollbarBackgroundColor?: string;
+  scrollbarSize?: number;
+  /** Renderer-owned border captions painted over the border edge. */
+  borderTitle?: string;
+  borderSubtitle?: string;
+  borderTitleAlign?: LayoutTitleAlign;
+  borderSubtitleAlign?: LayoutTitleAlign;
   margin: BoxEdges<number>;
   padding: BoxEdges<number>;
   border: BoxEdges<number>;
@@ -354,6 +383,7 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
     maxHeight: cloneLayoutLength(style.maxHeight),
     inset: cloneBoxEdgeLengths(style.inset),
     hatch: style.hatch ? { ...style.hatch } : undefined,
+    layers: style.layers ? [...style.layers] : undefined,
     margin: { ...style.margin },
     padding: { ...style.padding },
     border: { ...style.border },
@@ -632,6 +662,24 @@ function parseSignedOffsetCells(value: string | undefined): number | undefined {
   if (!trimmed || !/^[+-]?\d+(?:ch|cells?)?$/.test(trimmed)) return undefined;
   const parsed = Number.parseInt(trimmed, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseHorizontalAlign(value: string): LayoutHorizontalAlign | undefined {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "left" || normalized === "center" || normalized === "right" ? normalized : undefined;
+}
+
+function parseVerticalAlign(value: string): LayoutVerticalAlign | undefined {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "top" || normalized === "middle" || normalized === "bottom" ? normalized : undefined;
+}
+
+function stripCssQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2 && (trimmed[0] === '"' || trimmed[0] === "'") && trimmed.at(-1) === trimmed[0]) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
 }
 
 function parseOpacityValue(value: string): number | undefined {
@@ -917,6 +965,71 @@ export function applyLayoutDeclaration(
       next.dock = dock;
       break;
     }
+    case "layers": {
+      if (resolved === "none") {
+        next.layers = undefined;
+        break;
+      }
+      const names = splitCssWords(resolved).slice(0, 8);
+      if (names.length === 0 || names.some((name) => !/^[A-Za-z][\w-]*$/.test(name))) return style;
+      next.layers = names;
+      break;
+    }
+    case "layer": {
+      if (resolved === "none") {
+        next.layer = undefined;
+        break;
+      }
+      if (!/^[A-Za-z][\w-]*$/.test(resolved.trim())) return style;
+      next.layer = resolved.trim();
+      break;
+    }
+    case "align": {
+      const parts = splitCssWords(resolved);
+      if (parts.length !== 2) return style;
+      const horizontal = parseHorizontalAlign(parts[0]!);
+      const vertical = parseVerticalAlign(parts[1]!);
+      if (!horizontal || !vertical) return style;
+      next.alignHorizontal = horizontal;
+      next.alignVertical = vertical;
+      break;
+    }
+    case "align-horizontal": {
+      const horizontal = parseHorizontalAlign(resolved);
+      if (!horizontal) return style;
+      next.alignHorizontal = horizontal;
+      break;
+    }
+    case "align-vertical": {
+      const vertical = parseVerticalAlign(resolved);
+      if (!vertical) return style;
+      next.alignVertical = vertical;
+      break;
+    }
+    case "scrollbar-color":
+      next.scrollbarColor = resolved || undefined;
+      break;
+    case "scrollbar-background":
+      next.scrollbarBackgroundColor = resolved || undefined;
+      break;
+    case "scrollbar-size": {
+      const size = Number.parseInt(resolved, 10);
+      if (!Number.isFinite(size) || size < 1) return style;
+      next.scrollbarSize = Math.min(4, size);
+      break;
+    }
+    case "border-title":
+      next.borderTitle = stripCssQuotes(resolved) || undefined;
+      break;
+    case "border-subtitle":
+      next.borderSubtitle = stripCssQuotes(resolved) || undefined;
+      break;
+    case "border-title-align":
+      next.borderTitleAlign = parseHorizontalAlign(resolved) ?? next.borderTitleAlign;
+      break;
+    case "border-subtitle-align":
+      next.borderSubtitleAlign = parseHorizontalAlign(resolved) ?? next.borderSubtitleAlign;
+      break;
     case "opacity": {
       const opacity = parseOpacityValue(resolved);
       if (opacity === undefined) return style;

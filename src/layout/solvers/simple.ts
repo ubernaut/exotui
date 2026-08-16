@@ -193,6 +193,7 @@ export class SimpleLayoutSolver implements LayoutSolver {
       cursor = childBounds.row + childBounds.height + gap;
     }
 
+    applyBlockChildAlignment(node.style, boxes, bounds, children.length === 0 ? bounds.row : cursor - gap);
     return boxes;
   }
 
@@ -891,6 +892,40 @@ function shrinkGridTracksToFit(sizes: number[], available: number): void {
     sizes[index] = Math.max(0, (sizes[index] ?? 0) - removable);
     overflow -= removable;
   }
+}
+
+/**
+ * Textual-style container `align`: block children shift as a group
+ * vertically into the free space, and each child shifts horizontally within
+ * the row it owns. Shifts are clamped at zero so overflowing content never
+ * moves backwards.
+ */
+function applyBlockChildAlignment(
+  style: ComputedLayoutStyle,
+  boxes: ComputedLayoutBox[],
+  bounds: Rectangle,
+  contentBottom: number,
+): void {
+  const horizontal = style.alignHorizontal;
+  const vertical = style.alignVertical;
+  if (boxes.length === 0 || (horizontal === undefined && vertical === undefined)) return;
+  const freeHeight = Math.max(0, bounds.row + bounds.height - contentBottom);
+  const rowShift = vertical === "middle" ? Math.floor(freeHeight / 2) : vertical === "bottom" ? freeHeight : 0;
+  for (const box of boxes) {
+    const freeWidth = Math.max(0, bounds.width - box.rect.width);
+    const columnShift = horizontal === "center" ? Math.floor(freeWidth / 2) : horizontal === "right" ? freeWidth : 0;
+    if (columnShift !== 0 || rowShift !== 0) translateSolvedBox(box, columnShift, rowShift);
+  }
+}
+
+function translateSolvedBox(box: ComputedLayoutBox, columns: number, rows: number): void {
+  box.rect = { ...box.rect, column: box.rect.column + columns, row: box.rect.row + rows };
+  box.contentRect = { ...box.contentRect, column: box.contentRect.column + columns, row: box.contentRect.row + rows };
+  box.hitRegions = box.hitRegions.map((region) => ({
+    ...region,
+    bounds: { ...region.bounds, column: region.bounds.column + columns, row: region.bounds.row + rows },
+  }));
+  for (const child of box.children) translateSolvedBox(child, columns, rows);
 }
 
 function layoutChildren(node: LayoutNode): LayoutNode[] {
@@ -1886,6 +1921,8 @@ function intrinsicNodeSignature(
     "\u001f" + node.style.display +
     "\u001f" + node.style.position +
     "\u001f" + (node.style.dock ?? "") +
+    "\u001f" + (node.style.alignHorizontal ?? "") +
+    "\u001f" + (node.style.alignVertical ?? "") +
     "\u001f" + node.style.order +
     "\u001f" + node.style.flexDirection +
     "\u001f" + layoutLengthSignature(node.style.flexBasis) +

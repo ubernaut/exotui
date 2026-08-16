@@ -674,6 +674,17 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
     ...Object.keys(defaultComputedLayoutStyle()),
     "gridArea",
     "dock",
+    "layers",
+    "layer",
+    "alignHorizontal",
+    "alignVertical",
+    "scrollbarColor",
+    "scrollbarBackgroundColor",
+    "scrollbarSize",
+    "borderTitle",
+    "borderSubtitle",
+    "borderTitleAlign",
+    "borderSubtitleAlign",
     "tint",
     "hatch",
     "color",
@@ -683,7 +694,7 @@ Deno.test("layout solver capability report exhaustively classifies normalized fi
   ].sort();
 
   assertEquals([...report.normalizedStyleFields].sort(), expectedFields);
-  assertEquals(report.normalizedStyleFields.length, 54);
+  assertEquals(report.normalizedStyleFields.length, 65);
   assertEquals(report.invariantIds, [
     "cell-rounding",
     "overflow-inspection",

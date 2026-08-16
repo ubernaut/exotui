@@ -45,6 +45,7 @@ export class LayoutEngine {
       bounds: options.bounds,
     });
     applyLayoutVisualOffsets(options.root, result);
+    applyLayoutLayerOrder(options.root, result, []);
     return result;
   }
 }
@@ -76,6 +77,39 @@ function translateLayoutBoxSubtree(
     bounds: { ...region.bounds, column: region.bounds.column + columns, row: region.bounds.row + rows },
   }));
   for (const child of box.children) translateLayoutBoxSubtree(child, columns, rows);
+}
+
+/**
+ * Resolves named paint layers as an engine post-pass: a node assigned to a
+ * `layer` finds the nearest ancestor declaring it in `layers` and its whole
+ * solved subtree's z-order rises by the layer's index — later names paint
+ * above earlier ones, on every backend identically.
+ */
+function applyLayoutLayerOrder(
+  node: LayoutNode,
+  result: LayoutSolverResult,
+  ancestorLayers: ReadonlyArray<readonly string[]>,
+): void {
+  const layer = node.style.layer;
+  if (layer) {
+    for (let index = ancestorLayers.length - 1; index >= 0; index -= 1) {
+      const at = ancestorLayers[index]!.indexOf(layer);
+      if (at < 0) continue;
+      if (at > 0) {
+        const box = result.byId.get(node.id);
+        if (box) raiseLayoutBoxLayer(box, at);
+      }
+      break;
+    }
+  }
+  const stack = node.style.layers ? [...ancestorLayers, node.style.layers] : ancestorLayers;
+  for (const child of node.children) applyLayoutLayerOrder(child, result, stack);
+}
+
+function raiseLayoutBoxLayer(box: LayoutSolverResult["root"], delta: number): void {
+  box.zIndex += delta;
+  box.hitRegions = box.hitRegions.map((region) => ({ ...region, zIndex: (region.zIndex ?? 0) + delta }));
+  for (const child of box.children) raiseLayoutBoxLayer(child, delta);
 }
 
 /** Error thrown when a solver cannot handle a layout tree. */

@@ -409,6 +409,15 @@ API: a `Timeline` whose tracks tween numbers and numeric tuples (colors, offsets
 or custom easing, delay, repeat/alternate, cancellation, a 256-track bound, and deterministic replay by construction (no
 hidden timers; `advance(nowMs)` is the only clock input).
 
+Completed the paint-features checkbox Aug 16, 2026: `dock: top|right|bottom|left` reserves the container's content edge
+in document order on the simple solver (block, flex, and grid flow lay out in the remainder; the layout-cache signature
+includes dock/align so cached solves stay correct). Named `layers`/`layer` resolve to z-order in a solver-independent
+engine post-pass — a node on a later layer raises its whole solved subtree (boxes and hit regions) by the layer index.
+Container `align`/`align-horizontal`/`align-vertical` shift block children into free space (group-vertical,
+per-child-horizontal, clamped at zero). Scrollbar styling (`scrollbar-color`/`-background`/`-size`) and border captions
+(`border-title`/`-subtitle` with alignment) join the normalized model as renderer-owned outside-solver fields. C1 is
+complete: all seven checkboxes done.
+
 Completed authoring slice Aug 16, 2026 (second C1 slice): scalar `offset: x y` (plus `offset-x`/`offset-y`) is a
 paint-owned visual translation — an engine post-pass moves the styled node's solved box subtree and hit regions without
 touching siblings, scroll metadata, or normal flow, so every backend supports it identically; `box-sizing` authoring had
