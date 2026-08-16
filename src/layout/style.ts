@@ -85,10 +85,17 @@ export interface LayoutLengthValue {
     | "calc"
     | "min-content"
     | "max-content"
-    | "fit-content";
+    | "fit-content"
+    | "minmax";
   value: number;
   /** Additive `calc()` terms; present only when `unit` is `"calc"`. */
   terms?: readonly LayoutCalcTerm[];
+  /** The lower track bound; present only when `unit` is `"minmax"`. */
+  minTrack?: LayoutLengthValue;
+  /** The upper track bound; present only when `unit` is `"minmax"`. */
+  maxTrack?: LayoutLengthValue;
+  /** The `fit-content(limit)` argument, when one was authored. */
+  limitTrack?: LayoutLengthValue;
 }
 
 /** True for the content-derived sizing keywords a solver must measure for. */
@@ -181,6 +188,8 @@ export interface ComputedLayoutStyle {
   gridTemplateColumns: LayoutLengthValue[];
   gridTemplateRows: LayoutLengthValue[];
   gridTemplateAreas: string[][];
+  gridTemplateColumnsAutoRepeat?: LayoutGridAutoRepeat;
+  gridTemplateRowsAutoRepeat?: LayoutGridAutoRepeat;
   gridAutoColumns: LayoutLengthValue;
   gridAutoRows: LayoutLengthValue;
   gridAutoFlow: LayoutGridAutoFlow;
@@ -371,6 +380,24 @@ export function cloneComputedLayoutStyle(style: ComputedLayoutStyle): ComputedLa
     gridTemplateColumns: cloneLayoutLengths(style.gridTemplateColumns),
     gridTemplateRows: cloneLayoutLengths(style.gridTemplateRows),
     gridTemplateAreas: cloneGridAreas(style.gridTemplateAreas),
+    ...(style.gridTemplateColumnsAutoRepeat
+      ? {
+        gridTemplateColumnsAutoRepeat: {
+          mode: style.gridTemplateColumnsAutoRepeat.mode,
+          tracks: cloneLayoutLengths(style.gridTemplateColumnsAutoRepeat.tracks),
+          insertAt: style.gridTemplateColumnsAutoRepeat.insertAt,
+        },
+      }
+      : {}),
+    ...(style.gridTemplateRowsAutoRepeat
+      ? {
+        gridTemplateRowsAutoRepeat: {
+          mode: style.gridTemplateRowsAutoRepeat.mode,
+          tracks: cloneLayoutLengths(style.gridTemplateRowsAutoRepeat.tracks),
+          insertAt: style.gridTemplateRowsAutoRepeat.insertAt,
+        },
+      }
+      : {}),
     gridAutoColumns: cloneLayoutLength(style.gridAutoColumns),
     gridAutoRows: cloneLayoutLength(style.gridAutoRows),
     gridColumn: { ...style.gridColumn },
@@ -484,6 +511,8 @@ function tryParseLayoutLength(value: string): LayoutLengthValue | undefined {
   if (trimmed === "min-content" || trimmed === "max-content" || trimmed === "fit-content") {
     return { unit: trimmed, value: 0 };
   }
+  if (trimmed.startsWith("minmax(")) return tryParseMinmaxTrack(trimmed);
+  if (trimmed.startsWith("fit-content(")) return tryParseFitContentTrack(trimmed);
   if (trimmed.startsWith("calc(")) return tryParseCalcLength(trimmed);
   const match = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)(%|fr|ch|cells?|vw|vh|w|h)?$/);
   if (!match) return undefined;
@@ -496,6 +525,32 @@ function tryParseLayoutLength(value: string): LayoutLengthValue | undefined {
   if (unit === "w") return { unit: "pw", value: number };
   if (unit === "h") return { unit: "ph", value: number };
   return cellLength(number);
+}
+
+/**
+ * Parses `minmax(min, max)`. The minimum may not be flexible (`fr` is
+ * refused there, as in CSS) and neither bound may nest another minmax.
+ */
+function tryParseMinmaxTrack(trimmed: string): LayoutLengthValue | undefined {
+  if (!trimmed.endsWith(")")) return undefined;
+  const body = trimmed.slice("minmax(".length, -1);
+  if (body.includes("(")) return undefined;
+  const parts = body.split(",");
+  if (parts.length !== 2) return undefined;
+  const min = tryParseLayoutLength(parts[0]!.trim());
+  const max = tryParseLayoutLength(parts[1]!.trim());
+  if (!min || !max || min.unit === "fr" || min.unit === "minmax" || max.unit === "minmax") return undefined;
+  return { unit: "minmax", value: 0, minTrack: min, maxTrack: max };
+}
+
+/** Parses `fit-content(limit)`; the limit may not be flexible. */
+function tryParseFitContentTrack(trimmed: string): LayoutLengthValue | undefined {
+  if (!trimmed.endsWith(")")) return undefined;
+  const body = trimmed.slice("fit-content(".length, -1);
+  if (body.includes("(")) return undefined;
+  const limit = tryParseLayoutLength(body.trim());
+  if (!limit || limit.unit === "fr" || limit.unit === "minmax") return undefined;
+  return { unit: "fit-content", value: 0, limitTrack: limit };
 }
 
 /**
@@ -565,15 +620,77 @@ export function parseGridTrackList(
   value: string | undefined,
   fallback: readonly LayoutLengthValue[] = [],
 ): LayoutLengthValue[] {
-  if (value === undefined) return cloneLayoutLengths(fallback);
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed || trimmed === "none") return [];
-  const tokens = tokenizeGridTrackList(expandGridRepeat(trimmed));
-  const tracks = new Array<LayoutLengthValue>(tokens.length);
-  for (let index = 0; index < tokens.length; index += 1) {
-    tracks[index] = parseLayoutLength(tokens[index], autoLength());
+  return parseGridTemplateTrackList(value, { tracks: cloneLayoutLengths(fallback) }).tracks;
+}
+
+/** One `repeat(auto-fill|auto-fit, …)` template segment. */
+export interface LayoutGridAutoRepeat {
+  mode: "auto-fill" | "auto-fit";
+  tracks: LayoutLengthValue[];
+  /** Track index in the parsed template where the repeat expands. */
+  insertAt: number;
+}
+
+/** A parsed track template: explicit tracks plus one optional auto repeat. */
+export interface LayoutGridTrackTemplate {
+  tracks: LayoutLengthValue[];
+  autoRepeat?: LayoutGridAutoRepeat;
+}
+
+/**
+ * Parses a track list INCLUDING `repeat()`. Numeric repeats expand in
+ * place (capped at 256); at most one `repeat(auto-fill|auto-fit, …)` is
+ * recorded for the solver to expand against the real axis size. A second
+ * auto repeat or a nested repeat refuses the whole list.
+ */
+export function parseGridTemplateTrackList(
+  value: string | undefined,
+  fallback: LayoutGridTrackTemplate = { tracks: [] },
+): LayoutGridTrackTemplate {
+  if (value === undefined) {
+    return {
+      tracks: cloneLayoutLengths(fallback.tracks),
+      ...(fallback.autoRepeat
+        ? {
+          autoRepeat: {
+            mode: fallback.autoRepeat.mode,
+            tracks: cloneLayoutLengths(fallback.autoRepeat.tracks),
+            insertAt: fallback.autoRepeat.insertAt,
+          },
+        }
+        : {}),
+    };
   }
-  return tracks;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed || trimmed === "none") return { tracks: [] };
+  const tracks: LayoutLengthValue[] = [];
+  let autoRepeat: LayoutGridAutoRepeat | undefined;
+  for (const token of tokenizeGridTrackList(trimmed)) {
+    if (!token.startsWith("repeat(")) {
+      tracks.push(parseLayoutLength(token, autoLength()));
+      continue;
+    }
+    if (!token.endsWith(")")) return { tracks: cloneLayoutLengths(fallback.tracks) };
+    const body = token.slice("repeat(".length, -1);
+    const comma = body.indexOf(",");
+    if (comma < 0 || body.includes("repeat(")) return { tracks: cloneLayoutLengths(fallback.tracks) };
+    const countText = body.slice(0, comma).trim();
+    const repeated = tokenizeGridTrackList(body.slice(comma + 1).trim())
+      .map((inner) => parseLayoutLength(inner, autoLength()));
+    if (repeated.length === 0) return { tracks: cloneLayoutLengths(fallback.tracks) };
+    if (countText === "auto-fill" || countText === "auto-fit") {
+      if (autoRepeat) return { tracks: cloneLayoutLengths(fallback.tracks) };
+      autoRepeat = { mode: countText, tracks: repeated, insertAt: tracks.length };
+      continue;
+    }
+    const count = Math.floor(Number.parseFloat(countText));
+    if (!Number.isFinite(count) || count < 0) return { tracks: cloneLayoutLengths(fallback.tracks) };
+    const bounded = Math.min(count, 256);
+    for (let repetition = 0; repetition < bounded; repetition += 1) {
+      for (const track of repeated) tracks.push(cloneLayoutLength(track));
+    }
+  }
+  return { tracks, ...(autoRepeat ? { autoRepeat } : {}) };
 }
 
 function parseGridTemplateAreas(
@@ -793,12 +910,26 @@ export function applyLayoutDeclaration(
     case "place-self":
       applyPlaceSelfShorthand(next, resolved);
       break;
-    case "grid-template-columns":
-      next.gridTemplateColumns = parseGridTrackList(resolved, next.gridTemplateColumns);
+    case "grid-template-columns": {
+      const template = parseGridTemplateTrackList(resolved, {
+        tracks: next.gridTemplateColumns,
+        ...(next.gridTemplateColumnsAutoRepeat ? { autoRepeat: next.gridTemplateColumnsAutoRepeat } : {}),
+      });
+      next.gridTemplateColumns = template.tracks;
+      if (template.autoRepeat) next.gridTemplateColumnsAutoRepeat = template.autoRepeat;
+      else delete next.gridTemplateColumnsAutoRepeat;
       break;
-    case "grid-template-rows":
-      next.gridTemplateRows = parseGridTrackList(resolved, next.gridTemplateRows);
+    }
+    case "grid-template-rows": {
+      const template = parseGridTemplateTrackList(resolved, {
+        tracks: next.gridTemplateRows,
+        ...(next.gridTemplateRowsAutoRepeat ? { autoRepeat: next.gridTemplateRowsAutoRepeat } : {}),
+      });
+      next.gridTemplateRows = template.tracks;
+      if (template.autoRepeat) next.gridTemplateRowsAutoRepeat = template.autoRepeat;
+      else delete next.gridTemplateRowsAutoRepeat;
       break;
+    }
     case "grid-template-areas":
       next.gridTemplateAreas = parseGridTemplateAreas(resolved, next.gridTemplateAreas);
       break;
@@ -1137,20 +1268,6 @@ function applyBorderShorthand(style: ComputedLayoutStyle, value: string): void {
   if (stylePart) style.borderStyle = stylePart;
 }
 
-function expandGridRepeat(value: string): string {
-  return value.replace(/repeat\(\s*(\d+)\s*,\s*([^)]+)\)/g, (_match, countText: string, trackText: string) => {
-    const count = Math.max(0, Math.floor(Number.parseFloat(countText)));
-    const bounded = Math.min(count, 256);
-    let output = "";
-    const track = trackText.trim();
-    for (let index = 0; index < bounded; index += 1) {
-      if (output) output += " ";
-      output += track;
-    }
-    return output;
-  });
-}
-
 function tokenizeGridTrackList(value: string): string[] {
   // calc(...) contains spaces; keep each parenthesized group one token so a
   // track list like "25vw calc(100% - 30) 1fr" splits into three tracks.
@@ -1376,7 +1493,13 @@ function applyBoxEdgeLength(
 }
 
 function cloneLayoutLength(value: LayoutLengthValue): LayoutLengthValue {
-  return value.terms ? { ...value, terms: value.terms.map((term) => ({ ...term })) } : { ...value };
+  const clone: LayoutLengthValue = value.terms
+    ? { ...value, terms: value.terms.map((term) => ({ ...term })) }
+    : { ...value };
+  if (value.minTrack) clone.minTrack = cloneLayoutLength(value.minTrack);
+  if (value.maxTrack) clone.maxTrack = cloneLayoutLength(value.maxTrack);
+  if (value.limitTrack) clone.limitTrack = cloneLayoutLength(value.limitTrack);
+  return clone;
 }
 
 function cloneBoxEdgeLengths(edges: BoxEdges<LayoutLengthValue>): BoxEdges<LayoutLengthValue> {

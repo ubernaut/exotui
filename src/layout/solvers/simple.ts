@@ -325,31 +325,59 @@ export class SimpleLayoutSolver implements LayoutSolver {
 
     const columnGap = resolveAxisGap(node.style, "column", bounds);
     const rowGap = resolveAxisGap(node.style, "row", bounds);
+    const columnTemplate = expandGridAutoRepeat(
+      node.style.gridTemplateColumns,
+      node.style.gridTemplateColumnsAutoRepeat,
+      bounds.width,
+      columnGap,
+    );
+    const rowTemplate = expandGridAutoRepeat(
+      node.style.gridTemplateRows,
+      node.style.gridTemplateRowsAutoRepeat,
+      bounds.height,
+      rowGap,
+    );
     const placed = placeGridChildren(children, {
-      columns: node.style.gridTemplateColumns.length,
-      rows: node.style.gridTemplateRows.length,
+      columns: columnTemplate.template.length,
+      rows: rowTemplate.template.length,
       autoFlow: node.style.gridAutoFlow,
       areas: node.style.gridTemplateAreas,
     });
-    let columnCount = Math.max(1, node.style.gridTemplateColumns.length);
-    let rowCount = Math.max(1, node.style.gridTemplateRows.length);
+    let columnCount = Math.max(1, columnTemplate.template.length);
+    let rowCount = Math.max(1, rowTemplate.template.length);
     for (const item of placed) {
       columnCount = Math.max(columnCount, item.column + item.columnSpan);
       rowCount = Math.max(rowCount, item.row + item.rowSpan);
     }
+    // auto-fit collapses the repeat-generated tracks nothing occupies.
+    const collapsedColumns = gridAutoFitCollapse(columnTemplate, placed, "column");
+    const collapsedRows = gridAutoFitCollapse(rowTemplate, placed, "row");
+    const columnContent = this.#gridColumnContent(columnTemplate.template, columnCount, node, placed);
     const columns = resolveGridTracks(
-      node.style.gridTemplateColumns,
+      columnTemplate.template,
       columnCount,
       bounds.width,
       columnGap,
       node.style.gridAutoColumns,
+      columnContent,
+      collapsedColumns,
+    );
+    const rowContent = this.#gridRowContent(
+      rowTemplate.template,
+      rowCount,
+      node,
+      placed,
+      columns,
+      columnGap,
     );
     const rows = resolveGridTracks(
-      node.style.gridTemplateRows,
+      rowTemplate.template,
       rowCount,
       bounds.height,
       rowGap,
       node.style.gridAutoRows,
+      rowContent,
+      collapsedRows,
     );
     const columnOffsets = gridTrackOffsets(bounds.column, columns, columnGap);
     const rowOffsets = gridTrackOffsets(bounds.row, rows, rowGap);
@@ -366,6 +394,64 @@ export class SimpleLayoutSolver implements LayoutSolver {
       boxes[index] = this.#layoutNode(item.node, itemBounds, false, true, bounds, margin);
     }
     return boxes;
+  }
+
+  /** Measured column content bounds, only when a track needs them. */
+  #gridColumnContent(
+    template: readonly LayoutLengthValue[],
+    count: number,
+    node: LayoutNode,
+    placed: readonly GridPlacedItem[],
+  ): (GridTrackContent | undefined)[] | undefined {
+    const needed = template.some(gridTrackNeedsContent) ||
+      (template.length < count && gridTrackNeedsContent(node.style.gridAutoColumns));
+    if (!needed) return undefined;
+    const content = new Array<GridTrackContent | undefined>(count);
+    for (const item of placed) {
+      if (item.columnSpan !== 1 || item.column >= count) continue;
+      const style = item.node.style;
+      const extras = style.border.left + style.border.right + style.padding.left + style.padding.right;
+      const pair = widthIntrinsicPair(item.node, this.#defaultTextHeight, this.#intrinsicMeasurementCache);
+      const entry = content[item.column] ?? { min: 0, max: 0 };
+      entry.min = Math.max(entry.min, pair.min + extras);
+      entry.max = Math.max(entry.max, pair.max + extras);
+      content[item.column] = entry;
+    }
+    return content;
+  }
+
+  /** Measured row content heights at the resolved column widths. */
+  #gridRowContent(
+    template: readonly LayoutLengthValue[],
+    count: number,
+    node: LayoutNode,
+    placed: readonly GridPlacedItem[],
+    columns: readonly number[],
+    columnGap: number,
+  ): (GridTrackContent | undefined)[] | undefined {
+    const needed = template.some(gridTrackNeedsContent) ||
+      (template.length < count && gridTrackNeedsContent(node.style.gridAutoRows));
+    if (!needed) return undefined;
+    const content = new Array<GridTrackContent | undefined>(count);
+    for (const item of placed) {
+      if (item.rowSpan !== 1 || item.row >= count) continue;
+      const style = item.node.style;
+      const horizontalExtras = style.border.left + style.border.right + style.padding.left + style.padding.right;
+      const verticalExtras = style.border.top + style.border.bottom + style.padding.top + style.padding.bottom;
+      const width = gridSpanSize(columns, item.column, item.columnSpan, columnGap);
+      const measured = measureNodeIntrinsic(
+        item.node,
+        Math.max(1, width - horizontalExtras),
+        this.#defaultTextHeight,
+        this.#intrinsicMeasurementCache,
+      );
+      const height = measured.height + verticalExtras;
+      const entry = content[item.row] ?? { min: 0, max: 0 };
+      entry.min = Math.max(entry.min, height);
+      entry.max = Math.max(entry.max, height);
+      content[item.row] = entry;
+    }
+    return content;
   }
 
   /**
@@ -640,28 +726,135 @@ function alignGridItemBounds(node: LayoutNode, cell: Rectangle): Rectangle {
   };
 }
 
+/** Per-track content bounds measured from span-1 items. */
+interface GridTrackContent {
+  min: number;
+  max: number;
+}
+
+/**
+ * Expands one `repeat(auto-fill|auto-fit, …)` against the real axis
+ * size: as many repetitions fit as each repetition's minimum footprint
+ * allows, never fewer than one. Returns the expanded template plus the
+ * repeat's track range so auto-fit can collapse the empty ones.
+ */
+function expandGridAutoRepeat(
+  tracks: readonly LayoutLengthValue[],
+  autoRepeat: { mode: "auto-fill" | "auto-fit"; tracks: LayoutLengthValue[]; insertAt: number } | undefined,
+  available: number,
+  gap: number,
+): { template: LayoutLengthValue[]; repeatStart: number; repeatTrackCount: number; mode?: "auto-fill" | "auto-fit" } {
+  if (!autoRepeat || autoRepeat.tracks.length === 0) {
+    return { template: [...tracks], repeatStart: 0, repeatTrackCount: 0 };
+  }
+  const safeGap = Math.max(0, gap);
+  const minOf = (track: LayoutLengthValue): number => {
+    if (track.unit === "cell") return Math.max(1, Math.floor(track.value));
+    if (track.unit === "minmax" && track.minTrack) return minOf(track.minTrack);
+    if (
+      track.unit === "percent" || track.unit === "vw" || track.unit === "vh" ||
+      track.unit === "pw" || track.unit === "ph" || track.unit === "calc"
+    ) {
+      return Math.max(1, resolveLayoutLength(track, Math.max(0, Math.floor(available)), 1, activeLengthContext()));
+    }
+    return 1;
+  };
+  let outsideMin = 0;
+  for (const track of tracks) outsideMin += minOf(track) + safeGap;
+  const perRepetition = autoRepeat.tracks.reduce((total, track) => total + minOf(track) + safeGap, 0);
+  const availableForRepeat = Math.max(0, Math.floor(available) - outsideMin) + safeGap;
+  const count = perRepetition > 0 ? Math.max(1, Math.floor(availableForRepeat / perRepetition)) : 1;
+  const template: LayoutLengthValue[] = [
+    ...tracks.slice(0, autoRepeat.insertAt),
+  ];
+  for (let repetition = 0; repetition < count; repetition += 1) {
+    for (const track of autoRepeat.tracks) template.push(track);
+  }
+  template.push(...tracks.slice(autoRepeat.insertAt));
+  return {
+    template,
+    repeatStart: autoRepeat.insertAt,
+    repeatTrackCount: count * autoRepeat.tracks.length,
+    mode: autoRepeat.mode,
+  };
+}
+
+/** The auto-fit collapse set: repeat tracks no item occupies. */
+function gridAutoFitCollapse(
+  template: ReturnType<typeof expandGridAutoRepeat>,
+  placed: readonly GridPlacedItem[],
+  axis: "column" | "row",
+): Set<number> | undefined {
+  if (template.mode !== "auto-fit" || template.repeatTrackCount === 0) return undefined;
+  const occupied = new Set<number>();
+  for (const item of placed) {
+    const start = axis === "column" ? item.column : item.row;
+    const span = axis === "column" ? item.columnSpan : item.rowSpan;
+    for (let index = start; index < start + span; index += 1) occupied.add(index);
+  }
+  const collapsed = new Set<number>();
+  for (
+    let index = template.repeatStart;
+    index < template.repeatStart + template.repeatTrackCount;
+    index += 1
+  ) {
+    if (!occupied.has(index)) collapsed.add(index);
+  }
+  return collapsed.size > 0 ? collapsed : undefined;
+}
+
+/** True when a track's size depends on the content inside it. */
+function gridTrackNeedsContent(track: LayoutLengthValue): boolean {
+  if (track.unit === "min-content" || track.unit === "max-content" || track.unit === "fit-content") return true;
+  if (track.unit !== "minmax") return false;
+  return (track.minTrack ? gridTrackNeedsContent(track.minTrack) || track.minTrack.unit === "auto" : false) ||
+    (track.maxTrack ? gridTrackNeedsContent(track.maxTrack) || track.maxTrack.unit === "auto" : false);
+}
+
+/**
+ * Resolves track sizes. The terminal-cell approximation of the CSS
+ * algorithm, in deterministic passes: every track gets its FLOOR
+ * (fixed lengths resolve, intrinsic floors come from measured span-1
+ * content, minmax floors from its min bound); leftover space then
+ * waterfills the capped growable tracks (max-content, fit-content,
+ * minmax with a fixed max) up to their caps; fr tracks — including
+ * minmax with an fr max — consume the remainder by weight on top of
+ * their floors; plain auto tracks split whatever is left. Collapsed
+ * tracks (auto-fit empties) stay at zero through every pass.
+ */
 function resolveGridTracks(
   template: readonly LayoutLengthValue[],
   count: number,
   available: number,
   gap: number,
   autoTrack: LayoutLengthValue,
+  content?: readonly (GridTrackContent | undefined)[],
+  collapsed?: ReadonlySet<number>,
 ): number[] {
   const trackCount = Math.max(1, count);
   const tracks = new Array<LayoutLengthValue>(trackCount);
   for (let index = 0; index < trackCount; index++) {
     tracks[index] = template[index] ?? autoTrack;
   }
-  const totalGap = Math.max(0, trackCount - 1) * Math.max(0, gap);
+  const activeGapCount = collapsed ? Math.max(0, trackCount - collapsed.size - 1) : Math.max(0, trackCount - 1);
+  const totalGap = activeGapCount * Math.max(0, gap);
   const availableWithoutGaps = Math.max(0, Math.floor(available) - totalGap);
   const sizes = new Array<number>(trackCount).fill(0);
+  const caps = new Array<number>(trackCount).fill(0);
+  const flexWeights = new Array<number>(trackCount).fill(0);
   const autoIndexes: number[] = [];
+  const growIndexes: number[] = [];
   const frIndexes: number[] = [];
   let fixed = 0;
   let frTotal = 0;
 
+  const resolveFixed = (track: LayoutLengthValue): number =>
+    Math.max(0, resolveLayoutLength(track, availableWithoutGaps, 0, activeLengthContext()));
+
   for (let index = 0; index < tracks.length; index += 1) {
+    if (collapsed?.has(index)) continue;
     const track = tracks[index] ?? autoTrack;
+    const measured = content?.[index];
     if (track.unit === "cell") {
       sizes[index] = Math.max(0, Math.floor(track.value));
       fixed += sizes[index]!;
@@ -669,35 +862,95 @@ function resolveGridTracks(
       track.unit === "percent" || track.unit === "vw" || track.unit === "vh" ||
       track.unit === "pw" || track.unit === "ph" || track.unit === "calc"
     ) {
-      sizes[index] = resolveLayoutLength(track, availableWithoutGaps, 0, activeLengthContext());
+      sizes[index] = resolveFixed(track);
       fixed += sizes[index]!;
     } else if (track.unit === "fr") {
       frIndexes.push(index);
-      frTotal += Math.max(0, track.value);
+      flexWeights[index] = Math.max(0, track.value);
+      frTotal += flexWeights[index]!;
+    } else if (track.unit === "min-content") {
+      sizes[index] = Math.max(0, measured?.min ?? 0);
+      fixed += sizes[index]!;
+    } else if (track.unit === "max-content" || (track.unit === "fit-content" && !track.limitTrack)) {
+      sizes[index] = Math.max(0, measured?.min ?? 0);
+      caps[index] = Math.max(sizes[index]!, measured?.max ?? 0);
+      fixed += sizes[index]!;
+      growIndexes.push(index);
+    } else if (track.unit === "fit-content") {
+      const limit = resolveFixed(track.limitTrack!);
+      sizes[index] = Math.min(Math.max(0, measured?.min ?? 0), limit);
+      caps[index] = Math.max(sizes[index]!, Math.min(measured?.max ?? 0, limit));
+      fixed += sizes[index]!;
+      growIndexes.push(index);
+    } else if (track.unit === "minmax" && track.minTrack && track.maxTrack) {
+      const min = track.minTrack;
+      const floor = min.unit === "cell"
+        ? Math.max(0, Math.floor(min.value))
+        : min.unit === "auto" || min.unit === "min-content" || min.unit === "fit-content"
+        ? Math.max(0, measured?.min ?? 0)
+        : min.unit === "max-content"
+        ? Math.max(0, measured?.max ?? 0)
+        : resolveFixed(min);
+      sizes[index] = floor;
+      fixed += floor;
+      const max = track.maxTrack;
+      if (max.unit === "fr") {
+        frIndexes.push(index);
+        flexWeights[index] = Math.max(0, max.value);
+        frTotal += flexWeights[index]!;
+      } else {
+        const cap = max.unit === "auto" || max.unit === "max-content" || max.unit === "fit-content"
+          ? Math.max(floor, measured?.max ?? floor)
+          : max.unit === "min-content"
+          ? floor
+          : Math.max(floor, resolveFixed(max));
+        caps[index] = cap;
+        if (cap > floor) growIndexes.push(index);
+      }
     } else {
       autoIndexes.push(index);
+      sizes[index] = Math.max(0, measured?.min ?? 0);
+      fixed += sizes[index]!;
     }
   }
 
   let remaining = Math.max(0, availableWithoutGaps - fixed);
-  if (frIndexes.length > 0 && frTotal > 0) {
-    let assigned = 0;
-    for (const [frIndex, trackIndex] of frIndexes.entries()) {
-      const track = tracks[trackIndex] ?? autoTrack;
-      const size = frIndex === frIndexes.length - 1
-        ? remaining - assigned
-        : Math.floor(remaining * Math.max(0, track.value) / frTotal);
-      sizes[trackIndex] = Math.max(0, size);
-      assigned += sizes[trackIndex]!;
+
+  // Waterfill the capped growable tracks: equal shares, bounded by caps.
+  let open = growIndexes.filter((index) => caps[index]! > sizes[index]!);
+  while (remaining > 0 && open.length > 0) {
+    const share = Math.max(1, Math.floor(remaining / open.length));
+    let spent = 0;
+    for (const index of open) {
+      if (remaining - spent <= 0) break;
+      const room = caps[index]! - sizes[index]!;
+      const grant = Math.min(room, share, remaining - spent);
+      sizes[index] = sizes[index]! + grant;
+      spent += grant;
     }
-    remaining = Math.max(0, availableWithoutGaps - fixed - assigned);
+    if (spent === 0) break;
+    remaining -= spent;
+    open = open.filter((index) => caps[index]! > sizes[index]!);
   }
 
-  if (autoIndexes.length > 0) {
+  // Flexible tracks take the remainder by weight, on top of their floors.
+  if (frIndexes.length > 0 && frTotal > 0 && remaining > 0) {
+    let assigned = 0;
+    for (const [frOrder, trackIndex] of frIndexes.entries()) {
+      const grant = frOrder === frIndexes.length - 1
+        ? remaining - assigned
+        : Math.floor(remaining * flexWeights[trackIndex]! / frTotal);
+      sizes[trackIndex] = sizes[trackIndex]! + Math.max(0, grant);
+      assigned += Math.max(0, grant);
+    }
+    remaining = 0;
+  }
+
+  if (autoIndexes.length > 0 && remaining > 0) {
     const base = Math.floor(remaining / autoIndexes.length);
     let extra = remaining % autoIndexes.length;
     for (const trackIndex of autoIndexes) {
-      sizes[trackIndex] = base + (extra > 0 ? 1 : 0);
+      sizes[trackIndex] = sizes[trackIndex]! + base + (extra > 0 ? 1 : 0);
       if (extra > 0) extra -= 1;
     }
   }
@@ -706,6 +959,7 @@ function resolveGridTracks(
   for (let index = 0; index < sizes.length; index += 1) {
     sizes[index] = Math.max(0, Math.floor(sizes[index] ?? 0));
   }
+  if (collapsed) { for (const index of collapsed) sizes[index] = 0; }
   return sizes;
 }
 

@@ -358,8 +358,14 @@ Acceptance:
 
 ### L3 - Complete Grid, Block, And Intrinsic Layout (P1, Large)
 
-- [ ] Add Grid `minmax()`, `fit-content()`, auto-fill/auto-fit repetition, richer implicit-track sizing, and
-      content-based tracks.
+- [x] Add Grid `minmax()`, `fit-content()`, auto-fill/auto-fit repetition, richer implicit-track sizing, and
+      content-based tracks. Completed August 16, 2026: LayoutLengthValue gained `minmax` (fr minimum refused, as in
+      CSS) and `fit-content(limit)`; `parseGridTemplateTrackList` expands numeric repeats inline and records at most
+      one `repeat(auto-fill|auto-fit, …)` for the solver, which expands it against the real axis size (auto-fit
+      collapses the repeat tracks nothing occupies); `resolveGridTracks` runs deterministic floor → capped-waterfill →
+      fr → auto passes with per-track content bounds measured from span-1 items (columns via width intrinsics, rows
+      via measured height at the resolved column width, computed only when a track needs them); implicit tracks accept
+      every new form through gridAutoColumns/gridAutoRows.
 - [ ] Add named Grid lines and make template-area behavior backend-neutral; keep Yoga explicitly Flex-only.
 - [ ] Add dense placement only with deterministic document/focus order and clear accessibility semantics.
 - [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.

@@ -1348,6 +1348,7 @@
     "parseDuration",
     "parseFormPath",
     "parseGridPlacement",
+    "parseGridTemplateTrackList",
     "parseGridTrackList",
     "parseHexColor",
     "parseInputEnvelope",

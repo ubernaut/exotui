@@ -121,6 +121,8 @@ const fieldCapabilityMatrix = {
   gridTemplateColumns: field("supported", "unsupported"),
   gridTemplateRows: field("supported", "unsupported"),
   gridTemplateAreas: field("supported", "unsupported"),
+  gridTemplateColumnsAutoRepeat: field("supported", "unsupported"),
+  gridTemplateRowsAutoRepeat: field("supported", "unsupported"),
   gridAutoColumns: field("supported", "unsupported"),
   gridAutoRows: field("supported", "unsupported"),
   gridAutoFlow: field("supported", "unsupported"),
@@ -352,6 +354,7 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       calc: "supported",
       "min-content": "partial",
       "max-content": "partial",
+      minmax: "partial",
       "fit-content": "partial",
     },
     invariants: {
@@ -439,6 +442,7 @@ export const YOGA_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freezeC
       calc: "unsupported",
       "min-content": "unsupported",
       "max-content": "unsupported",
+      minmax: "unsupported",
       "fit-content": "unsupported",
     },
     invariants: {
@@ -529,6 +533,7 @@ export const TAFFY_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freeze
       calc: "unsupported",
       "min-content": "unsupported",
       "max-content": "unsupported",
+      minmax: "unsupported",
       "fit-content": "unsupported",
     },
     invariants: {
@@ -581,6 +586,7 @@ export function unknownLayoutSolverCapabilities(solverId: string): LayoutSolverC
       calc: "unknown",
       "min-content": "unknown",
       "max-content": "unknown",
+      minmax: "unknown",
       "fit-content": "unknown",
     },
     invariants: {
