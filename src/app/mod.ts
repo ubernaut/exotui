@@ -37,6 +37,8 @@ export * from "./time_picker.ts";
 export * from "./token_editor.ts";
 export * from "./transfer_list.ts";
 export * from "./tree_grid.ts";
+export * from "./syntax_service.ts";
+export * from "./code_view.ts";
 export * from "./background_jobs.ts";
 export * from "./command_aliases.ts";
 export * from "./command_arguments.ts";

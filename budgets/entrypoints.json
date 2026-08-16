@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 440,
-    "bytes": 5096410,
+    "modules": 442,
+    "bytes": 5112281,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -17,6 +17,7 @@
       "src/app/browser_editing.ts": 6659,
       "src/app/calendar.ts": 7385,
       "src/app/clipboard.ts": 4831,
+      "src/app/code_view.ts": 8789,
       "src/app/command_aliases.ts": 4466,
       "src/app/command_arguments.ts": 3425,
       "src/app/command_bindings.ts": 20400,
@@ -63,7 +64,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4712,
+      "src/app/mod.ts": 4781,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -102,6 +103,7 @@
       "src/app/settings_bindings.ts": 25344,
       "src/app/software_cursor.ts": 5894,
       "src/app/split_pane_commands.ts": 6019,
+      "src/app/syntax_service.ts": 7013,
       "src/app/table_commands.ts": 3463,
       "src/app/tabs_commands.ts": 3213,
       "src/app/terminal_commands.ts": 47814,
@@ -832,8 +834,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 357,
-    "bytes": 4352525,
+    "modules": 359,
+    "bytes": 4368396,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -849,6 +851,7 @@
       "src/app/browser_editing.ts": 6659,
       "src/app/calendar.ts": 7385,
       "src/app/clipboard.ts": 4831,
+      "src/app/code_view.ts": 8789,
       "src/app/command_aliases.ts": 4466,
       "src/app/command_arguments.ts": 3425,
       "src/app/command_bindings.ts": 20400,
@@ -895,7 +898,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4712,
+      "src/app/mod.ts": 4781,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -934,6 +937,7 @@
       "src/app/settings_bindings.ts": 25344,
       "src/app/software_cursor.ts": 5894,
       "src/app/split_pane_commands.ts": 6019,
+      "src/app/syntax_service.ts": 7013,
       "src/app/table_commands.ts": 3463,
       "src/app/tabs_commands.ts": 3213,
       "src/app/terminal_commands.ts": 47814,

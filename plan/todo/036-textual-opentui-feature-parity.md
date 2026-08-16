@@ -595,8 +595,14 @@ Acceptance:
       integration already existed; `scroll_box_parity.ts` closes exactly the gaps — StickyEdgeScroll (pinned-edge
       follow that a user scroll unpins), cullToViewport, WheelAcceleration (caller clock), scrollChildIntoView with
       margins, and routeNestedScroll (inner consumes to its edge, leftover chains unless contained).
-- [ ] Add a worker-backed Tree-sitter service and reusable code view with streaming highlighting, selection,
-      concealment, diagnostics, and horizontal/vertical scrolling.
+- [x] Add a worker-backed Tree-sitter service and reusable code view with streaming highlighting, selection,
+      concealment, diagnostics, and horizontal/vertical scrolling. Completed August 16, 2026: `syntax_service.ts` is
+      the worker seam — open/edit/highlight-range requests over any postMessage-style port, responses streamed in
+      bounded batches tagged with the source version so clients drop stale batches; the worker host runs a pluggable
+      highlighter (Tree-sitter grammar in production, deterministic pattern highlighter in tests). `code_view.ts`
+      consumes the stream incrementally, owns anchor/focus selection, applies concealment through an explicit
+      source→display column map (spans and selection land on the right display cells), ranks diagnostics into gutter
+      signs, and culls rendering to the scrolled window on both axes.
 - [ ] Build line-number/sign gutters and unified/split diff views with synchronized scrolling on that code-view core.
 - [ ] Extend `TextBox` into a full text-area surface with selection-edge auto-scroll, soft/character/no-wrap modes,
       configurable editing aliases, and optional syntax highlighting.
