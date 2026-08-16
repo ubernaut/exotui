@@ -604,7 +604,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PKG-008 (P2; deps: PKG-003)** Define stable, beta, canary, and compatibility-test release channels with
       machine-readable support windows. **Accept:** prerelease artifacts cannot overwrite stable tags and upgrade
       diagnostics name the selected channel.
-- [ ] **PKG-009 (P1; deps: SEC-010)** Generate SPDX SBOMs and OIDC-backed build provenance for release artifacts and
+- [x] **PKG-009 (P1; deps: SEC-010)** Generate SPDX SBOMs and OIDC-backed build provenance for release artifacts and
       link them from release metadata. **Accept:** a clean consumer can verify artifact digest, source revision, builder
       identity, and dependency inventory.
 - [x] **PKG-010 (P1; deps: SEC-001)** Report per-entrypoint bundle size, dependency graph, startup imports, required
