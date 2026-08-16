@@ -583,7 +583,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PKG-001 (P1; deps: —)** Add a deno-tui init command that creates terminal, browser, remote-client, and library
       templates from versioned built-in assets. **Accept:** every generated template formats, type-checks, tests, and
       uses only declared permissions.
-- [ ] **PKG-002 (P2; deps: PKG-001)** Add generators for widgets, controllers, commands, routes, themes, workers, tests,
+- [x] **PKG-002 (P2; deps: PKG-001)** Add generators for widgets, controllers, commands, routes, themes, workers, tests,
       and examples that update exports intentionally. **Accept:** generated code passes API policy and never overwrites
       an edited file without a diff/confirmation.
 - [x] **PKG-003 (P1; deps: —)** Publish versioned AST codemods for deprecated API migrations with dry-run and
