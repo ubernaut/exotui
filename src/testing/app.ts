@@ -8,6 +8,7 @@ import type { MouseInteractionDispatchResult, MouseInteractionInspection } from 
 import type { Route } from "../app/router.ts";
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "../app/terminal_app.ts";
 import { createTestKeyPress, createTestMousePress, createTestMouseScroll, type TestKeyPressOptions } from "./input.ts";
+import { captureTerminalScene, type TerminalSceneCapture } from "./scene.ts";
 import { canvasSnapshot, createTestCanvas, createTestStdout, type TestStdout } from "./snapshot.ts";
 
 /** TUI construction options accepted by a headless terminal app harness. */
@@ -338,6 +339,19 @@ export class TerminalAppPilot<TAction extends Action = Action, TRoute extends Ro
     this.#assertActive();
     this.canvas.render();
     return canvasSnapshot(this.canvas);
+  }
+
+  /** Captures styled spans, cursor, hit regions, layout tree, and render stats. */
+  capture(): TerminalSceneCapture {
+    this.#assertActive();
+    const text = this.snapshot();
+    return captureTerminalScene({
+      canvas: this.canvas,
+      text,
+      hitRegions: this.app.mouse.inspect(),
+      layoutRoot: this.app.tui,
+      focused: this.app.focus.current(),
+    });
   }
 
   /** Destroys the app and releases terminal and component resources once. */

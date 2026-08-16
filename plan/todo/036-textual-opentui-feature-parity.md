@@ -648,7 +648,7 @@ Acceptance:
 
 - [x] Extend `TerminalAppPilot` with selector/ID clicks, hover, mouse capture, modifiers, double/triple click, frame
       waits, and tooltip/notification helpers.
-- [ ] Capture styled spans, cursor state, hit regions, layout trees, and renderer stats in addition to plain text.
+- [x] Capture styled spans, cursor state, hit regions, layout trees, and renderer stats in addition to plain text.
 - [ ] Add an HTML/SVG visual snapshot diff report and terminal-size/key-sequence test matrix.
 - [x] Add solver fuzz/property tests and incremental-vs-full equivalence tests.
 
@@ -671,6 +671,12 @@ Completed the pilot-extension checkbox Aug 16, 2026: `TerminalAppPilot` gained `
 routing verified outside target bounds), `capturedTarget()`, `doubleClick`/`tripleClick`, `waitFrames`, and
 `waitForText`/`waitForTextGone` tooltip/notification helpers. Modifiers pass through every pointer helper.
 Covered in `tests/testing_app_pilot.test.ts`.
+
+Completed the scene-capture checkbox Aug 16, 2026: `src/testing/scene.ts` adds `captureStyledSpans` (frame-buffer runs
+of identically SGR-styled cells with plain text and the shared style prefix), `captureLayoutTree` (the parent-edge
+component tree with resolved rectangles, z-index, and visibility — deduplicated against Tui.children's flat registry),
+and `captureTerminalScene`; `TerminalAppPilot.capture()` assembles text + spans + focused-component cursor state +
+registered hit regions + layout tree + `canvas.inspectRender()` stats in one call (`tests/testing_scene.test.ts`).
 
 ### T2 - Devtools And Performance (P2, Medium)
 
