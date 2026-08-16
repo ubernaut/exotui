@@ -276,7 +276,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **VIS-006 (P1; deps: VIS-001, ASY-008)** Add streaming min/max and LTTB-style downsampling with worker offload and
       visible-range caches. **Accept:** million-point fixtures stay within declared frame and memory budgets while
       preserving extrema.
-- [ ] **VIS-007 (P1; deps: VIS-001, INP-006)** Add keyboard/pointer crosshair, nearest-point inspection, pan, zoom, and
+- [x] **VIS-007 (P1; deps: VIS-001, INP-006)** Add keyboard/pointer crosshair, nearest-point inspection, pan, zoom, and
       rectangular brushing. **Accept:** interactions are reversible, scale-aware, and expose semantic selected data
       rather than only cells.
 - [ ] **VIS-008 (P2; deps: VIS-001, VIS-002)** Add annotations, threshold bands, event markers, and reference lines with
