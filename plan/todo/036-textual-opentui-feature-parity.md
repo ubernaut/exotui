@@ -649,7 +649,7 @@ Acceptance:
 - [x] Extend `TerminalAppPilot` with selector/ID clicks, hover, mouse capture, modifiers, double/triple click, frame
       waits, and tooltip/notification helpers.
 - [x] Capture styled spans, cursor state, hit regions, layout trees, and renderer stats in addition to plain text.
-- [ ] Add an HTML/SVG visual snapshot diff report and terminal-size/key-sequence test matrix.
+- [x] Add an HTML/SVG visual snapshot diff report and terminal-size/key-sequence test matrix.
 - [x] Add solver fuzz/property tests and incremental-vs-full equivalence tests.
 
 Acceptance:
@@ -677,6 +677,14 @@ of identically SGR-styled cells with plain text and the shared style prefix), `c
 component tree with resolved rectangles, z-index, and visibility — deduplicated against Tui.children's flat registry),
 and `captureTerminalScene`; `TerminalAppPilot.capture()` assembles text + spans + focused-component cursor state +
 registered hit regions + layout tree + `canvas.inspectRender()` stats in one call (`tests/testing_scene.test.ts`).
+
+Completed the diff-report/matrix checkbox Aug 16, 2026 — T1 is fully complete: `src/testing/visual_report.ts` renders
+captures as styled HTML panes and standalone SVG frames (`sgrToCss` covers the 16-color palette, bright variants,
+truecolor, 256-color, bold/italic/underline/strike/invert; unknown codes are retained in `data-sgr`), and
+`renderSceneDiffReport` emits a complete reviewable HTML document with before/after panes, changed-line outlines, and a
+mismatch table — never only a checksum. `src/testing/matrix.ts` `runPilotMatrix` drives fresh apps across terminal
+sizes × labeled key sequences (modifiers preserved) and returns reproducible labeled captures per cell
+(`tests/testing_visual_report.test.ts`).
 
 ### T2 - Devtools And Performance (P2, Medium)
 
