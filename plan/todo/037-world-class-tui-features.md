@@ -21,9 +21,9 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 68 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
+As of Aug 16, 2026, 69 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-007, TXT-010,
 LOC-001 through LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, ASY-009,
-DAT-004 through DAT-007, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through TXT-003,
+DAT-004 through DAT-008, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through TXT-003,
 INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004,
 HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 134
 items stay open below; a checked box means its implementation, focused tests, public export review, and relevant
@@ -153,7 +153,7 @@ repository gates passed.
 - [x] **DAT-007 (P1; deps: DAT-001, DAT-003)** Add cursor-based and bidirectional infinite-query controllers alongside
       page-number queries. **Accept:** duplicate cursors are suppressed, page order is stable, and evicted pages restore
       scroll anchors.
-- [ ] **DAT-008 (P2; deps: DAT-001, ASY-005, ASY-006)** Consume AsyncIterable and push subscriptions as resources with
+- [x] **DAT-008 (P2; deps: DAT-001, ASY-005, ASY-006)** Consume AsyncIterable and push subscriptions as resources with
       bounded buffering and reconnect hooks. **Accept:** slow consumers apply the configured loss/backpressure policy
       and cancellation closes the producer.
 - [ ] **DAT-009 (P2; deps: DAT-005, DAT-008, SEC-001)** Add an encrypted-capable offline mutation queue with idempotency
