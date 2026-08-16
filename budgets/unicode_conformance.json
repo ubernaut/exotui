@@ -1,0 +1,27 @@
+{
+  "grapheme": {
+    "dataVersion": "17.0.0",
+    "total": 766,
+    "passed": 766
+  },
+  "line-break": {
+    "dataVersion": "17.0.0",
+    "total": 19338,
+    "passed": 19338
+  },
+  "bidi": {
+    "dataVersion": "17.0.0",
+    "total": 91707,
+    "passed": 91707
+  },
+  "width-tailoring": {
+    "dataVersion": "17.0.0",
+    "total": 7,
+    "passed": 7
+  },
+  "emoji": {
+    "dataVersion": "17.0.0",
+    "total": 5,
+    "passed": 5
+  }
+}

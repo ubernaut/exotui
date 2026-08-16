@@ -619,7 +619,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **QAL-002 (P0; deps: TERM-001, TERM-002)** Fuzz terminal parsing with arbitrary byte chunks, control nesting,
       malformed UTF-8, and resize interleavings. **Accept:** sanitizer builds show no crash/hang and every case respects
       parser budgets.
-- [ ] **QAL-003 (P0; deps: TXT-001, TXT-002, TXT-003, TXT-004, TXT-006, TXT-008)** Vendor versioned Unicode conformance
+- [x] **QAL-003 (P0; deps: TXT-001, TXT-002, TXT-003, TXT-004, TXT-006, TXT-008)** Vendor versioned Unicode conformance
       inputs and run segmentation, width tailoring, emoji, line-break, and bidi gates. **Accept:** an update requires an
       explicit expected-diff report by rule/data version.
 - [ ] **QAL-004 (P1; deps: 023:T3, WID-006)** Build reusable ARIA APG keyboard/role/state test suites for

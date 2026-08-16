@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 417,
-    "bytes": 4989416,
+    "modules": 418,
+    "bytes": 4995367,
     "paths": {
       "mod.ts": 2690,
       "src/api_stability.ts": 14939,
@@ -376,6 +376,7 @@
       "src/types.ts": 1614,
       "src/unicode/bidi.ts": 22164,
       "src/unicode/builtin.ts": 1119,
+      "src/unicode/conformance.ts": 5917,
       "src/unicode/confusables.ts": 5019,
       "src/unicode/controls.ts": 6173,
       "src/unicode/data_pack.ts": 29152,
@@ -388,7 +389,7 @@
       "src/unicode/grapheme.ts": 33647,
       "src/unicode/hyphenation.ts": 4467,
       "src/unicode/line_break.ts": 18473,
-      "src/unicode/mod.ts": 420,
+      "src/unicode/mod.ts": 454,
       "src/unicode/source_display.ts": 5217,
       "src/unicode/text_index.ts": 4825,
       "src/unicode/width.ts": 30594,
