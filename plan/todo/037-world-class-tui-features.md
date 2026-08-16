@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 60 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, ASY-009, DAT-004,
-DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003,
-FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005,
-ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 140 items stay open below; a checked box means its
-implementation, focused tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 61 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, HIS-005, ASY-002, ASY-004, ASY-009,
+DAT-004, DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through
+DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003,
+ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 139 items stay open below; a checked box means
+its implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -237,7 +237,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **HIS-004 (P1; deps: HIS-001, HIS-003)** Define side-effect barriers that require external operations to supply
       idempotency, compensation, or an explicit non-replayable marker. **Accept:** unsafe transactions cannot enter
       replayable history accidentally.
-- [ ] **HIS-005 (P2; deps: HIS-001)** Support named history branches and checkpoints for exploring alternatives without
+- [x] **HIS-005 (P2; deps: HIS-001)** Support named history branches and checkpoints for exploring alternatives without
       destroying redo state. **Accept:** switching branches restores the exact checkpoint and exposes divergent entry
       IDs.
 - [x] **HIS-006 (P1; deps: —)** Add a versioned action journal with monotonic revisions, causal metadata, and
