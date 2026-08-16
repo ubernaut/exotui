@@ -161,7 +161,13 @@ immediately on resume; clean attaches send no wiggle. Applies to both the resume
 chrome half of the report needs the user's debug log (UX-011 flush lines plus any errors) from a live resume to rule out
 a write-path component on the real terminal.
 
-## UX-013 — VHS shader realism pass: tracking, static/snow, luma noise (P2, user, Aug 15) — **open**
+## UX-013 — VHS shader realism pass: tracking, static/snow, luma noise (P2, user, Aug 15) — **implemented Aug 16 2026, awaiting the user's visual verdict**
+
+> **Landed:** tracking is now a thin sync-glitch band (1–4% of screen height) whose rows displace sharply in 2px
+> scanline pairs, filled with horizontal 24px streak segments and a bright seam on its lower edge — all geometry in
+> fixed pixel units so a resize changes nothing. Static/snow became discrete short-lived 2×2px flecks with density
+> fixed per area; luma noise became 2×2px film grain cross-faded between two hash frames (shimmer, not strobe) with
+> a quadratic dark-area falloff. Color bleeding and jitter/wavy lines are untouched per the user's verdict.
 
 User verdict after the hash fix: **color bleeding and jitter/wavy lines look great**; the other three artifacts do not.
 Tracking errors, static/snow, and luma noise either look unrealistic ("shitty") or break when the screen size changes.
