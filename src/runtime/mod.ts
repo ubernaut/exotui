@@ -53,6 +53,7 @@ export * from "./structured_logs.ts";
 export * from "./supervisor.ts";
 export * from "./task_context.ts";
 export * from "./timeline.ts";
+export * from "./trace_sampling.ts";
 export * from "./worker_protocol.ts";
 export * from "./task_group.ts";
 export * from "./terminal_workspace.ts";
