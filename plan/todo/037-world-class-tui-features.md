@@ -565,7 +565,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PLG-006 (P2; deps: PLG-001, PLG-003)** Add lazy activation events for command, route, file type, language, and
       explicit startup while enforcing one activation attempt at a time. **Accept:** unrelated plugins are not loaded
       and a failed activation can be retried only by policy.
-- [ ] **PLG-007 (P1; deps: PLG-003, PLG-004, HIS-003)** Make plugin install/enable/disable/uninstall transactional with
+- [x] **PLG-007 (P1; deps: PLG-003, PLG-004, HIS-003)** Make plugin install/enable/disable/uninstall transactional with
       rollback of every contribution. **Accept:** fault injection at each lifecycle step leaves the host registry
       identical to a known state.
 - [ ] **PLG-008 (P2; deps: PLG-001, PLG-007)** Add versioned plugin-state migrations and a hot-upgrade protocol that can

@@ -95,6 +95,7 @@ export * from "./plugin_activation.ts";
 export * from "./plugin_capabilities.ts";
 export * from "./plugin_compat.ts";
 export * from "./plugin_dependencies.ts";
+export * from "./plugin_lifecycle.ts";
 export * from "./plugin_rpc_proxies.ts";
 export * from "./plugin_manifest.ts";
 export * from "./plugin_permission_diff.ts";
