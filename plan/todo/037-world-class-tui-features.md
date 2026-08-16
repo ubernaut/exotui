@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 56 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+As of Aug 16, 2026, 57 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
 LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, DAT-004, DAT-005, and
 NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
 NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 144 items stay open below; a checked box means its implementation, focused
+SEC-001, SEC-008, and REM-001. The remaining 143 items stay open below; a checked box means its implementation, focused
 tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
@@ -149,7 +149,7 @@ tests, public export review, and relevant repository gates passed.
 - [x] **DAT-006 (P1; deps: DAT-001, DAT-005)** Add hierarchical cache tags and predicate invalidation with batch
       notifications. **Accept:** invalidating one tag refreshes exactly the matching live entries in a single state
       transaction.
-- [ ] **DAT-007 (P1; deps: DAT-001, DAT-003)** Add cursor-based and bidirectional infinite-query controllers alongside
+- [x] **DAT-007 (P1; deps: DAT-001, DAT-003)** Add cursor-based and bidirectional infinite-query controllers alongside
       page-number queries. **Accept:** duplicate cursors are suppressed, page order is stable, and evicted pages restore
       scroll anchors.
 - [ ] **DAT-008 (P2; deps: DAT-001, ASY-005, ASY-006)** Consume AsyncIterable and push subscriptions as resources with
