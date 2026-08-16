@@ -18,6 +18,7 @@ export * from "./crash_recovery.ts";
 export * from "./history_branches.ts";
 export * from "./journal_store.ts";
 export * from "./navigation_blockers.ts";
+export * from "./navigation_journal.ts";
 export * from "./route_anchors.ts";
 export * from "./route_boundaries.ts";
 export * from "./route_guards.ts";
