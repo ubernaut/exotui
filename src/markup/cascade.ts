@@ -78,6 +78,29 @@ export function applyCssCascade(
   return applyNode(root, [], baseStyle, stylesheet, buildScopedDefaultRules(options.scopedDefaults), options);
 }
 
+/**
+ * Applies the cascade to one subtree in an existing styled context: the
+ * ancestor chain drives selector matching and the parent's computed style is
+ * the inheritance source. This is the incremental-restyle entry point — the
+ * result equals what a full cascade would compute for the same subtree.
+ */
+export function applyCssCascadeSubtree(
+  node: LayoutNode,
+  ancestors: readonly LayoutNode[],
+  inherited: ComputedLayoutStyle,
+  stylesheet: TuiCssStylesheet,
+  options: ApplyCssCascadeOptions = {},
+): LayoutNode {
+  return applyNode(
+    node,
+    ancestors,
+    cloneComputedLayoutStyle(inherited),
+    stylesheet,
+    buildScopedDefaultRules(options.scopedDefaults),
+    options,
+  );
+}
+
 /** Parses per-tag default CSS into rules scoped beneath that tag. */
 function buildScopedDefaultRules(defaults: Readonly<Record<string, string>> | undefined): TuiCssRule[] {
   if (!defaults) return [];

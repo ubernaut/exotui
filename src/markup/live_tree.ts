@@ -30,6 +30,10 @@ export interface LiveMarkupMutation {
   readonly detail: string;
   /** Tree revision after this mutation. */
   readonly revision: number;
+  /** The parent involved (the new parent for moves, the old one for removes). */
+  readonly parent?: string;
+  /** A move's previous parent, so both subtrees can be invalidated. */
+  readonly previousParent?: string;
 }
 
 /** Options for a live markup tree. */
@@ -134,7 +138,7 @@ export class LiveMarkupTree {
     if (at < 0) return false;
     siblings.splice(at, 1);
     this.#unindex(entry.node);
-    this.#record("remove", id, `from ${entry.parent.id}`);
+    this.#record("remove", id, `from ${entry.parent.id}`, { parent: entry.parent.id });
     return true;
   }
 
@@ -156,8 +160,9 @@ export class LiveMarkupTree {
     from.splice(at, 1);
     const to = clampIndex(index, target.node.children.length);
     target.node.children.splice(to, 0, entry.node);
+    const previousParent = entry.parent.id;
     entry.parent = target.node;
-    this.#record("move", id, `to ${newParentId} at ${to}`);
+    this.#record("move", id, `to ${newParentId} at ${to}`, { parent: newParentId, previousParent });
     return true;
   }
 
@@ -300,13 +305,18 @@ export class LiveMarkupTree {
     for (const child of node.children) this.#unindex(child);
   }
 
-  #record(kind: LiveMarkupMutation["kind"], target: string, detail: string): void {
+  #record(
+    kind: LiveMarkupMutation["kind"],
+    target: string,
+    detail: string,
+    context: { parent?: string; previousParent?: string } = {},
+  ): void {
     this.#revision += 1;
     if (this.#journal.length >= MAX_JOURNAL) {
       this.#journal.shift();
       this.#droppedMutations += 1;
     }
-    this.#journal.push(Object.freeze({ kind, target, detail, revision: this.#revision }));
+    this.#journal.push(Object.freeze({ kind, target, detail, revision: this.#revision, ...context }));
   }
 }
 

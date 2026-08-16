@@ -8,6 +8,7 @@ export * from "./hydrate.ts";
 export * from "./layout_worker.ts";
 export * from "./live_dispatch.ts";
 export * from "./live_invalidation.ts";
+export * from "./live_styling.ts";
 export * from "./live_tree.ts";
 export * from "./rehydrate.ts";
 export * from "./support.ts";

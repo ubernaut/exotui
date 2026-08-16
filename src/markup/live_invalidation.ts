@@ -135,13 +135,16 @@ export class LiveMarkupInvalidator {
         break;
       case "remove":
       case "move": {
-        // The mutated node's old/new parents both need re-layout; the journal
-        // records the node, so dirty the whole document conservatively when
-        // the parent is no longer resolvable.
-        const parent = this.#tree.parentOf(entry.target);
-        const target = parent?.id ?? this.#tree.root.id;
-        this.mark(target, "tree");
-        this.mark(target, "layout");
+        // The journal records the parents involved; both sides of a move need
+        // re-layout. Fall back to the whole document if context is missing.
+        const parents = [entry.parent, entry.previousParent]
+          .filter((id): id is string => id !== undefined)
+          .map((id) => this.#tree.node(id) ? id : this.#tree.root.id);
+        if (parents.length === 0) parents.push(this.#tree.root.id);
+        for (const id of new Set(parents)) {
+          this.mark(id, "tree");
+          this.mark(id, "layout");
+        }
         break;
       }
       case "set-attribute":

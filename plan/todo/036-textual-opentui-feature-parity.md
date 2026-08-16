@@ -437,7 +437,7 @@ defaults, and the separate `inherit`/`unset` evaluation.
 - [x] Add targeted dispatch plus capture/bubble phases, stop propagation, prevent default, and selector-routed handlers.
 - [x] Connect signal changes to style/layout/render invalidation at the nearest dirty ancestor.
 - [x] Preserve hydrated widget identity and state when unrelated markup branches change.
-- [ ] Add incremental style matching/layout caching and inspection of dirty reasons.
+- [x] Add incremental style matching/layout caching and inspection of dirty reasons.
 - [ ] Integrate live `<scroll-area>`, `<modal>`, `<window>`, tooltips, menus, and dropdowns with existing controllers.
 
 Acceptance:
@@ -462,7 +462,13 @@ nodes, and `flush()` coalesces all marks to the nearest dirty ancestors (descend
 order) so consumers re-process each affected subtree exactly once. `rehydrateMarkupWidgets` (fourth slice, same day,
 `src/markup/rehydrate.ts`) preserves hydrated widget identity across tree changes: unchanged id+tag nodes keep their
 controllers (and every piece of user state they hold), new nodes hydrate fresh, and removed or retagged nodes get their
-controllers disposed — ownership transfers wholly to the returned hydration.
+controllers disposed — ownership transfers wholly to the returned hydration. `LiveMarkupStyler` (fifth slice, same day,
+`src/markup/live_styling.ts` + `applyCssCascadeSubtree`) restyles incrementally: each pass drains the invalidator and
+recomputes only the dirty subtree roots against the styled ancestor chain and the parent's cached computed style,
+splicing fresh subtrees into the cached styled tree — property-tested equal to a clean full cascade (path-keyed
+structural comparison), with move mutations invalidating both the old and new parent via structured journal context and
+dirty roots (reasons included) inspectable after every pass. Remaining: the live scroll-area/modal/window/tooltip/menu
+integration checkbox.
 
 ### W1 - Screen Stacks And Modal Lifecycle (P1, Medium)
 
