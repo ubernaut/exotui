@@ -10,3 +10,4 @@ export * from "./text_index.ts";
 export * from "./controls.ts";
 export * from "./hyphenation.ts";
 export * from "./line_break.ts";
+export * from "./source_display.ts";

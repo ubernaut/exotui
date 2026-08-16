@@ -21,10 +21,10 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 81 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-008, TXT-010,
-LOC-001 through LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004,
-ASY-007, ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001
-through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
+As of Aug 16, 2026, 82 of 200 features are verified and checked. Landed Aug 16: TXT-004 through TXT-010, LOC-001 through
+LOC-009, INP-002 through INP-005, INP-007, INP-008, INP-009, FRM-003 through FRM-010, ASY-002, ASY-004, ASY-007,
+ASY-009, DAT-004 through DAT-010, NAV-003 through NAV-010, HIS-005, HIS-008, and HIS-010. Earlier: TXT-001 through
+TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through
 HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The
 remaining 120 items stay open below; a checked box means its implementation, focused tests, public export review, and
 relevant repository gates passed.
@@ -57,7 +57,7 @@ relevant repository gates passed.
 - [x] **TXT-008 (P1; deps: TXT-001, TXT-002, TXT-005, 023:L1)** Add UAX #9 paragraph layout that preserves logical
       storage while exposing visual runs and hit-test mappings. **Accept:** official bidi fixtures and mixed RTL/LTR
       selection tests round-trip logical and visual positions.
-- [ ] **TXT-009 (P1; deps: TXT-008)** Add a UTS #55 source-code display mode that isolates lexical atoms and visibly
+- [x] **TXT-009 (P1; deps: TXT-008)** Add a UTS #55 source-code display mode that isolates lexical atoms and visibly
       diagnoses bidi controls, confusables, and disguised line breaks. **Accept:** security fixtures cannot make
       distinct token streams render as an indistinguishable line without a warning.
 - [x] **TXT-010 (P1; deps: TXT-002, TXT-003, TXT-005)** Replace ad hoc tab/control handling with configurable tab stops,
