@@ -368,7 +368,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-005 (P2; deps: THEM-001, THEM-004)** Generate tonal palettes in OKLCH from seed hues with light/dark
       surface ladders and gamut mapping. **Accept:** generated colors are in gamut and meet declared contrast
       constraints in truecolor output.
-- [ ] **THEM-006 (P1; deps: THEM-001, THEM-005)** Quantize semantic palettes to ANSI-256, ANSI-16, and monochrome by
+- [x] **THEM-006 (P1; deps: THEM-001, THEM-005)** Quantize semantic palettes to ANSI-256, ANSI-16, and monochrome by
       minimizing perceptual and role-collision error. **Accept:** the report lists per-token error and critical roles
       never collapse to the same style without a fallback marker.
 - [ ] **THEM-007 (P2; deps: THEM-001, 023:C1)** Add density and scale tokens for compact, comfortable, and
