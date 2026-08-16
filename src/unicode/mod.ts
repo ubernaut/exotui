@@ -5,3 +5,4 @@ export * from "./builtin.ts";
 export * from "./grapheme.ts";
 export * from "./width.ts";
 export * from "./emoji.ts";
+export * from "./text_index.ts";
