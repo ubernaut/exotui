@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 59 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
-LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, DAT-004, DAT-005, and
-NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002,
-NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010,
-SEC-001, SEC-008, and REM-001. The remaining 141 items stay open below; a checked box means its implementation, focused
-tests, public export review, and relevant repository gates passed.
+As of Aug 16, 2026, 60 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
+LOC-006, LOC-008, INP-002 through INP-005, INP-009, FRM-003 through FRM-007, ASY-002, ASY-004, ASY-009, DAT-004,
+DAT-005, and NAV-004 landed Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003,
+FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005,
+ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 140 items stay open below; a checked box means its
+implementation, focused tests, public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -440,7 +440,7 @@ tests, public export review, and relevant repository gates passed.
 - [ ] **ASY-008 (P1; deps: ASY-001, ASY-005)** Version the worker request protocol and support transfer lists, worker
       affinity, load-aware routing, and per-task deadlines. **Accept:** incompatible workers are rejected before
       dispatch and transferred buffers are not copied.
-- [ ] **ASY-009 (P2; deps: ASY-001)** Add task-local immutable context for trace IDs, locale, permissions, and request
+- [x] **ASY-009 (P2; deps: ASY-001)** Add task-local immutable context for trace IDs, locale, permissions, and request
       metadata. **Accept:** context follows awaited work but cannot leak into unrelated sibling tasks.
 - [x] **ASY-010 (P0; deps: —)** Introduce an injectable monotonic clock and timer scheduler shared by debounce, retries,
       animations, resources, and tests. **Accept:** core timing behavior can run deterministically without replacing
