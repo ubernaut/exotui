@@ -598,7 +598,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **PKG-006 (P2; deps: —)** Generate and verify browser/npm-compatible ESM artifacts and declarations from the same
       source while retaining JSR as canonical. **Accept:** Deno, Node, bundler, and browser smoke projects import only
       supported subpaths.
-- [ ] **PKG-007 (P2; deps: PKG-001, SEC-001)** Provide a compiled-launcher template that embeds app code but
+- [x] **PKG-007 (P2; deps: PKG-001, SEC-001)** Provide a compiled-launcher template that embeds app code but
       externalizes user data and prints its required permission manifest. **Accept:** Linux, macOS, and Windows smoke
       binaries restore terminal state and locate assets deterministically.
 - [x] **PKG-008 (P2; deps: PKG-003)** Define stable, beta, canary, and compatibility-test release channels with

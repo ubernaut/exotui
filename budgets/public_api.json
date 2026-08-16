@@ -1083,6 +1083,7 @@
     "frLength",
     "frameBufferToSnapshot",
     "generateArtifact",
+    "generateLauncherTemplate",
     "generateTemplate",
     "generateTonalPalette",
     "getComponentClosestToTopLeftCorner",
