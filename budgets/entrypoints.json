@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 438,
-    "bytes": 5083565,
+    "modules": 439,
+    "bytes": 5089990,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -63,7 +63,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4680,
+      "src/app/mod.ts": 4712,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -113,6 +113,7 @@
       "src/app/token_editor.ts": 7999,
       "src/app/transfer_list.ts": 6972,
       "src/app/tree_commands.ts": 5189,
+      "src/app/tree_grid.ts": 6393,
       "src/app/typed_commands.ts": 6211,
       "src/app/widget_commands.ts": 26930,
       "src/app/window_manager_commands.ts": 10185,
@@ -827,8 +828,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 355,
-    "bytes": 4339680,
+    "modules": 356,
+    "bytes": 4346105,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -890,7 +891,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 4680,
+      "src/app/mod.ts": 4712,
       "src/app/mouse_bindings.ts": 11506,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -940,6 +941,7 @@
       "src/app/token_editor.ts": 7999,
       "src/app/transfer_list.ts": 6972,
       "src/app/tree_commands.ts": 5189,
+      "src/app/tree_grid.ts": 6393,
       "src/app/typed_commands.ts": 6211,
       "src/app/widget_commands.ts": 26930,
       "src/app/window_manager_commands.ts": 10185,

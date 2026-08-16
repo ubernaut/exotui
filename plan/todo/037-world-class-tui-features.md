@@ -305,7 +305,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **WID-005 (P1; deps: FRM-001, FRM-004)** Add a property-grid widget with grouped rows, inline editors,
       reset-to-inherited, validation, and change provenance. **Accept:** editor choice is registry-driven and one
       property edit is one history transaction.
-- [ ] **WID-006 (P1; deps: VIS-001, 023:T3)** Add a virtualized tree-grid combining hierarchy with sortable/resizable
+- [x] **WID-006 (P1; deps: VIS-001, 023:T3)** Add a virtualized tree-grid combining hierarchy with sortable/resizable
       columns and pinned hierarchy cells. **Accept:** expansion, column operations, focus, and selection preserve row
       IDs over data refresh.
 - [ ] **WID-007 (P1; deps: TXT-005, 023:V1)** Add a lazy JSON/YAML structured inspector with path copy, type-aware
