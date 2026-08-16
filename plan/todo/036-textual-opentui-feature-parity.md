@@ -745,7 +745,12 @@ sizes × labeled key sequences (modifiers preserved) and returns reproducible la
       hot-reload error surface.
 - [ ] Surface dirty/invalidation reasons, selected solver capabilities, frame timing, cell-diff size, cache behavior,
       task ownership, and leaked-resource warnings without requiring demo-local instrumentation.
-- [ ] Add repeatable large-tree/layout/render benchmarks with cold/warm separation and checked-in comparison reports.
+- [x] Add repeatable large-tree/layout/render benchmarks with cold/warm separation and checked-in comparison reports.
+      Completed August 16, 2026: seed-deterministic trees (mulberry32), cold solve on a fresh intrinsic cache vs
+      warm re-solves on the primed one, caller-owned clock (tests drive a fake clock exactly);
+      `budgets/layout_benchmarks.json` is the checked-in comparison report — deterministic node/box/cache fields
+      are CI-gated against a live run, indicative timings are environment-labeled and never asserted;
+      `scripts/run_layout_benchmarks.ts` regenerates it.
 - [ ] Define performance budgets only after collecting representative terminal, browser, and worker baselines.
 
 Acceptance:

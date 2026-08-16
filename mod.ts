@@ -61,6 +61,7 @@ export * from "./src/runtime/mod.ts";
 export * from "./src/testing/input.ts";
 export * from "./src/testing/snapshot.ts";
 export * from "./src/perf/benchmark.ts";
+export * from "./src/perf/layout_benchmarks.ts";
 export * from "./src/perf/pools.ts";
 export * from "./src/perf/profile_tuner.ts";
 export * from "./src/perf/cache_budget.ts";

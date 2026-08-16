@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 446,
-    "bytes": 5168656,
+    "modules": 447,
+    "bytes": 5173794,
     "paths": {
-      "mod.ts": 2728,
+      "mod.ts": 2777,
       "src/api_stability.ts": 14939,
       "src/app/accessibility_tree.ts": 4236,
       "src/app/action_journal.ts": 18998,
@@ -272,6 +272,7 @@
       "src/perf/frame_cadence.ts": 3798,
       "src/perf/frame_packets.ts": 3658,
       "src/perf/incremental_serialization.ts": 3416,
+      "src/perf/layout_benchmarks.ts": 5089,
       "src/perf/pools.ts": 3968,
       "src/perf/profile_tuner.ts": 4938,
       "src/perf/versioned_cache.ts": 4296,

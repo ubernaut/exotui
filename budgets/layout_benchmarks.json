@@ -1,0 +1,54 @@
+{
+  "note": "nodes/boxes/cache fields are deterministic and CI-gated; 'indicative' timings are environment-dependent and never asserted",
+  "environment": "linux-x86_64 deno 2.9.2",
+  "cases": [
+    {
+      "name": "small",
+      "nodes": 13,
+      "boxes": 13,
+      "coldCacheMisses": 34,
+      "warmCacheHits": 39,
+      "indicative": {
+        "coldMs": 7.9,
+        "warmMs": 0.91,
+        "speedup": 8.68
+      }
+    },
+    {
+      "name": "deep",
+      "nodes": 127,
+      "boxes": 127,
+      "coldCacheMisses": 460,
+      "warmCacheHits": 897,
+      "indicative": {
+        "coldMs": 17.2,
+        "warmMs": 5.59,
+        "speedup": 3.08
+      }
+    },
+    {
+      "name": "broad",
+      "nodes": 157,
+      "boxes": 157,
+      "coldCacheMisses": 362,
+      "warmCacheHits": 939,
+      "indicative": {
+        "coldMs": 6.5,
+        "warmMs": 3.35,
+        "speedup": 1.94
+      }
+    },
+    {
+      "name": "large",
+      "nodes": 781,
+      "boxes": 781,
+      "coldCacheMisses": 1698,
+      "warmCacheHits": 5388,
+      "indicative": {
+        "coldMs": 37.88,
+        "warmMs": 20.16,
+        "speedup": 1.88
+      }
+    }
+  ]
+}
