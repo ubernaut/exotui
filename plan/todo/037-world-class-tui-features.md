@@ -21,11 +21,11 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 32 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, and LOC-001 landed Aug 16):
-TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001
-through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001.
-The remaining 172 items stay open below; a checked box means its implementation, focused tests, public export review,
-and relevant repository gates passed.
+As of Aug 16, 2026, 33 of 200 features are verified and checked (TXT-004, TXT-005, TXT-010, LOC-001, and LOC-002 landed
+Aug 16): TXT-001 through TXT-003, INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001,
+NAV-002, HIS-001 through HIS-004, HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001,
+SEC-008, and REM-001. The remaining 167 items stay open below; a checked box means its implementation, focused tests,
+public export review, and relevant repository gates passed.
 
 ## Feature Backlog
 
@@ -67,7 +67,7 @@ and relevant repository gates passed.
 - [x] **LOC-001 (P1; deps: TXT-001)** Add an immutable locale context with canonicalization, requested/supported
       negotiation, fallback chains, time zone, numbering system, and calendar. **Accept:** resolution is deterministic
       for malformed, partial, and region-specific tags and is inspectable without loading UI code.
-- [ ] **LOC-002 (P1; deps: LOC-001)** Add namespaced, versioned message-bundle loading with lazy locale chunks and
+- [x] **LOC-002 (P1; deps: LOC-001)** Add namespaced, versioned message-bundle loading with lazy locale chunks and
       explicit fallback provenance. **Accept:** duplicate keys, incompatible bundle versions, and fallback hits produce
       structured diagnostics.
 - [ ] **LOC-003 (P1; deps: LOC-001, LOC-002)** Compile and render Unicode MessageFormat 2 messages, including selectors,
