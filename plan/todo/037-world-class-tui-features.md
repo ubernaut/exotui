@@ -21,7 +21,7 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 46 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001, LOC-002,
+As of Aug 16, 2026, 47 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001 through
 LOC-004, INP-002 through INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001,
 INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006,
 HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157 items
@@ -71,7 +71,7 @@ gates passed.
 - [x] **LOC-002 (P1; deps: LOC-001)** Add namespaced, versioned message-bundle loading with lazy locale chunks and
       explicit fallback provenance. **Accept:** duplicate keys, incompatible bundle versions, and fallback hits produce
       structured diagnostics.
-- [ ] **LOC-003 (P1; deps: LOC-001, LOC-002)** Compile and render Unicode MessageFormat 2 messages, including selectors,
+- [x] **LOC-003 (P1; deps: LOC-001, LOC-002)** Compile and render Unicode MessageFormat 2 messages, including selectors,
       plural categories, local variables, and safe custom-function registration. **Accept:** conformance fixtures
       produce stable parts and unregistered functions fail before rendering.
 - [x] **LOC-004 (P1; deps: LOC-001)** Provide cached locale-aware number, date/time, relative-time, duration, list,
