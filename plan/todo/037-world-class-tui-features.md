@@ -592,7 +592,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PKG-004 (P1; deps: PKG-001)** Create a machine-readable example registry and local playground launcher with
       capability/permission declarations. **Accept:** docs embed only examples that compile against the current public
       entrypoint.
-- [ ] **PKG-005 (P1; deps: QAL-001)** Publish a downstream contract-test package for third-party backends, solvers,
+- [x] **PKG-005 (P1; deps: QAL-001)** Publish a downstream contract-test package for third-party backends, solvers,
       widgets, themes, and plugins. **Accept:** adapters receive a stable conformance report without importing internal
       tests.
 - [ ] **PKG-006 (P2; deps: —)** Generate and verify browser/npm-compatible ESM artifacts and declarations from the same

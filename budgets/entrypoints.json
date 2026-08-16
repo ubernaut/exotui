@@ -604,10 +604,10 @@
     }
   },
   "mod.testing.ts": {
-    "modules": 81,
-    "bytes": 676280,
+    "modules": 82,
+    "bytes": 681924,
     "paths": {
-      "mod.testing.ts": 645,
+      "mod.testing.ts": 694,
       "src/app/actions.ts": 3908,
       "src/app/app.ts": 12593,
       "src/app/command_bindings.ts": 20400,
@@ -660,6 +660,7 @@
       "src/signals/signal.ts": 12850,
       "src/signals/types.ts": 1108,
       "src/testing/app.ts": 15795,
+      "src/testing/contract_tests.ts": 5595,
       "src/testing/differential_terminal.ts": 7276,
       "src/testing/fault_injection.ts": 3967,
       "src/testing/flake_detection.ts": 4688,

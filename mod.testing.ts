@@ -5,6 +5,7 @@ export * from "./src/testing/scene.ts";
 export * from "./src/testing/visual_report.ts";
 export * from "./src/testing/matrix.ts";
 export * from "./src/testing/model_testing.ts";
+export * from "./src/testing/contract_tests.ts";
 export * from "./src/testing/differential_terminal.ts";
 export * from "./src/testing/fault_injection.ts";
 export * from "./src/testing/flake_detection.ts";
