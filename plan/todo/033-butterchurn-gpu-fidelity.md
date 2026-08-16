@@ -300,6 +300,24 @@ equilibrium; (3) geometry injection alpha. Next probe: read real butterchurn's i
 (the unminified build exposes renderer internals; bind its prev-frame texture to an FBO and readPixels) to get the
 real loop level for Rainbox, then A/B our blur kernel sharpness against theirs at equal resolution.
 
+### Aug 16 2026: steady-state fleet run; the last two 0.00% presets classified
+
+The 120-frame warmup was cutting slow accumulators short of equilibrium (Rainbox reaches full white at frame ~280 —
+its loop trajectory matches real butterchurn to three decimals along the way), so the diag/audit warmup is now 360
+frames. Steady-state fleet: regression **11 → 9**, truly black **3** (`Mandelverse`, `Hyperkaleidoscope Glow 2`,
+`truly soft piece` — the last already shown to be dim in real butterchurn as well). The steady-state rotation is
+**457 of 472**: Rainbox-class slow accumulators entered, while a handful of early-flash presets that decay below
+the keep threshold by steady state honestly left — the rotation now reflects what a preset HOLDS, not what it
+flashes.
+
+- `Hyperkaleidoscope Glow 2 motion blur (Jelly)` — real baseline 0.092/35% lit; ablations: wavesOff → 0.022 and
+  mvOff → 0.024 collapse it, echoAlphaOff → 0.032. Energy = custom waves + motion vectors, sustained by comp echo.
+  All three are systems we implement; the divergence is quantitative, not a missing term. Readback probe next.
+- `Mandelverse` — fully PROCEDURAL: 6.3 KB custom warp + 5.2 KB comp; under default shaders even real butterchurn
+  is black (0.004 baseline, every geometry ablation flat). Our translation compiles (no CPU fallback — the field
+  renders 0.00% rather than CPU-bright) but produces black: the first member of a shader-translation-fidelity
+  class. Next: WGSL compile diagnostics via the debug log sink, then stage readback.
+
 ## Verification
 
 - `scripts/diff_butterchurn_equations.ts` — per-variable frame-equation diff, real engine vs ours, under silence.

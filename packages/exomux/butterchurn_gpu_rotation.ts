@@ -4,7 +4,7 @@
 // Regenerate with: deno run -A --unstable-webgpu -c packages/exomux/deno.json scripts/audit_butterchurn_gpu.ts
 //
 // The presets the GPU butterchurn background auto-cycles: those that render to a
-// non-blank frame on the GPU. Of 472 presets in the catalog: 461 draw, 11 resolve to
+// non-blank frame on the GPU. Of 472 presets in the catalog: 457 draw, 15 resolve to
 // black/near-black on the GPU path and are skipped so auto-cycle does not strobe
 // through them. Every preset stays selectable by index through
 // `EXOMUX_BUTTERCHURN_CATALOG`; this only decides what the GPU field auto-cycles.
@@ -26,7 +26,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "$$$ Royal - Mashup (441)",
   "$$$ Royal - Mashup (489)",
   "11",
-  "158",
   "269",
   "27",
   "286",
@@ -124,6 +123,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "EoS - particle storm B - couldn't not",
   "EoS_Phat Dark_heart_nobal_cause cpe ap4+",
   "ethical rotterdamasm",
+  "EVET + Flexi - Rainbox Splash Poolz",
   "EVET - RGB Singularity",
   "fed + flexi + geiss - tokamak repellor tech twist mix [stabilized]",
   "fed + flexi - tech test 2-1 - humpgorge",
@@ -277,8 +277,8 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "martin - amandio c - a different view of the green machine",
   "martin - angel flight",
   "martin - another kind of groove",
-  "martin - attack of the beast",
   "martin - baby one more time",
+  "martin - basal ganglion",
   "martin - bombyx mori",
   "martin - bombyx mori [flexi′s logarithmic edit]",
   "Martin - bombyx mori mix2",
@@ -292,7 +292,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Martin - cool morning",
   "martin - crystal alley",
   "martin - crystal palace",
-  "martin - dark galaxy",
   "Martin - Diabolo",
   "Martin - disco mix 3 -fast",
   "martin - disco mix 4",
@@ -356,9 +355,8 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "ORB - Lazer Ride",
   "ORB - Magma Pool",
   "ORB - Pastel Primer",
-  "ORB - Planetary Alignment Acid Burn",
-  "ORB - Sandblade",
   "ORB - Solar Radiation",
+  "orb - toxic goo",
   "ORB - Waaa",
   "phat + Eo.S. - Bass_responce_Red_Movements_Disorienting nebula3",
   "Phat + Zylot + Eo.S. - work with lines",
@@ -391,7 +389,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Rovastar - Hyperspace",
   "Rovastar - Oozing Resistance",
   "Rovastar - Torrid Tales",
-  "Rovastar - Trippy Sperm (Jelly)",
   "Rovastar-altarsofmadness(forgottenrea",
   "Rozzor & Shreyas - Deeper Aesthetics",
   "sawtooth grin nz+ m10 w4",
@@ -409,7 +406,6 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "shifter - fuzzball 3d (glasses) false auralary2 undre thee bottom qoaguluste",
   "shifter - liquid circuitry - conjugoth",
   "shut down all survival paradigms",
-  "Stahlregen & Boz + Eo.S + Geiss + Phat + Rovastar + Zylot - Machine Code [Jelly]",
   "Stahlregen & Boz - Machine Code (Reaction Diffusion)_1 - Isosceles Tweak 08",
   "Stahlregen & flexi + Geiss + Rovastar + Shifter - Fractal Feedback (for Hexcollie)",
   "stahlregen & geiss + rovastar - fields of flowers (mashup 9 - space flower rmx) - mash0001 - pack em in, we got a long haul + flashlight",
