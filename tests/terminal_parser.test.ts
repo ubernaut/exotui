@@ -92,3 +92,60 @@ Deno.test("flush surfaces an unterminated sequence instead of losing it", () => 
   assertEquals(parser.flush(), [{ kind: "text", text: "\x1b]0;half a titl" }]);
   assertEquals(parser.pendingLength(), 0);
 });
+
+// TERM-002: adversarial streams stay linear and recover to ground state
+// with a classified diagnostic.
+
+Deno.test("an unterminated OSC flood is bounded and recovers at the terminator", () => {
+  const parser = createIncrementalTerminalParser({ maxPendingBytes: 64 });
+  const tokens: TerminalToken[] = [];
+  tokens.push(...parser.write("\x1b]0;"));
+  for (let round = 0; round < 100; round += 1) {
+    tokens.push(...parser.write("A".repeat(32)));
+    assert(parser.pendingLength() <= 64 + 32, "pending memory must stay bounded");
+  }
+  const diagnostics = tokens.filter((token) => token.kind === "diagnostic");
+  assertEquals(diagnostics.length, 1);
+  assertEquals(diagnostics[0]!.reason, "pending-bytes-exceeded");
+  // The terminator ends the discard and ground state resumes cleanly.
+  const after = parser.write("\x07hello");
+  assertEquals(after, [{ kind: "text", text: "hello" }]);
+});
+
+Deno.test("overlong OSC inside one write is discarded with a diagnostic", () => {
+  const parser = createIncrementalTerminalParser({ maxStringBytes: 16 });
+  const tokens = parser.write(`\x1b]0;${"B".repeat(100)}\x07after`);
+  assertEquals(tokens[0]!.kind, "diagnostic");
+  assert(tokens[0]!.kind === "diagnostic" && tokens[0]!.reason === "string-bytes-exceeded");
+  assertEquals(tokens[1], { kind: "text", text: "after" });
+});
+
+Deno.test("split ST still ends a discarded sequence", () => {
+  const parser = createIncrementalTerminalParser({ maxStringBytes: 8 });
+  const first = parser.write(`\x1bP${"C".repeat(50)}`);
+  assertEquals(first.map((token) => token.kind), ["diagnostic"]);
+  parser.write("more-ignored\x1b"); // chunk ends mid-terminator
+  const done = parser.write("\\visible");
+  assertEquals(done, [{ kind: "text", text: "visible" }]);
+});
+
+Deno.test("CSI parameter floods drop the sequence and continue", () => {
+  const parser = createIncrementalTerminalParser({ maxCsiParamBytes: 8 });
+  const tokens = parser.write("\x1b[1;2;3;4;5;6;7;8;9;10mok\x1b[0m");
+  assertEquals(tokens[0]!.kind, "diagnostic");
+  assert(tokens[0]!.kind === "diagnostic" && tokens[0]!.reason === "csi-params-exceeded");
+  assertEquals(tokens[1], { kind: "text", text: "mok" }); // final byte of the dropped CSI stays out
+  assertEquals(tokens[2], { kind: "csi", prefix: "", params: "0", intermediates: "", final: "m" });
+});
+
+Deno.test("incomplete sequences have a bounded lifetime in writes", () => {
+  const parser = createIncrementalTerminalParser({ maxPendingWrites: 3 });
+  parser.write("\x1bP12"); // incomplete DCS, small enough to carry
+  let diagnostics: TerminalToken[] = [];
+  for (let round = 0; round < 5; round += 1) {
+    diagnostics = diagnostics.concat(parser.write("").filter((token) => token.kind === "diagnostic"));
+  }
+  assertEquals(diagnostics.length, 1);
+  assert(diagnostics[0]!.kind === "diagnostic" && diagnostics[0]!.reason === "pending-writes-exceeded");
+  assertEquals(parser.write("clean"), [{ kind: "text", text: "clean" }]);
+});
