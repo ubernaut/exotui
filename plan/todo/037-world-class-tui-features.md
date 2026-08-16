@@ -267,7 +267,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **VIS-003 (P1; deps: VIS-001, VIS-002)** Add line, stepped-line, area, stacked-area, and scatter series to the
       existing chart surface. **Accept:** clipping, missing values, multiple scales, and zero-sized viewports have
       golden fixtures.
-- [ ] **VIS-004 (P2; deps: VIS-001, THEM-006)** Add heatmap and matrix rendering with quantized color scales and
+- [x] **VIS-004 (P2; deps: VIS-001, THEM-006)** Add heatmap and matrix rendering with quantized color scales and
       explicit missing/outlier cells. **Accept:** truecolor, 256-color, 16-color, and monochrome outputs preserve the
       configured ordering.
 - [x] **VIS-005 (P2; deps: TXT-003, VIS-001)** Add braille, sextant, quadrant, and full-cell 2D mark backends selected
