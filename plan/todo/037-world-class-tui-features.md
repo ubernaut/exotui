@@ -556,7 +556,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PLG-003 (P1; deps: PLG-001, PLG-002)** Resolve plugin dependencies and optional peer capabilities as a DAG with
       cycle and version-conflict diagnostics. **Accept:** activation order is stable and one failed optional peer does
       not block unrelated plugins.
-- [ ] **PLG-004 (P0; deps: PLG-001, SEC-003)** Present a permission diff on install/update and require host approval for
+- [x] **PLG-004 (P0; deps: PLG-001, SEC-003)** Present a permission diff on install/update and require host approval for
       newly requested capabilities. **Accept:** an update cannot retain a grant that the new manifest no longer
       declares.
 - [ ] **PLG-005 (P1; deps: PLG-001, SEC-004)** Provide typed RPC proxies for isolated plugin commands, data sources,
