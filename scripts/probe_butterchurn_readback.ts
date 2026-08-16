@@ -19,8 +19,8 @@ const CHECKPOINTS = [2, 5, 10, 20, 40, 80, 120];
 
 const TARGETS = [
   "Goody - The Wild Vort", // echo amplifier, black on GPU
-  "flexi - bouncing balls", // echo class, black on GPU
-  "Geiss - Cauldron", // healthy reference
+  "flexi - bouncing balls", // echo class, healthy since the UNORM fix
+  "cope - digital sea", // authors b1n=0.4: blur1 floor via the clamped store
 ];
 
 function presetIndex(name: string): number {
@@ -40,14 +40,18 @@ for (const name of TARGETS) {
     await new Promise((resolve) => setTimeout(resolve, 6));
     if (CHECKPOINTS.includes(frame)) {
       const stats = await field.debugGpu()?.debugMainStats();
+      const comp = await field.debugGpu()?.debugCompStats();
       if (!stats) {
         console.log(`  frame ${frame}: no gpu stats (renderer not ready)`);
         continue;
       }
+      const compText = comp
+        ? ` | comp mean=${comp.mean.toFixed(4)} max=${comp.max.toFixed(3)} >0.1=${(comp.aboveTenth * 100).toFixed(1)}%`
+        : " | comp: n/a";
       console.log(
-        `  frame ${String(frame).padStart(3)}: mean=${stats.mean.toFixed(4)} min=${stats.min.toFixed(3)} max=${
+        `  frame ${String(frame).padStart(3)}: loop mean=${stats.mean.toFixed(4)} min=${stats.min.toFixed(3)} max=${
           stats.max.toFixed(3)
-        } neg=${(stats.negativeShare * 100).toFixed(1)}% >0.1=${(stats.aboveTenth * 100).toFixed(1)}%`,
+        } neg=${(stats.negativeShare * 100).toFixed(1)}% >0.1=${(stats.aboveTenth * 100).toFixed(1)}%${compText}`,
       );
     }
   }

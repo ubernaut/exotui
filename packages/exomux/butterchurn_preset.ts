@@ -90,6 +90,13 @@ export const MILKDROP_DEFAULTS: Readonly<Record<string, number>> = Object.freeze
   mv_g: 0.5,
   mv_b: 0.5,
   mv_l: 0,
+  b1n: 0,
+  b1x: 1,
+  b2n: 0,
+  b2x: 1,
+  b3n: 0,
+  b3x: 1,
+  b1ed: 0.25,
 });
 
 /** Per-vertex values `pixel_eqs` may change, reset from the frame each vertex. */
@@ -178,6 +185,9 @@ export interface ExomuxButterchurnFrameValues {
   readonly darken: boolean;
   readonly gammaAdjust: number;
   readonly echoAlpha: number;
+  /** Authored/animated blur ranges `b1n..b3x`, raw (pre safe-range fix). */
+  readonly blurMin: readonly [number, number, number];
+  readonly blurMax: readonly [number, number, number];
 }
 
 const DEFAULT_MESH_WIDTH = 24;
@@ -867,6 +877,8 @@ export class ExomuxButterchurnPreset {
       darken: this.#get("darken") > 0,
       gammaAdjust: this.#get("gammaadj"),
       echoAlpha: this.#get("echo_alpha"),
+      blurMin: [this.#get("b1n"), this.#get("b2n"), this.#get("b3n")],
+      blurMax: [this.#get("b1x"), this.#get("b2x"), this.#get("b3x")],
     };
   }
 
@@ -1109,6 +1121,8 @@ const ZERO_VALUES: ExomuxButterchurnFrameValues = Object.freeze({
   darken: false,
   gammaAdjust: 1.25,
   echoAlpha: 0,
+  blurMin: [0, 0, 0] as const,
+  blurMax: [1, 1, 1] as const,
 });
 
 function writeBorderVertex(target: Float32Array, at: number, x: number, y: number, colour: readonly number[]): void {

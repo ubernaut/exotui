@@ -106,6 +106,30 @@ Next probe: compare the comp output (not just main) against the loop, and check 
 store range-compressed values whose decompression amplifies (`scale1` > 1 in the authored data rather than our hardcoded
 1).
 
+### Aug 16 2026: comp readback + authored blur ranges (both next-probes worked)
+
+- **Comp readback (`debugCompStats`)**: the comp shader output can now be read back like the loop, and the probe prints
+  both. Verdict on the tail: Goody's comp is _faithfully dim_ (comp mean 0.02, 3.6% of texels above 0.1, tracking its
+  0.043 loop) — the comp translation is not losing a healthy picture; the loop itself is starved. Meanwhile
+  `flexi - bouncing balls` is fully healthy since the UNORM fix (loop pumps to 0.17 mean, comp saturates at 58–99%
+  coverage), and `Geiss - Cauldron` reads zero because it has no custom shaders (CPU-only preset — bad readback
+  reference).
+- **`scale1 > 1` hypothesis — eliminated for the tail, but real as a fidelity gap.** A data probe
+  (`scripts/probe_butterchurn_blur_ranges.ts`) over all 472 presets: 152 author non-default blur ranges (mostly `b1ed`
+  and `b2x` caps; two author floors — `cope - digital sea` `b1n=0.4`, Rovastar Hyperkaleidoscope `b1n=0.67`), and every
+  tail preset authors the defaults, so authored bounds cannot explain the tail. Implemented anyway because it is the
+  real storage contract: butterchurn stores each blur level range-compressed into the authored `[b*n, b*x]` and clamps,
+  making reconstruction a hard clamp to those bounds. `b1n..b3x` now flow (frame-animatable) from
+  `ExomuxButterchurnPreset` through the GPU frame into per-level clamps in the blur pass, with MilkDrop's
+  `GetSafeBlurMinMax` width/nesting rules (`exomuxSafeBlurRanges`, unit-tested). Reader `scale/bias` stay 1/0 since our
+  store is unnormalized. A/B on digital sea: already alive post-UNORM (0.55 mean), stays alive under real bounds with
+  the authored floor visible (loop min pinned at 0.071, mean 0.39). Fleet after: regression 30, truly-black 21 —
+  unchanged, no harm.
+- **Next hypothesis for the tail:** with comp-side and blur-range causes eliminated, the missing saturation must be a
+  loop term: candidates are gamma/`decay` interplay in the warp (`ret * 0.9` class decays), bilinear resampling gain at
+  mesh warp boundaries, or the echo shape's `tex_zoom` sampling footprint. A reference A/B against real butterchurn in a
+  browser would settle it fastest.
+
 ## Verification
 
 - `scripts/diag_butterchurn_gap.ts` — the CPU-vs-GPU bucketing above; rerun to measure any further fix.

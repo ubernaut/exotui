@@ -12,6 +12,7 @@ import {
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "../butterchurn_catalog.ts";
 import { EXOMUX_BUTTERCHURN_ROTATION } from "../butterchurn_rotation.ts";
 import { ExomuxButterchurnPreset, MILKDROP_DEFAULTS } from "../butterchurn_preset.ts";
+import { exomuxSafeBlurRanges } from "../butterchurn_gpu.ts";
 import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioFrame, type ExomuxAudioSource } from "../audio.ts";
 import { EXOMUX_BACKGROUND_IDS, type ExomuxBackgroundId, exomuxBackgroundId, exomuxTheme } from "../model.ts";
 import { exomuxBackgroundOvergrows } from "../overgrowth.ts";
@@ -1112,4 +1113,39 @@ Deno.test("butterchurn: hidden motion vectors and borders draw nothing", () => {
   animated.setSize(40, 12);
   animated.advance(silentAudio(), 0, 0, 8);
   assertEquals(animated.gpuPrims.length, 1, "an animated mv_a shows the grid");
+});
+
+Deno.test("butterchurn: authored blur ranges reach frame values and can be frame-animated", () => {
+  // cope - digital sea authors b1n=0.4: real butterchurn's clamped
+  // range-compressed store gives blur1 a hard floor at 0.4 that its comp
+  // relies on for its luminance base.
+  const authored = new ExomuxButterchurnPreset(
+    source({ baseVals: { b1n: 0.4, b2x: 0.6 } }),
+    { random: () => 0.5 },
+  );
+  authored.setSize(40, 12);
+  authored.advance(silentAudio(), 0, 0, 8);
+  assertEquals(authored.values.blurMin, [0.4, 0, 0]);
+  assertEquals(authored.values.blurMax, [1, 0.6, 1]);
+
+  const animated = new ExomuxButterchurnPreset(
+    source({ frame: "b1x = 0.5 + 0.25;" }),
+    { random: () => 0.5 },
+  );
+  animated.setSize(40, 12);
+  animated.advance(silentAudio(), 0, 0, 8);
+  assertEquals(animated.values.blurMax[0], 0.75);
+});
+
+Deno.test("butterchurn: safe blur ranges keep MilkDrop's width and nesting rules", () => {
+  // Defaults pass through untouched.
+  assertEquals(exomuxSafeBlurRanges([0, 0, 0], [1, 1, 1]), { min: [0, 0, 0], max: [1, 1, 1] });
+  // A floor propagates to the deeper levels, which may narrow but not widen.
+  assertEquals(exomuxSafeBlurRanges([0.4, 0, 0], [1, 1, 1]), { min: [0.4, 0.4, 0.4], max: [1, 1, 1] });
+  // A range narrower than 0.1 expands symmetrically around its midpoint.
+  const narrow = exomuxSafeBlurRanges([0.5, 0, 0], [0.55, 1, 1]);
+  assertAlmostEquals(narrow.min[0], 0.475, 1e-9);
+  assertAlmostEquals(narrow.max[0], 0.575, 1e-9);
+  // A level-2 cap carries into level 3.
+  assertEquals(exomuxSafeBlurRanges([0, 0, 0], [1, 0.6, 1]).max, [1, 0.6, 0.6]);
 });

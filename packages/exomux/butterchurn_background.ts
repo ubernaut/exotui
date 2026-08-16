@@ -1109,6 +1109,8 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
       aspectX: this.#width / Math.max(1, this.#height * 2),
       aspectY: 1,
       prims: preset.gpuPrims,
+      blurMin: values.blurMin,
+      blurMax: values.blurMax,
     });
 
     // The readback lands a frame late, so the ink buffer keeps the last

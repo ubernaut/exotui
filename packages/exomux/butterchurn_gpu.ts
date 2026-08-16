@@ -288,33 +288,41 @@ const COMP_VERTEX = `
 const UTILITY_WGSL = `
 @group(0) @binding(0) var src_tex: texture_2d<f32>;
 @group(0) @binding(1) var src_smp: sampler;
-@group(0) @binding(2) var<uniform> direction: vec4<f32>;
+// direction: xy is the step along the blurred axis, zw the output texel size.
+// bounds: xy is the level's [min, max] store clamp (real butterchurn stores
+// blur levels range-compressed into the authored [b*n, b*x] and clamps, so
+// reconstruction is a hard clamp to those bounds); zw unused.
+struct UtilityParams {
+  direction: vec4<f32>,
+  bounds: vec4<f32>,
+}
+@group(0) @binding(2) var<uniform> params: UtilityParams;
 
 @vertex fn vs(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
   var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
   return vec4<f32>(positions[index], 0.0, 1.0);
 }
 
-// Nine-tap gaussian; direction.xy is one texel along the axis being blurred.
+// Nine-tap gaussian; params.direction.xy is one texel along the blurred axis.
 @fragment fn blur(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
-  let uv = frag.xy * direction.zw;
+  let uv = frag.xy * params.direction.zw;
   var sum = vec4<f32>(0.0);
   let weights = array<f32, 5>(0.2270270, 0.1945946, 0.1216216, 0.0540541, 0.0162162);
   sum += textureSampleLevel(src_tex, src_smp, uv, 0.0) * weights[0];
   for (var i = 1; i < 5; i++) {
-    let offset = direction.xy * f32(i);
+    let offset = params.direction.xy * f32(i);
     sum += textureSampleLevel(src_tex, src_smp, uv + offset, 0.0) * weights[i];
     sum += textureSampleLevel(src_tex, src_smp, uv - offset, 0.0) * weights[i];
   }
-  return sum;
+  return vec4<f32>(clamp(sum.rgb, vec3<f32>(params.bounds.x), vec3<f32>(params.bounds.y)), sum.a);
 }
 
 // Box filter over the whole source footprint. A single bilinear tap reads four
 // texels of a footprint tens of texels wide, so a one-pixel waveform vanishes
 // on the way down to cell resolution.
 @fragment fn resolve(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
-  let base = (frag.xy - 0.5) * direction.zw;
-  let step = direction.xy;
+  let base = (frag.xy - 0.5) * params.direction.zw;
+  let step = params.direction.xy;
   var sum = vec4<f32>(0.0);
   var taps = 0.0;
   for (var y = 0; y < 6; y++) {
@@ -380,6 +388,35 @@ export interface ExomuxButterchurnGpuFrame {
   readonly aspectY: number;
   /** Custom waves and shapes for this frame; empty when the preset has none. */
   readonly prims?: readonly ExomuxButterchurnPrim[];
+  /** Raw authored/animated blur ranges `b1n..b3x`; safe-fixed before upload. */
+  readonly blurMin?: readonly [number, number, number];
+  readonly blurMax?: readonly [number, number, number];
+}
+
+/**
+ * MilkDrop's `GetSafeBlurMinMax`: each range keeps a minimum width of 0.1
+ * (expanded around its midpoint), and each deeper blur level may narrow the
+ * previous level's range but never widen it.
+ */
+export function exomuxSafeBlurRanges(
+  min: readonly [number, number, number],
+  max: readonly [number, number, number],
+): { min: [number, number, number]; max: [number, number, number] } {
+  const lo: [number, number, number] = [min[0], min[1], min[2]];
+  const hi: [number, number, number] = [max[0], max[1], max[2]];
+  const MIN_DIST = 0.1;
+  for (let level = 0; level < 3; level += 1) {
+    if (level > 0) {
+      hi[level] = Math.min(hi[level - 1]!, hi[level]!);
+      lo[level] = Math.max(lo[level - 1]!, lo[level]!);
+    }
+    if (hi[level]! - lo[level]! < MIN_DIST) {
+      const mid = (lo[level]! + hi[level]!) / 2;
+      lo[level] = mid - MIN_DIST / 2;
+      hi[level] = mid + MIN_DIST / 2;
+    }
+  }
+  return { min: lo, max: hi };
 }
 
 /**
@@ -464,7 +501,8 @@ export class ExomuxButterchurnGpu {
   #primLayout: GPUBindGroupLayout | undefined;
   /** Bind groups for textured prims; the source ping-pongs, so two at most. */
   readonly #primBindGroups = new WeakMap<GPUTexture, GPUBindGroup>();
-  readonly #directionData = new Float32Array(4);
+  readonly #directionData = new Float32Array(8);
+  #blurRanges: { min: readonly number[]; max: readonly number[] } = { min: [0, 0, 0], max: [1, 1, 1] };
   /** Increments each time a resolved frame lands, so callers can spot a stall. */
   #readbacks = 0;
   /** Set when the device is lost; every later render is refused. */
@@ -781,7 +819,24 @@ export class ExomuxButterchurnGpu {
     { mean: number; min: number; max: number; negativeShare: number; aboveTenth: number } | undefined
   > {
     if (this.#lost) return undefined;
-    const texture = this.#main[this.#mainIndex]!;
+    return await this.#debugTextureStats(this.#main[this.#mainIndex]!);
+  }
+
+  /**
+   * Dev probe (033): same channel summary for the comp shader's output —
+   * distinguishes "the loop is too dim" (comp input starved) from "the comp
+   * translation loses the picture" (loop healthy, output dark anyway).
+   */
+  async debugCompStats(): Promise<
+    { mean: number; min: number; max: number; negativeShare: number; aboveTenth: number } | undefined
+  > {
+    if (this.#lost || !this.#compositeTexture) return undefined;
+    return await this.#debugTextureStats(this.#compositeTexture);
+  }
+
+  async #debugTextureStats(texture: GPUTexture): Promise<
+    { mean: number; min: number; max: number; negativeShare: number; aboveTenth: number } | undefined
+  > {
     const bytesPerRow = alignBytesPerRow(this.#renderWidth * 4);
     const buffer = this.#device.createBuffer({
       size: bytesPerRow * this.#renderHeight,
@@ -1023,12 +1078,12 @@ export class ExomuxButterchurnGpu {
     let buffer = this.#directionBuffers[index];
     if (!buffer) {
       buffer = this.#device.createBuffer({
-        size: 16,
+        size: 32,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
       this.#directionBuffers[index] = buffer;
     }
-    for (let index = 0; index < 4; index += 1) this.#directionData[index] = values[index] ?? 0;
+    for (let index = 0; index < 8; index += 1) this.#directionData[index] = values[index] ?? 0;
     this.#device.queue.writeBuffer(buffer, 0, this.#directionData);
     return buffer;
   }
@@ -1064,7 +1119,14 @@ export class ExomuxButterchurnGpu {
     ) {
       const buffer = this.#directionBuffer(
         level * 2 + pass,
-        [direction[0]!, direction[1]!, 1 / width, 1 / height],
+        [
+          direction[0]!,
+          direction[1]!,
+          1 / width,
+          1 / height,
+          this.#blurRanges.min[level] ?? 0,
+          this.#blurRanges.max[level] ?? 1,
+        ],
       );
       const bindGroup = this.#utilityBindGroup(`blur:${level}:${pass}:${this.#mainIndex}`, input, sampler, buffer);
       const renderPass = encoder.beginRenderPass({
@@ -1084,7 +1146,14 @@ export class ExomuxButterchurnGpu {
 
   #resolveToCells(encoder: GPUCommandEncoder, copyOut: boolean): void {
     // xy is the source footprint one output cell covers; zw the output texel.
-    const buffer = this.#directionBuffer(6, [1 / this.#width, 1 / this.#height, 1 / this.#width, 1 / this.#height]);
+    const buffer = this.#directionBuffer(6, [
+      1 / this.#width,
+      1 / this.#height,
+      1 / this.#width,
+      1 / this.#height,
+      0,
+      1,
+    ]);
     const bindGroup = this.#utilityBindGroup(
       "resolve",
       this.#resolveIntermediate(),
@@ -1200,8 +1269,14 @@ export class ExomuxButterchurnGpu {
       Math.sin(0.013 * t),
       Math.sin(0.022 * t),
     );
-    put(UNIFORM_SLOTS.blurMin, 0, 0, 0);
-    put(UNIFORM_SLOTS.blurMax, 1, 1, 1);
+    const ranges = exomuxSafeBlurRanges(frame.blurMin ?? [0, 0, 0], frame.blurMax ?? [1, 1, 1]);
+    this.#blurRanges = ranges;
+    put(UNIFORM_SLOTS.blurMin, ranges.min[0], ranges.min[1], ranges.min[2]);
+    put(UNIFORM_SLOTS.blurMax, ranges.max[0], ranges.max[1], ranges.max[2]);
+    // Real butterchurn stores blur range-compressed and reconstructs with
+    // scale = max - min, bias = min. Our store is unnormalized (only clamped
+    // to the authored bounds in the blur pass), so reconstruction stays the
+    // identity: scale 1, bias 0.
     put(UNIFORM_SLOTS.scales, 1, 1, 1);
     put(UNIFORM_SLOTS.biases, 0, 0, 0);
     // Deterministic per-frame randomness; presets use it to jitter sampling.
