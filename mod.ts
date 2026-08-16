@@ -25,6 +25,7 @@ export * from "./src/theme_workspace.ts";
 export * from "./src/api_stability.ts";
 export * from "./src/types.ts";
 export * from "./src/unicode/mod.ts";
+export * from "./src/visual/mod.ts";
 export * from "./src/i18n/mod.ts";
 export * from "./src/view.ts";
 export * from "./src/viewport.ts";

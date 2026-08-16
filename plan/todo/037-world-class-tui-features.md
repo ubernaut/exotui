@@ -258,7 +258,7 @@ implementation, focused tests, public export review, and relevant repository gat
 
 ### Scientific And Operational Visualization
 
-- [ ] **VIS-001 (P1; deps: TXT-003)** Add reusable linear, log, symmetric-log, time, ordinal, and band scales with
+- [x] **VIS-001 (P1; deps: TXT-003)** Add reusable linear, log, symmetric-log, time, ordinal, and band scales with
       invert and nice-domain operations. **Accept:** scale/property tests cover degenerate domains, negative values,
       resize, and cell rounding.
 - [ ] **VIS-002 (P1; deps: VIS-001, LOC-004)** Add collision-aware axes, ticks, grid lines, and locale-aware labels
