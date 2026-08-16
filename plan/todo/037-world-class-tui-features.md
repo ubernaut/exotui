@@ -374,7 +374,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **THEM-007 (P2; deps: THEM-001, 023:C1)** Add density and scale tokens for compact, comfortable, and
       touch-oriented component geometry. **Accept:** switching density changes declared spacing/hit targets without
       mutating application state.
-- [ ] **THEM-008 (P2; deps: THEM-001, 023:C1)** Add motion tokens for durations, easing, delay, and reduced-motion
+- [x] **THEM-008 (P2; deps: THEM-001, 023:C1)** Add motion tokens for durations, easing, delay, and reduced-motion
       substitution. **Accept:** reduced motion resolves every nonessential transition to its declared static behavior.
 - [ ] **THEM-009 (P2; deps: THEM-001, TXT-003, TXT-004)** Add named icon/glyph packs with width contracts, ASCII
       fallbacks, and terminal-profile validation. **Accept:** every icon occupies its declared cells under all supported

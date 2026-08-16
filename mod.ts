@@ -21,6 +21,7 @@ export * from "./src/theme_contrast.ts";
 export * from "./src/theme_oklch.ts";
 export * from "./src/theme_quantize.ts";
 export * from "./src/theme_density.ts";
+export * from "./src/theme_motion.ts";
 export * from "./src/theme_binding.ts";
 export * from "./src/theme_engine_cache.ts";
 export * from "./src/theme_engine_factory.ts";
