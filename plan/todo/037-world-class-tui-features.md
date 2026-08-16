@@ -273,7 +273,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **VIS-005 (P2; deps: TXT-003, VIS-001)** Add braille, sextant, quadrant, and full-cell 2D mark backends selected
       independently from Three ASCII sampling. **Accept:** identical points map to identical logical coordinates and
       unsupported glyph sets degrade explicitly.
-- [ ] **VIS-006 (P1; deps: VIS-001, ASY-008)** Add streaming min/max and LTTB-style downsampling with worker offload and
+- [x] **VIS-006 (P1; deps: VIS-001, ASY-008)** Add streaming min/max and LTTB-style downsampling with worker offload and
       visible-range caches. **Accept:** million-point fixtures stay within declared frame and memory budgets while
       preserving extrema.
 - [ ] **VIS-007 (P1; deps: VIS-001, INP-006)** Add keyboard/pointer crosshair, nearest-point inspection, pan, zoom, and
