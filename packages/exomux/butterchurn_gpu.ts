@@ -27,6 +27,7 @@ import type { ExomuxButterchurnPrim } from "./butterchurn_preset.ts";
 import { exomuxNoiseSet, type ExomuxNoiseTexture } from "./butterchurn_noise.ts";
 import { exomuxGpuDevice } from "./gpu_device.ts";
 import { exomuxDebugLog, exomuxDebugLoggingActive } from "./debug_log.ts";
+import { guardWgslSqrt } from "./glsl_wgsl.ts";
 
 /** Internal render size. Chosen so `texsize`-relative offsets behave as authored. */
 const RENDER_WIDTH = 512;
@@ -1608,7 +1609,9 @@ struct PrimOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f
     const fallback = stage === "warp"
       ? "ret = textureSampleLevel(sampler_main_tex, sampler_main_smp, uv, 0.0).xyz * decay;"
       : "ret = textureSampleLevel(sampler_main_tex, sampler_main_smp, uv, 0.0).xyz;";
-    const body = source.trim() ? source : fallback;
+    // The vendored catalog was translated before the sqrt NaN guard
+    // existed; apply it at compile time (idempotent for future builds).
+    const body = guardWgslSqrt(source.trim() ? source : fallback);
     const samplers = [...new Set([...(source.trim() ? declared : []), "sampler_main"])]
       .filter((name) => name in SAMPLER_BINDINGS);
 

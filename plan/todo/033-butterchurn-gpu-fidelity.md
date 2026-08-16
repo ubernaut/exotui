@@ -318,6 +318,20 @@ flashes.
   renders 0.00% rather than CPU-bright) but produces black: the first member of a shader-translation-fidelity
   class. Next: WGSL compile diagnostics via the debug log sink, then stage readback.
 
+### Aug 16 2026: the sqrt NaN guard — Mandelverse's whole class rescued
+
+The WGSL compile diagnostics came back clean for Mandelverse and stage readback isolated it precisely: the loop was
+BRIGHT (0.676, 94% lit) and the 5.2 KB procedural comp crushed it to 0.0002. The comp is packed with upstream's
+inline asin/acos expansions — `sqrt(1 − abs(x))` — and the moment |x| crosses 1, WGSL yields NaN, and one NaN
+propagates through the whole frame. D3D, the runtime these presets were authored against, never blacks a frame over
+a slightly-negative root.
+
+**Fix, two layers:** the GLSL→WGSL translator now emits `sqrt(max(x, 0))`/`inverseSqrt(max(x, 0))` with typed
+zeros (for future catalog builds), and `guardWgslSqrt` applies the same clamp textually at compile time — paren-
+matched, idempotent, `(E)·0.0` as the type-agnostic zero — so the pre-translated vendored catalog gets it today.
+Measured: Mandelverse's comp went **0.0002 → 0.873 mean, 97% lit**. The guard applies to every preset's shaders;
+the fleet re-measure with it is the next run of record.
+
 ## Verification
 
 - `scripts/diff_butterchurn_equations.ts` — per-variable frame-equation diff, real engine vs ours, under silence.

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes, assertThrows } from "./deps.ts";
-import { translateShaderBody } from "../glsl_wgsl.ts";
+import { guardWgslSqrt, translateShaderBody } from "../glsl_wgsl.ts";
 import { EXOMUX_BUTTERCHURN_CATALOG } from "../butterchurn_catalog.ts";
 
 Deno.test("glsl→wgsl: every shader in the catalog arrived as usable WGSL", () => {
@@ -121,4 +121,28 @@ Deno.test("glsl→wgsl: keeps integers integral for subscripts and counters", ()
   assertStringIncludes(body, "v[1]");
   assertStringIncludes(body, "v[n]");
   assert(!/\[\s*\d+\.0\s*\]/.test(body), `a float literal was used as a subscript:\n${body}`);
+});
+
+Deno.test("wgsl: sqrt arguments are clamped at zero, both layers", () => {
+  // The compile-time pass for pre-translated bodies.
+  assertEquals(
+    guardWgslSqrt("let a = sqrt(x - 1.0);"),
+    "let a = sqrt(max(x - 1.0, (x - 1.0) * 0.0));",
+  );
+  assertEquals(
+    guardWgslSqrt("inverseSqrt(dot(v, v))"),
+    "inverseSqrt(max(dot(v, v), (dot(v, v)) * 0.0))",
+  );
+  // Nested parens resolve to the matching close.
+  assertEquals(
+    guardWgslSqrt("sqrt(((1.0 - abs(t)) * s))"),
+    "sqrt(max(((1.0 - abs(t)) * s), (((1.0 - abs(t)) * s)) * 0.0))",
+  );
+  // Idempotent: an already-guarded call is left alone.
+  const guarded = guardWgslSqrt("sqrt(x)");
+  assertEquals(guardWgslSqrt(guarded), guarded);
+
+  // The translator emits guarded roots directly.
+  const translated = translateShaderBody("shader_body { ret = vec3(sqrt(uv.x - 2.0)); }");
+  assert(translated.body.includes("sqrt(max("));
 });

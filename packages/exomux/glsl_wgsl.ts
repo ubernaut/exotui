@@ -680,6 +680,18 @@ class Translator {
     // `atan` is the one builtin whose arity picks the WGSL name.
     const name = called === "atan" && args.length === 2 ? "atan2" : called;
     const unified = this.#unify(name, args);
+    // D3D — the runtime MilkDrop presets were authored against — never
+    // blacks a frame over sqrt of a slightly-negative intermediate, but
+    // WGSL yields NaN and one NaN propagates through the whole feedback
+    // loop. The inline asin/acos expansions upstream ships are full of
+    // `sqrt(1 - abs(x))` with |x| occasionally past 1 (Mandelverse's
+    // comp), so both roots are clamped at zero.
+    if ((name === "sqrt" || name === "inversesqrt") && unified.length === 1) {
+      const argument = unified[0]!;
+      const zero = argument.type === "f32" || argument.type === "" ? "0.0" : `${argument.type}(0.0)`;
+      const wgslName = name === "inversesqrt" ? "inverseSqrt" : "sqrt";
+      return { code: `${wgslName}(max(${argument.code}, ${zero}))`, type: argument.type || "f32" };
+    }
     const joined = unified.map((arg) => arg.code).join(", ");
     const type = SCALAR_RESULT.has(name) ? "f32" : name === "cross" ? "vec3<f32>" : unified[0]?.type ?? "";
     if (name in RENAMED) return { code: `${RENAMED[name]!}(${joined})`, type };
@@ -740,4 +752,42 @@ export function translateShaderBody(source: string): TranslatedShader {
     samplers: used.filter((name) => SAMPLER_SET.has(name)),
     custom: [...new Set([...translator.custom, ...used.filter((name) => !SAMPLER_SET.has(name))])],
   };
+}
+
+/**
+ * Wraps every `sqrt(...)`/`inverseSqrt(...)` argument in an
+ * elementwise clamp at zero — the compile-time counterpart of the
+ * translator guard above, for shader bodies that were translated and
+ * vendored before the guard existed. `(E) * 0.0` is the typed zero for
+ * any float scalar or vector, so the rewrite never has to know the
+ * argument's type.
+ */
+export function guardWgslSqrt(source: string): string {
+  let out = "";
+  let cursor = 0;
+  const pattern = /\b(sqrt|inverseSqrt)\(/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    // Skip occurrences we already guarded (idempotence).
+    const start = match.index + match[0].length;
+    let depth = 1;
+    let end = start;
+    while (end < source.length && depth > 0) {
+      const char = source[end]!;
+      if (char === "(") depth += 1;
+      else if (char === ")") depth -= 1;
+      end += 1;
+    }
+    if (depth !== 0) break;
+    const argument = source.slice(start, end - 1);
+    if (argument.startsWith("max(")) {
+      out += source.slice(cursor, end);
+    } else {
+      out += source.slice(cursor, match.index) +
+        `${match[1]}(max(${argument}, (${argument}) * 0.0))`;
+    }
+    cursor = end;
+    pattern.lastIndex = end;
+  }
+  return out + source.slice(cursor);
 }
