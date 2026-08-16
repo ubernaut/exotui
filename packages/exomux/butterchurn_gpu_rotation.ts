@@ -4,7 +4,7 @@
 // Regenerate with: deno run -A --unstable-webgpu -c packages/exomux/deno.json scripts/audit_butterchurn_gpu.ts
 //
 // The presets the GPU butterchurn background auto-cycles: those that render to a
-// non-blank frame on the GPU. Of 472 presets in the catalog: 380 draw, 92 resolve to
+// non-blank frame on the GPU. Of 472 presets in the catalog: 381 draw, 91 resolve to
 // black/near-black on the GPU path and are skipped so auto-cycle does not strobe
 // through them. Every preset stays selectable by index through
 // `EXOMUX_BUTTERCHURN_CATALOG`; this only decides what the GPU field auto-cycles.
@@ -204,6 +204,7 @@ export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = [
   "Geiss - Two-Pointed Pulsagon - mash0000 - bubonic super-fluid centrifuge",
   "Goody + flexi - Data Crusher",
   "goody + martin - crystal palace - schizotoxin - the wild iris bloom - 16 iterations",
+  "Goody - The Wild Vort",
   "GreatWho - Lasershow",
   "gunthry is out back bloodying up the pine trees - adm atomising (v) the disintigrate (n)",
   "Halfbreak - Funny Madness",

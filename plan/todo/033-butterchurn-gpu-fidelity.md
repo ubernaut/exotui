@@ -147,8 +147,33 @@ proxy that compares GPU output against our own blur-less CPU approximation, so i
 fidelity; the real order is kept. Remaining tail candidates are unchanged (warp gamma/decay interplay, bilinear
 boundary gain, echo `tex_zoom` footprint) and the browser A/B remains the decisive instrument.
 
+### Aug 16 2026: the browser A/B ran — echo-amplifier root cause found and fixed
+
+A headless-Chromium harness (`scripts/ab_butterchurn_real.ts`) ran REAL butterchurn 2.6.7 on `Goody - The Wild Vort`
+with a synthetic oscillator. Baseline: mean luminance **0.68–0.81**, 87–99% of pixels above 0.1 — saturation, as
+predicted. The ablation matrix was decisive: **shapesOff collapsed real butterchurn to 0.0398** — statistically
+identical to our pre-fix equilibrium (0.043) — while wavesOff (0.81), basicWaveOff (0.75), mvOff (0.44),
+echoAlphaOff (0.68), and gammaOne (0.75) all left saturation intact. Every remaining candidate except the textured
+shape was eliminated in one run: NOT warp gamma/decay, NOT bilinear boundary gain, NOT comp echo dynamics.
+
+The source diff then found the divergence: real butterchurn's textured-shape UVs are a **fixed ring** —
+`0.5 + 0.5·cos(θ+tex_ang+π/4)/tex_zoom` — independent of the shape's world radius, so a full-screen shape
+(rad≈2, tex_zoom≈0.495) re-samples the whole previous frame ~1:1 at edge alpha 1. Our builder scaled UVs by the
+world-space vertex offset (`(px−x)/(2·tex_zoom)`), which for rad≈2 pushed UVs to ±2 — clamped border texels,
+injecting nothing. Fixed in `butterchurn_preset.ts`: the UV ring now matches real butterchurn exactly (angle-driven,
+rad-independent, V flipped for our texture convention, aspect on U).
+
+Measured after the fix: Goody's loop equilibrium **0.043 → 0.193** (72.5% of texels above 0.1), comp output mean
+0.304 — the preset escapes the black regime and enters the GPU rotation (380 → 381 drawable). The fleet CPU-proxy
+buckets are unchanged (31/23), as the plan predicted they would be — the proxy compares against our blur-less CPU
+approximation and cannot see real-fidelity fixes; the readback probe and the browser A/B are the instruments of
+record. The remaining truly-black tail is now investigable preset-by-preset with the same ablation harness
+(`Goody - Ego Decontructor` is the next candidate, still 0.00% on GPU).
+
 ## Verification
 
+- `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
+  per-term ablation matrix; the decisive instrument (needs network + a Chromium).
 - `scripts/diag_butterchurn_gap.ts` — the CPU-vs-GPU bucketing above; rerun to measure any further fix.
 - `scripts/audit_butterchurn_gpu.ts` — regenerates `butterchurn_gpu_rotation.ts` (the auto-cycle subset).
 - `floorWaveColor` has unit tests in `tests/backgrounds_butterchurn.test.ts`; the ribbon is verified by the audit (GPU

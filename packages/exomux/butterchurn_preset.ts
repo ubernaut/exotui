@@ -804,22 +804,38 @@ export class ExomuxButterchurnPreset {
       const aspectY = this.#aspectX;
 
       const quarterPi = Math.PI / 4;
+      // Textured-shape UVs are a FIXED ring — 0.5/tex_zoom around the
+      // texture centre, rotated by tex_ang — exactly as real butterchurn
+      // builds them, INDEPENDENT of the shape's world radius. The 033
+      // browser A/B proved this is the echo-amplifier loop term: a
+      // full-screen shape (rad ~2) with tex_zoom ~0.5 re-samples the
+      // whole previous frame ~1:1, while scaling UVs by the world
+      // offset (our old form) pushed them past the clamp range and
+      // injected nothing but border texels.
       const ring: number[] = [];
+      const ringUv: number[] = [];
       for (let k = 0; k <= sides; k += 1) {
         const angle = (k / sides) * Math.PI * 2 + ang + quarterPi;
         ring.push(x + rad * Math.cos(angle) * aspectY, y + rad * Math.sin(angle));
+        const texAngle = (k / sides) * Math.PI * 2 + texAng + quarterPi;
+        ringUv.push(
+          0.5 + 0.5 * Math.cos(texAngle) / texZoom * aspectY,
+          0.5 - 0.5 * Math.sin(texAngle) / texZoom,
+        );
       }
       const fan = new Float32Array(sides * 3 * PRIM_STRIDE);
       const writeVertex = (
         at: number,
         px: number,
         py: number,
+        u: number,
+        v: number,
         colour: readonly [number, number, number, number] | readonly number[],
       ): void => {
         fan[at] = px;
         fan[at + 1] = py;
-        fan[at + 2] = 0.5 + (px - x) / (2 * texZoom) * Math.cos(texAng) - (py - y) / (2 * texZoom) * Math.sin(texAng);
-        fan[at + 3] = 0.5 - (px - x) / (2 * texZoom) * Math.sin(texAng) - (py - y) / (2 * texZoom) * Math.cos(texAng);
+        fan[at + 2] = u;
+        fan[at + 3] = v;
         fan[at + 4] = colour[0]!;
         fan[at + 5] = colour[1]!;
         fan[at + 6] = colour[2]!;
@@ -827,9 +843,16 @@ export class ExomuxButterchurnPreset {
       };
       for (let k = 0; k < sides; k += 1) {
         const at = k * 3 * PRIM_STRIDE;
-        writeVertex(at, x, y, centre);
-        writeVertex(at + PRIM_STRIDE, ring[k * 2]!, ring[k * 2 + 1]!, edge);
-        writeVertex(at + PRIM_STRIDE * 2, ring[(k + 1) * 2]!, ring[(k + 1) * 2 + 1]!, edge);
+        writeVertex(at, x, y, 0.5, 0.5, centre);
+        writeVertex(at + PRIM_STRIDE, ring[k * 2]!, ring[k * 2 + 1]!, ringUv[k * 2]!, ringUv[k * 2 + 1]!, edge);
+        writeVertex(
+          at + PRIM_STRIDE * 2,
+          ring[(k + 1) * 2]!,
+          ring[(k + 1) * 2 + 1]!,
+          ringUv[(k + 1) * 2]!,
+          ringUv[(k + 1) * 2 + 1]!,
+          edge,
+        );
       }
       this.#prims.push({ kind: "triangles", additive, textured, vertices: fan, vertexCount: sides * 3 });
 

@@ -128,6 +128,7 @@
           "npm:jpeg-js@0.4.4",
           "npm:markdown-it@15.0.0",
           "npm:pngjs@7.0.0",
+          "npm:taffy-layout@2.0.3",
           "npm:three@0.185.1",
           "npm:yoga-layout@3.2.1"
         ]
