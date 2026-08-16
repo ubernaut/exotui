@@ -8,4 +8,5 @@ export * from "./src/testing/model_testing.ts";
 export * from "./src/testing/fault_injection.ts";
 export * from "./src/testing/flake_detection.ts";
 export * from "./src/testing/plugin_test_host.ts";
+export * from "./src/testing/record_replay.ts";
 export * from "./src/testing/app.ts";

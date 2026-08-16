@@ -628,7 +628,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **QAL-005 (P1; deps: ASY-001, HIS-003)** Add deterministic fault injection for allocation proxies, storage,
       workers, transports, clocks, permissions, and every lifecycle hook. **Accept:** each injected failure proves
       cleanup and a classified user-visible outcome.
-- [ ] **QAL-006 (P0; deps: ASY-010, HIS-006)** Add a test runtime that records/replays time, random values, input,
+- [x] **QAL-006 (P0; deps: ASY-010, HIS-006)** Add a test runtime that records/replays time, random values, input,
       resource completions, and resize events. **Accept:** a captured failing run reproduces byte-identical state/frame
       checkpoints offline.
 - [ ] **QAL-007 (P2; deps: QAL-001)** Add targeted mutation testing for parsers, layout invariants, selection, history,
