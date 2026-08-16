@@ -302,7 +302,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **WID-004 (P1; deps: INP-006, HIS-001)** Add a virtualized transfer-list controller with search, bulk selection,
       reorder, and move previews. **Accept:** moving filtered items preserves source order and stable IDs across both
       lists.
-- [ ] **WID-005 (P1; deps: FRM-001, FRM-004)** Add a property-grid widget with grouped rows, inline editors,
+- [x] **WID-005 (P1; deps: FRM-001, FRM-004)** Add a property-grid widget with grouped rows, inline editors,
       reset-to-inherited, validation, and change provenance. **Accept:** editor choice is registry-driven and one
       property edit is one history transaction.
 - [ ] **WID-006 (P1; deps: VIS-001, 023:T3)** Add a virtualized tree-grid combining hierarchy with sortable/resizable
