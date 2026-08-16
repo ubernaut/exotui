@@ -424,7 +424,8 @@ export const SIMPLE_LAYOUT_SOLVER_CAPABILITIES: LayoutSolverCapabilities = freez
       "Percentage Flex sizing and one-cell remainder allocation remain explicit L1 conformance work.",
       "vw/vh resolve against the solve bounds and w/h (pw/ph) against the containing block; where an axis is not threaded they degrade to the local available size, never to zero.",
       "calc() is a bounded additive model: at most 8 signed cell/%/vw/vh/w/h terms, no nesting, multiplication, or fr.",
-      "min-content/max-content/fit-content are exact on the width axis (longest word / unwrapped line) and a terminal subset on the height axis (the measured wrapped height); in grid tracks and flex-basis they behave as auto.",
+      "min-content/max-content/fit-content are exact on the width axis (longest word / unwrapped line) and a terminal subset on the height axis (the measured wrapped height); in flex-basis they behave as auto, while grid tracks measure span-1 content (columns via width intrinsics, rows via measured height at the resolved column width).",
+      "Floats and full browser table layout are deliberately out of scope: evaluated August 2026, no concrete TUI use case justifies them, and no emulation path will be added without one.",
     ],
   }),
 );

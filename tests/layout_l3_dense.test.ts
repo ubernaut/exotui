@@ -10,6 +10,7 @@ import {
   GRID_DENSE_PLACEMENT_SEMANTICS,
   parseCssStylesheet,
   parseTuiMarkup,
+  SIMPLE_LAYOUT_SOLVER_CAPABILITIES,
 } from "../mod.ts";
 
 const MARKUP = `
@@ -69,4 +70,12 @@ Deno.test("bare 'dense' implies row flow; flow word alone stays sparse", () => {
   );
   assertEquals(styled.style.gridAutoFlow, "row");
   assertEquals(styled.style.gridAutoFlowDense, true);
+});
+
+Deno.test("floats and browser tables are a declared exclusion, not an omission", () => {
+  const note = SIMPLE_LAYOUT_SOLVER_CAPABILITIES.notes.find((entry) =>
+    entry.includes("Floats and full browser table layout")
+  );
+  assert(note !== undefined);
+  assert(note.includes("out of scope"));
 });

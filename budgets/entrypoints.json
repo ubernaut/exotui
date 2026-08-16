@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 446,
-    "bytes": 5165836,
+    "bytes": 5166138,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -225,7 +225,7 @@
       "src/key_sequences.ts": 53330,
       "src/keymap.ts": 3546,
       "src/keymap_layers.ts": 30166,
-      "src/layout/capabilities.ts": 60299,
+      "src/layout/capabilities.ts": 60601,
       "src/layout/engine.ts": 4986,
       "src/layout/errors.ts": 578,
       "src/layout/flex_layout.ts": 6808,
@@ -453,7 +453,7 @@
   },
   "mod.app.ts": {
     "modules": 128,
-    "bytes": 1824109,
+    "bytes": 1824411,
     "paths": {
       "mod.app.ts": 4347,
       "src/app/actions.ts": 3908,
@@ -524,7 +524,7 @@
       "src/input_reader/mod.ts": 16541,
       "src/input_reader/types.ts": 2563,
       "src/keymap.ts": 3546,
-      "src/layout/capabilities.ts": 60299,
+      "src/layout/capabilities.ts": 60601,
       "src/layout/errors.ts": 578,
       "src/layout/grid_layout.ts": 10353,
       "src/layout/horizontal_layout.ts": 1531,
@@ -839,7 +839,7 @@
   },
   "mod.web.ts": {
     "modules": 363,
-    "bytes": 4421951,
+    "bytes": 4422253,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 14939,
@@ -1048,7 +1048,7 @@
       "src/input_reader/mod.ts": 16541,
       "src/input_reader/types.ts": 2563,
       "src/keymap.ts": 3546,
-      "src/layout/capabilities.ts": 60299,
+      "src/layout/capabilities.ts": 60601,
       "src/layout/engine.ts": 4986,
       "src/layout/errors.ts": 578,
       "src/layout/flex_layout.ts": 6808,

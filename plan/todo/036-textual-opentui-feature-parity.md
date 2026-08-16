@@ -378,8 +378,12 @@ Acceptance:
       backfill holes; placement never reorders children — the layout result stays in source order, which IS the
       focus order — and the frozen GRID_DENSE_PLACEMENT_SEMANTICS statement declares the contract for hosts.
 - [ ] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
+      (August 16, 2026: remains gated on L2 Taffy WASM, which is externally blocked; the no-emulation half of the
+      decision is already binding — nothing may fake subgrid with parent-coordinate shortcuts in the meantime.)
 - [ ] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
-- [ ] Keep floats and full browser table layout out unless a concrete TUI use case justifies them.
+- [x] Keep floats and full browser table layout out unless a concrete TUI use case justifies them. Decision
+      recorded August 16, 2026 as a tested capability note: evaluated, no concrete TUI use case justifies either,
+      and no emulation path will be added without one.
 
 Acceptance:
 
