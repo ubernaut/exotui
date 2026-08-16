@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 425,
-    "bytes": 5025867,
+    "modules": 426,
+    "bytes": 5030311,
     "paths": {
       "mod.ts": 2728,
       "src/api_stability.ts": 14939,
@@ -378,7 +378,8 @@
       "src/theme_tokens.ts": 4246,
       "src/theme_workspace.ts": 6821,
       "src/tooling/codemods.ts": 6900,
-      "src/tooling/mod.ts": 72,
+      "src/tooling/mod.ts": 111,
+      "src/tooling/release_channels.ts": 4405,
       "src/tui.ts": 10229,
       "src/types.ts": 1614,
       "src/unicode/bidi.ts": 22164,

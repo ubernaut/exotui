@@ -601,7 +601,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [ ] **PKG-007 (P2; deps: PKG-001, SEC-001)** Provide a compiled-launcher template that embeds app code but
       externalizes user data and prints its required permission manifest. **Accept:** Linux, macOS, and Windows smoke
       binaries restore terminal state and locate assets deterministically.
-- [ ] **PKG-008 (P2; deps: PKG-003)** Define stable, beta, canary, and compatibility-test release channels with
+- [x] **PKG-008 (P2; deps: PKG-003)** Define stable, beta, canary, and compatibility-test release channels with
       machine-readable support windows. **Accept:** prerelease artifacts cannot overwrite stable tags and upgrade
       diagnostics name the selected channel.
 - [ ] **PKG-009 (P1; deps: SEC-010)** Generate SPDX SBOMs and OIDC-backed build provenance for release artifacts and
