@@ -2,6 +2,7 @@
 export * from "./cascade.ts";
 export * from "./css.ts";
 export * from "./demo_fixtures.ts";
+export * from "./hot_reload.ts";
 export * from "./html.ts";
 export * from "./hydrate.ts";
 export * from "./layout_worker.ts";

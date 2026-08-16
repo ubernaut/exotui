@@ -384,7 +384,7 @@ Acceptance:
 - [x] Add high-value pseudo-classes: `focus-within`, `empty`, `enabled`, `first/last-of-type`, `light`, `dark`, `odd`,
       `even`, and explicit renderer-mode states that keep buffered main-screen and true inline modes distinct.
 - [ ] Add renderer-neutral opacity/tint/hatch and a bounded transition/timeline API for numeric/color/offset styles.
-- [ ] Add local markup/CSS hot reload with parse diagnostics and last-known-good rollback.
+- [x] Add local markup/CSS hot reload with parse diagnostics and last-known-good rollback.
 - [x] Decide whether the lightweight parser remains sufficient or whether a `css-tree` adapter is justified by the new
       grammar and diagnostics.
 
@@ -393,6 +393,13 @@ Acceptance:
 - Cascade fixtures cover nesting, scope, specificity, important rules, resets, variables, and dynamic states.
 - Dock/layer/visual-offset behavior shares overlay and hit-test ownership in terminal and browser hosts.
 - A malformed hot-reload does not destroy the live UI or its controller state.
+
+Completed hot-reload slice Aug 16, 2026 (third C1 slice): `MarkupHotReloadController` holds the live markup/CSS sources
+and validates every offered candidate — the recovery-based parser never throws, so the gate runs its own well-formedness
+scans (tag balance with void/self-closing awareness, CSS brace balance, empty-sheet warnings). Any error diagnostic
+rejects the candidate whole and keeps the last-known-good sources and version; warnings apply but are reported.
+`watchMarkupHotReload` drives it from local files through injectable IO (Deno.watchFs/readTextFile by default) with
+debounced event coalescing, and a read failure surfaces as a diagnostic without touching the live sources.
 
 Completed authoring slice Aug 16, 2026 (second C1 slice): scalar `offset: x y` (plus `offset-x`/`offset-y`) is a
 paint-owned visual translation — an engine post-pass moves the styled node's solved box subtree and hit regions without
