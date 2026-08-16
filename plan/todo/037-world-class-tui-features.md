@@ -337,7 +337,7 @@ implementation, focused tests, public export review, and relevant repository gat
       lines and stable scrollback anchors.
 - [ ] **TERM-005 (P2; deps: TERM-001)** Implement protected cells and selective erase semantics independently from
       ordinary erase. **Accept:** DECSCA/DECSED/DECSEL fixtures preserve protected content exactly.
-- [ ] **TERM-006 (P2; deps: TERM-001)** Implement bounded rectangular copy, fill, erase, attribute-change, and
+- [x] **TERM-006 (P2; deps: TERM-001)** Implement bounded rectangular copy, fill, erase, attribute-change, and
       reverse-attribute operations. **Accept:** overlapping copy and clipped rectangle cases match DEC operation
       fixtures.
 - [ ] **TERM-007 (P2; deps: TERM-001)** Add left/right margins and origin-mode interactions alongside top/bottom scroll

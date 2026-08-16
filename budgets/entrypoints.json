@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 418,
-    "bytes": 4995367,
+    "modules": 419,
+    "bytes": 5001314,
     "paths": {
       "mod.ts": 2690,
       "src/api_stability.ts": 14939,
@@ -268,6 +268,7 @@
       "src/runtime/async_iterable.ts": 46543,
       "src/runtime/cache_tags.ts": 3106,
       "src/runtime/capabilities.ts": 8714,
+      "src/runtime/cell_screen.ts": 5913,
       "src/runtime/clock.ts": 20882,
       "src/runtime/conflict_resolvers.ts": 5008,
       "src/runtime/core_metrics.ts": 4430,
@@ -281,7 +282,7 @@
       "src/runtime/infinite_query.ts": 5781,
       "src/runtime/kitty_graphics.ts": 12748,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 2582,
+      "src/runtime/mod.ts": 2616,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3838,
       "src/runtime/observability_context.ts": 3332,
