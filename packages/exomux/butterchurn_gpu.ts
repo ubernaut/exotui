@@ -545,7 +545,7 @@ export class ExomuxButterchurnGpu {
     this.#device = device;
     this.#width = Math.max(1, options.width);
     this.#height = Math.max(1, options.height);
-    [this.#renderWidth, this.#renderHeight] = renderSizeFor(this.#width, this.#height);
+    [this.#renderWidth, this.#renderHeight] = exomuxButterchurnRenderSize(this.#width, this.#height);
     const random = options.random ?? Math.random;
 
     for (let index = 0; index < 2; index += 1) {
@@ -641,7 +641,7 @@ export class ExomuxButterchurnGpu {
     if (nextWidth === this.#width && nextHeight === this.#height) return;
     this.#width = nextWidth;
     this.#height = nextHeight;
-    const [renderWidth, renderHeight] = renderSizeFor(nextWidth, nextHeight);
+    const [renderWidth, renderHeight] = exomuxButterchurnRenderSize(nextWidth, nextHeight);
     if (renderWidth !== this.#renderWidth || renderHeight !== this.#renderHeight) {
       this.#renderWidth = renderWidth;
       this.#renderHeight = renderHeight;
@@ -1133,9 +1133,7 @@ export class ExomuxButterchurnGpu {
     const storeMax = this.#blurRanges.max[level] ?? 1;
     const previousMin = level > 0 ? this.#blurRanges.min[level - 1] ?? 0 : 0;
     const previousMax = level > 0 ? this.#blurRanges.max[level - 1] ?? 1 : 1;
-    const sourceRange: readonly [number, number] = level > 0
-      ? [previousMax - previousMin, previousMin]
-      : [1, 0];
+    const sourceRange: readonly [number, number] = level > 0 ? [previousMax - previousMin, previousMin] : [1, 0];
     for (
       const [pass, output, input, direction, srcRange] of [
         [0, temp, source, [1 / width, 0], sourceRange],
@@ -1658,10 +1656,24 @@ const MESH_LAYOUT: GPUVertexBufferLayout = {
  * Terminal cells are about twice as tall as they are wide, so a grid of 88x22
  * covers the same shape as 88x44 pixels.
  */
-function renderSizeFor(width: number, height: number): [number, number] {
+/**
+ * The render target for a cell grid. Anchored at the validated 512-wide
+ * simulation size — resolution is a DYNAMICS parameter (the blur pyramid's
+ * texel-space kernels set every difference-warp's loop gain), so it must not
+ * track the window — with one guard: the target never drops below cell
+ * resolution on either axis. Past ~512 cell columns (a 4K terminal at a small
+ * font) the fixed width would make the resolve sample under one pixel per
+ * cell, silently upscaling; the guard grows the target to keep the validated
+ * ~4/3 pixels-per-cell floor instead. At every normal size the result is
+ * bit-identical to the pre-guard behavior.
+ */
+export function exomuxButterchurnRenderSize(width: number, height: number): [number, number] {
+  const align = (value: number): number => Math.ceil(value / 8) * 8;
+  const renderWidth = Math.max(RENDER_WIDTH, align((width * 4) / 3));
   const ratio = (height * 2) / Math.max(1, width);
-  const target = Math.round(RENDER_WIDTH * ratio / 8) * 8;
-  return [RENDER_WIDTH, Math.min(MAX_RENDER_HEIGHT, Math.max(MIN_RENDER_HEIGHT, target))];
+  const target = Math.round(renderWidth * ratio / 8) * 8;
+  const clamped = Math.min(MAX_RENDER_HEIGHT, Math.max(MIN_RENDER_HEIGHT, target));
+  return [renderWidth, Math.max(clamped, align((height * 4) / 3))];
 }
 
 /**

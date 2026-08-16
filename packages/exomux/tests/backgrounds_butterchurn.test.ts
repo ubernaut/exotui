@@ -12,7 +12,7 @@ import {
 import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "../butterchurn_catalog.ts";
 import { EXOMUX_BUTTERCHURN_ROTATION } from "../butterchurn_rotation.ts";
 import { ExomuxButterchurnPreset, MILKDROP_DEFAULTS } from "../butterchurn_preset.ts";
-import { exomuxSafeBlurRanges } from "../butterchurn_gpu.ts";
+import { exomuxButterchurnRenderSize, exomuxSafeBlurRanges } from "../butterchurn_gpu.ts";
 import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioFrame, type ExomuxAudioSource } from "../audio.ts";
 import { EXOMUX_BACKGROUND_IDS, type ExomuxBackgroundId, exomuxBackgroundId, exomuxTheme } from "../model.ts";
 import { exomuxBackgroundOvergrows } from "../overgrowth.ts";
@@ -1148,4 +1148,32 @@ Deno.test("butterchurn: safe blur ranges keep MilkDrop's width and nesting rules
   assertAlmostEquals(narrow.max[0], 0.575, 1e-9);
   // A level-2 cap carries into level 3.
   assertEquals(exomuxSafeBlurRanges([0, 0, 0], [1, 0.6, 1]).max, [1, 0.6, 0.6]);
+});
+
+Deno.test("butterchurn: render size is anchored at 512 and bit-stable for normal grids", () => {
+  // Resolution is a dynamics parameter — the loop fidelity was validated at
+  // these exact sizes, so the guard must not move them.
+  assertEquals(exomuxButterchurnRenderSize(96, 28), [512, 296]);
+  assertEquals(exomuxButterchurnRenderSize(220, 55), [512, 256]);
+  assertEquals(exomuxButterchurnRenderSize(383, 101), [512, 272]);
+  assertEquals(exomuxButterchurnRenderSize(60, 20), [512, 344]);
+});
+
+Deno.test("butterchurn: the resolve never samples below one pixel per cell", () => {
+  // Past ~512 columns the fixed target would silently upscale; the guard
+  // grows it to hold the validated ~4/3 px-per-cell floor on BOTH axes.
+  for (
+    const [columns, rows] of [
+      [548, 154], // 4K terminal at a small font
+      [800, 100], // ultra-wide
+      [100, 600], // degenerate portrait: the height guard engages
+    ]
+  ) {
+    const [renderWidth, renderHeight] = exomuxButterchurnRenderSize(columns!, rows!);
+    assert(renderWidth / columns! >= 4 / 3 - 0.02, `${columns}x${rows}: width ${renderWidth}`);
+    assert(renderHeight / rows! >= 4 / 3 - 0.02, `${columns}x${rows}: height ${renderHeight}`);
+    assertEquals(renderWidth % 8, 0);
+    assertEquals(renderHeight % 8, 0);
+  }
+  assertEquals(exomuxButterchurnRenderSize(548, 154), [736, 416]);
 });
