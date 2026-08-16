@@ -18,8 +18,10 @@ const BOUNDS = { column: 0, row: 0, width: 96, height: 28 };
 const THEME = exomuxTheme("midnight");
 const CHECKPOINTS = [2, 5, 10, 20, 40, 80, 120];
 
-const TARGETS = [
-  "Goody - The Wild Vort", // echo amplifier, black on GPU
+// Preset name substrings may be passed as CLI args; the default trio
+// covers the classes the plan tracks.
+const TARGETS = Deno.args.length > 0 ? Deno.args : [
+  "Goody - The Wild Vort", // echo amplifier, healthy since the UV-ring fix
   "flexi - bouncing balls", // echo class, healthy since the UNORM fix
   "cope - digital sea", // authors b1n=0.4: blur1 floor via the clamped store
 ];

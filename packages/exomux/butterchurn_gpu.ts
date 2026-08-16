@@ -289,9 +289,12 @@ const UTILITY_WGSL = `
 @group(0) @binding(0) var src_tex: texture_2d<f32>;
 @group(0) @binding(1) var src_smp: sampler;
 // direction: xy is the step along the blurred axis, zw the output texel size.
-// bounds: xy is the level's [min, max] store clamp (real butterchurn stores
-// blur levels range-compressed into the authored [b*n, b*x] and clamps, so
-// reconstruction is a hard clamp to those bounds); zw unused.
+// bounds: xy is the level's [min, max] store WINDOW — real butterchurn stores
+// blur levels range-compressed, (value - min) / (max - min), so an 8-bit
+// texture keeps full precision across the authored window and values above
+// 1.0 survive; consumers reconstruct with scale = max - min, bias = min.
+// zw is the SOURCE's [scale, bias]: the previous level's reconstruction
+// (identity 1/0 when the source is the raw warp output).
 struct UtilityParams {
   direction: vec4<f32>,
   bounds: vec4<f32>,
@@ -306,15 +309,19 @@ struct UtilityParams {
 // Nine-tap gaussian; params.direction.xy is one texel along the blurred axis.
 @fragment fn blur(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
   let uv = frag.xy * params.direction.zw;
-  var sum = vec4<f32>(0.0);
+  let srcScale = params.bounds.z;
+  let srcBias = params.bounds.w;
+  var sum = vec3<f32>(0.0);
   let weights = array<f32, 5>(0.2270270, 0.1945946, 0.1216216, 0.0540541, 0.0162162);
-  sum += textureSampleLevel(src_tex, src_smp, uv, 0.0) * weights[0];
+  sum += (textureSampleLevel(src_tex, src_smp, uv, 0.0).rgb * srcScale + vec3<f32>(srcBias)) * weights[0];
   for (var i = 1; i < 5; i++) {
     let offset = params.direction.xy * f32(i);
-    sum += textureSampleLevel(src_tex, src_smp, uv + offset, 0.0) * weights[i];
-    sum += textureSampleLevel(src_tex, src_smp, uv - offset, 0.0) * weights[i];
+    sum += (textureSampleLevel(src_tex, src_smp, uv + offset, 0.0).rgb * srcScale + vec3<f32>(srcBias)) * weights[i];
+    sum += (textureSampleLevel(src_tex, src_smp, uv - offset, 0.0).rgb * srcScale + vec3<f32>(srcBias)) * weights[i];
   }
-  return vec4<f32>(clamp(sum.rgb, vec3<f32>(params.bounds.x), vec3<f32>(params.bounds.y)), sum.a);
+  let window = max(params.bounds.y - params.bounds.x, 0.001);
+  let compressed = clamp((sum - vec3<f32>(params.bounds.x)) / window, vec3<f32>(0.0), vec3<f32>(1.0));
+  return vec4<f32>(compressed, 1.0);
 }
 
 // Box filter over the whole source footprint. A single bilinear tap reads four
@@ -1118,10 +1125,21 @@ export class ExomuxButterchurnGpu {
     const height = target.height;
     const sampler = this.#samplers.get("clamp:linear")!;
 
+    // The store window for this level, and the reconstruction of each
+    // pass's SOURCE: pass 0 reads the previous level's compressed store
+    // (or the raw warp output for level 0), pass 1 reads this level's
+    // own compressed intermediate.
+    const storeMin = this.#blurRanges.min[level] ?? 0;
+    const storeMax = this.#blurRanges.max[level] ?? 1;
+    const previousMin = level > 0 ? this.#blurRanges.min[level - 1] ?? 0 : 0;
+    const previousMax = level > 0 ? this.#blurRanges.max[level - 1] ?? 1 : 1;
+    const sourceRange: readonly [number, number] = level > 0
+      ? [previousMax - previousMin, previousMin]
+      : [1, 0];
     for (
-      const [pass, output, input, direction] of [
-        [0, temp, source, [1 / width, 0]],
-        [1, target, temp, [0, 1 / height]],
+      const [pass, output, input, direction, srcRange] of [
+        [0, temp, source, [1 / width, 0], sourceRange],
+        [1, target, temp, [0, 1 / height], [storeMax - storeMin, storeMin]],
       ] as const
     ) {
       const buffer = this.#directionBuffer(
@@ -1131,8 +1149,10 @@ export class ExomuxButterchurnGpu {
           direction[1]!,
           1 / width,
           1 / height,
-          this.#blurRanges.min[level] ?? 0,
-          this.#blurRanges.max[level] ?? 1,
+          storeMin,
+          storeMax,
+          srcRange[0]!,
+          srcRange[1]!,
         ],
       );
       const bindGroup = this.#utilityBindGroup(`blur:${level}:${pass}:${this.#mainIndex}`, input, sampler, buffer);
@@ -1280,12 +1300,20 @@ export class ExomuxButterchurnGpu {
     this.#blurRanges = ranges;
     put(UNIFORM_SLOTS.blurMin, ranges.min[0], ranges.min[1], ranges.min[2]);
     put(UNIFORM_SLOTS.blurMax, ranges.max[0], ranges.max[1], ranges.max[2]);
-    // Real butterchurn stores blur range-compressed and reconstructs with
-    // scale = max - min, bias = min. Our store is unnormalized (only clamped
-    // to the authored bounds in the blur pass), so reconstruction stays the
-    // identity: scale 1, bias 0.
-    put(UNIFORM_SLOTS.scales, 1, 1, 1);
-    put(UNIFORM_SLOTS.biases, 0, 0, 0);
+    // The blur passes store range-compressed, (value - min) / (max - min),
+    // exactly as real butterchurn does — full 8-bit precision across the
+    // authored window and >1 energies survive — so preset shaders
+    // reconstruct with scale = max - min, bias = min. This is what keeps a
+    // difference-of-blurs comp (the Ego Decontructor class) alive when the
+    // loop saturates: raw clamped stores made blur1 and blur3 identical at
+    // 1.0 and the difference collapsed to black.
+    put(
+      UNIFORM_SLOTS.scales,
+      ranges.max[0] - ranges.min[0],
+      ranges.max[1] - ranges.min[1],
+      ranges.max[2] - ranges.min[2],
+    );
+    put(UNIFORM_SLOTS.biases, ranges.min[0], ranges.min[1], ranges.min[2]);
     // Deterministic per-frame randomness; presets use it to jitter sampling.
     const seed = frame.frame * 0.0137;
     put(

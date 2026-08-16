@@ -216,6 +216,21 @@ Current gap list (real-audio diag, run of record): `beta106at shape - mash0000` 
 Splash Poolz` 0.60%, `pogo cubes vs. tokamak` 1.23%, `flexi - infused with the spiral` 0.30%, `Flexi - truly soft
 piece of software` 0.45% — plus ~9 more dim entries; five truly black in total.
 
+### Aug 16 2026: range-compressed blur stores (real butterchurn's storage contract)
+
+Stage-by-stage readback for Ego Decontructor showed a healthy LOOP (mean up to 0.55, 88% lit) with a comp output
+decaying to 0.01 — a difference-of-blurs comp (`2·(blur1 − blur3)·main`). That prompted finishing the blur storage
+contract: the blur passes now store `(value − b_n)/(b_x − b_n)` — full 8-bit precision across the authored window
+and >1 energies survive — with each pass decompressing its source (the previous level's window, or identity for the
+raw warp output), and preset shaders reconstruct with `scale_i = b_x − b_n`, `bias_i = b_n` instead of the old
+identity 1/0 over a raw clamped store.
+
+Measured: Wild Vort's comp rose 0.30 → 0.35–0.38 (70–75% lit, stable); cope - digital sea's loop reaches 0.41 /
+comp 0.35 (was oscillating 0.13–0.15); fleet buckets unchanged (396/5/14/5 — no regressions). **Ego is unchanged**
+— its comp still decays against a bright loop, so the raw-clamp hypothesis is eliminated for that class. Next lead
+for Ego: its comp warps sampling coordinates through `sampler_noise_hq` — verify our generated noise textures match
+real butterchurn's (amplitude, distribution, smoothing, and the hq/lq variants' statistics).
+
 ## Verification
 
 - `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
