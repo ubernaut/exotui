@@ -5,5 +5,6 @@ export * from "./src/testing/scene.ts";
 export * from "./src/testing/visual_report.ts";
 export * from "./src/testing/matrix.ts";
 export * from "./src/testing/model_testing.ts";
+export * from "./src/testing/flake_detection.ts";
 export * from "./src/testing/plugin_test_host.ts";
 export * from "./src/testing/app.ts";
