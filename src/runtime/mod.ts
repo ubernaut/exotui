@@ -45,6 +45,7 @@ export * from "./observability_context.ts";
 export * from "./offline_queue.ts";
 export * from "./priority_scheduler.ts";
 export * from "./rate_limiter.ts";
+export * from "./resource_limits.ts";
 export * from "./retry_policy.ts";
 export * from "./signal_exporters.ts";
 export * from "./signal_redaction.ts";
