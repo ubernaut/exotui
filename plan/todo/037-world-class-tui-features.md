@@ -308,7 +308,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **WID-006 (P1; deps: VIS-001, 023:T3)** Add a virtualized tree-grid combining hierarchy with sortable/resizable
       columns and pinned hierarchy cells. **Accept:** expansion, column operations, focus, and selection preserve row
       IDs over data refresh.
-- [ ] **WID-007 (P1; deps: TXT-005, 023:V1)** Add a lazy JSON/YAML structured inspector with path copy, type-aware
+- [x] **WID-007 (P1; deps: TXT-005, 023:V1)** Add a lazy JSON/YAML structured inspector with path copy, type-aware
       search, folding, and reference-cycle markers. **Accept:** large documents parse off-thread and never stringify
       cycles implicitly.
 - [ ] **WID-008 (P2; deps: TXT-005, 023:V1)** Add a virtualized hex/binary viewer with byte/word grouping, endian
