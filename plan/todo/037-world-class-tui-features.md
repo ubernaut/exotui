@@ -21,12 +21,12 @@ the 023 roadmap. They are executed as dependency-ordered, verified batches rathe
 
 ## Progress Snapshot
 
-As of Aug 16, 2026, 44 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001, LOC-002,
-LOC-004, INP-002, INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003, INP-001,
-INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004, HIS-006,
-HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157 items
-stay open below; a checked box means its implementation, focused tests, public export review, and relevant repository
-gates passed.
+As of Aug 16, 2026, 45 of 200 features are verified and checked (TXT-004 through TXT-007, TXT-010, LOC-001, LOC-002,
+LOC-004, INP-002, INP-004, INP-005, INP-009, and FRM-003 through FRM-007 landed Aug 16): TXT-001 through TXT-003,
+INP-001, INP-006, INP-010, DAT-001 through DAT-003, FRM-001, FRM-002, NAV-001, NAV-002, HIS-001 through HIS-004,
+HIS-006, HIS-007, HIS-009, ASY-001, ASY-003, ASY-005, ASY-006, ASY-010, SEC-001, SEC-008, and REM-001. The remaining 157
+items stay open below; a checked box means its implementation, focused tests, public export review, and relevant
+repository gates passed.
 
 ## Feature Backlog
 
@@ -107,7 +107,7 @@ gates passed.
 - [ ] **INP-003 (P1; deps: INP-002)** Map browser beforeinput, input, composition, and selection events into the
       canonical editing transaction order. **Accept:** Chromium/WebKit-compatible fixture traces do not double-insert
       committed IME text.
-- [ ] **INP-004 (P2; deps: INP-002)** Define a terminal preedit provider boundary for hosts that can supply IME state,
+- [x] **INP-004 (P2; deps: INP-002)** Define a terminal preedit provider boundary for hosts that can supply IME state,
       with an explicit unsupported fallback for ordinary TTYs. **Accept:** the core never claims terminal IME support
       without a provider and provider disposal clears preedit state.
 - [x] **INP-005 (P1; deps: INP-001, INP-002, TXT-002)** Add dead-key and configurable compose-sequence processing before

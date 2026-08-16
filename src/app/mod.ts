@@ -12,6 +12,7 @@ export * from "./data_query_commands.ts";
 export * from "./data_table_commands.ts";
 export * from "./disposables.ts";
 export * from "./compose_sequences.ts";
+export * from "./preedit_provider.ts";
 export * from "./composition.ts";
 export * from "./form_async_validation.ts";
 export * from "./form_server_errors.ts";
