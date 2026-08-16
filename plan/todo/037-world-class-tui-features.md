@@ -508,7 +508,7 @@ implementation, focused tests, public export review, and relevant repository gat
 - [x] **SEC-009 (P1; deps: SEC-001, ASY-003, ASY-004)** Enforce per-subsystem limits for memory estimates, queued work,
       output bytes, control strings, cache entries, and restart rate. **Accept:** limit breaches degrade or stop only
       the owning scope and emit a classified diagnostic.
-- [ ] **SEC-010 (P2; deps: SEC-001, SEC-008)** Add content-integrity verification for fetched bundles, themes, plugins,
+- [x] **SEC-010 (P2; deps: SEC-001, SEC-008)** Add content-integrity verification for fetched bundles, themes, plugins,
       and cached artifacts using host-supplied hashes/signatures. **Accept:** verification occurs before
       parsing/execution and mismatch never falls back to unsigned content silently.
 
