@@ -1446,10 +1446,13 @@ export function mountExomuxDesktop(
     unsubscribers.push(() => clearInterval(animationTicker));
   }
 
-  const beginWindowTransition = (command: WorkbenchWindowHostCommand): void => {
-    if (!surfaceAnimationsEnabled) return;
-    // The settings pane is the source of truth per event: kind per
-    // transition plus a global speed ("off" disables).
+  // Restore-from-minimized flies the window back out of its taskbar button:
+  // the window paints once into a scratch frame for its snapshot while the
+  // real paint is suppressed, then the ghost expands from the button.
+  const pendingFlyInIds = new Set<string>();
+  const suppressedWindowIds = new Set<string>();
+
+  const applyAnimationSettings = (): ReturnType<typeof controller.globalSettings.peek> => {
     const global = controller.globalSettings.peek();
     surfaceAnimator.setSettings({
       speed: global.animationSpeed,
@@ -1460,6 +1463,32 @@ export function mountExomuxDesktop(
         restore: global.animationRestore,
       },
     });
+    return global;
+  };
+
+  /** Center of the surface a window animates to/from in the top bar: its
+   * taskbar button for terminals, the start button for panels. */
+  const flyAnchorFor = (windowId: string): { column: number; row: number } => {
+    const bar = projectExomuxTerminalBar(controller, windowProjection.peek(), shelfBounds.peek());
+    for (const command of bar.commands) {
+      const action = command.item.action;
+      if (
+        action.kind === "session" && exomuxWindowId(action.sessionId) === windowId
+      ) {
+        return {
+          column: command.rect.column + Math.floor(command.rect.width / 2),
+          row: command.rect.row,
+        };
+      }
+    }
+    return { column: START_BUTTON.column + Math.floor(START_BUTTON.width / 2), row: 0 };
+  };
+
+  const beginWindowTransition = (command: WorkbenchWindowHostCommand): void => {
+    if (!surfaceAnimationsEnabled) return;
+    // The settings pane is the source of truth per event: kind per
+    // transition plus a global speed ("off" disables).
+    const global = applyAnimationSettings();
     let transition: SurfaceTransition;
     switch (command.kind) {
       case "close":
@@ -1484,7 +1513,24 @@ export function mountExomuxDesktop(
       : projection.windows.find((window) => window.active)?.id;
     if (!id) return;
     const window = projection.windows.find((entry) => entry.id === id);
-    if (!window?.rect || window.rect.width <= 0 || window.rect.height <= 0) return;
+    if (!window?.rect || window.rect.width <= 0 || window.rect.height <= 0) {
+      // A minimized window has no on-screen cells to play out. Restoring
+      // one flies it back OUT of its taskbar button instead: capture on
+      // the next paint, suppress the real window while the ghost lands.
+      if (
+        transition === "restore" && global.animationSpeed !== "off" &&
+        global.animationRestore !== undefined
+      ) {
+        pendingFlyInIds.add(id);
+        animationRevision.value = animationRevision.peek() + 1;
+      }
+      return;
+    }
+    // Restoring a window that is still on screen (un-maximize) is a
+    // geometry morph of its old bounds, not a trip to the taskbar.
+    if (transition === "restore") transition = "maximize";
+    const bounds = app.tui.rectangle.peek();
+    const anchor = flyAnchorFor(id);
     const snapshot = snapshotExomuxDesktopRect(lastDesktopRows, window.rect);
     if (!snapshot) return;
     const started = surfaceAnimator.begin({
@@ -1493,8 +1539,40 @@ export function mountExomuxDesktop(
       rect: { ...window.rect },
       snapshot: snapshot.plain,
       now: performance.now(),
+      // Effects roam the whole screen: shrapnel past the edges, melt to
+      // the bottom row, minimize streaming into its taskbar button.
+      overflow: exomuxOverflowToScreen(window.rect, bounds),
+      flyTarget: {
+        column: anchor.column - window.rect.column,
+        row: anchor.row - window.rect.row,
+      },
     });
     if (started) animationStyles.set(id, snapshot.styled);
+  };
+
+  /** Called by the desktop painter with a scratch-painted restored window. */
+  const captureFlyIn = (windowId: string, rows: string[][], rect: Rectangle): void => {
+    pendingFlyInIds.delete(windowId);
+    const global = applyAnimationSettings();
+    if (global.animationSpeed === "off") return;
+    const snapshot = snapshotExomuxDesktopRect(rows, rect);
+    if (!snapshot) return;
+    const bounds = app.tui.rectangle.peek();
+    const anchor = flyAnchorFor(windowId);
+    const started = surfaceAnimator.begin({
+      surfaceId: windowId,
+      transition: "restore",
+      rect: { ...rect },
+      snapshot: snapshot.plain,
+      now: performance.now(),
+      direction: "in",
+      overflow: exomuxOverflowToScreen(rect, bounds),
+      flyTarget: { column: anchor.column - rect.column, row: anchor.row - rect.row },
+    });
+    if (started) {
+      animationStyles.set(windowId, snapshot.styled);
+      suppressedWindowIds.add(windowId);
+    }
   };
 
   {
@@ -1529,6 +1607,7 @@ export function mountExomuxDesktop(
       snapshot: snapshot.plain,
       now: performance.now(),
       direction: "out",
+      overflow: exomuxOverflowToScreen(rect, app.tui.rectangle.peek()),
     });
     if (started) animationStyles.set(surfaceId, snapshot.styled);
   };
@@ -1585,7 +1664,11 @@ export function mountExomuxDesktop(
     const paints: ExomuxAnimationOverlayPaint[] = [];
     for (const overlay of overlays) {
       const styled = animationStyles.get(overlay.surfaceId);
-      if (overlay.frame.done) animationStyles.delete(overlay.surfaceId);
+      if (overlay.frame.done) {
+        animationStyles.delete(overlay.surfaceId);
+        // A landed fly-in hands the cells back to the real window paint.
+        suppressedWindowIds.delete(overlay.surfaceId);
+      }
       if (!styled || overlay.frame.done) continue;
       paints.push({ overlay, styled });
     }
@@ -1681,6 +1764,11 @@ export function mountExomuxDesktop(
     render: () => {
       const rows = renderExomuxDesktop({
         animationOverlays: collectAnimationOverlays(),
+        flyIn: {
+          pending: pendingFlyInIds,
+          suppressed: suppressedWindowIds,
+          capture: captureFlyIn,
+        },
         bounds: app.tui.rectangle.peek(),
         body: bodyRect.peek(),
         projection: windowProjection.peek(),
@@ -3720,9 +3808,19 @@ interface ExomuxAnimationOverlayPaint {
   styled: string[][];
 }
 
+/** Restore-fly-in hooks: scratch-capture a restored window, then hide it
+ * while its ghost flies out of the taskbar button. */
+interface ExomuxFlyInHooks {
+  readonly pending: ReadonlySet<string>;
+  readonly suppressed: ReadonlySet<string>;
+  capture(windowId: string, rows: string[][], rect: Rectangle): void;
+}
+
 interface RenderExomuxDesktopOptions {
   /** Window-transition ghosts composited above windows (039). */
   animationOverlays?: readonly ExomuxAnimationOverlayPaint[];
+  /** Restore-from-minimized capture/suppression (039 fly-in). */
+  flyIn?: ExomuxFlyInHooks;
   bounds: Rectangle;
   body: Rectangle;
   projection: WorkbenchWindowHostProjection;
@@ -4140,8 +4238,31 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   // modals, and the cursor sit above every window and must not tint grounds.
   // Each window commits before the next paints, so a window never blends
   // against its own cells — only against the scene below it.
-  painter.beginGroundDeposits(exomuxSceneGround, theme.surface);
-  for (const window of projection.tiledWindows) {
+  const paintOneWindow = (window: WorkbenchWindowChromeProjection): void => {
+    const flyIn = options.flyIn;
+    // A restoring window is hidden while its ghost flies out of the
+    // taskbar button; its first frame paints into a scratch grid so the
+    // ghost has real cells to fly with.
+    if (flyIn?.suppressed.has(window.id)) return;
+    if (flyIn?.pending.has(window.id) && window.rect) {
+      const scratch = new DesktopPainter(bounds, theme);
+      paintWindow(
+        scratch,
+        window,
+        controller,
+        options.selectedSessionIndex,
+        backdrop,
+        options.settingsWidgets,
+        options.settingsPickers,
+        options.settingsOptions,
+        options.sessionNameField,
+        options.sessionList,
+        options.sessionListScrollTop,
+        options.networkTreeView,
+      );
+      flyIn.capture(window.id, scratch.rows, window.rect);
+      if (flyIn.suppressed.has(window.id)) return;
+    }
     paintWindow(
       painter,
       window,
@@ -4157,6 +4278,10 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.networkTreeView,
     );
     exomuxSceneGround.commitWindow();
+  };
+  painter.beginGroundDeposits(exomuxSceneGround, theme.surface);
+  for (const window of projection.tiledWindows) {
+    paintOneWindow(window);
   }
   const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
   for (const separator of projection.separators) {
@@ -4168,21 +4293,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
   exomuxSceneGround.commitWindow();
   for (const window of projection.floatingWindows) {
-    paintWindow(
-      painter,
-      window,
-      controller,
-      options.selectedSessionIndex,
-      backdrop,
-      options.settingsWidgets,
-      options.settingsPickers,
-      options.settingsOptions,
-      options.sessionNameField,
-      options.sessionList,
-      options.sessionListScrollTop,
-      options.networkTreeView,
-    );
-    exomuxSceneGround.commitWindow();
+    paintOneWindow(window);
   }
   painter.endGroundDeposits();
   // Post-window overlay: effects that sit on top of window chrome (puddles,
@@ -4313,22 +4424,34 @@ function paintAnimationOverlay(
 ): void {
   const { overlay, styled } = paint;
   const { rect, frame } = overlay;
-  for (let row = 0; row < frame.cells.length; row += 1) {
-    const cells = frame.cells[row]!;
-    for (let column = 0; column < cells.length; column += 1) {
-      const cell = cells[column];
-      if (!cell) continue;
-      const source = styled[cell.sourceRow]?.[cell.sourceColumn];
-      const data = source && source !== " " ? widgetSurfaceCellData(source) : undefined;
-      const background = data?.background ?? theme.background;
-      let foreground = data?.foreground ?? theme.text;
-      if (cell.heat !== undefined) {
-        // Embers glow from deep red toward the warning tone as heat rises.
-        foreground = mixExomuxRgb(theme.danger, theme.warning, cell.heat);
-      }
-      painter.cell(rect.column + column, rect.row + row, cell.char, { foreground, background });
+  // Cells are snapshot-relative and may land anywhere on the desktop
+  // (debris off the window edges); the painter clips at the screen.
+  for (const cell of frame.cells) {
+    const source = styled[cell.sourceRow]?.[cell.sourceColumn];
+    const data = source && source !== " " ? widgetSurfaceCellData(source) : undefined;
+    const background = data?.background ?? theme.background;
+    let foreground = data?.foreground ?? theme.text;
+    if (cell.heat !== undefined) {
+      // Embers glow from deep red toward the warning tone as heat rises.
+      foreground = mixExomuxRgb(theme.danger, theme.warning, cell.heat);
     }
+    painter.cell(rect.column + cell.column, rect.row + cell.row, cell.char, { foreground, background });
   }
+}
+
+/** Travel room from a surface rect to just past every screen edge. */
+function exomuxOverflowToScreen(rect: Rectangle, bounds: Rectangle): {
+  left: number;
+  right: number;
+  up: number;
+  down: number;
+} {
+  return {
+    left: Math.max(0, rect.column - bounds.column) + 2,
+    right: Math.max(0, bounds.column + bounds.width - (rect.column + rect.width)) + 2,
+    up: Math.max(0, rect.row - bounds.row) + 2,
+    down: Math.max(0, bounds.row + bounds.height - (rect.row + rect.height)) + 2,
+  };
 }
 
 /** Paints the start-menu dropdown below the top-left button. */

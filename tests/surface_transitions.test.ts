@@ -3,6 +3,7 @@ import { createMotionContext } from "../src/theme_motion.ts";
 import {
   createSurfaceTransitionAnimator,
   DEFAULT_SURFACE_TRANSITION_SETTINGS,
+  SURFACE_TRANSITION_BASE_DURATION_MS,
   surfaceTransitionMotionToken,
 } from "../src/app/surface_transitions.ts";
 
@@ -104,6 +105,7 @@ Deno.test("speed scales the duration and defaults cover every transition", () =>
   });
   slow.begin({ surfaceId: "w", transition: "close", rect: RECT, snapshot: SNAPSHOT, now: 0 });
   // At the base duration a slow animation is only halfway.
-  assertEquals(slow.framesAt(320)[0]!.frame.done, false);
-  assertEquals(slow.framesAt(640)[0]!.frame.done, true);
+  const base = SURFACE_TRANSITION_BASE_DURATION_MS.close;
+  assertEquals(slow.framesAt(base)[0]!.frame.done, false);
+  assertEquals(slow.framesAt(base * 2)[0]!.frame.done, true);
 });

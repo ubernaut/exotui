@@ -15,6 +15,7 @@ import {
   type SurfaceAnimation,
   type SurfaceAnimationChoice,
   type SurfaceAnimationFrame,
+  type SurfaceAnimationOverflow,
   type SurfaceAnimationSpeed,
   surfaceAnimationSpeedScale,
   type SurfaceTransition,
@@ -42,10 +43,12 @@ export const DEFAULT_SURFACE_TRANSITION_SETTINGS: SurfaceTransitionSettings = {
 /** Base durations before the speed scale (ms). */
 export const SURFACE_TRANSITION_BASE_DURATION_MS: Record<SurfaceTransition, number> = {
   open: 220,
-  close: 320,
-  minimize: 200,
+  close: 340,
+  // Minimize/restore may travel the whole screen to a taskbar button;
+  // the flight needs enough frames to read as motion, not a blink.
+  minimize: 280,
   maximize: 200,
-  restore: 200,
+  restore: 280,
 };
 
 /** One playing overlay. */
@@ -87,6 +90,14 @@ export interface BeginSurfaceTransitionOptions {
    * the old content crumbles away over the freshly painted surface.
    */
   readonly direction?: "in" | "out";
+  /**
+   * Travel room beyond the snapshot edges (typically the distances to
+   * the screen edges) so debris explodes off the window and melt runs
+   * down the whole screen. Defaults to confined.
+   */
+  readonly overflow?: Partial<SurfaceAnimationOverflow>;
+  /** Snapshot-relative point the "fly" kind converges to / emerges from. */
+  readonly flyTarget?: { readonly column: number; readonly row: number };
 }
 
 /** Motion token names consulted on a MotionContext, per transition. */
@@ -158,6 +169,8 @@ export class SurfaceTransitionAnimator {
         direction: options.direction ?? surfaceTransitionDirection(options.transition),
         durationMs,
         seed: this.#seed + this.#sequence * 7919,
+        overflow: options.overflow,
+        flyTarget: options.flyTarget,
       }),
     });
     return true;

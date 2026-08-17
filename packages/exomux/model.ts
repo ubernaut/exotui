@@ -703,7 +703,7 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
   Object.freeze({
     id: "animationMinimize" as const,
     label: "Minimize animation",
-    detail: "How a window leaves for the taskbar.",
+    detail: "How a window leaves; fly streams it into its taskbar button.",
     values: EXOMUX_ANIMATION_KIND_VALUES,
     format: (value: ExomuxSettingValue) => String(value),
   }),
@@ -717,7 +717,7 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
   Object.freeze({
     id: "animationRestore" as const,
     label: "Restore animation",
-    detail: "Ghost played over the old bounds when a window comes back.",
+    detail: "How a window comes back; fly streams it out of its taskbar button.",
     values: EXOMUX_ANIMATION_KIND_VALUES,
     format: (value: ExomuxSettingValue) => String(value),
   }),
@@ -748,9 +748,10 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     // Animated window transitions ship on at a comfortable pace (039).
     animationSpeed: "normal" as const,
     animationClose: "disintegrate" as const,
-    animationMinimize: "fade" as const,
+    // Minimize/restore fly to and from the window's taskbar button.
+    animationMinimize: "fly" as const,
     animationMaximize: "fade" as const,
-    animationRestore: "fade" as const,
+    animationRestore: "fly" as const,
     animationMenus: "fade" as const,
   });
 }
