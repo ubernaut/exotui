@@ -37,15 +37,16 @@ library export.
   pipeline is validated against real butterchurn frame-by-frame, and 468 of the 472 presets hold a live picture in the
   auto-cycle rotation.
 - **The terminal is the GPU.** Under Ghostty, exomux manages real display shaders: CRT scanlines, barrel distortion
-  (with pointer-warp compensation so your mouse still lands where it looks), and a five-artifact VHS effect — plus a
-  manager window for chaining your own GLSL files.
+  (with cursor-quantized pointer warping — the cell the cursor shows is exactly the cell a click acts on), and a
+  five-artifact VHS effect — plus a manager window for chaining your own GLSL files. Every shader parameter tunes in
+  2.5% steps.
 - **Your network is a tree.** Saved SSH hosts and live Tailscale devices in one panel: open a shell, launch a remote
   system monitor, ping, copy addresses to the OS clipboard, discover tmux/exomux sessions on other machines and attach
   with focus-if-open semantics, all fuzzy-filterable. Paste a local file path onto a remote shell and it offers to `scp`
   it to that shell's working directory.
 - **Engineered like it matters.** The write path survives saturated ptys and self-heals truncated frames; multiple
   clients attached to one session stay in live sync; resumed full-screen apps are asked to repaint themselves; a debug
-  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 434
+  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 440
   tests.
 
 ## Who it's for
@@ -128,7 +129,7 @@ deno task exomux            # or: ./visualization exomux
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
 
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 434
+It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 440
 tests, and it reaches the toolkit only through the public entrypoints listed below.
 
 ```sh
@@ -456,6 +457,26 @@ catalog. Common entrypoints are:
 
 Use `./visualization --list` for every current alias and description. Use `deno task` with no task name to inspect all
 direct Deno tasks from `deno.jsonc`.
+
+### Production showcases
+
+Three application-scale showcases under `examples/showcases/` prove the toolkit at product depth. Each runs from a plain
+`deno task` (add `:persistent` to keep state across launches) or from the [Nix flake](#nix-flake):
+
+| Command                     | Application                                                 |
+| --------------------------- | ----------------------------------------------------------- |
+| `deno task orbital-command` | 3D orbital observatory and mission console                  |
+| `deno task glyph-forge`     | Cell-art studio with layers, frames, and a figlet text tool |
+| `deno task inkstone`        | Markdown notes editor with command palette and find/replace |
+
+Orbital Command renders a real Three.js scene — Earth, deterministic starfield, Kepler-propagated orbits — through the
+ASCII pipeline, with simulation-time controls, live telemetry, and terminal-cell raycast picking: clicking a satellite
+marker selects it, and the catalog list, telemetry panel, and gold selection emphasis stay linked. Without WebGPU it
+falls back to an honest top-down text map.
+
+GlyphForge paints styled cells with atomic undo per gesture, and its text tool stamps FIGlet lettering in any font from
+the patorjk corpus: `deno task glyph-forge:fonts` installs over 400 fonts, and `b` opens a searchable font browser with
+a live preview.
 
 ## Screenshots
 
