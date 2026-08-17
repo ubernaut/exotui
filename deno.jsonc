@@ -51,6 +51,9 @@
     "inkstone": "deno run ./examples/showcases/inkstone/main.ts",
     "inkstone:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/inkstone/main.ts --persist --state-file=\"$state_dir/inkstone-session.json\"'",
     "inkstone:check": "deno check ./examples/showcases/inkstone/main.ts",
+    "orbital-command": "deno run ./examples/showcases/orbital_command/main.ts",
+    "orbital-command:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/orbital_command/main.ts --persist --state-file=\"$state_dir/orbital-command-session.json\"'",
+    "orbital-command:check": "deno check ./examples/showcases/orbital_command/main.ts",
     // Exomux is a standalone package with its own import map and lockfile —
     // deliberately not a workspace member, because a Deno workspace shares one
     // npm resolution and `deno compile` materializes all of it, which put ~48MB
