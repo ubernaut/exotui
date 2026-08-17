@@ -4,14 +4,9 @@
 
 [![The exomux desktop: transparent stacked terminal windows, the network panel, htop over animated backgrounds, all under a CRT/VHS shader](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui.png)](https://raw.githubusercontent.com/ubernaut/exotui/main/docs/screenshots/exotui-demo.mp4)
 
-
-
 https://github.com/user-attachments/assets/ec94417d-81a8-4c9c-bf77-455f7b1b5dd8
 
-
-
 https://github.com/user-attachments/assets/99d1d873-04c6-4a7e-aecc-89db72512292
-
 
 — that screenshot is a real terminal: draggable transparent windows compositing through each other, a fluid-simulated
 desktop behind them, remote machines one keystroke away, and a VHS shader over the lot.
@@ -142,6 +137,21 @@ deno task exomux:compile    # a self-contained binary
 ```
 
 Exomux's detached host currently requires Linux or Windows; see [OS Support](#os-support).
+
+### Nix flake
+
+The repository is a Nix flake: every launcher wraps the matching `deno task`, pins the runtime, and keeps module
+downloads in a per-user cache (`~/.cache/exotui-deno`), so nothing else needs to be installed.
+
+```sh
+nix run github:ubernaut/exotui                    # exomux, the default app
+nix run github:ubernaut/exotui#orbital-command    # or glyph-forge, inkstone
+nix run github:ubernaut/exotui#glyph-forge-fonts  # install the figlet corpus for glyph-forge
+nix profile install github:ubernaut/exotui#exomux # keep exomux on PATH
+nix develop                                       # dev shell with deno and tmux
+```
+
+From a checkout the same commands take `.` instead of the GitHub reference (`nix run .#glyph-forge`).
 
 ## Library quick start
 
