@@ -1991,7 +1991,12 @@ export function mountExomuxDesktop(
     if (action.kind === "sessions") {
       controller.openSessionManager(bodyRect.peek());
     } else {
-      await controller.openSession(action.sessionId, bodyRect.peek());
+      const windowId = exomuxWindowId(action.sessionId);
+      if (controller.windowHost.controller.inspect().activeWindowId === windowId) {
+        controller.windowHost.execute({ kind: "minimize", id: windowId }, bodyRect.peek());
+      } else {
+        await controller.openSession(action.sessionId, bodyRect.peek());
+      }
     }
     await syncWindows();
   };

@@ -1607,6 +1607,35 @@ Deno.test("Exomux terminal bar raises every open terminal, protects floating pai
       mounted.windowProjection.peek().floatingWindows.at(-1)?.id,
       exomuxWindowId("bar-one"),
     );
+    await harness.pilot.click(
+      firstButton.hitRect.column + Math.floor(firstButton.hitRect.width / 2),
+      firstButton.hitRect.row,
+    );
+    await mounted.whenIdle();
+    assertEquals(
+      controller.windowHost.controller.inspect().windows.find((entry) => entry.id === exomuxWindowId("bar-one"))
+        ?.state,
+      "minimized",
+    );
+    bar = projectExomuxTerminalBar(
+      controller,
+      mounted.windowProjection.peek(),
+      mounted.shelfBounds.peek(),
+    );
+    const minimizedFirstButton = bar.commands.find((command) =>
+      command.item.action.kind === "session" && command.item.action.sessionId === "bar-one"
+    );
+    assert(minimizedFirstButton);
+    await harness.pilot.click(
+      minimizedFirstButton.hitRect.column + Math.floor(minimizedFirstButton.hitRect.width / 2),
+      minimizedFirstButton.hitRect.row,
+    );
+    await mounted.whenIdle();
+    assertNotEquals(
+      controller.windowHost.controller.inspect().windows.find((entry) => entry.id === exomuxWindowId("bar-one"))
+        ?.state,
+      "minimized",
+    );
 
     for (const entry of initialSessions.slice(0, 2)) {
       controller.windowHost.execute({
