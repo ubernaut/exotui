@@ -280,6 +280,53 @@ Deno.test("decodeBuffer ignores generated incomplete trailing escape sequences",
   }
 });
 
+Deno.test("decodeBuffer flush decodes a lone trailing ESC as the escape key", () => {
+  const events: InputEvent[] = [];
+  for (const event of decodeBuffer(encoder.encode("a\x1b"), true)) {
+    events.push({ ...event });
+  }
+  assertEquals(events.map((event) => event.key), ["a", "escape"]);
+});
+
+Deno.test("emitInputEvents delivers a lone ESC as escape instead of fusing an alt-chord", async () => {
+  // First read hands over a bare ESC; the continuation never comes, so the
+  // reader must flush it as the escape key rather than waiting to fuse it
+  // with the next keypress into meta+x.
+  let call = 0;
+  const stdin = {
+    read(buffer: Uint8Array) {
+      call += 1;
+      if (call === 1) {
+        buffer.set(encoder.encode("\x1b"));
+        return Promise.resolve(1);
+      }
+      if (call === 2) {
+        // Resolves well after the escape-flush window.
+        return new Promise<number>((resolve) => {
+          setTimeout(() => {
+            buffer.set(encoder.encode("x"));
+            resolve(1);
+          }, 120);
+        });
+      }
+      return Promise.resolve(null);
+    },
+    setRaw() {},
+  } as unknown as Stdin;
+  const emitter = new EventEmitter<InputEventRecord>();
+  const keys: Array<{ key: string; meta: boolean }> = [];
+  emitter.on("keyPress", (event) => {
+    keys.push({ key: event.key, meta: event.meta });
+  });
+
+  await emitInputEvents(stdin, emitter, 0);
+
+  assertEquals(keys, [
+    { key: "escape", meta: false },
+    { key: "x", meta: false },
+  ]);
+});
+
 function seededRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {

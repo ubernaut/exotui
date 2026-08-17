@@ -353,7 +353,12 @@ function refreshMenu(): void {
       value = asciiOptions.terminalEdgeBias.toFixed(2);
     }
 
-    menuLines[index].value = `${marker} ${row.label.padEnd(18)} ${value}`;
+    // Right-align values inside the panel interior so long values
+    // ("OpenTUI Blocks") never run through the frame's right border.
+    const interior = menuWidth - 1;
+    const left = `${marker} ${row.label}`;
+    const gap = Math.max(1, interior - left.length - value.length);
+    menuLines[index].value = `${left}${" ".repeat(gap)}${value}`.slice(0, interior);
   });
 }
 
@@ -459,35 +464,38 @@ menuLines.forEach((line, index) => {
   });
 });
 
-tui.on("keyPress", ({ key, ctrl, meta, shift }) => {
-  if (ctrl || meta || shift) {
+tui.on("keyPress", ({ key, ctrl, meta }) => {
+  if (ctrl || meta) {
+    return;
+  }
+  // Shifted letters arrive as their uppercase code; the header advertises
+  // plain letters, so both cases must work.
+  const lower = key.length === 1 ? key.toLowerCase() : key;
+
+  if (lower === "escape" || lower === "x") {
+    tui.emit("destroy");
     return;
   }
 
-  if (key === "m") {
+  if (lower === "m") {
     menuVisible.value = !menuVisible.peek();
     return;
   }
 
-  if (key === "f") {
+  if (lower === "f") {
     renderMaximized.value = !renderMaximized.peek();
     if (renderMaximized.peek()) renderMinimized.value = false;
     return;
   }
 
-  if (key === "r") {
+  if (lower === "r") {
     renderMinimized.value = false;
     renderMaximized.value = false;
     return;
   }
 
-  if (key === "x") {
-    tui.emit("destroy");
-    return;
-  }
-
-  if (key >= "1" && key <= String(Math.min(ASCII_DEMO_PRESETS.length, 9))) {
-    applyPresetByIndex(Number(key) - 1);
+  if (lower >= "1" && lower <= String(Math.min(ASCII_DEMO_PRESETS.length, 9))) {
+    applyPresetByIndex(Number(lower) - 1);
     return;
   }
 

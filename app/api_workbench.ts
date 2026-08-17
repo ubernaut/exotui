@@ -1101,12 +1101,15 @@ function scheduleDraw(): void {
 
 function renderHeader(frame: Frame): void {
   const width = currentWidth();
-  const openMenuId = topMenus.inspect().openId;
+  const menuState = topMenus.inspect();
+  const openMenuId = menuState.openId;
   dropdownOverlay = renderApiWorkbenchChromeHeader({
     frame,
     width,
     menuItems: menu.items.peek(),
-    menuActiveIndex: menu.activeIndex.peek(),
+    // Highlight the active menu label only while the menu bar is engaged;
+    // otherwise the bracket lingers as a fake focus indicator (QA-016).
+    menuActiveIndex: menuState.focused || openMenuId !== null ? menu.activeIndex.peek() : -1,
     openMenuId,
     dropdownEntries: openMenuId === "theme"
       ? {

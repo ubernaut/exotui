@@ -55,9 +55,52 @@ export async function emitInputEvents(
 
   const maxbuffer = new Uint8Array(1024);
   let pending = new Uint8Array(0);
+  let pendingRead: Promise<number | null> | null = null;
   const interval = Math.max(0, Number.isFinite(minReadInterval) ? minReadInterval : 0);
+
+  const emitEvent = (event: InputEvent) => {
+    emitter.emit("inputEvent", event);
+    if (event.key === "mouse") {
+      emitter.emit("mouseEvent", event);
+
+      if ("button" in event) {
+        emitter.emit("mousePress", event);
+      } else if ("scroll" in event) {
+        emitter.emit("mouseScroll", event);
+      }
+    } else if (event.key === "paste") {
+      emitter.emit("paste", event);
+    } else if (event.key === "focus") {
+      emitter.emit("terminalFocus", event);
+    } else {
+      emitter.emit("keyPress", event);
+    }
+  };
+
   while (!options.signal?.aborted) {
-    const size = await stdin.read(maxbuffer);
+    pendingRead ??= stdin.read(maxbuffer);
+    let size: number | null;
+    if (pending.length > 0) {
+      // A held-back tail is usually a lone ESC that may or may not be the
+      // start of a sequence. Real sequences arrive in one write; if no
+      // continuation shows up quickly, deliver it as the escape key instead
+      // of fusing it with the next unrelated keypress into an alt-chord.
+      const raced = await Promise.race([
+        pendingRead,
+        waitForInputInterval(ESCAPE_FLUSH_MS, options.signal).then(() => FLUSH_PENDING),
+      ]);
+      if (typeof raced === "symbol") {
+        if (options.signal?.aborted) return;
+        const flushed = pending;
+        pending = new Uint8Array(0);
+        for (const event of decodeBuffer(flushed, true)) emitEvent(event);
+        continue;
+      }
+      size = raced;
+    } else {
+      size = await pendingRead;
+    }
+    pendingRead = null;
     if (size == null || options.signal?.aborted) return;
     // A conforming blocking terminal reader normally returns data or EOF, but
     // custom adapters may transiently report zero bytes. Yield in that case so
@@ -72,28 +115,15 @@ export async function emitInputEvents(
     const { complete, remainder } = splitInputBuffer(combined);
     pending = new Uint8Array(remainder);
 
-    for (const event of decodeBuffer(complete)) {
-      emitter.emit("inputEvent", event);
-      if (event.key === "mouse") {
-        emitter.emit("mouseEvent", event);
-
-        if ("button" in event) {
-          emitter.emit("mousePress", event);
-        } else if ("scroll" in event) {
-          emitter.emit("mouseScroll", event);
-        }
-      } else if (event.key === "paste") {
-        emitter.emit("paste", event);
-      } else if (event.key === "focus") {
-        emitter.emit("terminalFocus", event);
-      } else {
-        emitter.emit("keyPress", event);
-      }
-    }
+    for (const event of decodeBuffer(complete)) emitEvent(event);
 
     if (interval > 0) await waitForInputInterval(interval, options.signal);
   }
 }
+
+const FLUSH_PENDING = Symbol("flushPending");
+/** How long a lone ESC may wait for sequence continuation bytes. */
+const ESCAPE_FLUSH_MS = 40;
 
 const textDecoder = new TextDecoder();
 const lowerCaseAlphabet = "abcdefghijklmnopqrstuvwxyz";
@@ -171,10 +201,13 @@ let lastMouseEvent: MouseEvent = { ...mouseEvent };
  */
 export function* decodeBuffer(
   buffer: Uint8Array,
+  flush = false,
 ): Generator<InputEvent, void, void> {
   let index = 0;
   while (index < buffer.length) {
-    const boundary = nextInputBoundary(buffer, index);
+    // With flush set, an incomplete tail (a lone ESC whose continuation
+    // never arrived) is decoded as-is instead of being held back.
+    const boundary = nextInputBoundary(buffer, index) ?? (flush ? buffer.length : null);
     if (boundary == null) return;
     const chunk = buffer.subarray(index, boundary);
     const code = textDecoder.decode(chunk);

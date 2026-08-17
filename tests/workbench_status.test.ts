@@ -103,7 +103,7 @@ Deno.test("workbench status helper composes aligned full status lines", () => {
       tileDensity: 0,
       width: 24,
     }),
-    "focus Inspector | Unit-0",
+    "focus Inspector | Unit-…",
   );
   assertEquals(
     workbenchStatusLine({
@@ -114,7 +114,7 @@ Deno.test("workbench status helper composes aligned full status lines", () => {
       shortcutProfile: "web",
       width: 72,
     }),
-    "focus data | Unit-01 | tiles dense |  1-8 focus  T theme  H help  Q quit",
+    "focus data | Unit-01 | tiles dense …  1-8 focus  T theme  H help  Q quit",
   );
   assertEquals(
     workbenchStatusLine({
@@ -141,7 +141,7 @@ Deno.test("workbench status snapshot helper composes aligned status lines", () =
       width: 64,
       shortcutProfile: "web",
     }),
-    "focus Logs | Ghost Shell | tiles wide |  T theme  H help  Q quit",
+    "focus Logs | Ghost Shell | tiles wide …  T theme  H help  Q quit",
   );
 });
 

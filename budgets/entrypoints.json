@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 455,
-    "bytes": 5237343,
+    "bytes": 5238943,
     "paths": {
       "mod.ts": 2777,
       "src/api_stability.ts": 15560,
@@ -189,7 +189,7 @@
       "src/components/slider.ts": 11578,
       "src/components/sparkline.ts": 2149,
       "src/components/spinner.ts": 3258,
-      "src/components/statusbar.ts": 2847,
+      "src/components/statusbar.ts": 3158,
       "src/components/stepper.ts": 6823,
       "src/components/table.ts": 19532,
       "src/components/tabs.ts": 4105,
@@ -221,7 +221,7 @@
       "src/input.ts": 311,
       "src/input_envelope.ts": 33166,
       "src/input_lifecycle.ts": 49315,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/key_sequences.ts": 53330,
       "src/keymap.ts": 3546,
@@ -462,7 +462,7 @@
   },
   "mod.app.ts": {
     "modules": 129,
-    "bytes": 1841548,
+    "bytes": 1843148,
     "paths": {
       "mod.app.ts": 4347,
       "src/app/actions.ts": 3908,
@@ -516,7 +516,7 @@
       "src/components/scroll_area.ts": 11950,
       "src/components/slider.ts": 11578,
       "src/components/spinner.ts": 3258,
-      "src/components/statusbar.ts": 2847,
+      "src/components/statusbar.ts": 3158,
       "src/components/table.ts": 19532,
       "src/components/tabs.ts": 4105,
       "src/components/terminal_output.ts": 3236,
@@ -531,7 +531,7 @@
       "src/focus.ts": 6613,
       "src/focus_navigation_events.ts": 502,
       "src/input_envelope.ts": 33166,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/keymap.ts": 3546,
       "src/layout/capabilities.ts": 60700,
@@ -638,7 +638,7 @@
   },
   "mod.testing.ts": {
     "modules": 86,
-    "bytes": 709883,
+    "bytes": 711172,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4236,
@@ -672,7 +672,7 @@
       "src/event_emitter.ts": 4163,
       "src/focus.ts": 6613,
       "src/focus_navigation_events.ts": 502,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/keymap.ts": 3546,
       "src/permissions.ts": 27807,
@@ -730,13 +730,13 @@
   },
   "mod.terminal.ts": {
     "modules": 47,
-    "bytes": 432255,
+    "bytes": 433544,
     "paths": {
       "mod.terminal.ts": 900,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/terminal_output.ts": 3236,
       "src/event_emitter.ts": 4163,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/permissions.ts": 27807,
       "src/runtime/diagnostics.ts": 7123,
@@ -783,7 +783,7 @@
   },
   "mod.theme.ts": {
     "modules": 62,
-    "bytes": 555341,
+    "bytes": 556630,
     "paths": {
       "mod.theme.ts": 418,
       "src/canvas/box.ts": 5452,
@@ -805,7 +805,7 @@
       "src/event_emitter.ts": 4163,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/runtime/diagnostics.ts": 7123,
       "src/runtime/render_loop.ts": 9560,
@@ -851,7 +851,7 @@
   },
   "mod.web.ts": {
     "modules": 364,
-    "bytes": 4445506,
+    "bytes": 4447106,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -1040,7 +1040,7 @@
       "src/components/slider.ts": 11578,
       "src/components/sparkline.ts": 2149,
       "src/components/spinner.ts": 3258,
-      "src/components/statusbar.ts": 2847,
+      "src/components/statusbar.ts": 3158,
       "src/components/stepper.ts": 6823,
       "src/components/table.ts": 19532,
       "src/components/tabs.ts": 4105,
@@ -1058,7 +1058,7 @@
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/input_envelope.ts": 33166,
-      "src/input_reader/mod.ts": 16541,
+      "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
       "src/keymap.ts": 3546,
       "src/layout/capabilities.ts": 60700,
