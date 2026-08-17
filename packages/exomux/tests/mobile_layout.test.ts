@@ -51,11 +51,11 @@ async function mountExomux(size: { columns: number; rows: number }, sessions: Re
   };
 }
 
-Deno.test("the mobile threshold answers on columns and on rows", () => {
-  assert(exomuxViewportIsMobile({ width: 44, height: 40 }), "a narrow portrait phone is mobile");
-  assert(exomuxViewportIsMobile({ width: 90, height: 17 }), "a short landscape phone is mobile");
-  assertEquals(exomuxViewportIsMobile({ width: 120, height: 35 }), false, "a desktop terminal is not");
-  assertEquals(exomuxViewportIsMobile({ width: 80, height: 24 }), false, "the classic terminal keeps its desktop");
+Deno.test("the mobile threshold is width alone", () => {
+  assert(exomuxViewportIsMobile({ width: 44, height: 40 }), "a narrow portrait phone is mobile at any height");
+  assert(exomuxViewportIsMobile({ width: 49, height: 100 }), "one column under the floor still counts");
+  assertEquals(exomuxViewportIsMobile({ width: 50, height: 8 }), false, "a short but wide terminal keeps its desktop");
+  assertEquals(exomuxViewportIsMobile({ width: 120, height: 35 }), false, "a desktop terminal is not mobile");
 });
 
 Deno.test("a session resumed on a phone comes back on screen, not off it", async () => {
@@ -107,7 +107,7 @@ Deno.test("growing the terminal hands the desktop back, and shrinking takes it a
 
     await exomux.harness.pilot.resize(DESKTOP.columns, DESKTOP.rows);
     await exomux.mounted.whenIdle();
-    assertEquals(exomux.maximizedId(), undefined, "a roomy terminal is a desktop again");
+    assertEquals(exomux.maximizedId(), undefined, "a wide terminal is a desktop again");
     assert(exomux.painted().length > 1, "windows come back side by side");
     assertEquals(exomux.offscreen(), [], "and none of them is stranded");
 

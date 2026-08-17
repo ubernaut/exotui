@@ -605,17 +605,16 @@ export const EXOMUX_MOBILE_LAYOUT_MODES = ["auto", "on", "off"] as const;
 export type ExomuxMobileLayoutMode = (typeof EXOMUX_MOBILE_LAYOUT_MODES)[number];
 
 /**
- * Body columns/rows the floating-window desktop needs to stay usable. Below
- * either one, dragging and stacking windows costs more than it gives: the
- * default window rects (the settings panel alone wants 64x30) cannot fit, so
- * "auto" hands the whole body to one window at a time, phone-style.
+ * Body columns the floating-window desktop needs to stay usable. Width alone
+ * decides it: a short terminal still stacks windows fine, but a narrow one
+ * cannot carry them (the settings panel alone wants 64 columns), so "auto"
+ * hands the whole body to one window at a time, phone-style.
  */
-export const EXOMUX_MOBILE_MIN_COLUMNS = 72;
-export const EXOMUX_MOBILE_MIN_ROWS = 20;
+export const EXOMUX_MOBILE_MIN_COLUMNS = 50;
 
-/** True when a body area is too small for the floating-window desktop. */
+/** True when a body area is too narrow for the floating-window desktop. */
 export function exomuxViewportIsMobile(bounds: { readonly width: number; readonly height: number }): boolean {
-  return bounds.width < EXOMUX_MOBILE_MIN_COLUMNS || bounds.height < EXOMUX_MOBILE_MIN_ROWS;
+  return bounds.width < EXOMUX_MOBILE_MIN_COLUMNS;
 }
 
 /** Resolves the mobile-layout setting against a body area. */
@@ -638,7 +637,7 @@ export interface ExomuxGlobalSettings {
   /**
    * Phone-sized layout: one full-screen window at a time instead of the
    * floating desktop. "auto" turns it on below {@link EXOMUX_MOBILE_MIN_COLUMNS}
-   * columns or {@link EXOMUX_MOBILE_MIN_ROWS} rows of body area.
+   * columns of body area.
    */
   readonly mobileLayout: ExomuxMobileLayoutMode;
   /**
@@ -724,8 +723,7 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
   Object.freeze({
     id: "mobileLayout" as const,
     label: "Mobile layout",
-    detail:
-      `One full-screen window at a time. Auto turns it on below ${EXOMUX_MOBILE_MIN_COLUMNS}x${EXOMUX_MOBILE_MIN_ROWS}.`,
+    detail: `One full-screen window at a time. Auto turns it on below ${EXOMUX_MOBILE_MIN_COLUMNS} columns.`,
     values: Object.freeze([...EXOMUX_MOBILE_LAYOUT_MODES]),
     format: (value: ExomuxSettingValue) => value === "auto" ? "Auto" : value === "on" ? "Always" : "Never",
   }),
