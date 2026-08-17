@@ -2357,8 +2357,18 @@ export function mountExomuxDesktop(
         return true;
       }
     }
-    if (contains(shelfBounds.peek(), event.x, event.y)) {
-      if (!event.drag && !event.release && event.button === 0) {
+    // A fresh press while a window gesture is still active means that
+    // gesture's release was lost; cancel it so one missed release can never
+    // wedge the desktop with a phantom gesture that swallows every click.
+    if (!event.drag && !event.release && controller.windowHost.inspect().interaction.active) {
+      cancelActiveWindowGesture(undefined, event);
+    }
+    // The shelf claims presses only. A drag or release passing over the top
+    // bar belongs to whatever window gesture is in flight — claiming those
+    // here swallowed the release, left the gesture active forever, and made
+    // every later window click dead.
+    if (!event.drag && !event.release && contains(shelfBounds.peek(), event.x, event.y)) {
+      if (event.button === 0) {
         const command = terminalBarCommandAt(event.x, event.y);
         if (command) await enqueue(() => performTerminalBarAction(command.item.action));
       }
