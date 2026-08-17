@@ -230,3 +230,143 @@ Deno.test("edits apply immutably and out-of-bounds points are ignored", () => {
   assertEquals(next.cells[0]![0]!.char, "x");
   assertEquals(layer.cells[0]![0], null, "the source layer is untouched");
 });
+
+Deno.test("the bundled figlet fonts cover the full requested charset", async (test) => {
+  const { GLYPH_TEXT_FONTS, renderGlyphText } = await import(
+    "../../examples/showcases/glyph_forge/text_font.ts"
+  );
+  const corpus = "abcdefghijklmnopqrstuvwxyz" +
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+    "0123456789" +
+    "`~!@#$%^&*()-_=+[]\\{}|:\";'<>?,./";
+  for (const font of GLYPH_TEXT_FONTS) {
+    await test.step(font.id, () => {
+      for (const char of corpus) {
+        const glyph = font.glyphs.get(char);
+        assert(glyph, `${font.id} has "${char}"`);
+        assertEquals(glyph.length, font.height);
+      }
+      const rows = renderGlyphText(font, corpus, "kern");
+      assertEquals(rows.length, font.height);
+      assert(rows[0]!.length > corpus.length, "rendered art is wider than its input");
+      assertEquals(renderGlyphText(font, corpus, "kern"), rows, "rendering is deterministic");
+    });
+  }
+});
+
+Deno.test("the text tool previews, stamps atomically, and undoes as one unit", async () => {
+  const controller = createGlyphForgeController();
+  try {
+    await controller.kernel.ready;
+    const before = JSON.stringify(controller.project());
+    controller.setTool("text");
+    controller.pointerDown(1, 6);
+    controller.textEntryAppend("H");
+    controller.textEntryAppend("i");
+    assert(controller.textEntry(), "typing session is live");
+    const preview = controller.compositeWithPreview();
+    const previewInk = preview.flat().filter((cell) => cell !== null).length;
+    assertEquals(controller.historyDepth().undo, 0, "nothing committed while typing");
+
+    controller.textEntryCommit();
+    assertEquals(controller.textEntry(), undefined);
+    assertEquals(controller.historyDepth().undo, 1, "one stamp, one history entry");
+    const committed = compositeGlyphFrame(controller.project(), 0).flat()
+      .filter((cell) => cell !== null).length;
+    assert(committed > 0 && previewInk >= committed, "the stamp landed");
+
+    controller.undo();
+    assertEquals(JSON.stringify(controller.project()), before, "undo removes the whole stamp");
+
+    // Escape cancels without touching the document or history.
+    controller.pointerDown(1, 6);
+    controller.textEntryAppend("X");
+    controller.textEntryCancel();
+    assertEquals(JSON.stringify(controller.project()), before);
+    assertEquals(controller.historyDepth().undo, 0);
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("font cycling persists and typing respects layer locks", async () => {
+  const store = new MemoryStore<unknown>();
+  const first = createGlyphForgeController({ store });
+  await first.kernel.ready;
+  assertEquals(first.fontId(), "standard");
+  first.cycleFont();
+  assertEquals(first.fontId(), "small");
+  await first.dispose();
+
+  const second = createGlyphForgeController({ store });
+  try {
+    await second.kernel.ready;
+    assertEquals(second.fontId(), "small", "the chosen font survives relaunch");
+
+    second.setTool("text");
+    second.toggleLayerLocked();
+    const history = second.historyDepth().undo;
+    second.pointerDown(1, 1);
+    assertEquals(second.textEntry(), undefined, "a locked layer refuses a typing session");
+    assertEquals(second.historyDepth().undo, history);
+  } finally {
+    await second.dispose();
+  }
+});
+
+Deno.test("the font-pack loader ingests a directory and skips broken files", async () => {
+  const { loadGlyphFontPack, glyphFontIdFromFileName, parseFigletFont } = await import(
+    "../../examples/showcases/glyph_forge/text_font.ts"
+  );
+  assertEquals(glyphFontIdFromFileName("ANSI Shadow.flf"), "ansi-shadow");
+
+  const directory = await Deno.makeTempDir({ prefix: "glyph-fonts-" });
+  try {
+    // A minimal valid 2-row font covering the required range.
+    let font = "flf2a$ 2 2 4 -1 1\ntiny test font\n";
+    for (let code = 32; code <= 126; code += 1) {
+      const char = code === 32 ? " " : String.fromCharCode(code);
+      font += `${char}@\n${char}@@\n`;
+    }
+    await Deno.writeTextFile(`${directory}/Tiny Test.flf`, font);
+    await Deno.writeTextFile(`${directory}/Broken.flf`, "not a font at all\n");
+    await Deno.writeTextFile(`${directory}/Zipped.tlf`, "PK\u0003\u0004junk");
+    await Deno.writeTextFile(`${directory}/notes.txt`, "ignored");
+
+    const pack = await loadGlyphFontPack(directory);
+    assertEquals(pack.fonts.length, 1);
+    assertEquals(pack.fonts[0]!.id, "tiny-test");
+    assertEquals(pack.fonts[0]!.height, 2);
+    assertEquals(pack.skipped.length, 2, "broken and zipped files are reported");
+
+    // A BOM-prefixed header still parses (several corpus fonts ship one).
+    const bom = parseFigletFont("bom", "bom", "\uFEFF" + font);
+    assertEquals(bom.height, 2);
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});
+
+Deno.test("pack fonts join the picker and unknown ids fall back gracefully", async () => {
+  const { parseFigletFont } = await import("../../examples/showcases/glyph_forge/text_font.ts");
+  let source = "flf2a$ 2 2 4 -1 1\nx\n";
+  for (let code = 32; code <= 126; code += 1) {
+    const char = code === 32 ? " " : String.fromCharCode(code);
+    source += `${char}@\n${char}@@\n`;
+  }
+  const extra = parseFigletFont("extra-pack", "Extra Pack", source);
+  const controller = createGlyphForgeController({ fonts: [extra] });
+  try {
+    await controller.kernel.ready;
+    assertEquals(controller.fontPosition().total, 3, "bundled two plus the pack font");
+    controller.cycleFont(-1);
+    assertEquals(controller.fontId(), "extra-pack", "cycling reaches pack fonts");
+    controller.setTool("text");
+    controller.pointerDown(0, 0);
+    controller.textEntryAppend("A");
+    controller.textEntryCommit();
+    assertEquals(compositeGlyphFrame(controller.project(), 0)[0]![0]!.char, "A");
+  } finally {
+    await controller.dispose();
+  }
+});

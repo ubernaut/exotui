@@ -4,17 +4,21 @@ import { DiagnosticsCollector } from "../../../mod.ts";
 import { createShowcaseTerminalStore } from "../shared/mod.ts";
 import { createGlyphForgeTerminalApp, type GlyphForgeRuntime } from "./app.ts";
 import { createGlyphForgeController } from "./controller.ts";
+import { type GlyphTextFont, loadGlyphFontPack } from "./text_font.ts";
 
 /** Explicit terminal-launch persistence options. */
 export interface GlyphForgeLaunchOptions {
   readonly persist?: boolean;
   readonly sessionPath?: string;
+  /** Directory of .flf/.tlf fonts (the full patorjk corpus drops in). */
+  readonly fontsDirectory?: string;
 }
 
 /** Parses the deliberately small GlyphForge CLI surface. */
 export function parseGlyphForgeArgs(args: readonly string[]): GlyphForgeLaunchOptions {
   let persist = false;
   let sessionPath: string | undefined;
+  let fontsDirectory: string | undefined;
   for (const argument of args) {
     if (argument === "--persist") persist = true;
     else if (argument === "--memory") {
@@ -23,11 +27,17 @@ export function parseGlyphForgeArgs(args: readonly string[]): GlyphForgeLaunchOp
     } else if (argument.startsWith("--state-file=")) {
       sessionPath = argument.slice("--state-file=".length);
       persist = true;
+    } else if (argument.startsWith("--fonts-dir=")) {
+      fontsDirectory = argument.slice("--fonts-dir=".length);
     } else {
       throw new TypeError(`Unknown GlyphForge option: ${argument}`);
     }
   }
-  return Object.freeze({ persist, ...(sessionPath ? { sessionPath } : {}) });
+  return Object.freeze({
+    persist,
+    ...(sessionPath ? { sessionPath } : {}),
+    ...(fontsDirectory ? { fontsDirectory } : {}),
+  });
 }
 
 /** Launches GlyphForge with explicit durable-state selection. */
@@ -38,9 +48,31 @@ export async function runGlyphForgeShowcase(options: GlyphForgeLaunchOptions = {
     path: options.persist ? options.sessionPath ?? defaultGlyphForgeSessionPath() : undefined,
     diagnostics,
   });
+  let fonts: readonly GlyphTextFont[] = [];
+  if (options.fontsDirectory) {
+    try {
+      const pack = await loadGlyphFontPack(options.fontsDirectory);
+      fonts = pack.fonts;
+      diagnostics.report({
+        source: "glyph-forge-launcher",
+        code: "font-pack-loaded",
+        severity: "info",
+        message: "Loaded a figlet font pack.",
+        context: { fonts: pack.fonts.length, skipped: pack.skipped.length },
+      });
+    } catch {
+      diagnostics.report({
+        source: "glyph-forge-launcher",
+        code: "font-pack-unavailable",
+        severity: "warning",
+        message: "The font pack directory could not be read; bundled fonts remain available.",
+      });
+    }
+  }
   const controller = createGlyphForgeController({
     store: storage.store,
     diagnostics,
+    fonts,
     persistenceDebounceMs: storage.inspect().durable ? 250 : 0,
   });
   await controller.kernel.ready;

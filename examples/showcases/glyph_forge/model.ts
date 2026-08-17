@@ -57,7 +57,7 @@ export interface GlyphEdit {
 }
 
 /** The editing tools of the vertical slice. */
-export type GlyphTool = "pencil" | "eraser" | "fill" | "line" | "rect" | "eyedropper";
+export type GlyphTool = "pencil" | "eraser" | "fill" | "line" | "rect" | "eyedropper" | "text";
 
 /** Parses "#rrggbb" into an RGB triple; throws on malformed palette data. */
 export function glyphHexToRgb(hex: string): readonly [number, number, number] {

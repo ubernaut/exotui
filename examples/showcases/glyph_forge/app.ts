@@ -24,6 +24,7 @@ export type GlyphForgeAction =
   | { type: "layer.lock" }
   | { type: "frame.cycle" }
   | { type: "frame.duplicate" }
+  | { type: "font.cycle"; direction: 1 | -1 }
   | { type: "app.quit" };
 
 /** The mounted runtime returned to the launcher. */
@@ -60,6 +61,14 @@ export function createGlyphForgeTerminalApp(options: {
         binding: { key: "i" },
         action: { type: "tool", tool: "eyedropper" },
       },
+      { id: "tool.text", label: "Text", binding: { key: "t" }, action: { type: "tool", tool: "text" } },
+      { id: "font.next", label: "Next font", binding: { key: "g" }, action: { type: "font.cycle", direction: 1 } },
+      {
+        id: "font.previous",
+        label: "Previous font",
+        binding: { key: "G" },
+        action: { type: "font.cycle", direction: -1 },
+      },
       { id: "history.undo", label: "Undo", binding: { key: "u" }, action: { type: "undo" } },
       { id: "history.redo", label: "Redo", binding: { key: "y" }, action: { type: "redo" } },
       { id: "color.fgNext", label: "Next color", binding: { key: "]" }, action: { type: "fg", direction: 1 } },
@@ -89,6 +98,8 @@ export function createGlyphForgeTerminalApp(options: {
       { id: "app.quit", label: "Quit", binding: { key: "q" }, action: { type: "app.quit" } },
     ],
     onAction(action) {
+      // While the text tool is typing, every key is text: no bindings fire.
+      if (controller.textEntry()) return;
       switch (action.type) {
         case "tool":
           controller.setTool(action.tool);
@@ -119,6 +130,9 @@ export function createGlyphForgeTerminalApp(options: {
           break;
         case "frame.duplicate":
           controller.duplicateFrame();
+          break;
+        case "font.cycle":
+          controller.cycleFont(action.direction);
           break;
         case "app.quit":
           void runtime.destroy().then(() => Deno.exit(0));
@@ -163,11 +177,16 @@ export function createGlyphForgeTerminalApp(options: {
             ["line", "L"],
             ["rect", "R"],
             ["eyedropper", "I"],
+            ["text", "T"],
           ];
           const toolText = tools
             .map(([tool, key]) => state.tool === tool ? `[${key} ${tool}]` : ` ${key} ${tool} `)
             .join(" ");
-          return ` ${toolText}   brush ${state.brushChar}`;
+          const entry = controller.textEntry();
+          const typing = entry ? `   typing: ${entry.text}▏` : "";
+          const position = controller.fontPosition();
+          return ` ${toolText}   brush ${state.brushChar}` +
+            `  font ${controller.font().label} (${position.index}/${position.total})${typing}`;
         }),
         overwriteWidth: true,
         rectangle: new Computed<TextRectangle>(() => ({
@@ -283,6 +302,31 @@ export function createGlyphForgeTerminalApp(options: {
           width: tui.rectangle.value.width,
           height: 1,
         })),
+      });
+
+      // ── text-tool typing ───────────────────────────────────────────
+      tui.on("keyPress", (event) => {
+        if (!controller.textEntry()) return;
+        if (event.ctrl || event.meta) return;
+        if (event.key === "escape") {
+          controller.textEntryCancel();
+          return;
+        }
+        if (event.key === "return") {
+          controller.textEntryCommit();
+          return;
+        }
+        if (event.key === "backspace") {
+          controller.textEntryBackspace();
+          return;
+        }
+        if (event.key === "space") {
+          controller.textEntryAppend(" ");
+          return;
+        }
+        if (event.key.length === 1 && event.key >= " " && event.key <= "~") {
+          controller.textEntryAppend(event.key);
+        }
       });
 
       // ── mouse painting ─────────────────────────────────────────────

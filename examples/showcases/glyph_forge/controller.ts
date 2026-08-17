@@ -23,6 +23,7 @@ import {
   normalizeGlyphProject,
 } from "./model.ts";
 import { createGlyphForgeFixtureProvider } from "./fixture_provider.ts";
+import { GLYPH_TEXT_FONTS, type GlyphTextFont, renderGlyphText } from "./text_font.ts";
 
 /** Persisted GlyphForge app state (JSON-safe). */
 export interface GlyphForgeState {
@@ -34,6 +35,7 @@ export interface GlyphForgeState {
   readonly foreground: number;
   readonly background: number;
   readonly brushChar: string;
+  readonly fontId: string;
 }
 
 /** Construction options. */
@@ -43,6 +45,8 @@ export interface GlyphForgeControllerOptions {
   readonly provider?: ShowcaseProvider & { readonly project: GlyphProject };
   readonly persistenceDebounceMs?: number;
   readonly historyLimit?: number;
+  /** Extra fonts (a loaded font pack) offered after the bundled ones. */
+  readonly fonts?: readonly GlyphTextFont[];
 }
 
 /** The versioned GlyphForge manifest. */
@@ -56,7 +60,7 @@ export const GLYPHFORGE_MANIFEST = defineShowcaseManifest({
   hosts: { terminal: true, browser: false },
 });
 
-const GLYPH_TOOLS: readonly GlyphTool[] = ["pencil", "eraser", "fill", "line", "rect", "eyedropper"];
+const GLYPH_TOOLS: readonly GlyphTool[] = ["pencil", "eraser", "fill", "line", "rect", "eyedropper", "text"];
 
 function defaultGlyphForgeState(project: GlyphProject): GlyphForgeState {
   return {
@@ -68,6 +72,7 @@ function defaultGlyphForgeState(project: GlyphProject): GlyphForgeState {
     foreground: Math.min(15, project.palette.length - 1),
     background: 0,
     brushChar: "█",
+    fontId: "standard",
   };
 }
 
@@ -86,6 +91,9 @@ export function normalizeGlyphForgeState(value: unknown): GlyphForgeState {
   const foreground = clampIndex(record.foreground, project.palette.length);
   const background = clampIndex(record.background, project.palette.length);
   const brushChar = typeof record.brushChar === "string" && record.brushChar.length === 1 ? record.brushChar : "█";
+  const fontId = typeof record.fontId === "string" && /^[a-z0-9-]{1,64}$/.test(record.fontId)
+    ? record.fontId
+    : "standard";
   return {
     schemaVersion: GLYPHFORGE_PROJECT_SCHEMA_VERSION,
     project,
@@ -95,12 +103,20 @@ export function normalizeGlyphForgeState(value: unknown): GlyphForgeState {
     foreground,
     background,
     brushChar,
+    fontId,
   };
 }
 
 function clampIndex(value: unknown, length: number): number {
   if (typeof value !== "number" || !Number.isInteger(value)) return 0;
   return Math.max(0, Math.min(Math.max(0, length - 1), value));
+}
+
+/** An in-flight ASCII-art text entry, previewed but not yet committed. */
+export interface GlyphTextEntry {
+  readonly column: number;
+  readonly row: number;
+  readonly text: string;
 }
 
 /** An in-flight line/rect gesture, previewed but not yet committed. */
@@ -125,11 +141,14 @@ export class GlyphForgeController {
   #redo: string[] = [];
   readonly #historyLimit: number;
   #gesture?: GlyphGesturePreview;
+  #textEntry?: GlyphTextEntry;
   #strokeSnapshot?: string;
+  readonly #fonts: readonly GlyphTextFont[];
 
   constructor(options: GlyphForgeControllerOptions = {}) {
     const provider = options.provider ?? createGlyphForgeFixtureProvider();
     this.#historyLimit = Math.max(1, options.historyLimit ?? 100);
+    this.#fonts = [...GLYPH_TEXT_FONTS, ...(options.fonts ?? [])];
     this.kernel = new ShowcaseKernel({
       manifest: GLYPHFORGE_MANIFEST,
       provider,
@@ -176,6 +195,17 @@ export class GlyphForgeController {
         }
       }
     }
+    const entry = this.#textEntry;
+    if (entry) {
+      for (const edit of this.#textEntryEdits(entry)) {
+        if (
+          edit.column >= 0 && edit.column < this.#state.project.columns &&
+          edit.row >= 0 && edit.row < this.#state.project.rows && edit.cell
+        ) {
+          composite[edit.row]![edit.column] = edit.cell;
+        }
+      }
+    }
     return composite;
   }
 
@@ -183,6 +213,7 @@ export class GlyphForgeController {
 
   setTool(tool: GlyphTool): void {
     this.#cancelGesture();
+    this.textEntryCancel();
     this.#update({ tool });
     this.note.value = `tool: ${tool}`;
   }
@@ -233,6 +264,18 @@ export class GlyphForgeController {
     }
     if (this.#activeLayerLocked()) {
       this.note.value = "layer is locked";
+      return;
+    }
+    if (tool === "text") {
+      // A second click while typing commits the pending stamp first.
+      if (this.#textEntry) this.textEntryCommit();
+      if (this.#activeLayerLocked()) {
+        this.note.value = "layer is locked";
+        return;
+      }
+      this.#textEntry = { column, row, text: "" };
+      this.note.value = "type text · enter stamps · esc cancels";
+      this.#bump();
       return;
     }
     if (tool === "fill") {
@@ -302,6 +345,95 @@ export class GlyphForgeController {
     if (this.#strokeSnapshot !== undefined) {
       this.#commitStroke("stroke committed");
     }
+  }
+
+  // ── ASCII-art text entry ──────────────────────────────────────────
+
+  textEntry(): GlyphTextEntry | undefined {
+    return this.#textEntry;
+  }
+
+  fontId(): string {
+    return this.#state.fontId;
+  }
+
+  /** The active font (falling back to the first when a pack is absent). */
+  font(): GlyphTextFont {
+    return this.#fonts.find((font) => font.id === this.#state.fontId) ?? this.#fonts[0]!;
+  }
+
+  fonts(): readonly GlyphTextFont[] {
+    return this.#fonts;
+  }
+
+  /** 1-based position of the active font, for "12/428" readouts. */
+  fontPosition(): { index: number; total: number } {
+    const index = this.#fonts.findIndex((font) => font.id === this.font().id);
+    return { index: index + 1, total: this.#fonts.length };
+  }
+
+  cycleFont(direction: 1 | -1 = 1): string {
+    const current = this.#fonts.findIndex((font) => font.id === this.font().id);
+    const next = this.#fonts[(current + direction + this.#fonts.length) % this.#fonts.length]!;
+    this.#update({ fontId: next.id });
+    this.note.value = `font: ${next.label}`;
+    return next.id;
+  }
+
+  textEntryAppend(char: string): void {
+    const entry = this.#textEntry;
+    if (!entry || char.length !== 1) return;
+    if (entry.text.length >= 64) return;
+    this.#textEntry = { ...entry, text: entry.text + char };
+    this.#bump();
+  }
+
+  textEntryBackspace(): void {
+    const entry = this.#textEntry;
+    if (!entry || entry.text.length === 0) return;
+    this.#textEntry = { ...entry, text: entry.text.slice(0, -1) };
+    this.#bump();
+  }
+
+  /** Stamps the pending text as one atomic history unit. */
+  textEntryCommit(): void {
+    const entry = this.#textEntry;
+    if (!entry) return;
+    this.#textEntry = undefined;
+    const edits = this.#textEntryEdits(entry);
+    if (edits.length === 0 || this.#activeLayerLocked()) {
+      this.#bump();
+      return;
+    }
+    this.#beginStroke();
+    this.#applyToActiveLayer(edits);
+    this.#commitStroke(`stamped "${entry.text}"`);
+    this.#bump();
+  }
+
+  textEntryCancel(): void {
+    if (!this.#textEntry) return;
+    this.#textEntry = undefined;
+    this.#bump();
+  }
+
+  #textEntryEdits(entry: GlyphTextEntry): GlyphEdit[] {
+    if (entry.text.length === 0) return [];
+    const rows = renderGlyphText(this.font(), entry.text, "kern");
+    const edits: GlyphEdit[] = [];
+    for (let row = 0; row < rows.length; row += 1) {
+      const line = rows[row]!;
+      for (let column = 0; column < line.length; column += 1) {
+        const char = line[column]!;
+        if (char === " ") continue;
+        edits.push({
+          column: entry.column + column,
+          row: entry.row + row,
+          cell: { char, fg: this.#state.foreground, bg: this.#state.background },
+        });
+      }
+    }
+    return edits;
   }
 
   // ── history ───────────────────────────────────────────────────────
