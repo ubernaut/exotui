@@ -175,7 +175,7 @@ export function createOrbitalCommandTerminalApp(options: {
         });
       });
       const selectedIndex = new Signal(0);
-      new List({
+      const catalogList = new List({
         parent: tui,
         theme: { base: crayon.bgBlack.white },
         selectedStyle: crayon.bgBlue.white,
@@ -189,10 +189,25 @@ export function createOrbitalCommandTerminalApp(options: {
           height: Math.max(6, tui.rectangle.value.height - 7),
         })),
       });
+      // Pointer routing needs explicit registration: without it the list
+      // never receives clicks (ORBIT-004 linked tree selection).
+      app.registerComponent(catalogList, { id: "catalog" });
       // The list mirrors controller selection; keyboard drives the controller.
       revision.subscribe(() => {
         const index = controller.catalogRows().findIndex((row) => row.id === controller.selectedId());
         if (index >= 0 && selectedIndex.peek() !== index) selectedIndex.value = index;
+      }, controller.kernel.signal);
+      // Clicking a catalog row drives the controller too (ORBIT-004 linked
+      // tree/scene selection); stations reject selection, so the highlight
+      // snaps back to the selected spacecraft.
+      selectedIndex.subscribe((index) => {
+        const rows = controller.catalogRows();
+        const row = rows[index];
+        if (!row || row.id === controller.selectedId()) return;
+        if (!controller.select(row.id)) {
+          const previous = rows.findIndex((entry) => entry.id === controller.selectedId());
+          if (previous >= 0) selectedIndex.value = previous;
+        }
       }, controller.kernel.signal);
 
       // ── observatory map ────────────────────────────────────────────
@@ -210,7 +225,7 @@ export function createOrbitalCommandTerminalApp(options: {
         text: new Computed(() => {
           revision.value;
           if (viewMode.value === "3d") {
-            return " OBSERVATORY · 3D · a/d w/s orbit · z/x zoom · v map ";
+            return " OBSERVATORY · 3D · click picks · a/d w/s orbit · z/x zoom · v map ";
           }
           const range = controller.mapRender(10, 7).rangeKm;
           const fallback = threeAvailable ? "" : " · TEXT FALLBACK (no WebGPU)";
@@ -320,6 +335,12 @@ export function createOrbitalCommandTerminalApp(options: {
       if (threeAvailable) {
         viewport = createOrbitalViewportScene(controller.catalog);
         const ascii = createDefaultAsciiOptions("sharp");
+        const viewportRect = new Computed(() => ({
+          column: mapRect.value.column + 1,
+          row: mapRect.value.row + 1,
+          width: Math.max(10, mapRect.value.width - 2),
+          height: Math.max(6, mapRect.value.height - 2),
+        }));
         new ThreeAscii({
           parent: tui,
           theme: {},
@@ -333,13 +354,19 @@ export function createOrbitalCommandTerminalApp(options: {
           onFrame: () => {
             viewport?.update(controller.simSeconds(), controller.selectedId());
           },
-          rectangle: new Computed(() => ({
-            column: mapRect.value.column + 1,
-            row: mapRect.value.row + 1,
-            width: Math.max(10, mapRect.value.width - 2),
-            height: Math.max(6, mapRect.value.height - 2),
-          })),
+          rectangle: viewportRect,
           visible: new Computed(() => viewMode.value === "3d"),
+        });
+        // Terminal-cell picking (ORBIT-004): a click selects the marker
+        // whose projection lands nearest the clicked cell.
+        tui.on("mousePress", (event) => {
+          if (event.release || event.drag || !viewport || viewMode.peek() !== "3d") return;
+          const rect = viewportRect.peek();
+          const x = event.x - rect.column;
+          const y = event.y - rect.row;
+          if (x < 0 || x >= rect.width || y < 0 || y >= rect.height) return;
+          const picked = viewport.pick({ x, y }, { columns: rect.width, rows: rect.height });
+          if (picked) controller.select(picked);
         });
         tui.on("keyPress", ({ key, ctrl, meta }) => {
           if (ctrl || meta || !viewport || viewMode.peek() !== "3d") return;
@@ -362,6 +389,7 @@ export function createOrbitalCommandTerminalApp(options: {
       if (threeAvailable) {
         keymap.register({ key: "v", description: "3D/map" });
         keymap.register({ key: "a/d/w/s z/x", description: "camera" });
+        keymap.register({ key: "click", description: "pick" });
       }
       keymap.register({ key: "q", description: "quit" });
       new KeyHelp({

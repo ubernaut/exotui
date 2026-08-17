@@ -23,11 +23,16 @@ import {
   PointsMaterial,
   Scene,
   SphereGeometry,
+  Vector3,
 } from "three";
+import { DEFAULT_THREE_ASCII_PIXEL_ASPECT_RATIO } from "../../../src/three_ascii/renderer_options.ts";
 import { type OrbitalCatalog, orbitalPeriodSeconds, type OrbitalSatellite, propagateOrbitalState } from "./model.ts";
 
 /** Scene scale: kilometers per Three.js unit. */
 export const ORBITAL_VIEWPORT_KM_PER_UNIT = 10_000;
+
+/** How far (in cells) a click may land from a marker and still pick it. */
+export const ORBITAL_PICK_RADIUS_CELLS = 2.5;
 
 /** Keyboard-driven orbital camera state. */
 export interface OrbitalViewportCamera {
@@ -43,6 +48,13 @@ export interface OrbitalViewportBundle {
   readonly cameraState: OrbitalViewportCamera;
   /** Repositions spacecraft and selection emphasis for one frame. */
   update(simSeconds: number, selectedId: string): void;
+  /**
+   * The satellite whose marker projects nearest a terminal cell (ORBIT-004):
+   * the cell's center maps through the same camera aspect the ASCII renderer
+   * uses, so what the click hits is what the screen shows. Near-ties in
+   * screen distance resolve to the marker closest to the camera.
+   */
+  pick(cell: { x: number; y: number }, size: { columns: number; rows: number }): string | undefined;
   dispose(): void;
 }
 
@@ -121,6 +133,37 @@ export function createOrbitalViewportScene(catalog: OrbitalCatalog): OrbitalView
     scene.add(marker);
   }
 
+  const pickScratch = new Vector3();
+  const pick = (
+    cell: { x: number; y: number },
+    size: { columns: number; rows: number },
+  ): string | undefined => {
+    // Mirror the ASCII renderer's cell-shape-aware camera aspect so cell
+    // coordinates and scene projections agree exactly.
+    camera.aspect = (size.columns * DEFAULT_THREE_ASCII_PIXEL_ASPECT_RATIO) / Math.max(1, size.rows);
+    camera.updateProjectionMatrix();
+    const ndcX = ((cell.x + 0.5) / size.columns) * 2 - 1;
+    const ndcY = 1 - ((cell.y + 0.5) / size.rows) * 2;
+    let bestId: string | undefined;
+    let bestDistance = Infinity;
+    let bestDepth = Infinity;
+    for (const [id, marker] of markers) {
+      pickScratch.copy(marker.position).project(camera);
+      if (pickScratch.z < -1 || pickScratch.z > 1) continue;
+      const dx = ((pickScratch.x - ndcX) * size.columns) / 2;
+      const dy = ((pickScratch.y - ndcY) * size.rows) / 2;
+      const distance = Math.hypot(dx, dy);
+      if (distance > ORBITAL_PICK_RADIUS_CELLS) continue;
+      const tie = Math.abs(distance - bestDistance) <= 0.75;
+      if (tie ? pickScratch.z < bestDepth : distance < bestDistance) {
+        bestId = id;
+        bestDistance = distance;
+        bestDepth = pickScratch.z;
+      }
+    }
+    return bestId;
+  };
+
   const update = (simSeconds: number, selectedId: string): void => {
     // Earth turns once per sidereal day of simulated time.
     earth.rotation.y = (simSeconds / 86_164) * Math.PI * 2;
@@ -154,6 +197,7 @@ export function createOrbitalViewportScene(catalog: OrbitalCatalog): OrbitalView
     camera,
     cameraState,
     update,
+    pick,
     dispose: () => {
       scene.traverse((object: unknown) => {
         const mesh = object as Mesh;

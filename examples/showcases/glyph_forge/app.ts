@@ -11,6 +11,7 @@ import { Computed, createTerminalApp, Frame, StatusBar, type TerminalApp, Text }
 import { KeyHelp, KeymapRegistry, type TextRectangle } from "../../../mod.ts";
 import { type GlyphCell, glyphHexToRgb, type GlyphTool } from "./model.ts";
 import type { GlyphForgeController } from "./controller.ts";
+import { renderGlyphText } from "./text_font.ts";
 
 /** Actions dispatched by the GlyphForge keymap. */
 export type GlyphForgeAction =
@@ -25,6 +26,7 @@ export type GlyphForgeAction =
   | { type: "frame.cycle" }
   | { type: "frame.duplicate" }
   | { type: "font.cycle"; direction: 1 | -1 }
+  | { type: "font.browse" }
   | { type: "app.quit" };
 
 /** The mounted runtime returned to the launcher. */
@@ -44,6 +46,7 @@ export function createGlyphForgeTerminalApp(options: {
 }): GlyphForgeRuntime {
   const controller = options.controller;
   let persistTimer: ReturnType<typeof setInterval> | undefined;
+  let browserOpeningKey = false;
 
   const app = createTerminalApp<GlyphForgeAction>({
     id: "glyph-forge",
@@ -69,6 +72,7 @@ export function createGlyphForgeTerminalApp(options: {
         binding: { key: "G" },
         action: { type: "font.cycle", direction: -1 },
       },
+      { id: "font.browse", label: "Font browser", binding: { key: "b" }, action: { type: "font.browse" } },
       { id: "history.undo", label: "Undo", binding: { key: "u" }, action: { type: "undo" } },
       { id: "history.redo", label: "Redo", binding: { key: "y" }, action: { type: "redo" } },
       { id: "color.fgNext", label: "Next color", binding: { key: "]" }, action: { type: "fg", direction: 1 } },
@@ -98,8 +102,9 @@ export function createGlyphForgeTerminalApp(options: {
       { id: "app.quit", label: "Quit", binding: { key: "q" }, action: { type: "app.quit" } },
     ],
     onAction(action) {
-      // While the text tool is typing, every key is text: no bindings fire.
-      if (controller.textEntry()) return;
+      // While the text tool is typing or the font browser is open, every
+      // key belongs to that mode: no bindings fire.
+      if (controller.textEntry() || controller.fontBrowser()) return;
       switch (action.type) {
         case "tool":
           controller.setTool(action.tool);
@@ -133,6 +138,10 @@ export function createGlyphForgeTerminalApp(options: {
           break;
         case "font.cycle":
           controller.cycleFont(action.direction);
+          break;
+        case "font.browse":
+          controller.fontBrowserOpen();
+          browserOpeningKey = true;
           break;
         case "app.quit":
           void runtime.destroy().then(() => Deno.exit(0));
@@ -288,6 +297,7 @@ export function createGlyphForgeTerminalApp(options: {
       keymap.register({ key: "mouse", description: "paint" });
       keymap.register({ key: "p/e/f/l/r/i", description: "tools" });
       keymap.register({ key: "u/y", description: "undo/redo" });
+      keymap.register({ key: "b", description: "fonts" });
       keymap.register({ key: "tab", description: "layer" });
       keymap.register({ key: "n/d", description: "frames" });
       keymap.register({ key: "q", description: "quit" });
@@ -302,6 +312,86 @@ export function createGlyphForgeTerminalApp(options: {
           width: tui.rectangle.value.width,
           height: 1,
         })),
+      });
+
+      // ── font browser overlay (GLYPH-008) ───────────────────────────
+      const BROWSER_LEFT = CANVAS_LEFT + 2;
+      const BROWSER_TOP = CANVAS_TOP + 1;
+      const BROWSER_WIDTH = 46;
+      const BROWSER_LIST_ROWS = 9;
+      const BROWSER_PREVIEW_ROWS = 6;
+      const browserOpen = new Computed(() => {
+        revision.value;
+        return controller.fontBrowser() !== undefined;
+      });
+      const browserLines = new Computed(() => {
+        revision.value;
+        const browser = controller.fontBrowser();
+        if (!browser) return [] as string[];
+        const matches = controller.fontBrowserMatches();
+        const lines: string[] = [];
+        lines.push(` FONT BROWSER  ${matches.length}/${controller.fonts().length} fonts`);
+        lines.push(` search: ${browser.query}▏`);
+        lines.push("");
+        const highlight = Math.min(browser.index, Math.max(0, matches.length - 1));
+        const start = Math.max(
+          0,
+          Math.min(highlight - Math.floor(BROWSER_LIST_ROWS / 2), matches.length - BROWSER_LIST_ROWS),
+        );
+        for (let row = 0; row < BROWSER_LIST_ROWS; row += 1) {
+          const font = matches[start + row];
+          if (!font) {
+            lines.push(matches.length === 0 && row === 0 ? "   no fonts match" : "");
+            continue;
+          }
+          lines.push(`${start + row === highlight ? " ▸ " : "   "}${font.label}`);
+        }
+        lines.push("");
+        const preview = matches[highlight] ? renderGlyphText(matches[highlight]!, "Abc", "kern") : [];
+        for (let row = 0; row < BROWSER_PREVIEW_ROWS; row += 1) {
+          lines.push(` ${(preview[row] ?? "").slice(0, BROWSER_WIDTH - 2)}`);
+        }
+        lines.push("");
+        lines.push(" ↑/↓ move · type search · enter pick · esc");
+        return lines.map((line) => line.slice(0, BROWSER_WIDTH).padEnd(BROWSER_WIDTH));
+      });
+      const BROWSER_ROWS = BROWSER_LIST_ROWS + BROWSER_PREVIEW_ROWS + 5;
+      new Frame({
+        parent: tui,
+        theme: { base: crayon.bgBlack.lightMagenta },
+        zIndex: 4,
+        charMap: "rounded",
+        visible: browserOpen,
+        rectangle: { column: BROWSER_LEFT, row: BROWSER_TOP, width: BROWSER_WIDTH, height: BROWSER_ROWS },
+      });
+      for (let index = 0; index < BROWSER_ROWS; index += 1) {
+        const rowIndex = index;
+        new Text({
+          parent: tui,
+          theme: { base: rowIndex <= 1 ? crayon.bgBlack.lightMagenta.bold : crayon.bgBlack.white },
+          zIndex: 5,
+          visible: browserOpen,
+          text: new Computed(() => browserLines.value[rowIndex] ?? "".padEnd(BROWSER_WIDTH)),
+          overwriteWidth: true,
+          rectangle: { column: BROWSER_LEFT, row: BROWSER_TOP + rowIndex, width: BROWSER_WIDTH },
+        });
+      }
+      tui.on("keyPress", (event) => {
+        if (!controller.fontBrowser() || event.ctrl || event.meta) return;
+        // The keystroke that opened the browser is not a search character.
+        if (browserOpeningKey) {
+          browserOpeningKey = false;
+          return;
+        }
+        if (event.key === "escape") controller.fontBrowserClose();
+        else if (event.key === "return") controller.fontBrowserAccept();
+        else if (event.key === "backspace") controller.fontBrowserBackspace();
+        else if (event.key === "up") controller.fontBrowserMove(-1);
+        else if (event.key === "down") controller.fontBrowserMove(1);
+        else if (event.key === "space") controller.fontBrowserInput(" ");
+        else if (event.key.length === 1 && event.key >= " " && event.key <= "~") {
+          controller.fontBrowserInput(event.key);
+        }
       });
 
       // ── text-tool typing ───────────────────────────────────────────
@@ -331,6 +421,8 @@ export function createGlyphForgeTerminalApp(options: {
 
       // ── mouse painting ─────────────────────────────────────────────
       tui.on("mousePress", (event) => {
+        // The font browser owns the screen while it is open.
+        if (controller.fontBrowser()) return;
         const rect = canvasRect.peek();
         const column = event.x - rect.column;
         const row = event.y - rect.row;
@@ -423,7 +515,7 @@ function mountGlyphPaletteRow(options: {
   });
   // Click selects the foreground color; a drag with the same press sets it too.
   tui.on("mousePress", (event) => {
-    if (event.release || event.drag) return;
+    if (event.release || event.drag || controller.fontBrowser()) return;
     const rect = paletteRect.peek();
     if (event.y !== rect.row) return;
     const offset = event.x - rect.column;

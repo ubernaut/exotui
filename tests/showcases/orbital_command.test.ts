@@ -203,3 +203,61 @@ Deno.test("the 3D observatory scene builds, tracks selection, and clamps its cam
     bundle.dispose();
   }
 });
+
+Deno.test("terminal-cell picking agrees with the projected scene (ORBIT-004)", async () => {
+  const { createOrbitalViewportScene, ORBITAL_VIEWPORT_KM_PER_UNIT } = await import(
+    "../../examples/showcases/orbital_command/viewport_scene.ts"
+  );
+  const { Vector3 } = await import("three");
+  const catalog = orbitalCommandFixtureCatalog();
+  const bundle = createOrbitalViewportScene(catalog);
+  try {
+    bundle.update(3_600, "iss");
+    const columns = 96;
+    const rows = 28;
+    // Project a marker through the same cell-shape-aware aspect the ASCII
+    // renderer maintains; the cell under that projection must pick it.
+    bundle.camera.aspect = (columns * 0.5) / rows;
+    bundle.camera.updateProjectionMatrix();
+    const geo = catalog.satellites.find((satellite) => satellite.id === "relay-geo")!;
+    const state = propagateOrbitalState(geo.elements, 3_600, catalog.centralBody.mu);
+    const projected = new Vector3(
+      state.positionKm[0] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+      state.positionKm[2] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+      state.positionKm[1] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+    ).project(bundle.camera);
+    assert(Math.abs(projected.x) < 0.95 && Math.abs(projected.y) < 0.95, "the GEO relay is on-screen");
+    const cell = {
+      x: Math.floor(((projected.x + 1) / 2) * columns),
+      y: Math.floor(((1 - projected.y) / 2) * rows),
+    };
+    assertEquals(bundle.pick(cell, { columns, rows }), "relay-geo", "the cell under the marker picks it");
+    assertEquals(
+      bundle.pick(cell, { columns, rows }),
+      bundle.pick(cell, { columns, rows }),
+      "picking is deterministic",
+    );
+
+    // The mapping tracks the camera: after an orbit swing the marker picks
+    // from its new cell, and its old cell no longer names it uniquely.
+    bundle.cameraState.azimuthRad += 1.2;
+    bundle.update(3_600, "iss");
+    bundle.camera.aspect = (columns * 0.5) / rows;
+    bundle.camera.updateProjectionMatrix();
+    const moved = new Vector3(
+      state.positionKm[0] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+      state.positionKm[2] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+      state.positionKm[1] / ORBITAL_VIEWPORT_KM_PER_UNIT,
+    ).project(bundle.camera);
+    const movedCell = {
+      x: Math.floor(((moved.x + 1) / 2) * columns),
+      y: Math.floor(((1 - moved.y) / 2) * rows),
+    };
+    assertEquals(bundle.pick(movedCell, { columns, rows }), "relay-geo");
+
+    // A click far from every marker picks nothing.
+    assertEquals(bundle.pick({ x: 0, y: 0 }, { columns, rows }), undefined, "empty space misses");
+  } finally {
+    bundle.dispose();
+  }
+});

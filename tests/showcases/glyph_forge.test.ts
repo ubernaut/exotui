@@ -370,3 +370,54 @@ Deno.test("pack fonts join the picker and unknown ids fall back gracefully", asy
     await controller.dispose();
   }
 });
+
+Deno.test("the font browser searches, wraps, accepts, and cancels without side effects", async () => {
+  const controller = createGlyphForgeController();
+  try {
+    await controller.kernel.ready;
+    assertEquals(controller.fontBrowser(), undefined);
+
+    // Opening highlights the active font over the full pack.
+    controller.fontBrowserOpen();
+    const opened = controller.fontBrowser();
+    assert(opened);
+    assertEquals(opened.query, "");
+    assertEquals(controller.fontBrowserMatches().length, controller.fonts().length);
+    assertEquals(controller.fontBrowserMatches()[opened.index]?.id, controller.fontId());
+
+    // Typing filters case-insensitively and resets the highlight.
+    for (const char of "SMALL") controller.fontBrowserInput(char.toLowerCase());
+    const matches = controller.fontBrowserMatches();
+    assert(matches.length >= 1 && matches.every((font) => font.label.toLowerCase().includes("small")));
+    assertEquals(controller.fontBrowser()?.index, 0);
+
+    // Movement wraps within the matches in both directions.
+    controller.fontBrowserMove(-1);
+    assertEquals(controller.fontBrowser()?.index, matches.length - 1);
+    controller.fontBrowserMove(1);
+    assertEquals(controller.fontBrowser()?.index, 0);
+
+    // Accepting picks the highlighted match and closes the browser.
+    assert(controller.fontBrowserAccept());
+    assertEquals(controller.fontBrowser(), undefined);
+    assertEquals(controller.fontId(), matches[0]!.id);
+
+    // A query with no matches cannot accept; escape leaves the font alone.
+    controller.fontBrowserOpen();
+    for (const char of "no-such-font-anywhere") controller.fontBrowserInput(char);
+    assertEquals(controller.fontBrowserMatches().length, 0);
+    assertEquals(controller.fontBrowserAccept(), false);
+    controller.fontBrowserBackspace();
+    assert(controller.fontBrowser());
+    controller.fontBrowserClose();
+    assertEquals(controller.fontBrowser(), undefined);
+    assertEquals(controller.fontId(), matches[0]!.id);
+
+    // Direct selection validates ids.
+    assertEquals(controller.setFont("standard"), true);
+    assertEquals(controller.setFont("definitely-missing"), false);
+    assertEquals(controller.fontId(), "standard");
+  } finally {
+    await controller.dispose();
+  }
+});

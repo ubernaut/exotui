@@ -23,7 +23,7 @@ import {
   normalizeGlyphProject,
 } from "./model.ts";
 import { createGlyphForgeFixtureProvider } from "./fixture_provider.ts";
-import { GLYPH_TEXT_FONTS, type GlyphTextFont, renderGlyphText } from "./text_font.ts";
+import { filterGlyphFonts, GLYPH_TEXT_FONTS, type GlyphTextFont, renderGlyphText } from "./text_font.ts";
 
 /** Persisted GlyphForge app state (JSON-safe). */
 export interface GlyphForgeState {
@@ -119,6 +119,13 @@ export interface GlyphTextEntry {
   readonly text: string;
 }
 
+/** Transient font-browser state (GLYPH-008 slice): search over the pack. */
+export interface GlyphFontBrowserState {
+  readonly query: string;
+  /** Highlight position within the current matches. */
+  readonly index: number;
+}
+
 /** An in-flight line/rect gesture, previewed but not yet committed. */
 export interface GlyphGesturePreview {
   readonly tool: "line" | "rect";
@@ -142,6 +149,7 @@ export class GlyphForgeController {
   readonly #historyLimit: number;
   #gesture?: GlyphGesturePreview;
   #textEntry?: GlyphTextEntry;
+  #fontBrowser?: GlyphFontBrowserState;
   #strokeSnapshot?: string;
   readonly #fonts: readonly GlyphTextFont[];
 
@@ -378,6 +386,74 @@ export class GlyphForgeController {
     this.#update({ fontId: next.id });
     this.note.value = `font: ${next.label}`;
     return next.id;
+  }
+
+  /** Selects a font by id; unknown ids leave the selection untouched. */
+  setFont(id: string): boolean {
+    const font = this.#fonts.find((entry) => entry.id === id);
+    if (!font) return false;
+    this.#update({ fontId: font.id });
+    this.note.value = `font: ${font.label}`;
+    return true;
+  }
+
+  // ── font browser (GLYPH-008) ──────────────────────────────────────
+
+  fontBrowser(): GlyphFontBrowserState | undefined {
+    return this.#fontBrowser;
+  }
+
+  /** Matches for the current query, in pack order. */
+  fontBrowserMatches(): readonly GlyphTextFont[] {
+    return filterGlyphFonts(this.#fonts, this.#fontBrowser?.query ?? "");
+  }
+
+  /** Opens the browser highlighting the active font. */
+  fontBrowserOpen(): void {
+    const index = this.#fonts.findIndex((font) => font.id === this.font().id);
+    this.#fontBrowser = { query: "", index: Math.max(0, index) };
+    this.#bump();
+  }
+
+  fontBrowserClose(): void {
+    if (!this.#fontBrowser) return;
+    this.#fontBrowser = undefined;
+    this.#bump();
+  }
+
+  /** Appends one search character; the highlight resets to the top match. */
+  fontBrowserInput(char: string): void {
+    const browser = this.#fontBrowser;
+    if (!browser || char.length !== 1 || browser.query.length >= 48) return;
+    this.#fontBrowser = { query: browser.query + char, index: 0 };
+    this.#bump();
+  }
+
+  fontBrowserBackspace(): void {
+    const browser = this.#fontBrowser;
+    if (!browser || browser.query.length === 0) return;
+    this.#fontBrowser = { query: browser.query.slice(0, -1), index: 0 };
+    this.#bump();
+  }
+
+  /** Moves the highlight, wrapping within the current matches. */
+  fontBrowserMove(direction: 1 | -1): void {
+    const browser = this.#fontBrowser;
+    if (!browser) return;
+    const total = this.fontBrowserMatches().length;
+    if (total === 0) return;
+    this.#fontBrowser = { ...browser, index: (browser.index + direction + total) % total };
+    this.#bump();
+  }
+
+  /** Picks the highlighted match and closes; a no-op with zero matches. */
+  fontBrowserAccept(): boolean {
+    const browser = this.#fontBrowser;
+    if (!browser) return false;
+    const match = this.fontBrowserMatches()[Math.min(browser.index, this.fontBrowserMatches().length - 1)];
+    if (!match) return false;
+    this.#fontBrowser = undefined;
+    return this.setFont(match.id);
   }
 
   textEntryAppend(char: string): void {

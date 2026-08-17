@@ -66,6 +66,16 @@ export function glyphTextFont(id: string): GlyphTextFont {
   return GLYPH_TEXT_FONTS.find((font) => font.id === id) ?? GLYPH_TEXT_FONTS[0]!;
 }
 
+/** Case-insensitive substring filter over font labels and ids. */
+export function filterGlyphFonts(
+  fonts: readonly GlyphTextFont[],
+  query: string,
+): readonly GlyphTextFont[] {
+  const needle = query.trim().toLowerCase();
+  if (needle.length === 0) return fonts;
+  return fonts.filter((font) => font.label.toLowerCase().includes(needle) || font.id.includes(needle));
+}
+
 /** Stable font id from a file name ("ANSI Shadow.flf" → "ansi-shadow"). */
 export function glyphFontIdFromFileName(fileName: string): string {
   return fileName
