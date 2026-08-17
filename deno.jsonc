@@ -51,11 +51,14 @@
     "inkstone": "deno run ./examples/showcases/inkstone/main.ts",
     "inkstone:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/inkstone/main.ts --persist --state-file=\"$state_dir/inkstone-session.json\"'",
     "inkstone:check": "deno check ./examples/showcases/inkstone/main.ts",
-    "orbital-command": "deno run ./examples/showcases/orbital_command/main.ts",
-    "orbital-command:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/orbital_command/main.ts --persist --state-file=\"$state_dir/orbital-command-session.json\"'",
+    "orbital-command": "deno run --allow-read=./src/three_ascii/assets ./examples/showcases/orbital_command/main.ts",
+    "orbital-command:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\",./src/three_ascii/assets --allow-write=\"$state_dir\" ./examples/showcases/orbital_command/main.ts --persist --state-file=\"$state_dir/orbital-command-session.json\"'",
     "orbital-command:check": "deno check ./examples/showcases/orbital_command/main.ts",
-    "glyph-forge": "deno run ./examples/showcases/glyph_forge/main.ts",
-    "glyph-forge:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/glyph_forge/main.ts --persist --state-file=\"$state_dir/glyph-forge-session.json\"'",
+    // GlyphForge auto-loads the figlet font pack when `glyph-forge:fonts` has
+    // installed it; without the pack the two bundled fonts still work.
+    "glyph-forge": "sh -c 'fonts_dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/deno-tui/figlet-fonts\"; if [ -d \"$fonts_dir\" ]; then exec deno run --allow-read=\"$fonts_dir\" ./examples/showcases/glyph_forge/main.ts --fonts-dir=\"$fonts_dir\"; else exec deno run ./examples/showcases/glyph_forge/main.ts; fi'",
+    "glyph-forge:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; fonts_dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/deno-tui/figlet-fonts\"; fonts=\"\"; [ -d \"$fonts_dir\" ] && fonts=\"--fonts-dir=$fonts_dir\"; exec deno run --allow-read=\"$state_dir\",\"$fonts_dir\" --allow-write=\"$state_dir\" ./examples/showcases/glyph_forge/main.ts --persist --state-file=\"$state_dir/glyph-forge-session.json\" $fonts'",
+    "glyph-forge:fonts": "sh -c 'data_dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/deno-tui/figlet-fonts\"; mkdir -p \"$data_dir\"; tmp=$(mktemp -d); echo \"fetching patorjk/figlet.js fonts…\"; curl -sL https://github.com/patorjk/figlet.js/archive/refs/heads/main.tar.gz | tar xz -C \"$tmp\"; cp \"$tmp\"/figlet.js-*/fonts/*.flf \"$data_dir\"/ 2>/dev/null; echo \"fetching xero/figlet-fonts…\"; curl -sL https://github.com/xero/figlet-fonts/archive/refs/heads/main.tar.gz | tar xz -C \"$tmp\"; find \"$tmp\"/figlet-fonts-* \\( -name \"*.flf\" -o -name \"*.tlf\" \\) -exec cp --update=none {} \"$data_dir\"/ \\; ; rm -rf \"$tmp\"; printf \"fonts installed in %s: \" \"$data_dir\"; ls \"$data_dir\" | wc -l'",
     "glyph-forge:check": "deno check ./examples/showcases/glyph_forge/main.ts",
     // Exomux is a standalone package with its own import map and lockfile —
     // deliberately not a workspace member, because a Deno workspace shares one

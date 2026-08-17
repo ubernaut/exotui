@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { DiagnosticsCollector } from "../../../mod.ts";
+import { probeCompatibleWebGPUDevice } from "../../../src/three_ascii/webgpu_compat.ts";
 import { createShowcaseTerminalStore } from "../shared/mod.ts";
 import { createOrbitalCommandTerminalApp, type OrbitalCommandRuntime } from "./app.ts";
 import { createOrbitalCommandController } from "./controller.ts";
@@ -44,7 +45,18 @@ export async function runOrbitalCommandShowcase(options: OrbitalCommandLaunchOpt
     persistenceDebounceMs: storage.inspect().durable ? 250 : 0,
   });
   await controller.kernel.ready;
-  const runtime = createOrbitalCommandTerminalApp({ controller });
+  // ORBIT-002: the 3D observatory needs WebGPU; without it the app keeps
+  // the full catalog/telemetry console with the 2D map and says so.
+  const threeAscii = await probeCompatibleWebGPUDevice().catch(() => false);
+  if (!threeAscii) {
+    diagnostics.report({
+      source: "orbital-launcher",
+      code: "webgpu-unavailable",
+      severity: "warning",
+      message: "WebGPU is unavailable; the observatory runs the 2D text fallback.",
+    });
+  }
+  const runtime = createOrbitalCommandTerminalApp({ controller, threeAscii });
   bindAwaitedShutdown(runtime);
   runtime.start();
 }

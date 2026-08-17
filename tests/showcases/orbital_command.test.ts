@@ -174,3 +174,32 @@ Deno.test("restored sessions normalize strictly", () => {
   assertEquals(normalized.paused, false);
   assertEquals(normalized.selectedId, "iss");
 });
+
+Deno.test("the 3D observatory scene builds, tracks selection, and clamps its camera", async () => {
+  const { applyCamera, createOrbitalViewportScene, ORBITAL_VIEWPORT_KM_PER_UNIT } = await import(
+    "../../examples/showcases/orbital_command/viewport_scene.ts"
+  );
+  const catalog = orbitalCommandFixtureCatalog();
+  const bundle = createOrbitalViewportScene(catalog);
+  try {
+    // One marker and one orbit line per satellite, plus Earth/stars/lights.
+    assert(bundle.scene.children.length >= catalog.satellites.length * 2 + 3);
+
+    bundle.update(3_600, "relay-geo");
+    const iss = catalog.satellites.find((satellite) => satellite.id === "iss")!;
+    const expected = propagateOrbitalState(iss.elements, 3_600);
+    const marker = bundle.scene.children.find((child: { position: { x: number; y: number } }) =>
+      Math.abs(child.position.x - expected.positionKm[0] / ORBITAL_VIEWPORT_KM_PER_UNIT) < 1e-6 &&
+      Math.abs(child.position.y - expected.positionKm[2] / ORBITAL_VIEWPORT_KM_PER_UNIT) < 1e-6
+    );
+    assert(marker, "the ISS marker sits exactly on its propagated position");
+
+    bundle.cameraState.elevationRad = 9;
+    bundle.cameraState.distanceUnits = 0.01;
+    applyCamera(bundle.camera, bundle.cameraState);
+    assert(bundle.cameraState.elevationRad <= 1.35, "elevation clamps");
+    assert(bundle.cameraState.distanceUnits >= 1.2, "zoom clamps");
+  } finally {
+    bundle.dispose();
+  }
+});

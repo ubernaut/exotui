@@ -18,8 +18,11 @@ import {
   Text,
 } from "../../../mod.app.ts";
 import { KeyHelp, KeymapRegistry, type TextRectangle } from "../../../mod.ts";
+import { ThreeAscii } from "../../../src/components/three_ascii.ts";
+import { asciiEffectOptions, createDefaultAsciiOptions } from "../../../src/three_ascii/options.ts";
 import { formatOrbitalSimTime, type OrbitalMapCell } from "./model.ts";
 import type { OrbitalCommandController } from "./controller.ts";
+import { createOrbitalViewportScene, type OrbitalViewportBundle } from "./viewport_scene.ts";
 
 /** Actions dispatched by the Orbital Command keymap. */
 export type OrbitalCommandAction =
@@ -31,6 +34,7 @@ export type OrbitalCommandAction =
   | { type: "time.stepBack" }
   | { type: "time.stepForward" }
   | { type: "time.rewind" }
+  | { type: "view.toggle" }
   | { type: "app.quit" };
 
 /** The mounted runtime returned to the launcher. */
@@ -46,10 +50,15 @@ const TELEMETRY_WIDTH = 32;
 /** Creates and mounts the Orbital Command terminal app. */
 export function createOrbitalCommandTerminalApp(options: {
   readonly controller: OrbitalCommandController;
+  /** WebGPU probe result; false renders the honest 2D fallback (ORBIT-002). */
+  readonly threeAscii?: boolean;
 }): OrbitalCommandRuntime {
   const controller = options.controller;
+  const threeAvailable = options.threeAscii === true;
+  const viewMode = new Signal<"3d" | "map">(threeAvailable ? "3d" : "map");
   let clockTimer: ReturnType<typeof setInterval> | undefined;
   let persistTimer: ReturnType<typeof setInterval> | undefined;
+  let viewport: OrbitalViewportBundle | undefined;
 
   const app = createTerminalApp<OrbitalCommandAction>({
     id: "orbital-command",
@@ -74,6 +83,7 @@ export function createOrbitalCommandTerminalApp(options: {
         action: { type: "time.stepForward" },
       },
       { id: "time.rewind", label: "Rewind to T+0", binding: { key: "0" }, action: { type: "time.rewind" } },
+      { id: "view.toggle", label: "3D / map view", binding: { key: "v" }, action: { type: "view.toggle" } },
       { id: "app.quit", label: "Quit", binding: { key: "q" }, action: { type: "app.quit" } },
     ],
     onAction(action) {
@@ -101,6 +111,9 @@ export function createOrbitalCommandTerminalApp(options: {
           break;
         case "time.rewind":
           controller.scrubTo(0);
+          break;
+        case "view.toggle":
+          if (threeAvailable) viewMode.value = viewMode.peek() === "3d" ? "map" : "3d";
           break;
         case "app.quit":
           void runtime.destroy().then(() => Deno.exit(0));
@@ -196,8 +209,12 @@ export function createOrbitalCommandTerminalApp(options: {
         zIndex: 2,
         text: new Computed(() => {
           revision.value;
+          if (viewMode.value === "3d") {
+            return " OBSERVATORY · 3D · a/d w/s orbit · z/x zoom · v map ";
+          }
           const range = controller.mapRender(10, 7).rangeKm;
-          return ` OBSERVATORY · top-down · ±${Math.round(range).toLocaleString("en-US")} km `;
+          const fallback = threeAvailable ? "" : " · TEXT FALLBACK (no WebGPU)";
+          return ` OBSERVATORY · top-down · ±${Math.round(range).toLocaleString("en-US")} km${fallback} `;
         }),
         rectangle: new Computed<TextRectangle>(() => ({
           column: mapRect.value.column + 1,
@@ -230,7 +247,7 @@ export function createOrbitalCommandTerminalApp(options: {
             row: mapRect.value.row + 1 + rowIndex,
             width: Math.max(10, mapRect.value.width - 2),
           })),
-          visible: new Computed(() => rowIndex < Math.max(1, mapRect.value.height - 2)),
+          visible: new Computed(() => viewMode.value === "map" && rowIndex < Math.max(1, mapRect.value.height - 2)),
         });
       }
 
@@ -299,12 +316,53 @@ export function createOrbitalCommandTerminalApp(options: {
         });
       }
 
+      // ── 3D observatory (ORBIT-001) ─────────────────────────────────
+      if (threeAvailable) {
+        viewport = createOrbitalViewportScene(controller.catalog);
+        const ascii = createDefaultAsciiOptions("sharp");
+        new ThreeAscii({
+          parent: tui,
+          theme: {},
+          zIndex: 1,
+          scene: viewport.scene,
+          camera: viewport.camera,
+          frameInterval: 1000 / 15,
+          effect: asciiEffectOptions(ascii),
+          terminalEdgeBias: ascii.terminalEdgeBias,
+          terminalGlyphStyle: ascii.terminalGlyphStyle,
+          onFrame: () => {
+            viewport?.update(controller.simSeconds(), controller.selectedId());
+          },
+          rectangle: new Computed(() => ({
+            column: mapRect.value.column + 1,
+            row: mapRect.value.row + 1,
+            width: Math.max(10, mapRect.value.width - 2),
+            height: Math.max(6, mapRect.value.height - 2),
+          })),
+          visible: new Computed(() => viewMode.value === "3d"),
+        });
+        tui.on("keyPress", ({ key, ctrl, meta }) => {
+          if (ctrl || meta || !viewport || viewMode.peek() !== "3d") return;
+          const camera = viewport.cameraState;
+          if (key === "a") camera.azimuthRad -= 0.12;
+          else if (key === "d") camera.azimuthRad += 0.12;
+          else if (key === "w") camera.elevationRad += 0.08;
+          else if (key === "s") camera.elevationRad -= 0.08;
+          else if (key === "z") camera.distanceUnits *= 0.85;
+          else if (key === "x") camera.distanceUnits /= 0.85;
+        });
+      }
+
       const keymap = new KeymapRegistry();
       keymap.register({ key: "↑/↓", description: "select" });
       keymap.register({ key: "space", description: "pause" });
       keymap.register({ key: "+/-", description: "time scale" });
       keymap.register({ key: "[/]", description: "step 10m" });
       keymap.register({ key: "0", description: "rewind" });
+      if (threeAvailable) {
+        keymap.register({ key: "v", description: "3D/map" });
+        keymap.register({ key: "a/d/w/s z/x", description: "camera" });
+      }
       keymap.register({ key: "q", description: "quit" });
       new KeyHelp({
         parent: tui,
@@ -338,6 +396,7 @@ export function createOrbitalCommandTerminalApp(options: {
       if (clockTimer !== undefined) clearInterval(clockTimer);
       if (persistTimer !== undefined) clearInterval(persistTimer);
       app.destroy();
+      viewport?.dispose();
       await controller.dispose();
     },
   };
