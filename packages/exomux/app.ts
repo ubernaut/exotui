@@ -1448,6 +1448,18 @@ export function mountExomuxDesktop(
 
   const beginWindowTransition = (command: WorkbenchWindowHostCommand): void => {
     if (!surfaceAnimationsEnabled) return;
+    // The settings pane is the source of truth per event: kind per
+    // transition plus a global speed ("off" disables).
+    const global = controller.globalSettings.peek();
+    surfaceAnimator.setSettings({
+      speed: global.animationSpeed,
+      kinds: {
+        close: global.animationClose,
+        minimize: global.animationMinimize,
+        maximize: global.animationMaximize,
+        restore: global.animationRestore,
+      },
+    });
     let transition: SurfaceTransition;
     switch (command.kind) {
       case "close":

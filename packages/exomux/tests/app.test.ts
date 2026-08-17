@@ -3257,13 +3257,9 @@ Deno.test("Exomux global settings normalize and reject unknown values", () => {
   assertEquals(
     normalizeExomuxGlobalSettings({ overgrowInactive: false, overgrowFullMs: 30_000 }),
     {
+      ...defaults,
       overgrowInactive: false,
       overgrowFullMs: 30_000,
-      borderStyle: "thin",
-      opacity: 0.85,
-      scrollLines: 1,
-      blockCursor: false,
-      debugLogging: false,
     },
   );
   // Unlisted durations fall back rather than being trusted.

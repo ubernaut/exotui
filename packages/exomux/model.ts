@@ -1,7 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { defineShowcaseManifest } from "@showcase/kit";
-import { grWizardThemePalettes } from "@ubernaut/deno-tui";
+import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/deno-tui";
+import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/deno-tui";
 
 /** Current Exomux workspace metadata schema. Live PTYs remain daemon-owned. */
 export const EXOMUX_SESSION_SCHEMA_VERSION = 1 as const;
@@ -601,6 +602,16 @@ export interface ExomuxGlobalSettings {
    * lands in `logs/exomux-<timestamp>.log` instead.
    */
   readonly debugLogging: boolean;
+  /** Pace of window-transition animations; "off" disables them (039). */
+  readonly animationSpeed: SurfaceAnimationSpeed;
+  /** Effect played when a window closes ("random" picks per event). */
+  readonly animationClose: SurfaceAnimationChoice;
+  /** Effect played when a window minimizes to the taskbar. */
+  readonly animationMinimize: SurfaceAnimationChoice;
+  /** Effect played over the old bounds when a window maximizes. */
+  readonly animationMaximize: SurfaceAnimationChoice;
+  /** Effect played over the old bounds when a window restores. */
+  readonly animationRestore: SurfaceAnimationChoice;
 }
 
 /**
@@ -620,6 +631,9 @@ export type ExomuxGlobalSettingId = keyof ExomuxGlobalSettings;
 export type ExomuxGlobalSettingSpec = ExomuxSettingSpec<ExomuxGlobalSettingId>;
 
 /** Ordered desktop-wide settings presented by the global config modal. */
+/** Every animation effect plus the per-event random pick (039). */
+const EXOMUX_ANIMATION_KIND_VALUES = Object.freeze([...SURFACE_ANIMATION_KINDS, "random"]);
+
 export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = Object.freeze([
   Object.freeze({
     id: "overgrowInactive" as const,
@@ -670,6 +684,41 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     values: Object.freeze([false, true]),
     format: onOff,
   }),
+  Object.freeze({
+    id: "animationSpeed" as const,
+    label: "Animation speed",
+    detail: "Pace of window transition effects; off disables them entirely.",
+    values: Object.freeze(["normal", "fast", "slow", "off"]),
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
+  Object.freeze({
+    id: "animationClose" as const,
+    label: "Close animation",
+    detail: "How a closing window leaves; random picks a fresh effect per close.",
+    values: EXOMUX_ANIMATION_KIND_VALUES,
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
+  Object.freeze({
+    id: "animationMinimize" as const,
+    label: "Minimize animation",
+    detail: "How a window leaves for the taskbar.",
+    values: EXOMUX_ANIMATION_KIND_VALUES,
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
+  Object.freeze({
+    id: "animationMaximize" as const,
+    label: "Maximize animation",
+    detail: "Ghost played over the old bounds while the window takes its new ones.",
+    values: EXOMUX_ANIMATION_KIND_VALUES,
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
+  Object.freeze({
+    id: "animationRestore" as const,
+    label: "Restore animation",
+    detail: "Ghost played over the old bounds when a window comes back.",
+    values: EXOMUX_ANIMATION_KIND_VALUES,
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
 ]) as readonly ExomuxGlobalSettingSpec[];
 
 /** Factory defaults for desktop-wide settings. */
@@ -687,6 +736,12 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     blockCursor: false,
     // Off by default; the toggle names the log path in the status line.
     debugLogging: false,
+    // Animated window transitions ship on at a comfortable pace (039).
+    animationSpeed: "normal" as const,
+    animationClose: "disintegrate" as const,
+    animationMinimize: "fade" as const,
+    animationMaximize: "fade" as const,
+    animationRestore: "fade" as const,
   });
 }
 

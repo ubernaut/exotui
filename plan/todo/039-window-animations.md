@@ -31,6 +31,9 @@ Design notes (to refine when work starts):
       beneath = morph); true open-assembly stays for hosts that can suppress the incoming window. Headless mounts
       (tests/pipes) auto-disable via stdout TTY detection.
 - [ ] Wire menu/modal/toast open+close.
-- [ ] Exomux settings: kind per transition + speed + reduce-motion.
+- [x] Exomux settings: animationSpeed (normal/fast/slow/off) + per-transition kinds (close/minimize/maximize/restore,
+      every effect + random) as ordinary cycleable global settings — persisted, normalized, clickable in the settings
+      window (rect bumped 24→30 to keep picker rows visible); applied per event via surfaceAnimator.setSettings.
+      Reduce-motion arrives through the coordinator MotionContext hook when a desktop-level toggle exists.
 - [ ] Tests: deterministic frames on a fake clock (DONE: 11 tests — snapshot at 0, empty at end, in-direction assembly,
       per-seed determinism, per-effect invariants); reduced-motion collapse lands with the host wiring.

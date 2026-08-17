@@ -2971,12 +2971,14 @@ export class ExomuxController {
         id: EXOMUX_SETTINGS_WINDOW_ID,
         title: "Exomux settings",
         minWidth: 48,
-        minHeight: 16,
+        // The option list grew with the animation settings (039); the floor
+        // keeps at least one picker row visible above it.
+        minHeight: 20,
         maxWidth: 90,
         maxHeight: 44,
         state: "minimized",
         placement: "floating",
-        floatingRect: { column: 5, row: 2, width: 64, height: 24 },
+        floatingRect: { column: 5, row: 2, width: 64, height: 30 },
       },
       ...[...runtimes.values()].map((runtime) => ({
         id: exomuxWindowId(runtime.sessionId),
