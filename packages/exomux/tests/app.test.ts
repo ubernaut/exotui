@@ -1722,7 +1722,9 @@ Deno.test("Exomux terminal bar raises every open terminal, protects floating pai
     await mounted.handlePointer(touchPointer("up", touchColumn, selector.hitRect.row, 101, 77));
     await mounted.whenIdle();
     const inspection = controller.windowHost.controller.inspect();
-    assertEquals(inspection.maximizedWindowId, undefined);
+    // 28x24 is phone-sized, so the mobile layout hands the session manager the
+    // whole body instead of floating it over windows that cannot fit anyway.
+    assertEquals(inspection.maximizedWindowId, EXOMUX_SESSIONS_WINDOW_ID);
     assertEquals(inspection.activeWindowId, EXOMUX_SESSIONS_WINDOW_ID);
   } finally {
     harness.destroy();

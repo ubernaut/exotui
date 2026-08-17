@@ -102,6 +102,9 @@ library export.
 - PTY-backed shells via the optional `@sigma/pty-ffi` adapter with a pipe fallback.
 - Floating window workbench: drag, resize, snap, tile, shelf, taskbar, per-window settings, session rename, responsive
   settings layout on narrow terminals.
+- Phone-aware layout: below 72x20 the desktop hands the whole screen to one window at a time — terminals and the
+  sessions, network, and settings panels alike — so a session resumed on a phone never comes back off screen. Growing
+  the terminal restores the floating desktop; the "Mobile layout" setting forces it on or off.
 - Per-desktop and per-window opacity with true multi-layer compositing; chrome and controls blend at half the window's
   transparency.
 - Thirteen themes and fourteen animated backgrounds, cycled from the settings window or prefix `b`; organic backgrounds

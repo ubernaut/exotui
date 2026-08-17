@@ -600,6 +600,34 @@ export function exomuxBorderGlyphs(id: unknown): ExomuxBorderGlyphs {
 }
 
 /** Desktop-wide settings edited from the global config modal. */
+/** How the desktop chooses between floating windows and one full-screen window. */
+export const EXOMUX_MOBILE_LAYOUT_MODES = ["auto", "on", "off"] as const;
+export type ExomuxMobileLayoutMode = (typeof EXOMUX_MOBILE_LAYOUT_MODES)[number];
+
+/**
+ * Body columns/rows the floating-window desktop needs to stay usable. Below
+ * either one, dragging and stacking windows costs more than it gives: the
+ * default window rects (the settings panel alone wants 64x30) cannot fit, so
+ * "auto" hands the whole body to one window at a time, phone-style.
+ */
+export const EXOMUX_MOBILE_MIN_COLUMNS = 72;
+export const EXOMUX_MOBILE_MIN_ROWS = 20;
+
+/** True when a body area is too small for the floating-window desktop. */
+export function exomuxViewportIsMobile(bounds: { readonly width: number; readonly height: number }): boolean {
+  return bounds.width < EXOMUX_MOBILE_MIN_COLUMNS || bounds.height < EXOMUX_MOBILE_MIN_ROWS;
+}
+
+/** Resolves the mobile-layout setting against a body area. */
+export function exomuxMobileLayoutActive(
+  mode: ExomuxMobileLayoutMode,
+  bounds: { readonly width: number; readonly height: number },
+): boolean {
+  if (mode === "on") return true;
+  if (mode === "off") return false;
+  return exomuxViewportIsMobile(bounds);
+}
+
 export interface ExomuxGlobalSettings {
   /** Let the animated background reclaim windows that have lost focus. */
   readonly overgrowInactive: boolean;
@@ -607,6 +635,12 @@ export interface ExomuxGlobalSettings {
   readonly overgrowFullMs: number;
   /** Window frame vocabulary. */
   readonly borderStyle: ExomuxBorderStyleId;
+  /**
+   * Phone-sized layout: one full-screen window at a time instead of the
+   * floating desktop. "auto" turns it on below {@link EXOMUX_MOBILE_MIN_COLUMNS}
+   * columns or {@link EXOMUX_MOBILE_MIN_ROWS} rows of body area.
+   */
+  readonly mobileLayout: ExomuxMobileLayoutMode;
   /**
    * How opaque terminal windows are by default.
    *
@@ -688,6 +722,14 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     format: (value: ExomuxSettingValue) => String(value),
   }),
   Object.freeze({
+    id: "mobileLayout" as const,
+    label: "Mobile layout",
+    detail:
+      `One full-screen window at a time. Auto turns it on below ${EXOMUX_MOBILE_MIN_COLUMNS}x${EXOMUX_MOBILE_MIN_ROWS}.`,
+    values: Object.freeze([...EXOMUX_MOBILE_LAYOUT_MODES]),
+    format: (value: ExomuxSettingValue) => value === "auto" ? "Auto" : value === "on" ? "Always" : "Never",
+  }),
+  Object.freeze({
     id: "opacity" as const,
     label: "Window opacity",
     detail: "Below opaque, terminal windows show the desktop background through their text.",
@@ -765,6 +807,9 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     overgrowInactive: true,
     overgrowFullMs: 120_000,
     borderStyle: "thin" as const,
+    // Phone-sized terminals get one full-screen window at a time; a roomy
+    // terminal keeps the floating desktop.
+    mobileLayout: "auto" as const,
     // Slightly translucent out of the box: the live desktop showing through
     // terminal text is the look Exomux leads with.
     opacity: 0.85,

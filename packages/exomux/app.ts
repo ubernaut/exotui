@@ -958,6 +958,13 @@ export function mountExomuxDesktop(
     doubleClickMaximizeMs: EXOMUX_DOUBLE_CLICK_MS,
     titleAdornments: windowTitleAdornments,
   });
+  // Before the first projection exists: a session resumed onto a phone-sized
+  // terminal switches to one full-screen window, and a desktop-sized one
+  // rescues windows whose stored bounds no longer fit. This has to run ahead
+  // of the Computed below because a Computed wires its dependencies on a later
+  // microtask — a layout applied after construction but before that wiring
+  // lands would leave the painted projection stuck on pre-layout bounds.
+  controller.applyViewportLayout(bodyRect.peek());
   const windowProjection = own(
     new Computed(() =>
       controller.windowHost.project(bodyRect.value, {
@@ -1029,8 +1036,7 @@ export function mountExomuxDesktop(
         // Pointer/key chrome has already committed the generic close. Restore
         // the view when the daemon rejects termination so a live PTY never
         // becomes a hidden or frozen orphan.
-        controller.windowHost.execute({ kind: "restore", id: closeWindowId }, bodyRect.peek());
-        controller.windowHost.execute({ kind: "focus", id: closeWindowId }, bodyRect.peek());
+        if (closeWindowId) controller.presentWindow(closeWindowId, bodyRect.peek());
       }
     } else if (!alreadyExecuted) {
       controller.windowHost.execute(command, bodyRect.peek(), projectionOptions());
@@ -3632,15 +3638,14 @@ export function mountExomuxDesktop(
     if (disposed) return;
     if (bounds.width === lastReflowSize.width && bounds.height === lastReflowSize.height) return;
     lastReflowSize = { width: bounds.width, height: bounds.height };
-    if (controller.reflowFloatingWindows(bounds)) void syncWindows();
+    if (controller.applyViewportLayout(bounds)) void syncWindows();
   }, subscriptions.signal);
   controller.sessions.subscribe((sessions) => {
     selectedSessionIndex.value = clampIndex(selectedSessionIndex.peek(), sessions.length);
   }, subscriptions.signal);
-  // Fit any restored floating windows to the current view at launch: a layout
-  // persisted from a larger terminal must never come back partly offscreen.
-  // `bodyRect.subscribe` only fires on a later resize, so the first fit is here.
-  if (controller.reflowFloatingWindows(bodyRect.peek())) void syncWindows();
+  // Re-apply once mounting is done: windows declared during setup (a restored
+  // workspace arrives after the first layout) get the same treatment.
+  if (controller.applyViewportLayout(bodyRect.peek())) void syncWindows();
   scheduleGeometry();
 
   return {
@@ -3706,8 +3711,7 @@ async function handleExomuxAction(action: ExomuxAppAction, mount: ExomuxAppMount
         await controller.spawn({ bounds: bodyRect.peek() });
         break;
       case "exomux.sessions":
-        controller.windowHost.execute({ kind: "restore", id: EXOMUX_SESSIONS_WINDOW_ID }, bodyRect.peek());
-        controller.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, bodyRect.peek());
+        controller.presentWindow(EXOMUX_SESSIONS_WINDOW_ID, bodyRect.peek());
         break;
       case "exomux.theme":
         controller.cycleTheme();

@@ -71,6 +71,7 @@ import {
   type ExomuxControllerInspection,
   type ExomuxGlobalSettingId,
   type ExomuxGlobalSettings,
+  exomuxMobileLayoutActive,
   type ExomuxOutputFrame,
   exomuxSessionIdFromWindow,
   type ExomuxSessionSummary,
@@ -835,6 +836,8 @@ export class ExomuxController {
   #spawnFlight?: Promise<void>;
   #unsubscribeSessions?: () => void;
   #lastBounds: Rectangle = { column: 0, row: 0, width: 120, height: 36 };
+  /** The window this controller handed the mobile layout's full-screen slot. */
+  #mobileMaximizedId?: string;
   readonly #networkExpansion = new Set<string>(["hosts", "tailscale"]);
   #tailnetPoller?: TailnetPoller;
   readonly #tailnetSource: Pick<TailnetStatusSource, "fetchStatus">;
@@ -1427,8 +1430,7 @@ export class ExomuxController {
     this.globalConfigPane.value = "theme";
     this.globalConfigOptionIndex.value = 0;
     this.globalConfigVisible.value = true;
-    this.windowHost.execute({ kind: "restore", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
-    this.windowHost.execute({ kind: "focus", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
+    this.presentWindow(EXOMUX_SETTINGS_WINDOW_ID, bounds);
     this.status.value = "Settings · Tab pane · ↑↓ choose · ←→ change · Escape close";
   }
 
@@ -1437,6 +1439,8 @@ export class ExomuxController {
     if (this.#disposed) return;
     this.globalConfigVisible.value = false;
     this.windowHost.execute({ kind: "minimize", id: EXOMUX_SETTINGS_WINDOW_ID }, bounds);
+    // On the mobile layout the screen just emptied: give it to the next window.
+    this.refillMobileLayout(bounds);
     this.status.value = this.#statusSummary();
   }
 
@@ -1684,8 +1688,7 @@ export class ExomuxController {
         this.windowHost.execute({ kind: "switcher-open", direction: 1 }, bounds);
         return true;
       case "s":
-        this.windowHost.execute({ kind: "restore", id: EXOMUX_SESSIONS_WINDOW_ID }, bounds);
-        this.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, bounds);
+        this.presentWindow(EXOMUX_SESSIONS_WINDOW_ID, bounds);
         return true;
       case "r":
         await this.refreshSessions();
@@ -1769,12 +1772,12 @@ export class ExomuxController {
     const active = this.windowHost.controller.inspect().activeWindowId === EXOMUX_NETWORK_WINDOW_ID;
     if (active) {
       this.windowHost.execute({ kind: "minimize", id: EXOMUX_NETWORK_WINDOW_ID }, bounds);
+      this.refillMobileLayout(bounds);
       this.#tailnetPoller?.setVisible(false);
       this.status.value = this.#statusSummary();
       return;
     }
-    this.windowHost.execute({ kind: "restore", id: EXOMUX_NETWORK_WINDOW_ID }, bounds);
-    this.windowHost.execute({ kind: "focus", id: EXOMUX_NETWORK_WINDOW_ID }, bounds);
+    this.presentWindow(EXOMUX_NETWORK_WINDOW_ID, bounds);
     this.#ensureTailnetPoller().setVisible(true);
     this.status.value = "Network panel · Enter opens SSH · Del forgets a saved host · r refreshes.";
   }
@@ -1962,7 +1965,7 @@ export class ExomuxController {
       const existing = this.#remoteAttachMap.get(key);
       const runtime = existing ? this.#runtimes.get(existing) : undefined;
       if (runtime && runtime.summary.peek().running) {
-        this.windowHost.execute({ kind: "focus", id: exomuxWindowId(existing!) }, bounds);
+        this.presentWindow(exomuxWindowId(existing!), bounds);
         this.status.value = `Focused ${kind} ${name} on ${target} · Shift-Enter attaches again.`;
         return;
       }
@@ -2043,6 +2046,110 @@ export class ExomuxController {
     }
     if (changed) this.#lastBounds = { ...viewport };
     return changed;
+  }
+
+  /**
+   * True when the desktop is running the phone layout: one window owns the
+   * whole body area and the rest wait behind it, because a viewport this
+   * small cannot carry floating windows without pushing them off screen.
+   */
+  mobileLayout(bounds: Rectangle = this.#lastBounds): boolean {
+    return exomuxMobileLayoutActive(this.globalSettings.peek().mobileLayout, bounds);
+  }
+
+  /**
+   * Records the live body area and applies the layout it implies. Called at
+   * launch and on every resize: a session resumed on a phone hands its whole
+   * body to one window, and growing the terminal back hands the desktop its
+   * floating windows again, rescuing any that no longer fit.
+   */
+  applyViewportLayout(bounds: Rectangle): boolean {
+    if (this.#disposed) return false;
+    const viewport = normalizeReflowBounds(bounds);
+    if (!viewport) return false;
+    // Recording the viewport on every observation (not only when a rescue
+    // moved something) keeps new-window placement honest: windows created
+    // later — restored sessions arrive well after launch — are sized against
+    // the real screen instead of the 120x36 assumption this class starts on.
+    this.#lastBounds = { ...viewport };
+    if (this.mobileLayout(viewport)) return this.#fillMobileSlot(viewport);
+    const released = this.#releaseMobileLayout(viewport);
+    const reflowed = this.reflowFloatingWindows(viewport);
+    return released || reflowed;
+  }
+
+  /**
+   * Brings one window to the front the way the current layout wants it: full
+   * screen under the mobile layout, restored and focused in place on the
+   * desktop. Focus alone cannot do this — the host blocks focusing a window
+   * that another maximized window is hiding.
+   */
+  presentWindow(id: string, bounds: Rectangle = this.#lastBounds): boolean {
+    if (this.#disposed) return false;
+    const inspection = this.windowHost.controller.inspect();
+    const state = inspection.windows.find((window) => window.id === id)?.state;
+    if (this.mobileLayout(bounds)) {
+      // Only an eligible window can take the screen, so lift it out of the
+      // taskbar first; maximize then reassigns the single full-screen slot.
+      if (state === "minimized" || state === "closed") {
+        this.windowHost.execute({ kind: "restore", id }, bounds);
+      }
+      const result = this.windowHost.execute({ kind: "maximize", id }, bounds);
+      // Track what actually owns the screen rather than trusting the command.
+      if (this.windowHost.controller.inspect().maximizedWindowId === id) this.#mobileMaximizedId = id;
+      return result.handled;
+    }
+    const maximizedId = inspection.maximizedWindowId;
+    if (maximizedId && maximizedId !== id) {
+      this.windowHost.execute({ kind: "restore", id: maximizedId }, bounds);
+      if (this.#mobileMaximizedId === maximizedId) this.#mobileMaximizedId = undefined;
+    }
+    const restored = this.windowHost.execute({ kind: "restore", id }, bounds);
+    const focused = this.windowHost.execute({ kind: "focus", id }, bounds);
+    return restored.handled || focused.handled;
+  }
+
+  /** Gives the full-screen slot to the front-most window that can take it. */
+  #fillMobileSlot(bounds: Rectangle): boolean {
+    const inspection = this.windowHost.controller.inspect();
+    if (inspection.maximizedWindowId) {
+      this.#mobileMaximizedId = inspection.maximizedWindowId;
+      return false;
+    }
+    // Placement does not matter: a resumed terminal is usually tiled, and on a
+    // phone it deserves the screen exactly as much as a floating panel does.
+    const eligible = inspection.windows.filter((window) => window.state === "normal");
+    if (eligible.length === 0) return false;
+    const target = eligible.find((window) => window.id === inspection.activeWindowId) ?? eligible.at(-1)!;
+    const result = this.windowHost.execute({ kind: "maximize", id: target.id }, bounds);
+    if (result.handled) this.#mobileMaximizedId = target.id;
+    return result.handled;
+  }
+
+  /**
+   * Promotes the next window after the full-screen one is minimized or
+   * closed. A window the user restored deliberately is left alone: only a
+   * vacated slot is refilled, so the maximize control still works by hand.
+   */
+  refillMobileLayout(bounds: Rectangle = this.#lastBounds): boolean {
+    if (this.#disposed) return false;
+    const previous = this.#mobileMaximizedId;
+    if (!previous || !this.mobileLayout(bounds)) return false;
+    const inspection = this.windowHost.controller.inspect();
+    if (inspection.maximizedWindowId) return false;
+    const state = inspection.windows.find((window) => window.id === previous)?.state;
+    if (state === "normal") return false;
+    this.#mobileMaximizedId = undefined;
+    return this.#fillMobileSlot(bounds);
+  }
+
+  /** Hands a screen that grew back to the floating desktop. */
+  #releaseMobileLayout(bounds: Rectangle): boolean {
+    const id = this.#mobileMaximizedId;
+    if (!id) return false;
+    this.#mobileMaximizedId = undefined;
+    if (this.windowHost.controller.inspect().maximizedWindowId !== id) return false;
+    return this.windowHost.execute({ kind: "restore", id }, bounds).handled;
   }
 
   #centeredFloatingRect(): Rectangle {
@@ -2320,8 +2427,7 @@ export class ExomuxController {
           ratio: 0.5,
         }, bounds);
       }
-      this.windowHost.execute({ kind: "restore", id: exomuxWindowId(session.id) }, bounds);
-      this.windowHost.execute({ kind: "focus", id: exomuxWindowId(session.id) }, bounds);
+      this.presentWindow(exomuxWindowId(session.id), bounds);
       // Leaving the manager over the first focused shell hides the prompt and
       // early echo, which looks like severe input latency even though the PTY
       // is current. Keep it one Ctrl-N s away on the shelf when it launched
@@ -2348,6 +2454,7 @@ export class ExomuxController {
     const runtime = this.activeRuntime();
     if (!runtime) return false;
     const result = this.windowHost.execute({ kind: "close", id: exomuxWindowId(runtime.sessionId) }, bounds);
+    this.refillMobileLayout(bounds);
     await this.#detachRuntime(runtime);
     this.#persistActiveSession();
     this.status.value = `Detached ${runtime.summary.peek().title}; its PTY is still running.`;
@@ -2360,12 +2467,9 @@ export class ExomuxController {
     const runtime = this.#runtimeRequired(sessionId);
     const targetId = exomuxWindowId(sessionId);
     const maximizedId = this.windowHost.controller.inspect().maximizedWindowId;
-    if (maximizedId && maximizedId !== targetId) {
-      this.windowHost.execute({ kind: "restore", id: maximizedId }, bounds);
-    }
-    this.windowHost.execute({ kind: "restore", id: targetId }, bounds);
-    this.windowHost.execute({ kind: "focus", id: targetId }, bounds);
-    if (maximizedId && maximizedId !== targetId) {
+    this.presentWindow(targetId, bounds);
+    // A terminal opened from a full-screen peer inherits the full screen.
+    if (maximizedId && maximizedId !== targetId && !this.mobileLayout(bounds)) {
       this.windowHost.execute({ kind: "maximize", id: targetId }, bounds);
     }
     const attached = await this.#attachRuntime(runtime);
@@ -2377,11 +2481,7 @@ export class ExomuxController {
   /** Opens the persistent session selector, clearing any terminal fullscreen lock. */
   openSessionManager(bounds: Rectangle): boolean {
     this.#assertActive();
-    const maximizedId = this.windowHost.controller.inspect().maximizedWindowId;
-    if (maximizedId) this.windowHost.execute({ kind: "restore", id: maximizedId }, bounds);
-    const restored = this.windowHost.execute({ kind: "restore", id: EXOMUX_SESSIONS_WINDOW_ID }, bounds);
-    const focused = this.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, bounds);
-    return restored.handled || focused.handled;
+    return this.presentWindow(EXOMUX_SESSIONS_WINDOW_ID, bounds);
   }
 
   /** Explicitly destroys one host-owned process and removes its window. */
@@ -2614,8 +2714,11 @@ export class ExomuxController {
   }
 
   /** Reconciles non-destructive visibility changes with daemon attachments. */
-  async syncWindowVisibility(_bounds: Rectangle): Promise<void> {
+  async syncWindowVisibility(bounds: Rectangle): Promise<void> {
     this.#assertActive();
+    // Every window mutation lands here, so this is where a full-screen slot
+    // emptied by a minimize or close gets its next occupant.
+    this.refillMobileLayout(bounds);
     const windows = this.windowHost.controller.inspect().windows;
     const operations: Promise<unknown>[] = [];
     for (const runtime of this.#runtimes.values()) {
@@ -2756,10 +2859,7 @@ export class ExomuxController {
       ? restored.activeSessionId
       : this.sessions.peek()[0]?.id;
     if (activeId) {
-      this.windowHost.execute(
-        { kind: "focus", id: exomuxWindowId(activeId) },
-        { column: 0, row: 0, width: 120, height: 36 },
-      );
+      this.presentWindow(exomuxWindowId(activeId));
     }
     const attaches: Promise<unknown>[] = [];
     for (const runtime of this.#runtimes.values()) {
