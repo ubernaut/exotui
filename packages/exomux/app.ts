@@ -1505,6 +1505,81 @@ export function mountExomuxDesktop(
     }) as typeof controller.windowHost.execute;
   }
 
+  // Menus and modals animate from visibility flips: close plays the surface's
+  // last-painted cells out; open plays the cells it is ABOUT to cover out as a
+  // reveal (the ghosts composite above modal chrome, so the fresh surface
+  // shows through as the old content crumbles).
+  const beginTransientSurfaceTransition = (
+    surfaceId: string,
+    transition: "open" | "close",
+    rect: Rectangle | undefined,
+  ): void => {
+    if (!surfaceAnimationsEnabled || !rect || rect.width <= 0 || rect.height <= 0) return;
+    const global = controller.globalSettings.peek();
+    surfaceAnimator.setSettings({
+      speed: global.animationSpeed,
+      kinds: { open: global.animationMenus, close: global.animationMenus },
+    });
+    const snapshot = snapshotExomuxDesktopRect(lastDesktopRows, rect);
+    if (!snapshot) return;
+    const started = surfaceAnimator.begin({
+      surfaceId,
+      transition,
+      rect: { ...rect },
+      snapshot: snapshot.plain,
+      now: performance.now(),
+      direction: "out",
+    });
+    if (started) animationStyles.set(surfaceId, snapshot.styled);
+  };
+
+  const watchTransientSurface = (
+    surfaceId: string,
+    visible: () => boolean,
+    subscribe: (listener: () => void) => void,
+    rectFor: () => Rectangle | undefined,
+  ): void => {
+    let last = visible();
+    subscribe(() => {
+      const next = visible();
+      if (next === last) return;
+      last = next;
+      beginTransientSurfaceTransition(surfaceId, next ? "open" : "close", rectFor());
+    });
+  };
+
+  if (surfaceAnimationsEnabled) {
+    watchTransientSurface(
+      "start-menu",
+      () => controller.startMenuVisible.peek(),
+      (listener) => controller.startMenuVisible.subscribe(listener, subscriptions.signal),
+      () =>
+        exomuxStartMenuLayout(
+          app.tui.rectangle.peek(),
+          controller.startMenuAnchor.peek(),
+          exomuxStartMenuItems(controller),
+        ).panelRect,
+    );
+    watchTransientSurface(
+      "help-modal",
+      () => controller.helpVisible.peek(),
+      (listener) => controller.helpVisible.subscribe(listener, subscriptions.signal),
+      () => exomuxHelpLayout(windowProjection.peek().bounds).rect,
+    );
+    watchTransientSurface(
+      "quit-modal",
+      () => controller.quitModalVisible.peek(),
+      (listener) => controller.quitModalVisible.subscribe(listener, subscriptions.signal),
+      () => exomuxQuitLayout(windowProjection.peek().bounds).rect,
+    );
+    watchTransientSurface(
+      "kill-modal",
+      () => controller.pendingKillSessionId.peek() !== undefined,
+      (listener) => controller.pendingKillSessionId.subscribe(listener, subscriptions.signal),
+      () => exomuxKillLayout(windowProjection.peek().bounds).rect,
+    );
+  }
+
   const collectAnimationOverlays = (): ExomuxAnimationOverlayPaint[] => {
     const overlays = surfaceAnimator.framesAt(performance.now());
     const paints: ExomuxAnimationOverlayPaint[] = [];
@@ -4110,11 +4185,6 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     exomuxSceneGround.commitWindow();
   }
   painter.endGroundDeposits();
-  // Transition ghosts sit above every window but below modal chrome: a
-  // closing window's snapshot dissolves over whatever tiling replaced it.
-  for (const paint of options.animationOverlays ?? []) {
-    paintAnimationOverlay(painter, paint, theme);
-  }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
   if (options.backgroundField && exomuxBackgroundHasOverlay(options.backgroundField)) {
@@ -4181,6 +4251,13 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) {
     paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection);
+  }
+
+  // Transition ghosts composite above windows AND modal chrome: a menu's
+  // open-reveal needs the freshly painted surface beneath it, and a closing
+  // window's snapshot dissolves over whatever replaced it.
+  for (const paint of options.animationOverlays ?? []) {
+    paintAnimationOverlay(painter, paint, theme);
   }
 
   // The optional block cursor sits on top of everything, at the mouse cell —

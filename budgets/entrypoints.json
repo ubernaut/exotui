@@ -463,7 +463,7 @@
   },
   "mod.app.ts": {
     "modules": 132,
-    "bytes": 1865930,
+    "bytes": 1866216,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -476,7 +476,7 @@
       "src/app/mouse_bindings.ts": 11506,
       "src/app/plugins.ts": 18442,
       "src/app/router.ts": 53710,
-      "src/app/surface_transitions.ts": 6612,
+      "src/app/surface_transitions.ts": 6898,
       "src/app/terminal_app.ts": 8902,
       "src/app/terminal_input.ts": 12222,
       "src/app/widget_surface.ts": 8005,

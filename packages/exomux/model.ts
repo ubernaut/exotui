@@ -612,6 +612,8 @@ export interface ExomuxGlobalSettings {
   readonly animationMaximize: SurfaceAnimationChoice;
   /** Effect played over the old bounds when a window restores. */
   readonly animationRestore: SurfaceAnimationChoice;
+  /** Effect for menus and modals: close plays it out, open plays it as a reveal. */
+  readonly animationMenus: SurfaceAnimationChoice;
 }
 
 /**
@@ -719,6 +721,13 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     values: EXOMUX_ANIMATION_KIND_VALUES,
     format: (value: ExomuxSettingValue) => String(value),
   }),
+  Object.freeze({
+    id: "animationMenus" as const,
+    label: "Menu animation",
+    detail: "Menus and modals: close plays it out, open plays it as a reveal.",
+    values: EXOMUX_ANIMATION_KIND_VALUES,
+    format: (value: ExomuxSettingValue) => String(value),
+  }),
 ]) as readonly ExomuxGlobalSettingSpec[];
 
 /** Factory defaults for desktop-wide settings. */
@@ -742,6 +751,7 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     animationMinimize: "fade" as const,
     animationMaximize: "fade" as const,
     animationRestore: "fade" as const,
+    animationMenus: "fade" as const,
   });
 }
 

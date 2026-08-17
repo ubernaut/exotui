@@ -30,7 +30,11 @@ Design notes (to refine when work starts):
       source-cell colors and ember heat. Close/minimize/maximize/restore play the old snapshot OUT (new layout paints
       beneath = morph); true open-assembly stays for hosts that can suppress the incoming window. Headless mounts
       (tests/pipes) auto-disable via stdout TTY detection.
-- [ ] Wire menu/modal/toast open+close.
+- [x] Wire menu/modal open+close (exomux): start menu, help, quit modal, kill modal animate from visibility flips —
+      close plays the surface's last-painted cells out; open plays the covered region out as a REVEAL over the freshly
+      painted surface (coordinator gained a direction override; ghosts composite above modal chrome). One "Menu
+      animation" kind setting covers them; config-window transients can adopt the same watcher pattern on demand.
+      Toasts: exomux has no toast surface today.
 - [x] Exomux settings: animationSpeed (normal/fast/slow/off) + per-transition kinds (close/minimize/maximize/restore,
       every effect + random) as ordinary cycleable global settings — persisted, normalized, clickable in the settings
       window (rect bumped 24→30 to keep picker rows visible); applied per event via surfaceAnimator.setSettings.

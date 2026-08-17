@@ -14,6 +14,7 @@ Deno.test("Exomux ships window-animation settings with sane defaults (039)", () 
   assertEquals(defaults.animationMinimize, "fade");
   assertEquals(defaults.animationMaximize, "fade");
   assertEquals(defaults.animationRestore, "fade");
+  assertEquals(defaults.animationMenus, "fade");
 
   const ids = EXOMUX_GLOBAL_SETTING_SPECS.map((spec) => spec.id);
   for (
@@ -23,6 +24,7 @@ Deno.test("Exomux ships window-animation settings with sane defaults (039)", () 
       "animationMinimize",
       "animationMaximize",
       "animationRestore",
+      "animationMenus",
     ] as const
   ) {
     assert(ids.includes(id), `${id} is a configurable global setting`);

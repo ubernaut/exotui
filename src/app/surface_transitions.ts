@@ -81,6 +81,12 @@ export interface BeginSurfaceTransitionOptions {
   readonly snapshot: readonly string[];
   /** The caller-owned clock's current time in ms. */
   readonly now: number;
+  /**
+   * Overrides the transition's natural direction. A host that snapshots
+   * the cells a surface is ABOUT to cover plays "open" as an out-reveal:
+   * the old content crumbles away over the freshly painted surface.
+   */
+  readonly direction?: "in" | "out";
 }
 
 /** Motion token names consulted on a MotionContext, per transition. */
@@ -149,7 +155,7 @@ export class SurfaceTransitionAnimator {
       animation: createSurfaceAnimation({
         snapshot: options.snapshot,
         kind,
-        direction: surfaceTransitionDirection(options.transition),
+        direction: options.direction ?? surfaceTransitionDirection(options.transition),
         durationMs,
         seed: this.#seed + this.#sequence * 7919,
       }),
