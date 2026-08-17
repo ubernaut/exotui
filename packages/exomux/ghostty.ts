@@ -77,24 +77,25 @@ export interface ExomuxShaderParam {
 }
 
 /** The tunable parameters of each shader effect. */
+// Every shader parameter steps in fine 2.5% increments (user direction,
+// Aug 17 2026): the useful range for all of these effects is subtle.
 export const EXOMUX_SHADER_PARAMS: Readonly<Record<ExomuxShaderEffect, readonly ExomuxShaderParam[]>> = Object.freeze({
   scanline: Object.freeze([
-    { id: "scanlineIntensity", label: "Scanline depth", min: 0, max: 1, step: 0.05, default: 0.25 },
-    { id: "flickerIntensity", label: "Flicker", min: 0, max: 1, step: 0.05, default: 0.05 },
-    { id: "pulseIntensity", label: "Pulse", min: 0, max: 1, step: 0.05, default: 0.05 },
+    { id: "scanlineIntensity", label: "Scanline depth", min: 0, max: 1, step: 0.025, default: 0.25 },
+    { id: "flickerIntensity", label: "Flicker", min: 0, max: 1, step: 0.025, default: 0.05 },
+    { id: "pulseIntensity", label: "Pulse", min: 0, max: 1, step: 0.025, default: 0.05 },
   ]),
   pincushion: Object.freeze([
-    // Finer 2.5% steps, since a subtle barrel curve is the useful range.
     { id: "magnitude", label: "Distortion", min: 0, max: 1, step: 0.025, default: 0.025 },
   ]),
   // Five independent VHS artifacts, mixable per-effect (UX-010).
   // Every artifact defaults to a subtle 10% (user direction, Aug 15 2026).
   vhs: Object.freeze([
-    { id: "tracking", label: "Tracking errors", min: 0, max: 1, step: 0.05, default: 0.1 },
-    { id: "chromaBleed", label: "Color bleeding", min: 0, max: 1, step: 0.05, default: 0.1 },
-    { id: "staticSnow", label: "Static and snow", min: 0, max: 1, step: 0.05, default: 0.1 },
-    { id: "jitterWave", label: "Jitter and wavy lines", min: 0, max: 1, step: 0.05, default: 0.1 },
-    { id: "lumaNoise", label: "Luma noise", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { id: "tracking", label: "Tracking errors", min: 0, max: 1, step: 0.025, default: 0.1 },
+    { id: "chromaBleed", label: "Color bleeding", min: 0, max: 1, step: 0.025, default: 0.1 },
+    { id: "staticSnow", label: "Static and snow", min: 0, max: 1, step: 0.025, default: 0.1 },
+    { id: "jitterWave", label: "Jitter and wavy lines", min: 0, max: 1, step: 0.025, default: 0.1 },
+    { id: "lumaNoise", label: "Luma noise", min: 0, max: 1, step: 0.025, default: 0.1 },
   ]),
 });
 
@@ -261,6 +262,65 @@ export function exomuxPincushionSource(
   const r2 = cx * cx + cy * cy;
   const scale = (1 + magnitude * r2) / (1 + magnitude);
   return { u: (cx * scale) * 0.5 + 0.5, v: (cy * scale) * 0.5 + 0.5 };
+}
+
+/** One candidate source cell of an output cell's warped footprint. */
+export interface ExomuxPointerFootprintCell {
+  readonly x: number;
+  readonly y: number;
+  /** Share of the output cell's footprint this source cell owns, 0..1. */
+  readonly cover: number;
+}
+
+/**
+ * Every source cell an output cell's pincushion footprint covers, sorted by
+ * covered area. Axis extents come from the cell's edge midpoints (the radial
+ * map couples the axes, so midlines bound each axis more faithfully than
+ * diagonal corners).
+ */
+export function exomuxPointerFootprint(
+  x: number,
+  y: number,
+  columns: number,
+  rows: number,
+  magnitude: number,
+): ExomuxPointerFootprintCell[] {
+  const left = exomuxPincushionSource(x / columns, (y + 0.5) / rows, magnitude);
+  const right = exomuxPincushionSource((x + 1) / columns, (y + 0.5) / rows, magnitude);
+  const top = exomuxPincushionSource((x + 0.5) / columns, y / rows, magnitude);
+  const bottom = exomuxPincushionSource((x + 0.5) / columns, (y + 1) / rows, magnitude);
+  const u0 = Math.min(left.u, right.u) * columns;
+  const u1 = Math.max(left.u, right.u) * columns;
+  const v0 = Math.min(top.v, bottom.v) * rows;
+  const v1 = Math.max(top.v, bottom.v) * rows;
+  const cells: { x: number; y: number; cover: number }[] = [];
+  for (let column = Math.floor(u0); column <= Math.ceil(u1) - 1; column += 1) {
+    if (column < 0 || column >= columns) continue;
+    for (let row = Math.floor(v0); row <= Math.ceil(v1) - 1; row += 1) {
+      if (row < 0 || row >= rows) continue;
+      const coverU = Math.min(u1, column + 1) - Math.max(u0, column);
+      const coverV = Math.min(v1, row + 1) - Math.max(v0, row);
+      cells.push({ x: column, y: row, cover: coverU * coverV });
+    }
+  }
+  cells.sort((a, b) => b.cover - a.cover);
+  return cells.length > 0 ? cells : [{ x, y, cover: 1 }];
+}
+
+/**
+ * The source cell an output cell dominantly shows: the footprint's area-max
+ * candidate. Off-grid results (the black corner margin) keep the raw cell.
+ */
+export function exomuxPointerWarpCell(
+  x: number,
+  y: number,
+  columns: number,
+  rows: number,
+  magnitude: number,
+): { readonly x: number; readonly y: number } {
+  const footprint = exomuxPointerFootprint(x, y, columns, rows, magnitude);
+  const dominant = footprint[0]!;
+  return { x: dominant.x, y: dominant.y };
 }
 
 export function generateExomuxShader(

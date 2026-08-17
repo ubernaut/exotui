@@ -95,7 +95,7 @@ import {
   type ExomuxDebugLogger,
   formatExomuxFlushTelemetry,
 } from "./debug_log.ts";
-import { exomuxPincushionMagnitude, exomuxPincushionSource, isRunningInGhostty } from "./ghostty.ts";
+import { exomuxPincushionMagnitude, exomuxPointerWarpCell, isRunningInGhostty } from "./ghostty.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
   type ExomuxSettingsButtonCells,
@@ -753,115 +753,20 @@ export function mountExomuxDesktop(
   // instead of drifting outward in the distorted regions.
   const runningInGhostty = isRunningInGhostty();
   const pincushionActive = (): boolean => runningInGhostty && controller.shaderConfig.peek().effects.pincushion.enabled;
-  // Which source cell owns the larger share of the interval [low, high]
-  // (in cell units)? Sub-character logic: an output cell's source footprint
-  // spans more than one source cell wherever the map magnifies, and the
-  // old floor-of-center-sample pick skipped 7–16% of all cells outright —
-  // buttons on those cells could never be clicked. Area-max matches what
-  // the eye reads as "the glyph in this cell".
-  const dominantSourceCell = (low: number, high: number, fallback: number): number => {
-    const lo = Math.min(low, high);
-    const hi = Math.max(low, high);
-    let best = fallback;
-    let bestCover = -1;
-    for (let cell = Math.floor(lo); cell <= Math.ceil(hi) - 1; cell += 1) {
-      const cover = Math.min(hi, cell + 1) - Math.max(lo, cell);
-      if (cover > bestCover + 1e-9) {
-        best = cell;
-        bestCover = cover;
-      }
-    }
-    return best;
-  };
   const warpPointerCell = (x: number, y: number): { readonly x: number; readonly y: number } => {
     if (!pincushionActive()) return { x, y };
     const rect = app.tui.rectangle.peek();
-    const columns = Math.max(1, rect.width);
-    const rows = Math.max(1, rect.height);
-    const magnitude = exomuxPincushionMagnitude(controller.shaderConfig.peek());
-    // The output cell's source footprint per axis, sampled along the cell's
-    // midlines (the radial map couples the axes, so edge midpoints bound
-    // each axis more faithfully than diagonal corners).
-    const left = exomuxPincushionSource(x / columns, (y + 0.5) / rows, magnitude);
-    const right = exomuxPincushionSource((x + 1) / columns, (y + 0.5) / rows, magnitude);
-    const top = exomuxPincushionSource((x + 0.5) / columns, y / rows, magnitude);
-    const bottom = exomuxPincushionSource((x + 0.5) / columns, (y + 1) / rows, magnitude);
-    const center = exomuxPincushionSource((x + 0.5) / columns, (y + 0.5) / rows, magnitude);
-    const column = dominantSourceCell(
-      left.u * columns,
-      right.u * columns,
-      Math.floor(center.u * columns),
+    return exomuxPointerWarpCell(
+      x,
+      y,
+      Math.max(1, rect.width),
+      Math.max(1, rect.height),
+      exomuxPincushionMagnitude(controller.shaderConfig.peek()),
     );
-    const row = dominantSourceCell(
-      top.v * rows,
-      bottom.v * rows,
-      Math.floor(center.v * rows),
-    );
-    // Past the distorted content (the black corner margin) there is nothing to
-    // point at — keep the raw cell rather than jumping off-grid.
-    if (column < 0 || row < 0 || column >= columns || row >= rows) return { x, y };
-    return { x: column, y: row };
   };
   const warpPointerEvent = <T extends { readonly x: number; readonly y: number }>(event: T): T => {
     const warped = warpPointerCell(event.x, event.y);
     return warped.x === event.x && warped.y === event.y ? event : { ...event, x: warped.x, y: warped.y };
-  };
-  /**
-   * Every source cell the clicked output cell's footprint touches, ordered
-   * by covered area. Where the pincushion magnifies (screen edges), one
-   * output cell shows up to four source cells, and some source cells never
-   * dominate ANY output cell — a button there would be unclickable however
-   * precisely the user aims. A press therefore snaps to the first footprint
-   * candidate that lands on an actionable control.
-   */
-  const warpPointerFootprint = (x: number, y: number): { x: number; y: number }[] => {
-    if (!pincushionActive()) return [{ x, y }];
-    const rect = app.tui.rectangle.peek();
-    const columns = Math.max(1, rect.width);
-    const rows = Math.max(1, rect.height);
-    const magnitude = exomuxPincushionMagnitude(controller.shaderConfig.peek());
-    const left = exomuxPincushionSource(x / columns, (y + 0.5) / rows, magnitude);
-    const right = exomuxPincushionSource((x + 1) / columns, (y + 0.5) / rows, magnitude);
-    const top = exomuxPincushionSource((x + 0.5) / columns, y / rows, magnitude);
-    const bottom = exomuxPincushionSource((x + 0.5) / columns, (y + 1) / rows, magnitude);
-    const axisCandidates = (low: number, high: number, limit: number): { cell: number; cover: number }[] => {
-      const lo = Math.min(low, high);
-      const hi = Math.max(low, high);
-      const cells: { cell: number; cover: number }[] = [];
-      for (let cell = Math.floor(lo); cell <= Math.ceil(hi) - 1; cell += 1) {
-        if (cell < 0 || cell >= limit) continue;
-        cells.push({ cell, cover: Math.min(hi, cell + 1) - Math.max(lo, cell) });
-      }
-      return cells;
-    };
-    const columnsCovered = axisCandidates(left.u * columns, right.u * columns, columns);
-    const rowsCovered = axisCandidates(top.v * rows, bottom.v * rows, rows);
-    const candidates: { x: number; y: number; cover: number }[] = [];
-    for (const column of columnsCovered) {
-      for (const row of rowsCovered) {
-        candidates.push({ x: column.cell, y: row.cell, cover: column.cover * row.cover });
-      }
-    }
-    candidates.sort((a, b) => b.cover - a.cover);
-    return candidates.length > 0 ? candidates.map(({ x, y }) => ({ x, y })) : [{ x, y }];
-  };
-  /** True when a cell sits on something a click should activate. */
-  const actionableCellAt = (x: number, y: number): boolean => {
-    if (contains(START_BUTTON, x, y) || contains(menuQuitRect(app.tui.rectangle.peek()), x, y)) return true;
-    if (contains(shelfBounds.peek(), x, y)) return terminalBarCommandAt(x, y) !== undefined;
-    const projection = windowProjection.peek();
-    for (const window of [...projection.floatingWindows, ...projection.tiledWindows]) {
-      for (const control of window.controls) {
-        if (control.command && contains(control.hitRect, x, y)) return true;
-      }
-    }
-    return false;
-  };
-  /** Warps a press, snapping into an actionable control its footprint covers. */
-  const warpPressEvent = <T extends { readonly x: number; readonly y: number }>(event: T): T => {
-    const candidates = warpPointerFootprint(event.x, event.y);
-    const snapped = candidates.find((cell) => actionableCellAt(cell.x, cell.y)) ?? candidates[0]!;
-    return snapped.x === event.x && snapped.y === event.y ? event : { ...event, x: snapped.x, y: snapped.y };
   };
   // The block cursor blinks at 2 Hz while it is on.
   const cursorBlinkOn = own(new Signal(true));
@@ -2413,11 +2318,10 @@ export function mountExomuxDesktop(
   };
 
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
-    // Map the OS pointer through the pincushion distortion first, so the block
-    // cursor and every hit-test below act on the cell the user visually points
-    // at. A primary press additionally snaps into any actionable control its
-    // sub-character footprint covers (unreachable-cell forgiveness).
-    event = !event.drag && !event.release && event.button === 0 ? warpPressEvent(event) : warpPointerEvent(event);
+    // One rule everywhere (user direction): the block cursor's cell IS the
+    // click's cell. Every pointer event maps through the same warp, so what
+    // the cursor shows is exactly what a click, drag, or scroll acts on.
+    event = warpPointerEvent(event);
     backgroundSetPointer({ column: event.x, row: event.y });
     if (modalOpen()) {
       if (terminalMouse.hasLegacyCapture) {
