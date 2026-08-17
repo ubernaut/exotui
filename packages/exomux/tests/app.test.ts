@@ -65,6 +65,7 @@ import {
   EXOMUX_GLOBAL_SETTING_SPECS,
   EXOMUX_THEMES,
   EXOMUX_WINDOW_SETTING_SPECS,
+  exomuxActiveTitlebarForeground,
   type ExomuxAttachResult,
   exomuxBorderGlyphs,
   type ExomuxClientPort,
@@ -174,12 +175,15 @@ Deno.test("Exomux paints titlebar text and controls in the main theme foreground
     };
     const foregroundSgr = (color: readonly [number, number, number]): string =>
       `38;2;${color[0]};${color[1]};${color[2]}`;
-    // Titlebar text and controls use the main theme foreground (UX-004): the
-    // per-tone colours read poorly against some themes' accent bars.
+    // Active titlebars contrast their accent bar (user direction Aug 17):
+    // black on dark themes' bright accents, white on the light themes.
+    // Inactive titlebars keep the main theme foreground.
+    const activeForeground = exomuxActiveTitlebarForeground(theme);
+    const expectedForeground = manager.active ? activeForeground : theme.text;
     const expectForeground = (kind: string) => {
       const control = manager.controls.find((entry) => entry.kind === kind);
       assert(control, `missing ${kind} control`);
-      assertStringIncludes(cellText(control.rect.column, control.rect.row), foregroundSgr(theme.text));
+      assertStringIncludes(cellText(control.rect.column, control.rect.row), foregroundSgr(expectedForeground));
     };
     expectForeground("close");
     expectForeground("maximize");
@@ -187,8 +191,9 @@ Deno.test("Exomux paints titlebar text and controls in the main theme foreground
     // The title text follows the same rule.
     assertStringIncludes(
       cellText(manager.titleBarRect.column + 1, manager.titleBarRect.row),
-      foregroundSgr(theme.text),
+      foregroundSgr(expectedForeground),
     );
+    assertEquals(exomuxActiveTitlebarForeground(theme), [0, 0, 0], "midnight is a dark theme: black on accent");
   } finally {
     harness.destroy();
     await controller.dispose();

@@ -576,6 +576,19 @@ export const EXOMUX_BORDER_STYLES: Readonly<Record<ExomuxBorderStyleId, ExomuxBo
   }),
 });
 
+/**
+ * Foreground for text and buttons on the ACTIVE titlebar's accent bar
+ * (user direction, Aug 17 2026): black on the bright accents of the dark
+ * themes; white on the darker accents of the light themes (paper,
+ * parchment, seaglass, and the white-ground TempleOS). Inactive titlebars
+ * keep the main theme foreground.
+ */
+export function exomuxActiveTitlebarForeground(theme: ExomuxThemeSpec): ExomuxRgb {
+  return EXOMUX_LIGHT_THEME_IDS.includes(theme.id) ? [255, 255, 255] : [0, 0, 0];
+}
+
+const EXOMUX_LIGHT_THEME_IDS: readonly ExomuxThemeId[] = ["paper", "parchment", "seaglass", "templeos"];
+
 /** Resolves a persisted border style id, falling back to the Zellij-style thin frame. */
 export function exomuxBorderStyleId(value: unknown): ExomuxBorderStyleId {
   return EXOMUX_BORDER_STYLE_IDS.includes(value as ExomuxBorderStyleId) ? value as ExomuxBorderStyleId : "thin";

@@ -64,6 +64,7 @@ import {
   EXOMUX_GLOBAL_SETTING_SPECS,
   EXOMUX_THEMES,
   EXOMUX_WINDOW_SETTING_SPECS,
+  exomuxActiveTitlebarForeground,
   type ExomuxBackgroundId,
   exomuxBackgroundSettingsFor,
   type ExomuxBorderGlyphs,
@@ -4799,17 +4800,17 @@ function paintWindow(
       titleWidth,
     ),
     {
-      // The main theme foreground everywhere on the bar: per-tone and
-      // background-on-accent colouring read poorly against some themes'
-      // accent bars (UX-004, user direction).
-      foreground: theme.text,
+      // Active bars sit on the accent colour, so their text contrasts it
+      // (black on bright accents, white on the light themes' dark accents);
+      // inactive bars keep the main theme foreground (supersedes UX-004).
+      foreground: window.active ? exomuxActiveTitlebarForeground(theme) : theme.text,
       bold: window.active,
     },
     titleBarGround,
   );
   for (const control of window.controls) {
     writeOnGround(painter, control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
-      foreground: theme.text,
+      foreground: window.active ? exomuxActiveTitlebarForeground(theme) : theme.text,
       bold: control.tone === "danger" || window.active,
     }, titleBarGround);
   }
