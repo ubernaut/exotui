@@ -1,5 +1,10 @@
 # Window and menu animations
 
+Status: implementation complete, August 17 2026 — all six tasks landed (engine d0d4caa8, coordinator + window ghosts
+d350d991, settings f3824af5, menus/modals 83a39a06). Awaiting the user's live visual check: animations only play on a
+real terminal (headless mounts auto-disable), so run exomux, close/minimize/maximize windows and open/close the start
+menu and modals; tune "Animation speed" and the per-transition kinds in Exomux settings.
+
 User direction (Aug 17 2026): add minimize, maximize, restore, close, and open animations for windows, with selectable
 animation KINDS and SPEED, and the same treatment for menus (and similar transient surfaces).
 
