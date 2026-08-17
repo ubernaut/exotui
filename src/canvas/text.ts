@@ -226,8 +226,12 @@ export class TextObject extends DrawObject<"text"> {
 
     const { row } = rectangle;
 
+    // In overwriteRectangle mode the object owns the caller-provided width;
+    // padding cells past the text must repaint as spaces, or a shrinking
+    // value / moving rectangle leaves its old tail on screen ("Widgetsw").
+    const ownedWidth = this.overwriteRectangle.peek() ? (rectangle.width ?? valueChars.length) : valueChars.length;
     let rowRange = Math.min(row, rows);
-    let columnRange = Math.min(rectangle.column + valueChars.length, columns);
+    let columnRange = Math.min(rectangle.column + ownedWidth, columns);
 
     const viewRectangle = this.view.peek()?.rectangle?.peek();
     if (viewRectangle) {
@@ -282,7 +286,7 @@ export class TextObject extends DrawObject<"text"> {
           continue;
         }
 
-        rowBuffer[column] = style(valueChars[column - rectangle.column]);
+        rowBuffer[column] = style(valueChars[column - rectangle.column] ?? " ");
         rerenderQueueRow.add(column);
       }
 

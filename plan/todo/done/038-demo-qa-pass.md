@@ -1,7 +1,8 @@
 # Demo QA pass — drive and visually inspect every demo
 
-Status: in progress, August 17 2026. User direction: "go through every single exotui demo and visually check it and also
-drive it to search for issues. I think you'll find a lot."
+Status: complete, August 17 2026 — sweep covered every target; all 25 findings closed (21 fixed, 4 by-design/invalid).
+User direction: "go through every single exotui demo and visually check it and also drive it to search for issues. I
+think you'll find a lot."
 
 Method: every interactive demo runs in an isolated tmux socket (`tmux -L exotui-qa`, 140×40), settled, captured, driven
 with its own advertised keys, re-captured, and quit; report-style demos run to stdout with exit codes and stderr
@@ -21,31 +22,31 @@ api-inventory, benchmark, health (separately — it is the long gate).
 
 ### app-shell (`./visualization app-shell`, 140×40)
 
-- [ ] **QA-001 (P1)** Route header is stale: pressing `2`/palette navigation changes the route (stepper, radio, and
+- [x] **QA-001 (P1)** Route header is stale: pressing `2`/palette navigation changes the route (stepper, radio, and
       toasts all agree) but the title bar stays "Deno TUI app shell / Overview" and the summary line stays "Route:
       Overview". Repro: launch, press `2`.
-- [ ] **QA-002 (P1)** Closing the command palette leaves ghost rows: after `p`, type `over`, Enter — palette region
+- [x] **QA-002 (P1)** Closing the command palette leaves ghost rows: after `p`, type `over`, Enter — palette region
       keeps "`> over`" / "`> Go to Overview`" fragments and the stepper renders "Runtimeme" (stale-width residue).
-- [ ] **QA-003 (P2)** The main frame's right border only renders on ~4 of 30 rows; the rest are blank or overdrawn by
+- [x] **QA-003 (P2)** The main frame's right border only renders on ~4 of 30 rows; the rest are blank or overdrawn by
       the right-hand panels.
-- [ ] **QA-004 (P2)** Context menu (`c`) opens flush against the right screen edge: no frame, items clipped by the edge,
+- [x] **QA-004 (P2)** Context menu (`c`) opens flush against the right screen edge: no frame, items clipped by the edge,
       floating "──" separator.
-- [ ] **QA-005 (P3)** Right-panel copy hard-clips mid-word with no ellipsis ("without co", "trap a", "can ren").
+- [x] **QA-005 (P3)** Right-panel copy hard-clips mid-word with no ellipsis ("without co", "trap a", "can ren").
 
 ### dashboard
 
-- [ ] **QA-006 (P2)** Bar-chart labels collide with the legend: rows render "sample 60synthetic metrics" — two strings
+- [x] **QA-006 (P2)** Bar-chart labels collide with the legend: rows render "sample 60synthetic metrics" — two strings
       jammed together with no separator.
-- [ ] **QA-007 (P2)** The sparkline pads its right ~60% with a constant flat tail (uninitialized window fill) — persists
+- [x] **QA-007 (P2)** The sparkline pads its right ~60% with a constant flat tail (uninitialized window fill) — persists
       across live updates; also ~24 blank rows below the two widgets.
 
 ### monitor
 
-- [ ] **QA-008 (P1)** Enter on a focused pane sets the header to "LAYOUT SINGLE(MONITOR)" but the tiled grid stays fully
+- [x] **QA-008 (P1)** Enter on a focused pane sets the header to "LAYOUT SINGLE(MONITOR)" but the tiled grid stays fully
       visible — nothing maximizes.
-- [ ] **QA-009 (P3)** Help modal's top border is unfilled between "╭─HELP" and "─╮" (gap instead of ─ fill); one item
+- [x] **QA-009 (P3)** Help modal's top border is unfilled between "╭─HELP" and "─╮" (gap instead of ─ fill); one item
       clips mid-word ("ORDE").
-- [ ] **QA-010 (P3)** CPU legend columns go ragged when percentages vary in width (9.9% vs 15.0%).
+- [x] **QA-010 (P3)** CPU legend columns go ragged when percentages vary in width (9.9% vs 15.0%).
 
 ### polygons
 
@@ -56,7 +57,7 @@ api-inventory, benchmark, health (separately — it is the long gate).
 
 ### showcase
 
-- [ ] **QA-014 (P2)** Panel title collides with status badges when width is tight: the THREE section renders "WIREFRAME
+- [x] **QA-014 (P2)** Panel title collides with status badges when width is tight: the THREE section renders "WIREFRAME
       LATTICE CHA NOISE WARN" — title hard-clipped mid-word, jammed against the badges with no separator. The same
       title/badge pair fits fine at neon-exodus panel widths. Filter+maximize+quit all work.
 
@@ -85,14 +86,14 @@ api-inventory, benchmark, health (separately — it is the long gate).
 
 ### workspace-launcher
 
-- [ ] **QA-022 (P3)** Preview-card caption wraps out of its column: the Three ASCII card renders the two-column
+- [x] **QA-022 (P3)** Preview-card caption wraps out of its column: the Three ASCII card renders the two-column
       art|caption row "…##== | glyph style:" and then "mixed-best" flush-left on the next row instead of aligned under
       the caption column. Everything else driven works: Enter open, F fullscreen, M hide, R restore, Esc cancels the
       quit modal, Q→Y exits 0.
 
 ### terminal-app (`deno task terminal-app`)
 
-- [ ] **QA-023 (P3)** Space does not activate the focused button (Enter does; two Space presses leave Count at 0) —
+- [x] **QA-023 (P3)** Space does not activate the focused button (Enter does; two Space presses leave Count at 0) —
       standard button-activation convention, relevant to the accessibility story. R reset and Q quit work.
 
 ### three-ascii
@@ -149,3 +150,34 @@ themes across findings: Escape-deadness (QA-011/015/016/021/024), border/label o
   Narrow-width hint rows do advertise "Q quit"; the ≥132 hint row omits it (cosmetic).
 - QA-020 invalid: `N` opens the panels dropdown from a clean state — the original press happened while the stuck
   dropdown was swallowing keys. `G` being gated to a focused Neon 3D window is by design (it configures that window).
+- **Second core find — TextObject drops padding cells** (QA-001/002/003/006 all downstream): in `overwriteRectangle`
+  mode, `rerender()` clamped painting to `valueChars.length` instead of the owned rectangle width, so queued cells in
+  the padding zone were dropped — a shrinking value kept its old tail ("Widgetsw", "Runtimeme", log lines fusing into
+  "sample 60synthetic metrics") and a moving text kept old cells ("PANELNEL"). Fixed in `src/canvas/text.ts`
+  (ownedWidth + `?? " "`); minimal repros confirmed both primitives, and the live app-shell palette ghosts (QA-002)
+  vanished with it.
+- QA-001: demo bug on top — `app.routes.active()` peeks by design, so Computeds wrapping it never re-evaluated;
+  app_shell now tracks `activeRouteId` via an `activeRoute` Computed.
+- QA-003: demo layout off-by-one — the frame's outside-drawn right border sat exactly on `pane.second.column` where z2
+  panels overdraw it; width `pane.width + 4` → `+ 3`. (The "staggered borders" chased mid-diagnosis were a
+  byte-vs-column artifact of measuring UTF-8 capture output with `cut -c`/mawk — the border is one column.)
+- QA-004: `renderContextMenuRows` now takes the menu width so separators span it (was `label.length + 2` → "──"), and
+  app_shell wraps the context menu in a framed "Actions" Modal like the palette gets.
+- QA-005 by design: the right-panel copy lives in a ScrollArea with `contentWidth 74` — a scrollable viewport clips at
+  its edge; not a rendering defect.
+- QA-006: same TextObject shrink-residue (log lines); no demo change needed, verified clean live.
+- QA-007: `renderSparkline` now leaves the tail blank when the series is shorter than the width (was repeating the last
+  value as a fake plateau). The blank rows below the widgets are the demo's fixed layout, not a bug.
+- QA-008: demo bug — `WindowManagerController.layout()` peeks its own signals by design; the monitor's `workspaceLayout`
+  Computed now tracks `windows`/`activeId`/`fullscreenId`, so Enter fullscreens immediately (verified live: single
+  pane + tab strip).
+- QA-009: menu width `+2` → `+4` (borders + padding cost 4; every line lost its last two chars, "ORDE"), and the menu
+  title no longer pads to full header width (the padding blanked the top border between title and corner).
+- QA-010: legend percents right-align to a fixed 5 columns so "9.9%"/"15.0%" cells stay one width.
+- QA-014: PanelView reserves a 2-column gap before the alert badge and ellipsizes cropped titles ("WIREFRAME LATTICE C…
+  NOISE WARN", verified live).
+- QA-022: the launcher's three-ascii preview art now fits the ~40-column card so the art|caption columns stay aligned.
+- QA-023: Button now activates on Space when focused (Return stays with keymaps to avoid double-fires); the active-state
+  demotion makes every Space press fire (verified: 3 presses → Count 3).
+
+All 25 findings closed: 21 fixed, 4 invalid/by-design (QA-005/018/019/020). Root + exomux suites green (3,364 + 434).

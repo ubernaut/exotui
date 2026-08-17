@@ -77,13 +77,16 @@ export function renderContextMenuRows(
   items: readonly ContextMenuItem[],
   selectedIndex: number,
   height: number,
+  width?: number,
 ): string[] {
   const visible = visibleContextMenuItems(items, selectedIndex, height);
   const rows = new Array<string>(visible.length);
   for (let index = 0; index < visible.length; index += 1) {
     const row = visible[index]!;
     if (row.item.separatorBefore) {
-      rows[index] = "─".repeat(Math.max(1, row.label.length + 2));
+      // A separator spans the menu; without a width it can only guess from
+      // its own (usually empty) label, which rendered as a floating "──".
+      rows[index] = "─".repeat(Math.max(1, width ?? (row.label.length + 2)));
       continue;
     }
     const marker = row.selected ? ">" : " ";
@@ -243,7 +246,12 @@ export class ContextMenu extends Component {
     this.#itemStyle = options.itemStyle;
     this.#markerFor = options.markerFor;
     this.#rows = new Computed(() =>
-      renderContextMenuRows(this.items.value, this.selectedIndex.value, this.rectangle.value.height)
+      renderContextMenuRows(
+        this.items.value,
+        this.selectedIndex.value,
+        this.rectangle.value.height,
+        this.rectangle.value.width,
+      )
     );
 
     this.on("keyPress", (event) => {

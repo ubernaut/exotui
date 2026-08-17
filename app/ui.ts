@@ -341,7 +341,9 @@ export class PanelView {
       cropToWidth(options.alert.value, Math.max(0, Math.min(14, headerRect.value.width)))
     );
     const titleRect = new Computed<TextRectangle>(() => {
-      const reserved = alertText.value.length > 0 ? textWidth(alertText.value) + 1 : 0;
+      // Two columns of gap keep a cropped title from reading as one string
+      // with the alert badge ("...LATTICE CHA NOISE WARN").
+      const reserved = alertText.value.length > 0 ? textWidth(alertText.value) + 2 : 0;
       return {
         column: headerRect.value.column,
         row: headerRect.value.row,
@@ -382,7 +384,10 @@ export class PanelView {
       rectangle: titleRect,
       value: new Computed(() => {
         const width = Math.max(0, titleRect.value.width ?? 0);
-        const title = cropToWidth(` ${options.title.value}`, width);
+        const raw = ` ${options.title.value}`;
+        const title = textWidth(raw) > width && width >= 2
+          ? `${cropToWidth(raw, width - 1)}…`
+          : cropToWidth(raw, width);
         return title.padEnd(width, " ");
       }),
     });

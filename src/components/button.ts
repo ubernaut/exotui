@@ -172,6 +172,16 @@ export class Button extends Box {
     this.label.text.subscribe(this.#syncLabel);
     this.disabled.subscribe(this.#syncDisabledState);
     this.#syncDisabledState();
+    // Space activates a focused button (standard button convention). Return
+    // stays with keymaps/handleKeyboardControls so bindings do not double-fire.
+    this.on("keyPress", ({ key, ctrl, meta, shift }) => {
+      if (ctrl || meta || shift || this.disabled.peek()) return;
+      if (key !== "space") return;
+      // Demote a still-"active" button first so every Space press fires,
+      // instead of alternating press/highlight through nextInteractionState.
+      if (this.state.peek() === "active") this.state.value = "focused";
+      this.interact("keyboard");
+    });
     this.on("destroy", () => {
       this.label.text.unsubscribe(this.#syncLabel);
       this.disabled.unsubscribe(this.#syncDisabledState);

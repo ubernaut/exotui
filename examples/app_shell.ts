@@ -109,9 +109,12 @@ const toasts = new ToastStackController({
   messages: [{ id: "boot", level: "success", message: "App shell ready" }],
 });
 const routeList = new Signal(app.routes.routes.peek().map((route) => route.title ?? route.id), { deepObserve: true });
+// RouteManager.active() peeks by design; track activeRouteId so header,
+// breadcrumbs, and summary re-render when the route changes.
+const activeRoute = new Computed(() => app.routes.get(app.routes.activeRouteId.value));
 const breadcrumbs = new Computed(() => [
   { id: "app", label: "App" },
-  { id: app.routes.active()?.id ?? "none", label: app.routes.active()?.title ?? "No route" },
+  { id: activeRoute.value?.id ?? "none", label: activeRoute.value?.title ?? "No route" },
 ]);
 const scrollLines = [
   "Composable primitives",
@@ -239,7 +242,7 @@ new StatusBar({
   parent: app.tui,
   theme: themeEngine.component("StatusBar"),
   zIndex: 1,
-  left: new Computed(() => `Deno TUI app shell / ${app.routes.active()?.title ?? "No route"}`),
+  left: new Computed(() => `Deno TUI app shell / ${activeRoute.value?.title ?? "No route"}`),
   right: new Computed(() =>
     resolveBreakpoint(app.tui.rectangle.value, [
       { id: "mobile" },
@@ -290,7 +293,9 @@ new Frame({
     return {
       column: pane.column - 2,
       row: rect.row - 1,
-      width: Math.max(10, pane.width + 4),
+      // Frame borders paint OUTSIDE this rectangle; +4 put the right border
+      // exactly on pane.second.column where z2 panels overdraw it (QA-003).
+      width: Math.max(10, pane.width + 3),
       height: Math.max(6, rect.height + 2),
     };
   }),
@@ -302,7 +307,7 @@ new Text({
   zIndex: 2,
   text: new Computed(() =>
     [
-      `Route: ${app.routes.active()?.title ?? "none"}`,
+      `Route: ${activeRoute.value?.title ?? "none"}`,
       "This demo wires app primitives, keymap, routes, command palette, context menu, tree, list, toasts, and responsive layout.",
       "Press p for palette, c for context actions, 1/2/3 for routes, u/r for history, q to quit.",
     ].join("  ")
@@ -504,6 +509,22 @@ const commandPalette = new CommandPalette({
     );
   },
   visible: paletteVisible,
+});
+
+// The context menu renders bare rows; the modal frame gives it the same
+// bordered surface the command palette gets (QA-004).
+new Modal({
+  parent: app.tui,
+  theme: themeEngine.component("Modal"),
+  zIndex: 8,
+  title: "Actions",
+  rectangle: new Computed(() => ({
+    column: Math.max(1, app.tui.rectangle.value.width - 35),
+    row: 3,
+    width: 32,
+    height: 9,
+  })),
+  visible: contextVisible,
 });
 
 const contextMenu = new ContextMenu({

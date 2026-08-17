@@ -64,9 +64,11 @@ export const workspaceDemoItems: readonly WorkspaceDemoItem[] = [
     summary: "Standalone WebGPU/WebGL three.js ASCII renderer with block, glyph, and mixed style controls.",
     features: ["Acerola ASCII backend", "glyph/block/mixed modes", "geometry presets", "edge/fill tuning"],
     preview: [
-      "        .-======-.       / torus knot",
-      "    .-==##########==-.   | sphere + cube + floor",
-      "   ==#####@@@@@@#####==  | glyph style: mixed-best",
+      // Each art|caption line must fit the preview card (~40 columns) or the
+      // wrap breaks the two-column alignment (QA-022).
+      "  .-======-.    / torus knot",
+      ".-==######==-.  | sphere + cube",
+      "==##@@@@@@##==  | glyphs: mixed-best",
       "Use L to run the real interactive renderer.",
     ],
   },

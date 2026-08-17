@@ -19,6 +19,7 @@ export function renderSparkline(values: readonly number[], width: number): strin
   let max = Number.NEGATIVE_INFINITY;
   for (let index = 0; index < safeWidth; index += 1) {
     const value = sampleSeriesValue(values, safeWidth, index);
+    if (value === undefined) continue;
     min = Math.min(min, value);
     max = Math.max(max, value);
   }
@@ -26,15 +27,21 @@ export function renderSparkline(values: readonly number[], width: number): strin
   let line = "";
   for (let column = 0; column < safeWidth; column += 1) {
     const value = sampleSeriesValue(values, safeWidth, column);
+    if (value === undefined) {
+      // A series shorter than the width leaves the tail empty; repeating the
+      // last value painted a fake flat plateau indistinguishable from data.
+      line += " ";
+      continue;
+    }
     const glyphIndex = Math.max(0, Math.min(SPARKLINE_GLYPHS.length - 1, Math.round(((value - min) / span) * 7)));
     line += SPARKLINE_GLYPHS[glyphIndex];
   }
   return line;
 }
 
-function sampleSeriesValue(values: readonly number[], width: number, index: number): number {
+function sampleSeriesValue(values: readonly number[], width: number, index: number): number | undefined {
   if (values.length <= width) {
-    return values[index] ?? values[values.length - 1] ?? 0;
+    return values[index];
   }
   const sourceIndex = Math.floor((index / Math.max(1, width - 1)) * (values.length - 1));
   return values[sourceIndex] ?? 0;

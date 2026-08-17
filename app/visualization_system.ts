@@ -975,8 +975,10 @@ function coreLegendCell(
   hazard: number,
   dependencies: SystemMonitorRenderDependencies,
 ): string {
+  // Right-align the percent so "9.9%" and "15.0%" cells stay one width and
+  // the legend columns cannot drift (QA-010).
   return `${core.label.padStart(3, "0")} ${dependencies.miniMeter(core.usage / 100, 6, hazard)} ${
-    formatPercent(core.usage)
+    formatPercent(core.usage).padStart(5)
   }`;
 }
 

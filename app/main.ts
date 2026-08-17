@@ -170,8 +170,14 @@ const contentRect = new Computed<Rect>(() => {
 });
 
 const viewportMode = new Computed<ViewportMode>(() => detectViewportMode(contentRect.value));
-const workspaceLayout = new Computed(() =>
-  windowManager.layout({
+const workspaceLayout = new Computed(() => {
+  // WindowManagerController.layout() peeks its own state by design; track the
+  // signals that change the layout so fullscreen/minimize/close re-tile
+  // immediately instead of waiting for an unrelated recompute (QA-008).
+  windowManager.windows.value;
+  windowManager.activeId.value;
+  windowManager.fullscreenId.value;
+  return windowManager.layout({
     bounds: contentRect.value,
     tileOptions: {
       maxColumns: maxMonitorColumns(contentRect.value, layout.value),
@@ -179,8 +185,8 @@ const workspaceLayout = new Computed(() =>
       minTileHeight: Math.max(7, 12 - tileDensity.value),
       targetAspectRatio: 2.1 + tileDensity.value * 0.12,
     },
-  })
-);
+  });
+});
 const activeLayout = new Computed<LayoutId>(() => windowManager.fullscreenId.value ? "single" : layout.value);
 const visibleSlots = new Computed(() => {
   const source = workspaceLayout.value.fullscreenId ? workspaceLayout.value.tabs : workspaceLayout.value.visible;
@@ -589,7 +595,9 @@ const menuRect = new Computed<Rect>(() => {
     26,
     Math.max(36, appRect.value.width - 6),
   );
-  const width = Math.min(appRect.value.width - 4, Math.max(descriptionWidth, listWidth, 36) + 2);
+  // Borders + one padding column each side cost 4; +2 clipped every line's
+  // last two characters ("...VISUALIZATION ORDE").
+  const width = Math.min(appRect.value.width - 4, Math.max(descriptionWidth, listWidth, 36) + 4);
   const height = Math.min(
     appRect.value.height - 4,
     Math.max(8, menuModel.value.descriptionLines.length + Math.max(3, menuModel.value.lines.length) + 5),
@@ -617,6 +625,11 @@ const menuBackground = new BoxObject({
   })),
 });
 
+// The title overlays only its own characters; padding it to the full header
+// width blanked the top border between the title and the right corner.
+const menuTitleText = new Computed(() =>
+  crop(menuModel.value.title.toUpperCase(), Math.max(0, menuRect.value.width - 4))
+);
 const menuTitle = new TextObject({
   canvas: tui.canvas,
   zIndex: 203,
@@ -625,14 +638,9 @@ const menuTitle = new TextObject({
   rectangle: new Computed<TextRectangle>(() => ({
     column: menuRect.value.column + 2,
     row: menuRect.value.row,
-    width: Math.max(0, menuRect.value.width - 4),
+    width: menuTitleText.value.length,
   })),
-  value: new Computed(() =>
-    crop(menuModel.value.title.toUpperCase(), Math.max(0, menuRect.value.width - 4)).padEnd(
-      Math.max(0, menuRect.value.width - 4),
-      " ",
-    )
-  ),
+  value: menuTitleText,
 });
 
 const menuDescription = new MultilineTextView({
