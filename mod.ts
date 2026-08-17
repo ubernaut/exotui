@@ -22,6 +22,7 @@ export * from "./src/theme_oklch.ts";
 export * from "./src/theme_quantize.ts";
 export * from "./src/theme_density.ts";
 export * from "./src/theme_motion.ts";
+export * from "./src/surface_animation.ts";
 export * from "./src/theme_icons.ts";
 export * from "./src/theme_interchange.ts";
 export * from "./src/theme_binding.ts";

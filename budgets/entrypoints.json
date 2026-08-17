@@ -1,9 +1,9 @@
 {
   "mod.ts": {
-    "modules": 455,
-    "bytes": 5240364,
+    "modules": 456,
+    "bytes": 5250745,
     "paths": {
-      "mod.ts": 2777,
+      "mod.ts": 2821,
       "src/api_stability.ts": 15560,
       "src/app/accessibility_tree.ts": 4236,
       "src/app/action_journal.ts": 18998,
@@ -379,6 +379,7 @@
       "src/signals/reactivity.ts": 8585,
       "src/signals/signal.ts": 12850,
       "src/signals/types.ts": 1108,
+      "src/surface_animation.ts": 10337,
       "src/testing/input.ts": 4789,
       "src/testing/snapshot.ts": 5650,
       "src/theme.ts": 79876,
