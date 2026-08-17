@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 456,
-    "bytes": 5254134,
+    "bytes": 5256437,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -138,7 +138,7 @@
       "src/app/workbench_text.ts": 6860,
       "src/app/workbench_three_terminal_pressure.ts": 17830,
       "src/app/workbench_titlebar.ts": 10123,
-      "src/app/workbench_window_host.ts": 68552,
+      "src/app/workbench_window_host.ts": 67651,
       "src/app/workbench_window_registry.ts": 11068,
       "src/app/workbench_workspace.ts": 15334,
       "src/app/workbench_workspace_store.ts": 3265,
@@ -264,7 +264,7 @@
       "src/markup/support.ts": 3385,
       "src/markup/widgets.ts": 26862,
       "src/markup/window_history.ts": 70400,
-      "src/markup/window_interactions.ts": 60295,
+      "src/markup/window_interactions.ts": 63499,
       "src/markup/windows.ts": 125707,
       "src/perf/benchmark.ts": 12887,
       "src/perf/cache_budget.ts": 4339,
@@ -463,7 +463,7 @@
   },
   "mod.app.ts": {
     "modules": 132,
-    "bytes": 1869861,
+    "bytes": 1872164,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -485,7 +485,7 @@
       "src/app/workbench_frame.ts": 30694,
       "src/app/workbench_shelf.ts": 10242,
       "src/app/workbench_titlebar.ts": 10123,
-      "src/app/workbench_window_host.ts": 68552,
+      "src/app/workbench_window_host.ts": 67651,
       "src/canvas/box.ts": 5452,
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
@@ -549,7 +549,7 @@
       "src/layout/types.ts": 1095,
       "src/layout/vertical_layout.ts": 1524,
       "src/markup/window_history.ts": 70400,
-      "src/markup/window_interactions.ts": 60295,
+      "src/markup/window_interactions.ts": 63499,
       "src/markup/windows.ts": 125707,
       "src/pointer_input.ts": 48537,
       "src/remote/handshake.ts": 34016,
@@ -855,7 +855,7 @@
   },
   "mod.web.ts": {
     "modules": 364,
-    "bytes": 4448527,
+    "bytes": 4450830,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -992,7 +992,7 @@
       "src/app/workbench_text.ts": 6860,
       "src/app/workbench_three_terminal_pressure.ts": 17830,
       "src/app/workbench_titlebar.ts": 10123,
-      "src/app/workbench_window_host.ts": 68552,
+      "src/app/workbench_window_host.ts": 67651,
       "src/app/workbench_window_registry.ts": 11068,
       "src/app/workbench_workspace.ts": 15334,
       "src/app/workbench_workspace_store.ts": 3265,
@@ -1103,7 +1103,7 @@
       "src/markup/support.ts": 3385,
       "src/markup/widgets.ts": 26862,
       "src/markup/window_history.ts": 70400,
-      "src/markup/window_interactions.ts": 60295,
+      "src/markup/window_interactions.ts": 63499,
       "src/markup/windows.ts": 125707,
       "src/perf/benchmark.ts": 12887,
       "src/permissions.ts": 27807,

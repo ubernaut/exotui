@@ -4,7 +4,11 @@ import { OverlayStackController } from "../src/layout/overlay.ts";
 import { createLayoutNode, type LayoutNode } from "../src/layout/solver.ts";
 import { cellLength, defaultComputedLayoutStyle } from "../src/layout/style.ts";
 import { TiledWorkspaceController } from "../src/layout/tiled_workspace.ts";
-import { hitTestMarkupFloatingWindows, MarkupWindowInteractionController } from "../src/markup/window_interactions.ts";
+import {
+  hitTestMarkupFloatingWindows,
+  MarkupWindowInteractionController,
+  markupWindowSnapTargetAtPoint,
+} from "../src/markup/window_interactions.ts";
 import { MarkupWindowHistoryAdapter } from "../src/markup/window_history.ts";
 import { MarkupWindowController } from "../src/markup/windows.ts";
 import {
@@ -1111,3 +1115,38 @@ function pointer(
     buttons: options.buttons ?? (kind === "down" || kind === "move" ? 1 : 0),
   };
 }
+
+Deno.test("snap hot zones: middle-fifth top/bottom rows, four-cell corners, full-height sides", () => {
+  const zoneBounds = { column: 0, row: 0, width: 80, height: 30 };
+  const at = (column: number, row: number) => markupWindowSnapTargetAtPoint({ column, row }, zoneBounds, 1, 0.2, 4);
+
+  // Top half only from the centered fifth of the very top row (columns 32-47).
+  assertEquals(at(40, 0), { kind: "workspace", edge: "top" });
+  assertEquals(at(32, 0), { kind: "workspace", edge: "top" });
+  assertEquals(at(47, 0), { kind: "workspace", edge: "top" });
+  assertEquals(at(40, -1), { kind: "workspace", edge: "top" }, "overshoot past the workspace still counts");
+  assertEquals(at(31, 0), undefined, "outside the middle fifth the top row does nothing");
+  assertEquals(at(48, 0), undefined);
+  assertEquals(at(40, 1), undefined, "one row below the edge no longer half-snaps");
+
+  // Bottom mirrors the top.
+  assertEquals(at(40, 29), { kind: "workspace", edge: "bottom" });
+  assertEquals(at(40, 30), { kind: "workspace", edge: "bottom" });
+  assertEquals(at(20, 29), undefined);
+  assertEquals(at(40, 28), undefined);
+
+  // Corners answer within four cells along each of their edges.
+  assertEquals(at(0, 0), { kind: "corner", corner: "top-left" });
+  assertEquals(at(3, 0), { kind: "corner", corner: "top-left" }, "four cells along the top edge");
+  assertEquals(at(4, 0), undefined, "the fifth cell along the top edge is dead space");
+  assertEquals(at(0, 3), { kind: "corner", corner: "top-left" }, "four cells down the left edge");
+  assertEquals(at(0, 4), { kind: "workspace", edge: "left" }, "past the reach the side takes over");
+  assertEquals(at(76, 0), { kind: "corner", corner: "top-right" });
+  assertEquals(at(79, 26), { kind: "corner", corner: "bottom-right" });
+  assertEquals(at(2, 29), { kind: "corner", corner: "bottom-left" });
+
+  // Left/right stay full-height distance bands between the corner reaches.
+  assertEquals(at(0, 15), { kind: "workspace", edge: "left" });
+  assertEquals(at(79, 15), { kind: "workspace", edge: "right" });
+  assertEquals(at(40, 15), undefined, "the workspace interior never snaps");
+});

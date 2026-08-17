@@ -41,6 +41,7 @@ import {
 import {
   MarkupWindowInteractionController,
   type MarkupWindowInteractionResult,
+  markupWindowSnapTargetAtPoint,
 } from "../markup/window_interactions.ts";
 import {
   MARKUP_WINDOW_SNAPSHOT_V1_VERSION,
@@ -89,6 +90,10 @@ export interface WorkbenchWindowHostControllerOptions<TId extends string = strin
   historyCapacity?: number;
   now?: () => number;
   snapDistance?: number;
+  /** Centered fraction of the top/bottom edge row that half-snaps (default 0.2). */
+  snapEdgeSpanRatio?: number;
+  /** Cells along each edge from a corner that corner-snap (default 4). */
+  snapCornerReach?: number;
   snapOnRelease?: boolean;
   commandStep?: number;
   /** Pointer-capture owner id. Supply a stable value when hosts share a capture controller. */
@@ -435,6 +440,8 @@ export class WorkbenchWindowHostController<TId extends string = string> {
         titleBarHeight: 1,
         resizeMargin: 1,
         snapDistance: options.snapDistance,
+        snapEdgeSpanRatio: options.snapEdgeSpanRatio,
+        snapCornerReach: options.snapCornerReach,
         snapOnRelease: options.snapOnRelease,
       });
     } catch (error) {
@@ -1080,7 +1087,13 @@ export class WorkbenchWindowHostController<TId extends string = string> {
     if (!interaction.snapOnRelease) return undefined;
     const active = interaction.active;
     if (!active || active.mode !== "move" || active.updateCount === 0) return undefined;
-    const target = snapTargetAtPoint(active.current.column, active.current.row, bounds, interaction.snapDistance);
+    const target = markupWindowSnapTargetAtPoint(
+      { column: active.current.column, row: active.current.row },
+      bounds,
+      interaction.snapDistance,
+      interaction.snapEdgeSpanRatio,
+      interaction.snapCornerReach,
+    );
     if (!target) return undefined;
     const window = inspection.windows.find((candidate) => candidate.id === active.windowId);
     if (!window || window.groupId) return undefined;
@@ -1627,40 +1640,6 @@ function movementDelta(edge: TiledWorkspaceDockEdge, step: number): MarkupWindow
 
 function edgeDelta(edge: TiledWorkspaceDockEdge, step: number): MarkupWindowMoveDelta {
   return movementDelta(edge, step);
-}
-
-function snapTargetAtPoint(
-  column: number,
-  row: number,
-  bounds: Rectangle,
-  distance: number,
-): MarkupWindowSnapTarget | undefined {
-  const minColumn = bounds.column;
-  const maxColumn = bounds.column + bounds.width - 1;
-  const minRow = bounds.row;
-  const maxRow = bounds.row + bounds.height - 1;
-  const left = Math.abs(column - minColumn) <= distance && row >= minRow - distance && row <= maxRow + distance;
-  const right = Math.abs(column - maxColumn) <= distance && row >= minRow - distance && row <= maxRow + distance;
-  const top = Math.abs(row - minRow) <= distance && column >= minColumn - distance && column <= maxColumn + distance;
-  const bottom = Math.abs(row - maxRow) <= distance && column >= minColumn - distance && column <= maxColumn + distance;
-  const horizontal = left && right
-    ? Math.abs(column - minColumn) <= Math.abs(column - maxColumn) ? "left" : "right"
-    : left
-    ? "left"
-    : right
-    ? "right"
-    : undefined;
-  const vertical = top && bottom
-    ? Math.abs(row - minRow) <= Math.abs(row - maxRow) ? "top" : "bottom"
-    : top
-    ? "top"
-    : bottom
-    ? "bottom"
-    : undefined;
-  if (horizontal && vertical) return { kind: "corner", corner: `${vertical}-${horizontal}` };
-  if (horizontal) return { kind: "workspace", edge: horizontal };
-  if (vertical) return { kind: "workspace", edge: vertical };
-  return undefined;
 }
 
 function snapPreviewRect(

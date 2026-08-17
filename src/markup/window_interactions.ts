@@ -52,6 +52,14 @@ export interface MarkupWindowInteractionControllerOptions extends MarkupWindowHi
   ownerId?: string;
   /** Pointer distance from a workspace edge that activates release-time snapping. */
   snapDistance?: number;
+  /**
+   * Fraction of the top/bottom edge, centered, that triggers a half snap
+   * (default 0.2 — the middle fifth of the edge row). Top/bottom snapping
+   * only fires on the edge row itself (plus overshoot past the workspace).
+   */
+  snapEdgeSpanRatio?: number;
+  /** Cells along each edge from a corner that trigger a corner snap (default 4). */
+  snapCornerReach?: number;
   /** Defaults to true. Set false to disable automatic workspace/corner snap. */
   snapOnRelease?: boolean;
 }
@@ -106,6 +114,8 @@ export interface MarkupWindowInteractionInspection {
   titleBarHeight: number;
   resizeMargin: number;
   snapDistance: number;
+  snapEdgeSpanRatio: number;
+  snapCornerReach: number;
   snapOnRelease: boolean;
   active?: MarkupWindowActiveInteractionInspection;
   lastResult?: MarkupWindowInteractionResult;
@@ -116,6 +126,8 @@ interface NormalizedInteractionOptions {
   titleBarHeight: number;
   resizeMargin: number;
   snapDistance: number;
+  snapEdgeSpanRatio: number;
+  snapCornerReach: number;
   snapOnRelease: boolean;
 }
 
@@ -156,6 +168,11 @@ const DEFAULT_OWNER_ID = "markup-floating-windows";
 const DEFAULT_TITLE_BAR_HEIGHT = 2;
 const DEFAULT_RESIZE_MARGIN = 1;
 const DEFAULT_SNAP_DISTANCE = 1;
+// Deliberately small edge hot zones (user direction, Aug 17 2026): dragging
+// to the top/bottom only half-tiles from the middle fifth of the edge row,
+// while corners answer within four cells along each of their edges.
+const DEFAULT_SNAP_EDGE_SPAN_RATIO = 0.2;
+const DEFAULT_SNAP_CORNER_REACH = 4;
 const MAX_INTERACTION_CELL = 1_000_000_000;
 const MAX_OWNER_ID_LENGTH = 128;
 const MAX_PENDING_LIFECYCLE_RESULTS = 64;
@@ -489,6 +506,8 @@ export class MarkupWindowInteractionController {
       titleBarHeight: this.#options.titleBarHeight,
       resizeMargin: this.#options.resizeMargin,
       snapDistance: this.#options.snapDistance,
+      snapEdgeSpanRatio: this.#options.snapEdgeSpanRatio,
+      snapCornerReach: this.#options.snapCornerReach,
       snapOnRelease: this.#options.snapOnRelease,
       active: this.#active ? cloneActiveInspection(this.#active) : undefined,
       lastResult: this.#lastResult ? cloneInteractionResult(this.#lastResult) : undefined,
@@ -981,7 +1000,13 @@ export class MarkupWindowInteractionController {
     let snapAction: MarkupWindowActionResult | undefined;
     if (active.mode === "move" && active.updateCount > 0 && !active.groupId && this.#options.snapOnRelease) {
       const point = pointFromPointer(event) ?? active.current;
-      snapTarget = snapTargetAtPoint(point, bounds, this.#options.snapDistance);
+      snapTarget = markupWindowSnapTargetAtPoint(
+        point,
+        bounds,
+        this.#options.snapDistance,
+        this.#options.snapEdgeSpanRatio,
+        this.#options.snapCornerReach,
+      );
       if (snapTarget) {
         snapAction = this.controller.snap(active.windowId, snapTarget, bounds);
         if (!snapAction.ok) {
@@ -1359,12 +1384,16 @@ function normalizeInteractionOptions(
   let titleBarHeight: number | undefined;
   let resizeMargin: number | undefined;
   let snapDistanceValue: number | undefined;
+  let snapEdgeSpanRatioValue: number | undefined;
+  let snapCornerReachValue: number | undefined;
   let snapOnReleaseValue: boolean | undefined;
   try {
     ownerIdValue = options.ownerId;
     titleBarHeight = options.titleBarHeight;
     resizeMargin = options.resizeMargin;
     snapDistanceValue = options.snapDistance;
+    snapEdgeSpanRatioValue = options.snapEdgeSpanRatio;
+    snapCornerReachValue = options.snapCornerReach;
     snapOnReleaseValue = options.snapOnRelease;
   } catch {
     throw new TypeError("Window interaction options could not be read safely.");
@@ -1379,10 +1408,20 @@ function normalizeInteractionOptions(
   if (snapOnReleaseValue !== undefined && typeof snapOnReleaseValue !== "boolean") {
     throw new TypeError("Window snapOnRelease must be boolean.");
   }
+  const snapEdgeSpanRatio = snapEdgeSpanRatioValue ?? DEFAULT_SNAP_EDGE_SPAN_RATIO;
+  if (!Number.isFinite(snapEdgeSpanRatio) || snapEdgeSpanRatio <= 0 || snapEdgeSpanRatio > 1) {
+    throw new RangeError("Window snap edge span ratio must be in (0, 1].");
+  }
+  const snapCornerReach = snapCornerReachValue ?? DEFAULT_SNAP_CORNER_REACH;
+  if (!Number.isSafeInteger(snapCornerReach) || snapCornerReach < 1 || snapCornerReach > MAX_INTERACTION_CELL) {
+    throw new RangeError("Window snap corner reach must be a bounded positive integer.");
+  }
   return {
     ownerId,
     ...hit,
     snapDistance,
+    snapEdgeSpanRatio,
+    snapCornerReach,
     snapOnRelease: snapOnReleaseValue ?? true,
   };
 }
@@ -1523,10 +1562,16 @@ function isPrimaryActivation(event: PointerInputEvent): boolean {
   return event.primary && (event.button === 0 || (event.device !== "mouse" && event.button === null));
 }
 
-function snapTargetAtPoint(
+/**
+ * The release-snap hot-zone geometry, shared with the host's live drag
+ * preview so what the preview shows is exactly what a release commits.
+ */
+export function markupWindowSnapTargetAtPoint(
   point: MarkupWindowCellPoint,
   bounds: Rectangle,
   distance: number,
+  edgeSpanRatio: number,
+  cornerReach: number,
 ): MarkupWindowSnapTarget | undefined {
   const minColumn = bounds.column;
   const maxColumn = bounds.column + bounds.width - 1;
@@ -1534,27 +1579,44 @@ function snapTargetAtPoint(
   const maxRow = bounds.row + bounds.height - 1;
   const withinHorizontalSpan = point.column >= minColumn - distance && point.column <= maxColumn + distance;
   const withinVerticalSpan = point.row >= minRow - distance && point.row <= maxRow + distance;
-  const left = withinVerticalSpan && Math.abs(point.column - minColumn) <= distance;
-  const right = withinVerticalSpan && Math.abs(point.column - maxColumn) <= distance;
-  const top = withinHorizontalSpan && Math.abs(point.row - minRow) <= distance;
-  const bottom = withinHorizontalSpan && Math.abs(point.row - maxRow) <= distance;
-  const horizontal = left && right
-    ? Math.abs(point.column - minColumn) <= Math.abs(point.column - maxColumn) ? "left" : "right"
-    : left
-    ? "left"
-    : right
-    ? "right"
+  // Left/right keep a `distance`-thick full-height band; top/bottom fire only
+  // on the edge row itself (with overshoot past the workspace forgiven).
+  const onLeftColumn = withinVerticalSpan && Math.abs(point.column - minColumn) <= distance;
+  const onRightColumn = withinVerticalSpan && Math.abs(point.column - maxColumn) <= distance;
+  const onTopRow = withinHorizontalSpan && point.row <= minRow && point.row >= minRow - distance;
+  const onBottomRow = withinHorizontalSpan && point.row >= maxRow && point.row <= maxRow + distance;
+
+  // Corners answer within `cornerReach` cells along each of their edges.
+  const nearLeftEnd = point.column <= minColumn + cornerReach - 1;
+  const nearRightEnd = point.column >= maxColumn - cornerReach + 1;
+  const nearTopEnd = point.row <= minRow + cornerReach - 1;
+  const nearBottomEnd = point.row >= maxRow - cornerReach + 1;
+  const corner = (onTopRow && nearLeftEnd) || (onLeftColumn && nearTopEnd)
+    ? "top-left" as const
+    : (onTopRow && nearRightEnd) || (onRightColumn && nearTopEnd)
+    ? "top-right" as const
+    : (onBottomRow && nearLeftEnd) || (onLeftColumn && nearBottomEnd)
+    ? "bottom-left" as const
+    : (onBottomRow && nearRightEnd) || (onRightColumn && nearBottomEnd)
+    ? "bottom-right" as const
     : undefined;
-  const vertical = top && bottom
-    ? Math.abs(point.row - minRow) <= Math.abs(point.row - maxRow) ? "top" : "bottom"
-    : top
-    ? "top"
-    : bottom
-    ? "bottom"
-    : undefined;
-  if (horizontal && vertical) return { kind: "corner", corner: `${vertical}-${horizontal}` };
-  if (horizontal) return { kind: "workspace", edge: horizontal };
-  if (vertical) return { kind: "workspace", edge: vertical };
+  if (corner) return { kind: "corner", corner };
+
+  // Top/bottom halves only from the centered span of the edge row.
+  const halfSpan = Math.max(1, Math.round((bounds.width * edgeSpanRatio) / 2));
+  const centerColumn = minColumn + (bounds.width - 1) / 2;
+  const withinEdgeSpan = Math.abs(point.column - centerColumn) <= halfSpan;
+  if (onTopRow && withinEdgeSpan) return { kind: "workspace", edge: "top" };
+  if (onBottomRow && withinEdgeSpan) return { kind: "workspace", edge: "bottom" };
+
+  if (onLeftColumn && onRightColumn) {
+    return {
+      kind: "workspace",
+      edge: Math.abs(point.column - minColumn) <= Math.abs(point.column - maxColumn) ? "left" : "right",
+    };
+  }
+  if (onLeftColumn) return { kind: "workspace", edge: "left" };
+  if (onRightColumn) return { kind: "workspace", edge: "right" };
   return undefined;
 }
 
