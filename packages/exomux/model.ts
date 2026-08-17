@@ -27,7 +27,7 @@ const EXOMUX_WORKBENCH_THEME_IDS = [
 export type ExomuxWorkbenchThemeId = (typeof EXOMUX_WORKBENCH_THEME_IDS)[number];
 
 /** Stable theme identities persisted with the window layout. */
-export type ExomuxThemeId = "midnight" | "amber" | "matrix" | "paper" | ExomuxWorkbenchThemeId | "t2";
+export type ExomuxThemeId = "midnight" | "amber" | "matrix" | "paper" | ExomuxWorkbenchThemeId | "t2" | "templeos";
 
 /** RGB tuple used by the renderer without depending on terminal palette state. */
 export type ExomuxRgb = readonly [red: number, green: number, blue: number];
@@ -137,6 +137,22 @@ export const EXOMUX_THEMES = [
     success: EXOMUX_T2_SWATCHES.lightBlue,
     warning: EXOMUX_T2_SWATCHES.darkPurple,
     danger: EXOMUX_T2_SWATCHES.lightPurple,
+  },
+  {
+    // TempleOS: 640x480, 16 colors, white ground — windows are ink on
+    // paper delimited by VGA-blue borders, red for what matters.
+    id: "templeos",
+    label: "TempleOS",
+    background: [255, 255, 255],
+    surface: [255, 255, 255],
+    surfaceStrong: [170, 170, 170],
+    border: [0, 0, 170],
+    text: [0, 0, 0],
+    muted: [85, 85, 85],
+    accent: [0, 0, 170],
+    success: [0, 170, 0],
+    warning: [170, 85, 0],
+    danger: [170, 0, 0],
   },
 ] as const satisfies readonly ExomuxThemeSpec[];
 
