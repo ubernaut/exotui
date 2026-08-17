@@ -202,10 +202,10 @@ Deno.test("speed scale disables on off and orders fast < normal < slow", () => {
   assert(fast < normal && normal < slow);
 });
 
-Deno.test("transition direction maps close/minimize out and open/maximize/restore in", () => {
+Deno.test("transition direction assembles only open; snapshot transitions play out", () => {
+  assertEquals(surfaceTransitionDirection("open"), "in");
   assertEquals(surfaceTransitionDirection("close"), "out");
   assertEquals(surfaceTransitionDirection("minimize"), "out");
-  assertEquals(surfaceTransitionDirection("open"), "in");
-  assertEquals(surfaceTransitionDirection("maximize"), "in");
-  assertEquals(surfaceTransitionDirection("restore"), "in");
+  assertEquals(surfaceTransitionDirection("maximize"), "out");
+  assertEquals(surfaceTransitionDirection("restore"), "out");
 });

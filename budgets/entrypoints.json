@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 456,
-    "bytes": 5250745,
+    "bytes": 5251147,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -379,7 +379,7 @@
       "src/signals/reactivity.ts": 8585,
       "src/signals/signal.ts": 12850,
       "src/signals/types.ts": 1108,
-      "src/surface_animation.ts": 10337,
+      "src/surface_animation.ts": 10739,
       "src/testing/input.ts": 4789,
       "src/testing/snapshot.ts": 5650,
       "src/theme.ts": 79876,
@@ -462,10 +462,10 @@
     }
   },
   "mod.app.ts": {
-    "modules": 129,
-    "bytes": 1844325,
+    "modules": 132,
+    "bytes": 1865930,
     "paths": {
-      "mod.app.ts": 4347,
+      "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
       "src/app/app.ts": 12593,
       "src/app/command_bindings.ts": 20400,
@@ -476,6 +476,7 @@
       "src/app/mouse_bindings.ts": 11506,
       "src/app/plugins.ts": 18442,
       "src/app/router.ts": 53710,
+      "src/app/surface_transitions.ts": 6612,
       "src/app/terminal_app.ts": 8902,
       "src/app/terminal_input.ts": 12222,
       "src/app/widget_surface.ts": 8005,
@@ -573,7 +574,9 @@
       "src/signals/reactivity.ts": 8585,
       "src/signals/signal.ts": 12850,
       "src/signals/types.ts": 1108,
+      "src/surface_animation.ts": 10739,
       "src/theme.ts": 79876,
+      "src/theme_motion.ts": 3844,
       "src/tui.ts": 10229,
       "src/types.ts": 1614,
       "src/unicode/data_pack.ts": 29152,

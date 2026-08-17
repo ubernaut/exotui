@@ -24,7 +24,12 @@ Design notes (to refine when work starts):
 - [x] Implement the effect library (fall-apart, explode, disintegrate, incinerate, melt, fade; random selector) — all
       six kinds + seeded random resolver + speed scale (off/fast/normal/slow) + transition direction mapping; exported
       from mod.ts.
-- [ ] Wire window transitions (open, close, minimize, maximize, restore) in the shared workbench layer.
+- [x] Wire window transitions in the shared layer + exomux — src/app/surface_transitions.ts (SurfaceTransitionAnimator:
+      settings, MotionContext reduced-motion, replace-per-surface, cancel) exported from mod.app.ts; exomux wraps
+      windowHost.execute to snapshot the old cells (styled + plain) and composites ghost overlays above windows with
+      source-cell colors and ember heat. Close/minimize/maximize/restore play the old snapshot OUT (new layout paints
+      beneath = morph); true open-assembly stays for hosts that can suppress the incoming window. Headless mounts
+      (tests/pipes) auto-disable via stdout TTY detection.
 - [ ] Wire menu/modal/toast open+close.
 - [ ] Exomux settings: kind per transition + speed + reduce-motion.
 - [ ] Tests: deterministic frames on a fake clock (DONE: 11 tests — snapshot at 0, empty at end, in-direction assembly,

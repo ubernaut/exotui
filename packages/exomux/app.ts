@@ -1,6 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/deno-tui/app";
+import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/deno-tui/app";
+import type { SurfaceTransition } from "@ubernaut/deno-tui";
 import {
   clampContextMenuSelection,
   Component,
@@ -1422,11 +1424,93 @@ export function mountExomuxDesktop(
     destroyExomuxGpuDevice();
   });
 
+  // 039: window transitions animate on detached snapshots of the previous
+  // frame's cells; app state proceeds immediately while the ghost plays out.
+  // Headless mounts (tests, pipes) stay frame-deterministic: ghosts only play
+  // on a real terminal.
+  const surfaceAnimationsEnabled = (() => {
+    try {
+      return Deno.stdout.isTerminal();
+    } catch {
+      return false;
+    }
+  })();
+  const surfaceAnimator = createSurfaceTransitionAnimator({ seed: 39 });
+  const animationRevision = new Signal(0);
+  const animationStyles = new Map<string, string[][]>();
+  let lastDesktopRows: string[][] = [];
+  if (surfaceAnimationsEnabled) {
+    const animationTicker = setInterval(() => {
+      if (surfaceAnimator.animating()) animationRevision.value = animationRevision.peek() + 1;
+    }, 33);
+    unsubscribers.push(() => clearInterval(animationTicker));
+  }
+
+  const beginWindowTransition = (command: WorkbenchWindowHostCommand): void => {
+    if (!surfaceAnimationsEnabled) return;
+    let transition: SurfaceTransition;
+    switch (command.kind) {
+      case "close":
+        transition = "close";
+        break;
+      case "minimize":
+        transition = "minimize";
+        break;
+      case "maximize":
+      case "toggle-maximize":
+        transition = "maximize";
+        break;
+      case "restore":
+        transition = "restore";
+        break;
+      default:
+        return;
+    }
+    const projection = windowProjection.peek();
+    const id = "id" in command && command.id !== undefined
+      ? command.id
+      : projection.windows.find((window) => window.active)?.id;
+    if (!id) return;
+    const window = projection.windows.find((entry) => entry.id === id);
+    if (!window?.rect || window.rect.width <= 0 || window.rect.height <= 0) return;
+    const snapshot = snapshotExomuxDesktopRect(lastDesktopRows, window.rect);
+    if (!snapshot) return;
+    const started = surfaceAnimator.begin({
+      surfaceId: id,
+      transition,
+      rect: { ...window.rect },
+      snapshot: snapshot.plain,
+      now: performance.now(),
+    });
+    if (started) animationStyles.set(id, snapshot.styled);
+  };
+
+  {
+    const hostExecute = controller.windowHost.execute.bind(controller.windowHost);
+    controller.windowHost.execute = ((command, bounds) => {
+      beginWindowTransition(command);
+      return hostExecute(command, bounds);
+    }) as typeof controller.windowHost.execute;
+  }
+
+  const collectAnimationOverlays = (): ExomuxAnimationOverlayPaint[] => {
+    const overlays = surfaceAnimator.framesAt(performance.now());
+    const paints: ExomuxAnimationOverlayPaint[] = [];
+    for (const overlay of overlays) {
+      const styled = animationStyles.get(overlay.surfaceId);
+      if (overlay.frame.done) animationStyles.delete(overlay.surfaceId);
+      if (!styled || overlay.frame.done) continue;
+      paints.push({ overlay, styled });
+    }
+    return paints;
+  };
+
   const renderRevision = own(
     new Computed(() => {
       const projection = windowProjection.value;
       const sessions = controller.sessions.value;
       const fragments: Array<string | number | boolean | undefined> = [
+        animationRevision.value,
         app.tui.rectangle.value.width,
         app.tui.rectangle.value.height,
         projection.windows.length,
@@ -1507,8 +1591,9 @@ export function mountExomuxDesktop(
     zIndex: 1,
     rectangle: app.tui.rectangle,
     revision: renderRevision,
-    render: () =>
-      renderExomuxDesktop({
+    render: () => {
+      const rows = renderExomuxDesktop({
+        animationOverlays: collectAnimationOverlays(),
         bounds: app.tui.rectangle.peek(),
         body: bodyRect.peek(),
         projection: windowProjection.peek(),
@@ -1549,7 +1634,10 @@ export function mountExomuxDesktop(
             },
           }
           : {}),
-      }),
+      });
+      lastDesktopRows = rows;
+      return rows;
+    },
   });
   void desktop;
 
@@ -3538,7 +3626,16 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
     event.key === "delete";
 }
 
+/** One playing transition ghost with the styled cells it samples from. */
+interface ExomuxAnimationOverlayPaint {
+  overlay: SurfaceTransitionOverlay;
+  /** Rect-local styled source cells captured at transition start. */
+  styled: string[][];
+}
+
 interface RenderExomuxDesktopOptions {
+  /** Window-transition ghosts composited above windows (039). */
+  animationOverlays?: readonly ExomuxAnimationOverlayPaint[];
   bounds: Rectangle;
   body: Rectangle;
   projection: WorkbenchWindowHostProjection;
@@ -4001,6 +4098,11 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     exomuxSceneGround.commitWindow();
   }
   painter.endGroundDeposits();
+  // Transition ghosts sit above every window but below modal chrome: a
+  // closing window's snapshot dissolves over whatever tiling replaced it.
+  for (const paint of options.animationOverlays ?? []) {
+    paintAnimationOverlay(painter, paint, theme);
+  }
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
   if (options.backgroundField && exomuxBackgroundHasOverlay(options.backgroundField)) {
@@ -4082,6 +4184,62 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
 
   return painter.rows;
+}
+
+/**
+ * Captures a desktop rect from the previous frame's styled cells: plain
+ * glyph rows for the animation engine plus the styled originals so the
+ * ghost keeps each cell's colors.
+ */
+function snapshotExomuxDesktopRect(
+  rows: string[][],
+  rect: Rectangle,
+): { plain: string[]; styled: string[][] } | undefined {
+  if (rows.length === 0) return undefined;
+  const plain: string[] = [];
+  const styled: string[][] = [];
+  for (let row = 0; row < rect.height; row += 1) {
+    const sourceRow = rows[rect.row + row];
+    const styledRow: string[] = [];
+    let line = "";
+    for (let column = 0; column < rect.width; column += 1) {
+      const cell = sourceRow?.[rect.column + column] ?? " ";
+      styledRow.push(cell);
+      const glyph = cell === " " ? " " : widgetSurfaceCellData(cell)?.glyph ?? " ";
+      // Wide glyphs and followers animate as single-column blanks; the
+      // engine's grid is strictly one glyph per column.
+      line += exomuxGlyphColumns(glyph) === 1 ? glyph : " ";
+    }
+    plain.push(line);
+    styled.push(styledRow);
+  }
+  return { plain, styled };
+}
+
+/** Paints one transition ghost, sampling colors from its styled snapshot. */
+function paintAnimationOverlay(
+  painter: DesktopPainter,
+  paint: ExomuxAnimationOverlayPaint,
+  theme: ExomuxThemeSpec,
+): void {
+  const { overlay, styled } = paint;
+  const { rect, frame } = overlay;
+  for (let row = 0; row < frame.cells.length; row += 1) {
+    const cells = frame.cells[row]!;
+    for (let column = 0; column < cells.length; column += 1) {
+      const cell = cells[column];
+      if (!cell) continue;
+      const source = styled[cell.sourceRow]?.[cell.sourceColumn];
+      const data = source && source !== " " ? widgetSurfaceCellData(source) : undefined;
+      const background = data?.background ?? theme.background;
+      let foreground = data?.foreground ?? theme.text;
+      if (cell.heat !== undefined) {
+        // Embers glow from deep red toward the warning tone as heat rises.
+        foreground = mixExomuxRgb(theme.danger, theme.warning, cell.heat);
+      }
+      painter.cell(rect.column + column, rect.row + row, cell.char, { foreground, background });
+    }
+  }
 }
 
 /** Paints the start-menu dropdown below the top-left button. */

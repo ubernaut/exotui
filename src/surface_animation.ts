@@ -84,9 +84,14 @@ export function surfaceAnimationSpeedScale(speed: SurfaceAnimationSpeed): number
   }
 }
 
-/** The natural play direction of a transition. */
+/**
+ * The natural play direction of a transition. Only "open" assembles in;
+ * every other transition animates the snapshot of the OLD cells out
+ * (for maximize/restore the new layout paints underneath immediately,
+ * so the dissolving ghost reads as a morph).
+ */
 export function surfaceTransitionDirection(transition: SurfaceTransition): "in" | "out" {
-  return transition === "close" || transition === "minimize" ? "out" : "in";
+  return transition === "open" ? "in" : "out";
 }
 
 /** Resolves "random" to a concrete kind, deterministically per seed. */
@@ -157,11 +162,15 @@ export class SurfaceAnimation {
     column: number,
     progress: number,
   ): void {
+    // Fully out means gone regardless of any per-cell noise wobble.
+    if (progress >= 1) return;
     const noise = hashUnit(this.#seed, row, column);
     switch (this.kind) {
       case "fade": {
-        // Uniform ramp: glyphs → shade blocks → gone, all cells together.
-        const stage = Math.min(4, Math.floor(progress * 4 + noise * 0.5));
+        // Uniform ramp: original glyphs hold to ~40%, then shade blocks
+        // step down together until the surface is gone at 100%.
+        const local = progress + (noise - 0.5) * 0.08;
+        const stage = local < 0.4 ? 0 : 1 + Math.floor((local - 0.4) / 0.2);
         if (stage >= 4) return;
         const shown = stage === 0 ? char : DISSOLVE_RAMP[stage - 1]!;
         cells[row]![column] = { char: shown, sourceRow: row, sourceColumn: column };

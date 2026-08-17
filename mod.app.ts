@@ -56,6 +56,20 @@ export type {
   WorkbenchWindowSwitcherProjection,
 } from "./src/app/workbench_window_host.ts";
 
+export {
+  createSurfaceTransitionAnimator,
+  DEFAULT_SURFACE_TRANSITION_SETTINGS,
+  SURFACE_TRANSITION_BASE_DURATION_MS,
+  SurfaceTransitionAnimator,
+  surfaceTransitionMotionToken,
+} from "./src/app/surface_transitions.ts";
+export type {
+  BeginSurfaceTransitionOptions,
+  SurfaceTransitionAnimatorOptions,
+  SurfaceTransitionOverlay,
+  SurfaceTransitionSettings,
+} from "./src/app/surface_transitions.ts";
+
 export { Box } from "./src/components/box.ts";
 export { Button } from "./src/components/button.ts";
 export { CheckBox } from "./src/components/checkbox.ts";
