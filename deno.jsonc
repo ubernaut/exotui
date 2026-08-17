@@ -54,6 +54,9 @@
     "orbital-command": "deno run ./examples/showcases/orbital_command/main.ts",
     "orbital-command:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/orbital_command/main.ts --persist --state-file=\"$state_dir/orbital-command-session.json\"'",
     "orbital-command:check": "deno check ./examples/showcases/orbital_command/main.ts",
+    "glyph-forge": "deno run ./examples/showcases/glyph_forge/main.ts",
+    "glyph-forge:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; exec deno run --allow-read=\"$state_dir\" --allow-write=\"$state_dir\" ./examples/showcases/glyph_forge/main.ts --persist --state-file=\"$state_dir/glyph-forge-session.json\"'",
+    "glyph-forge:check": "deno check ./examples/showcases/glyph_forge/main.ts",
     // Exomux is a standalone package with its own import map and lockfile —
     // deliberately not a workspace member, because a Deno workspace shares one
     // npm resolution and `deno compile` materializes all of it, which put ~48MB
