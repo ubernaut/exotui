@@ -27,7 +27,15 @@ const EXOMUX_WORKBENCH_THEME_IDS = [
 export type ExomuxWorkbenchThemeId = (typeof EXOMUX_WORKBENCH_THEME_IDS)[number];
 
 /** Stable theme identities persisted with the window layout. */
-export type ExomuxThemeId = "midnight" | "amber" | "matrix" | "paper" | ExomuxWorkbenchThemeId | "t2" | "templeos";
+export type ExomuxThemeId =
+  | "midnight"
+  | "amber"
+  | "matrix"
+  | "paper"
+  | ExomuxWorkbenchThemeId
+  | "t2"
+  | "templeos"
+  | "miami";
 
 /** RGB tuple used by the renderer without depending on terminal palette state. */
 export type ExomuxRgb = readonly [red: number, green: number, blue: number];
@@ -153,6 +161,27 @@ export const EXOMUX_THEMES = [
     success: [0, 170, 0],
     warning: [170, 85, 0],
     danger: [170, 0, 0],
+  },
+  {
+    // Miami after dark: a violet night with neon standing on top of it. The
+    // five palette colors take the roles that suit them — electric blue draws
+    // the structure, hot pink is the one thing that lights up under focus,
+    // mint is what "fine" looks like, soft pink carries secondary text, and
+    // cyan is lightened into the body text so long sessions stay readable.
+    // Warning and danger are derived: the palette has no warm end, and those
+    // two must not be mistaken for the accent or for each other.
+    id: "miami",
+    label: "Miami Neon",
+    background: [10, 8, 26],
+    surface: [20, 15, 42],
+    surfaceStrong: [33, 23, 64],
+    border: [31, 162, 255],
+    text: [201, 251, 250],
+    muted: [249, 141, 201],
+    accent: [247, 101, 184],
+    success: [122, 255, 180],
+    warning: [255, 209, 128],
+    danger: [255, 94, 118],
   },
 ] as const satisfies readonly ExomuxThemeSpec[];
 

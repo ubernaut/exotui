@@ -107,7 +107,7 @@ library export.
   the terminal restores the floating desktop; the "Mobile layout" setting forces it on or off.
 - Per-desktop and per-window opacity with true multi-layer compositing; chrome and controls blend at half the window's
   transparency.
-- Thirteen themes and fourteen animated backgrounds, cycled from the settings window or prefix `b`; organic backgrounds
+- Fifteen themes and fourteen animated backgrounds, cycled from the settings window or prefix `b`; organic backgrounds
   slowly overgrow idle windows and retreat when you focus them.
 - Butterchurn audio visualizer: 472 real MilkDrop presets (equations and shaders), GPU and CPU renderers, mic-driven,
   with a preset browser and favorites; the GPU pipeline is validated against real butterchurn and keeps 468 of the 472
