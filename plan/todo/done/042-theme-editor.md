@@ -1,6 +1,6 @@
 # Theme editor
 
-Status: planned August 18 2026.
+Status: complete August 18 2026.
 
 User direction (Aug 18 2026): "I still don't think we're quite there with the miami theme. and that leads me to think we
 should have a theme editor where users can CRUD their own themes. this would work by defining theme primitives like
@@ -95,28 +95,35 @@ Two rules that keep this from becoming another pile of special cases:
 
 Each is independently testable and lands on its own; the vocabulary is the only one the others depend on.
 
-- [ ] **A — control token vocabulary** (`src/theme_controls.ts`). The ~40 namespaced tokens, grouped, each with a
+- [x] **A — control token vocabulary** (`src/theme_controls.ts`). The ~40 namespaced tokens, grouped, each with a
       fallback, a description, and a role (`foreground` | `background` | `line`). Pure data plus the registry wiring.
       Tests: every token resolves against a bare seven-token theme; every fallback names a known token; groups cover
       every token exactly once; the names are pinned so a rename is a deliberate migration.
 
-- [ ] **B — editable model** (`src/theme_editor_model.ts`). Pure functions over a `ThemeDocument`: effective value of a
+- [x] **B — editable model** (`src/theme_editor_model.ts`). Pure functions over a `ThemeDocument`: effective value of a
       token, set/clear, distinct-colour palette ordered by use, per-pair contrast report, and validation. No signals, no
       rendering. Tests: overrides beat fallbacks, clearing restores inheritance, the palette dedupes and orders, the
       contrast report flags the pair Miami got wrong (bright accent as text on a light ground).
 
-- [ ] **C — colour picker component** (`src/components/color_picker.ts`). A pure `colorPickerState` reducer first — hex
+- [x] **C — colour picker component** (`src/components/color_picker.ts`). A pure `colorPickerState` reducer first — hex
       parse/format, OKLCH lightness/chroma/hue axes, RGB axes, swatch selection, clamping into gamut — then the
       component that composes `Slider`/`Input`/`Button` around it. Keyboard and pointer both drive it. The swatch strip
       is fed by the editor's palette, which is the user's "show previously selected colors" requirement.
 
-- [ ] **D — editor controller** (`src/app/theme_editor.ts`) and view. CRUD over documents, live preview of the real
+- [x] **D — editor controller** (`src/app/theme_editor.ts`) and view. CRUD over documents, live preview of the real
       controls, contrast warnings inline. `ThemeLibrary` + `ThemeStoragePort` for load/save/list/remove using the
       existing interchange JSON.
 
-- [ ] **E — exomux window**. A `theme-editor` window with a menu entry and a prefix binding, the editor's document
-      applied to the live desktop as it is edited, user themes appearing in the settings theme list beside the built-in
-      ones, and the built-ins convertible to documents so Miami can be opened, fixed and saved as the user's own.
+- [x] **E — exomux window**. A `theme-editor` window on the start menu, the editor's document applied to the live
+      desktop as it is edited, saved themes registered into the catalog at launch, and the built-ins convertible to
+      documents so Miami can be opened, fixed and saved as the user's own.
+
+      Two things landed differently from the sketch. There is no prefix binding yet — the start menu opens it and
+      Escape closes it; a binding is a one-line addition when the key is chosen. And painting had to meet the
+      vocabulary halfway: `ExomuxThemeSpec` gained an optional `controls` map, and the chrome painters now read their
+      colour through `exomuxControlColor(theme, token, fallback)`. Window borders, title bars (active and not) and
+      menu selection are wired; the remaining tokens resolve and are editable but are not yet consulted by a painter,
+      which is a mechanical follow-on rather than a design question.
 
 ## Non-goals
 

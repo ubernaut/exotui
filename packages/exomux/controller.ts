@@ -18,6 +18,9 @@ import {
   type WorkbenchWindowHostProjection,
   type WorkbenchWindowHostResult,
 } from "@ubernaut/deno-tui";
+import { ThemeEditorController, type ThemeLibrary } from "@ubernaut/deno-tui";
+import type { ThemeDocument } from "@ubernaut/deno-tui/theme";
+import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import {
   ShowcaseKernel,
   type ShowcaseProvider,
@@ -89,6 +92,7 @@ import {
   normalizeExomuxBackgroundSettings,
   normalizeExomuxGlobalSettings,
   normalizeExomuxWorkspaceState,
+  registerExomuxTheme,
   withExomuxBackgroundString,
 } from "./model.ts";
 
@@ -553,6 +557,15 @@ export function buildExomuxNetworkNodes(
 export const EXOMUX_NETWORK_WINDOW_ID = "network" as const;
 /** Stable floating window carrying the desktop-wide settings. */
 export const EXOMUX_SETTINGS_WINDOW_ID = "settings" as const;
+/** The theme editor's window (042 E). */
+export const EXOMUX_THEME_EDITOR_WINDOW_ID = "theme-editor" as const;
+/**
+ * The id an unsaved edit paints under. It is a real catalog entry so every
+ * painter finds it the ordinary way, and it is replaced by the saved id the
+ * moment the theme is written, so an unsaved experiment never becomes the
+ * durable choice.
+ */
+export const EXOMUX_THEME_EDITOR_PREVIEW_ID = "theme-editor-preview" as const;
 /** Bounds used for settings-window commands when the caller has no live desktop rect. */
 const SETTINGS_FALLBACK_BOUNDS: Rectangle = Object.freeze({ column: 0, row: 0, width: 120, height: 36 });
 const WINDOW_RECONCILE_ATTEMPTS = 8;
@@ -666,6 +679,8 @@ export interface ExomuxControllerOptions {
    * fixtures. Absent, the panel shows only this session's terminals.
    */
   readonly hostSessionsSource?: { probe(): Promise<readonly ExomuxHostSessionProbe[]> };
+  /** Where saved themes live; absent means the editor can edit but not save. */
+  readonly themeLibrary?: ThemeLibrary;
   /** Switches this client to another exomux session; wired by the launcher. */
   readonly onSwitchSession?: (name: string) => void;
   readonly tailnetSource?: Pick<TailnetStatusSource, "fetchStatus">;
@@ -730,6 +745,12 @@ export class ExomuxController {
   readonly themeRevision = new Signal(0);
   readonly prefixPending = new Signal(false);
   readonly helpVisible = new Signal(false);
+  /** True while the theme editor window is open. */
+  readonly themeEditorVisible = new Signal(false);
+  /** The live editor, created when the window opens and disposed when it closes. */
+  readonly themeEditor = new Signal<ThemeEditorController | undefined>(undefined);
+  /** First visible row of the editor's token list. */
+  readonly themeEditorScroll = new Signal(0);
   /**
    * First visible line of the key reference. The reference does not fit on a
    * phone at any font size, so on a narrow screen it reflows to one column and
@@ -875,6 +896,7 @@ export class ExomuxController {
   readonly #onRenameSession?: (newName: string) => Promise<ExomuxRenameResult>;
   readonly #onShadersChanged?: (config: ExomuxShaderConfig) => void;
   readonly #hostSessionsSource?: { probe(): Promise<readonly ExomuxHostSessionProbe[]> };
+  readonly #themeLibrary?: ThemeLibrary;
   readonly #onSwitchSession?: (name: string) => void;
   /** Exomux sessions on this host, for the sessions panel (UX-006). */
   readonly hostSessions = new Signal<readonly ExomuxHostSessionRow[]>([]);
@@ -887,6 +909,7 @@ export class ExomuxController {
     this.#onPreferencesChanged = options.onPreferencesChanged;
     this.#onRenameSession = options.onRenameSession;
     this.#hostSessionsSource = options.hostSessionsSource;
+    this.#themeLibrary = options.themeLibrary;
     this.#onSwitchSession = options.onSwitchSession;
     this.#onShadersChanged = options.onShadersChanged;
     if (options.initialSessionName) this.sessionName.value = options.initialSessionName;
@@ -1467,6 +1490,73 @@ export class ExomuxController {
     this.globalConfigVisible.value = true;
     this.presentWindow(EXOMUX_SETTINGS_WINDOW_ID, bounds);
     this.status.value = "Settings · Tab pane · ↑↓ choose · ←→ change · Escape close";
+  }
+
+  /**
+   * Opens the theme editor on the theme currently showing. Editing writes
+   * straight through to the desktop — the preview IS the desktop, because a
+   * preview pane in a terminal is a lie you have to maintain.
+   */
+  openThemeEditor(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): void {
+    this.#assertActive();
+    this.prefixPending.value = false;
+    this.helpVisible.value = false;
+    if (!this.themeEditor.peek()) {
+      const active = exomuxTheme(this.themeId.peek());
+      const editor = new ThemeEditorController({
+        document: exomuxThemeDocument(active),
+        ...(this.#themeLibrary ? { library: this.#themeLibrary } : {}),
+        onApply: (document) => this.#applyThemeDocument(document),
+      });
+      this.themeEditor.value = editor;
+    }
+    this.themeEditorVisible.value = true;
+    this.presentWindow(EXOMUX_THEME_EDITOR_WINDOW_ID, bounds);
+    this.status.value = "Theme editor · ↑↓ token · ←→ adjust · Tab axis · s save · Escape close";
+  }
+
+  /** Closes the theme editor, keeping whatever was applied to the desktop. */
+  closeThemeEditor(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): void {
+    if (this.#disposed) return;
+    this.themeEditorVisible.value = false;
+    this.windowHost.execute({ kind: "minimize", id: EXOMUX_THEME_EDITOR_WINDOW_ID }, bounds);
+    this.refillMobileLayout(bounds);
+    this.status.value = this.#statusSummary();
+  }
+
+  /**
+   * Saves the edited theme and makes it the active one. A theme saved under
+   * the name it was opened with replaces that built-in in the catalog, which
+   * is how a shipped theme gets fixed rather than cloned.
+   */
+  async saveThemeEditor(): Promise<boolean> {
+    const editor = this.themeEditor.peek();
+    if (!editor || this.#disposed) return false;
+    const id = await editor.save();
+    if (!id) {
+      this.status.value = "Theme not saved: it is missing one of the core colours.";
+      return false;
+    }
+    const document = editor.document.peek();
+    const spec = exomuxThemeSpecFromDocument(id, document, exomuxTheme(this.themeId.peek()));
+    registerExomuxTheme(spec);
+    this.themeId.value = id;
+    this.themeRevision.value += 1;
+    for (const runtime of this.#runtimes.values()) runtime.renderRevision.value += 1;
+    this.#persistMetadata();
+    this.status.value = `Saved theme "${document.name}".`;
+    return true;
+  }
+
+  /** Applies an edited document to the live desktop without saving it. */
+  #applyThemeDocument(document: ThemeDocument): void {
+    if (this.#disposed) return;
+    const active = exomuxTheme(this.themeId.peek());
+    const spec = exomuxThemeSpecFromDocument(EXOMUX_THEME_EDITOR_PREVIEW_ID, document, active);
+    registerExomuxTheme(spec);
+    this.themeId.value = EXOMUX_THEME_EDITOR_PREVIEW_ID;
+    this.themeRevision.value += 1;
+    for (const runtime of this.#runtimes.values()) runtime.renderRevision.value += 1;
   }
 
   /** Closes the desktop-wide settings window. */
@@ -3284,6 +3374,19 @@ export class ExomuxController {
       // Settings ride an ordinary floating window — movable, resizable, and
       // stacked like any other window (UX-003): raised on focus, never
       // pinned on top. Born minimized: the menu restores it on demand.
+      // The theme editor is a window like any other, born minimized: the
+      // settings window and the start menu open it on demand.
+      {
+        id: EXOMUX_THEME_EDITOR_WINDOW_ID,
+        title: "Theme editor",
+        minWidth: 34,
+        minHeight: 16,
+        maxWidth: 96,
+        maxHeight: 48,
+        state: "minimized" as const,
+        placement: "floating" as const,
+        floatingRect: { column: 8, row: 3, width: 72, height: 32 },
+      },
       {
         id: EXOMUX_SETTINGS_WINDOW_ID,
         title: "Exomux settings",
@@ -3390,6 +3493,10 @@ export class ExomuxController {
     this.prefixPending.dispose();
     this.helpVisible.dispose();
     this.helpScroll.dispose();
+    this.themeEditor.peek()?.dispose();
+    this.themeEditor.dispose();
+    this.themeEditorScroll.dispose();
+    this.themeEditorVisible.dispose();
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
     this.hostSessions.dispose();

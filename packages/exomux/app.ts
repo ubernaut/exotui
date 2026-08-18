@@ -35,6 +35,7 @@ import {
 } from "@ubernaut/deno-tui";
 import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "@ubernaut/deno-tui";
 import { wrapTextBoxLines } from "@ubernaut/deno-tui";
+import { COLOR_PICKER_AXIS_IDS, type ColorPickerAxisId, type ThemeEditorController } from "@ubernaut/deno-tui";
 import {
   layoutWorkbenchButtonRowInto,
   type WorkbenchButtonRowItem,
@@ -47,6 +48,7 @@ import {
   EXOMUX_NETWORK_WINDOW_ID,
   EXOMUX_SESSIONS_WINDOW_ID,
   EXOMUX_SETTINGS_WINDOW_ID,
+  EXOMUX_THEME_EDITOR_WINDOW_ID,
   ExomuxController,
   type ExomuxControllerOptions,
   exomuxNetworkNodeAction,
@@ -70,7 +72,9 @@ import {
   exomuxBackgroundSettingsFor,
   type ExomuxBorderGlyphs,
   exomuxBorderGlyphs,
+  exomuxControlColor,
   exomuxControlOpacity,
+  exomuxRelativeLuminance,
   exomuxResolvedOpacity,
   exomuxResolvedScrollLines,
   type ExomuxRgb,
@@ -243,6 +247,7 @@ const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: st
     { id: "network", label: "Network" },
     { id: "sessions", label: "Sessions" },
     { id: "config", label: "Settings" },
+    { id: "theme", label: "Theme editor" },
     { id: "help", label: "Help" },
     { id: "quit", label: "Quit", danger: true },
   ]);
@@ -277,7 +282,7 @@ export function exomuxMetaballsMayAdvance(
   return !hasPendingBarrier;
 }
 
-type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "favorite";
+type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "theme" | "help" | "quit" | "favorite";
 
 /** One entry in the start menu, before layout assigns it a rect. */
 interface ExomuxStartMenuItem {
@@ -1858,6 +1863,9 @@ export function mountExomuxDesktop(
       case "config":
         controller.openGlobalConfig(bodyRect.peek());
         break;
+      case "theme":
+        controller.openThemeEditor(bodyRect.peek());
+        break;
       case "help":
         controller.openHelp();
         break;
@@ -2006,6 +2014,67 @@ export function mountExomuxDesktop(
     );
     touchGestures.delete(pointerId);
     return result.handled;
+  };
+
+  /** Routes a click inside the theme editor's client area. */
+  const activateThemeEditorHit = (column: number, row: number): boolean => {
+    const editor = controller.themeEditor.peek();
+    const clientRect = windowProjection.peek().windows.find(
+      (candidate) => candidate.id === EXOMUX_THEME_EDITOR_WINDOW_ID,
+    )?.clientRect;
+    if (!editor || !clientRect) return false;
+    const rows = exomuxThemeEditorRows(editor);
+    const swatches = editor.picker.inspect().swatches;
+    const probe = exomuxThemeEditorLayout(clientRect, rows, swatches.length, 0);
+    const scrollTop = exomuxThemeEditorScrollTop(
+      rows,
+      editor.token.peek(),
+      probe.tokenListRect.height,
+      controller.themeEditorScroll.peek(),
+    );
+    const layout = exomuxThemeEditorLayout(clientRect, rows, swatches.length, scrollTop);
+
+    if (contains(layout.closeRect, column, row)) {
+      controller.closeThemeEditor(bodyRect.peek());
+      return true;
+    }
+    if (contains(layout.saveRect, column, row)) {
+      void controller.saveThemeEditor();
+      return true;
+    }
+    if (contains(layout.revertRect, column, row)) {
+      editor.revert();
+      return true;
+    }
+    if (contains(layout.resetRect, column, row)) {
+      editor.clearToken();
+      return true;
+    }
+    for (const tokenRow of layout.tokenRows) {
+      if (!contains(tokenRow.rect, column, row)) continue;
+      editor.selectToken(tokenRow.token);
+      controller.themeEditorScroll.value = scrollTop;
+      return true;
+    }
+    for (const cell of layout.swatchCells) {
+      if (!contains(cell.rect, column, row)) continue;
+      editor.picker.selectSwatch(cell.index);
+      return true;
+    }
+    for (const axisRow of layout.axisRows) {
+      if (!contains(axisRow.rect, column, row)) continue;
+      editor.picker.selectAxis(axisRow.axis);
+      // Clicking along the track jumps to that position, the way a slider does.
+      const trackStart = axisRow.rect.column + 11;
+      const trackWidth = Math.max(4, axisRow.rect.width - 18);
+      if (column >= trackStart && column < trackStart + trackWidth) {
+        const axis = editor.picker.inspect().axes.find((candidate) => candidate.id === axisRow.axis)!;
+        const fraction = (column - trackStart) / Math.max(1, trackWidth - 1);
+        editor.picker.setAxis(axisRow.axis, axis.min + fraction * (axis.max - axis.min));
+      }
+      return true;
+    }
+    return false;
   };
 
   /** Routes a click inside the settings window's client area to its rows. */
@@ -2528,6 +2597,13 @@ export function mountExomuxDesktop(
           await enqueue(() => activateNetworkHit(networkRow));
           return true;
         }
+      }
+      if (clientWindow?.id === EXOMUX_THEME_EDITOR_WINDOW_ID) {
+        let editorHandled = false;
+        await enqueue(() => {
+          editorHandled = activateThemeEditorHit(event.x, event.y);
+        });
+        if (editorHandled) return true;
       }
       if (clientWindow?.id === EXOMUX_SETTINGS_WINDOW_ID) {
         let settingsHandled = false;
@@ -3349,6 +3425,29 @@ export function mountExomuxDesktop(
         }
       }
       return;
+    }
+    if (
+      controller.themeEditorVisible.peek() &&
+      controller.windowHost.controller.inspect().activeWindowId === EXOMUX_THEME_EDITOR_WINDOW_ID
+    ) {
+      const editor = controller.themeEditor.peek();
+      if (editor) {
+        const rows = exomuxThemeEditorRows(editor);
+        const tokens = rows.filter((row) => row.kind === "token").map((row) => row.token);
+        const index = tokens.indexOf(editor.token.peek());
+        const key = event.key.toLowerCase();
+        if (event.key === "escape") controller.closeThemeEditor(bodyRect.peek());
+        else if (event.key === "up") editor.selectToken(tokens[Math.max(0, index - 1)] ?? tokens[0]!);
+        else if (event.key === "down") editor.selectToken(tokens[Math.min(tokens.length - 1, index + 1)] ?? tokens[0]!);
+        else if (event.key === "left") editor.picker.nudge(event.shift ? -10 : -1);
+        else if (event.key === "right") editor.picker.nudge(event.shift ? 10 : 1);
+        else if (event.key === "tab") editor.picker.cycleAxis(event.shift ? -1 : 1);
+        else if (key === "s") void controller.saveThemeEditor();
+        else if (key === "r") editor.revert();
+        else if (key === "x") editor.clearToken();
+        else return;
+        return;
+      }
     }
     if (
       controller.globalConfigVisible.peek() &&
@@ -4845,7 +4944,13 @@ function paintWindow(
   const chromeOpacity = exomuxControlOpacity(windowOpacity);
   const chromeGround = (base: ExomuxRgb): ExomuxGround =>
     backdrop && chromeOpacity < 1 ? (x, y) => mixExomuxRgb(backdrop(x, y), base, chromeOpacity) : () => base;
-  const border = window.active ? theme.accent : theme.border;
+  // Chrome reads its control tokens, so a theme edited in the theme editor
+  // moves the thing the user actually pointed at. A theme with no document
+  // behind it has no control map, and every one of these falls back to the
+  // ten-field colour it always used.
+  const border = window.active
+    ? exomuxControlColor(theme, "window:border-active", theme.accent)
+    : exomuxControlColor(theme, "window:border", theme.border);
   painter.fill(window.rect, " ", { foreground: theme.text, background: theme.surface });
   // Focus reads through colour and weight, so both states share one frame
   // vocabulary rather than swapping the glyphs out underneath the window.
@@ -4857,7 +4962,14 @@ function paintWindow(
     chromeGround(theme.surfaceStrong),
     window.active,
   );
-  const titleBarGround = chromeGround(window.active ? theme.accent : theme.surfaceStrong);
+  const titleBarGround = chromeGround(
+    window.active
+      ? exomuxControlColor(theme, "window:titlebar-background-active", theme.accent)
+      : exomuxControlColor(theme, "window:titlebar-background", theme.surfaceStrong),
+  );
+  const titleBarText = window.active
+    ? exomuxControlColor(theme, "window:titlebar-foreground-active", exomuxActiveTitlebarForeground(theme))
+    : exomuxControlColor(theme, "window:titlebar-foreground", theme.text);
   fillWithGround(painter, window.titleBarRect, theme, titleBarGround);
   const firstControl = window.controls.reduce(
     (minimum, control) => Math.min(minimum, control.rect.column),
@@ -4879,14 +4991,14 @@ function paintWindow(
       // Active bars sit on the accent colour, so their text contrasts it
       // (black on bright accents, white on the light themes' dark accents);
       // inactive bars keep the main theme foreground (supersedes UX-004).
-      foreground: window.active ? exomuxActiveTitlebarForeground(theme) : theme.text,
+      foreground: titleBarText,
       bold: window.active,
     },
     titleBarGround,
   );
   for (const control of window.controls) {
     writeOnGround(painter, control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
-      foreground: window.active ? exomuxActiveTitlebarForeground(theme) : theme.text,
+      foreground: titleBarText,
       bold: control.tone === "danger" || window.active,
     }, titleBarGround);
   }
@@ -4908,6 +5020,10 @@ function paintWindow(
   }
   if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
     paintNetworkPanel(painter, window.clientRect, controller, window.active, ground, networkTreeView);
+    return;
+  }
+  if (window.id === EXOMUX_THEME_EDITOR_WINDOW_ID) {
+    paintThemeEditorWindow(painter, window.clientRect, controller, ground);
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
@@ -5272,8 +5388,12 @@ function paintSwitcher(
       rect.row + 1 + index,
       fitText(`${item.selected ? ">" : " "} ${item.title}`, width - 2),
       {
-        foreground: item.selected ? theme.background : theme.text,
-        background: item.selected ? theme.accent : theme.surfaceStrong,
+        foreground: item.selected
+          ? exomuxControlColor(theme, "menu:foreground-selected", theme.background)
+          : exomuxControlColor(theme, "menu:foreground", theme.text),
+        background: item.selected
+          ? exomuxControlColor(theme, "menu:background-selected", theme.accent)
+          : exomuxControlColor(theme, "menu:background", theme.surfaceStrong),
         bold: item.selected,
       },
     );
@@ -7602,4 +7722,303 @@ function identityStyle(value: string): string {
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** Layout for the theme editor window; exported for deterministic pointer tests. */
+export interface ExomuxThemeEditorLayout {
+  readonly rect: Rectangle;
+  /** Token rows on the left, each paired with the token it selects. */
+  readonly tokenRows: readonly { readonly rect: Rectangle; readonly token: string }[];
+  readonly tokenListRect: Rectangle;
+  /** Axis rows on the right; clicking one selects it, clicking its track sets it. */
+  readonly axisRows: readonly { readonly rect: Rectangle; readonly axis: ColorPickerAxisId }[];
+  /** Swatch cells, each three columns wide. */
+  readonly swatchCells: readonly { readonly rect: Rectangle; readonly index: number }[];
+  readonly saveRect: Rectangle;
+  readonly revertRect: Rectangle;
+  readonly resetRect: Rectangle;
+  readonly closeRect: Rectangle;
+  /** True when the window is too narrow to sit the picker beside the list. */
+  readonly stacked: boolean;
+}
+
+const THEME_EDITOR_STACK_WIDTH = 58;
+const THEME_EDITOR_SWATCH_WIDTH = 4;
+
+/**
+ * Lays the editor out inside its window. Narrow windows stack the picker under
+ * the token list rather than squeezing both, which is the same rule the
+ * settings window follows.
+ */
+export function exomuxThemeEditorLayout(
+  rect: Rectangle,
+  rows: readonly { readonly token: string }[],
+  swatchCount: number,
+  scrollTop = 0,
+): ExomuxThemeEditorLayout {
+  const stacked = rect.width < THEME_EDITOR_STACK_WIDTH;
+  const listWidth = stacked ? Math.max(1, rect.width - 2) : Math.max(18, Math.floor((rect.width - 3) * 0.45));
+  const buttonRow = rect.row + Math.max(0, rect.height - 1);
+  const listHeight = stacked ? Math.max(1, Math.floor((rect.height - 2) / 2)) : Math.max(1, rect.height - 2);
+  const tokenListRect: Rectangle = { column: rect.column + 1, row: rect.row + 1, width: listWidth, height: listHeight };
+  const tokenRows: { rect: Rectangle; token: string }[] = [];
+  for (let index = 0; index < listHeight; index += 1) {
+    const entry = rows[scrollTop + index];
+    if (!entry) break;
+    tokenRows.push({
+      rect: { column: tokenListRect.column, row: tokenListRect.row + index, width: listWidth, height: 1 },
+      token: entry.token,
+    });
+  }
+  const pickerColumn = stacked ? rect.column + 1 : tokenListRect.column + listWidth + 1;
+  const pickerRow = stacked ? tokenListRect.row + listHeight + 1 : rect.row + 1;
+  const pickerWidth = stacked ? Math.max(1, rect.width - 2) : Math.max(1, rect.column + rect.width - 1 - pickerColumn);
+  // Preview line, then the six axes, then hex, then swatches.
+  const axisRows = COLOR_PICKER_AXIS_IDS.map((axis, index) => ({
+    axis,
+    rect: { column: pickerColumn, row: pickerRow + 2 + index, width: pickerWidth, height: 1 },
+  })).filter((row) => row.rect.row < buttonRow);
+  const swatchRow = pickerRow + 3 + COLOR_PICKER_AXIS_IDS.length;
+  const perRow = Math.max(1, Math.floor(pickerWidth / THEME_EDITOR_SWATCH_WIDTH));
+  const swatchCells: { rect: Rectangle; index: number }[] = [];
+  for (let index = 0; index < swatchCount; index += 1) {
+    const row = swatchRow + Math.floor(index / perRow);
+    if (row >= buttonRow) break;
+    swatchCells.push({
+      index,
+      rect: {
+        column: pickerColumn + (index % perRow) * THEME_EDITOR_SWATCH_WIDTH,
+        row,
+        width: THEME_EDITOR_SWATCH_WIDTH - 1,
+        height: 1,
+      },
+    });
+  }
+  const [saveRect, revertRect, resetRect, closeRect] = layoutThemeEditorButtons(rect, buttonRow);
+  return {
+    rect,
+    tokenRows,
+    tokenListRect,
+    axisRows,
+    swatchCells,
+    saveRect: saveRect!,
+    revertRect: revertRect!,
+    resetRect: resetRect!,
+    closeRect: closeRect!,
+    stacked,
+  };
+}
+
+function layoutThemeEditorButtons(rect: Rectangle, row: number): Rectangle[] {
+  const labels = [8, 10, 9, 9];
+  const total = labels.reduce((sum, width) => sum + width, 0) + labels.length - 1;
+  if (total <= rect.width - 2) {
+    let column = rect.column + 1;
+    return labels.map((width) => {
+      const button = { column, row, width, height: 1 };
+      column += width + 1;
+      return button;
+    });
+  }
+  // Too narrow for a row of buttons: give each one its own line above the last.
+  return labels.map((width, index) => ({
+    column: rect.column + 1,
+    row: row - (labels.length - 1 - index),
+    width: Math.min(width, Math.max(1, rect.width - 2)),
+    height: 1,
+  }));
+}
+
+/** One row of the editor's token list: a group heading or a token. */
+export interface ExomuxThemeEditorRow {
+  readonly kind: "heading" | "token";
+  readonly token: string;
+  readonly label: string;
+  readonly color?: ExomuxRgb;
+  readonly inherited?: boolean;
+  /** True when this token's colour cannot be read on what it sits on. */
+  readonly unreadable?: boolean;
+}
+
+/**
+ * The editor's list, flattened for painting: every group heading followed by
+ * its tokens. Headings carry the token of their first entry so a click on one
+ * still selects something rather than doing nothing.
+ */
+export function exomuxThemeEditorRows(editor: ThemeEditorController): readonly ExomuxThemeEditorRow[] {
+  const inspection = editor.inspect();
+  const failing = new Set(inspection.failures.map((verdict) => verdict.token));
+  const rows: ExomuxThemeEditorRow[] = [];
+  for (const group of inspection.groups) {
+    if (group.entries.length === 0) continue;
+    rows.push({ kind: "heading", token: group.entries[0]!.token.name, label: group.label });
+    for (const entry of group.entries) {
+      rows.push({
+        kind: "token",
+        token: entry.token.name,
+        label: entry.token.label,
+        color: [entry.color[0], entry.color[1], entry.color[2]],
+        inherited: entry.inherited,
+        unreadable: failing.has(entry.token.name),
+      });
+    }
+  }
+  return rows;
+}
+
+/** Keeps the selected token inside the visible window of the token list. */
+export function exomuxThemeEditorScrollTop(
+  rows: readonly ExomuxThemeEditorRow[],
+  token: string,
+  visibleRows: number,
+  current: number,
+): number {
+  const index = rows.findIndex((row) => row.kind === "token" && row.token === token);
+  if (index < 0 || visibleRows <= 0) return 0;
+  const maximum = Math.max(0, rows.length - visibleRows);
+  const clamped = Math.max(0, Math.min(current, maximum));
+  if (index < clamped) return index;
+  if (index >= clamped + visibleRows) return Math.min(maximum, index - visibleRows + 1);
+  return clamped;
+}
+
+function paintThemeEditorWindow(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  controller: ExomuxController,
+  groundAt: ExomuxGround,
+): void {
+  const ground = groundAt(rect.column, rect.row);
+  const editor = controller.themeEditor.peek();
+  const theme = controller.theme.peek();
+  if (!editor) {
+    painter.write(rect.column + 1, rect.row + 1, fitText("The theme editor is not open.", rect.width - 2), {
+      foreground: theme.muted,
+      background: ground,
+    });
+    return;
+  }
+  const inspection = editor.inspect();
+  const picker = editor.picker.inspect();
+  const rows = exomuxThemeEditorRows(editor);
+  const probe = exomuxThemeEditorLayout(rect, rows, picker.swatches.length, 0);
+  const scrollTop = exomuxThemeEditorScrollTop(
+    rows,
+    inspection.token,
+    probe.tokenListRect.height,
+    controller.themeEditorScroll.peek(),
+  );
+  const layout = exomuxThemeEditorLayout(rect, rows, picker.swatches.length, scrollTop);
+
+  // Header: the theme's name and whether it has unsaved changes.
+  painter.write(
+    rect.column + 1,
+    rect.row,
+    fitText(`${inspection.name}${inspection.dirty ? " *" : ""}`, Math.max(0, rect.width - 2)),
+    { foreground: theme.text, background: ground, bold: true },
+  );
+
+  for (const row of layout.tokenRows) {
+    const entry = rows[scrollTop + layout.tokenRows.indexOf(row)];
+    if (!entry) continue;
+    paintThemeEditorRow(painter, row.rect, entry, entry.token === inspection.token, theme, ground);
+  }
+
+  const previewRow = layout.stacked ? layout.tokenListRect.row + layout.tokenListRect.height + 1 : rect.row + 1;
+  const previewColumn = layout.axisRows[0]?.rect.column ?? rect.column + 1;
+  const previewWidth = layout.axisRows[0]?.rect.width ?? Math.max(0, rect.width - 2);
+  // The chosen colour, as a block of itself, with its hex and how readable it
+  // is on the surface it is drawn against.
+  painter.fill(
+    { column: previewColumn, row: previewRow, width: Math.min(6, previewWidth), height: 1 },
+    " ",
+    { foreground: theme.text, background: picker.color },
+  );
+  const contrast = inspection.contrast > 0 ? ` · ${inspection.contrast.toFixed(1)}:1` : "";
+  painter.write(
+    previewColumn + 7,
+    previewRow,
+    fitText(`${picker.hex}${contrast}`, Math.max(0, previewWidth - 7)),
+    {
+      foreground: inspection.contrast > 0 && inspection.contrast < 4.5 ? theme.warning : theme.text,
+      background: ground,
+    },
+  );
+
+  for (const row of layout.axisRows) {
+    const axis = picker.axes.find((candidate) => candidate.id === row.axis)!;
+    const selected = picker.axis === row.axis;
+    const trackWidth = Math.max(4, row.rect.width - 18);
+    const filled = Math.round(axis.fraction * trackWidth);
+    const track = "#".repeat(filled) + "-".repeat(Math.max(0, trackWidth - filled));
+    painter.write(
+      row.rect.column,
+      row.rect.row,
+      fitText(`${selected ? ">" : " "}${axis.label.padEnd(9)} ${track} ${axis.text}`, row.rect.width),
+      { foreground: selected ? theme.accent : theme.muted, background: ground, bold: selected },
+    );
+  }
+
+  if (layout.swatchCells.length > 0) {
+    const first = layout.swatchCells[0]!.rect;
+    painter.write(first.column, first.row - 1, fitText("Colours in this theme", Math.max(0, previewWidth)), {
+      foreground: theme.muted,
+      background: ground,
+    });
+  }
+  for (const cell of layout.swatchCells) {
+    const swatch = picker.swatches[cell.index]!;
+    painter.fill(cell.rect, " ", { foreground: theme.text, background: swatch.color });
+    if (cell.index === picker.swatchIndex) {
+      painter.write(cell.rect.column, cell.rect.row, "*", {
+        foreground: exomuxRelativeLuminance(swatch.color) < 0.3 ? [255, 255, 255] : [0, 0, 0],
+        background: swatch.color,
+        bold: true,
+      });
+    }
+  }
+
+  const buttons: readonly [Rectangle, string, boolean][] = [
+    [layout.saveRect, "[ Save ]", inspection.dirty],
+    [layout.revertRect, "[ Revert ]", inspection.dirty],
+    [layout.resetRect, "[ Reset ]", true],
+    [layout.closeRect, "[ Close ]", true],
+  ];
+  for (const [buttonRect, label, enabled] of buttons) {
+    painter.write(buttonRect.column, buttonRect.row, fitText(label, buttonRect.width), {
+      foreground: enabled ? theme.background : theme.muted,
+      background: enabled ? theme.accent : theme.surface,
+      bold: true,
+    });
+  }
+}
+
+function paintThemeEditorRow(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  row: ExomuxThemeEditorRow,
+  selected: boolean,
+  theme: ExomuxThemeSpec,
+  ground: ExomuxRgb,
+): void {
+  if (row.kind === "heading") {
+    painter.write(rect.column, rect.row, fitText(row.label.toUpperCase(), rect.width), {
+      foreground: theme.muted,
+      background: ground,
+      bold: true,
+    });
+    return;
+  }
+  // A chip of the colour itself, then the label. An inherited value is marked,
+  // because "not set" and "set to the same colour" are different edits.
+  painter.fill({ column: rect.column, row: rect.row, width: 2, height: 1 }, " ", {
+    foreground: theme.text,
+    background: row.color ?? ground,
+  });
+  const marks = `${row.inherited ? " " : "*"}${row.unreadable ? "!" : " "}`;
+  painter.write(rect.column + 3, rect.row, fitText(`${marks}${row.label}`, Math.max(0, rect.width - 3)), {
+    foreground: selected ? theme.background : row.unreadable ? theme.warning : theme.text,
+    background: selected ? theme.accent : ground,
+    bold: selected,
+  });
 }

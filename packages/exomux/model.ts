@@ -27,7 +27,7 @@ const EXOMUX_WORKBENCH_THEME_IDS = [
 export type ExomuxWorkbenchThemeId = (typeof EXOMUX_WORKBENCH_THEME_IDS)[number];
 
 /** Stable theme identities persisted with the window layout. */
-export type ExomuxThemeId =
+export type ExomuxBuiltInThemeId =
   | "midnight"
   | "amber"
   | "matrix"
@@ -36,6 +36,12 @@ export type ExomuxThemeId =
   | "t2"
   | "templeos"
   | "miami";
+
+/**
+ * A theme id. Built-in ids complete; a user theme saved from the editor gets
+ * its own slug, which is why this is not a closed union.
+ */
+export type ExomuxThemeId = ExomuxBuiltInThemeId | (string & Record<never, never>);
 
 /** RGB tuple used by the renderer without depending on terminal palette state. */
 export type ExomuxRgb = readonly [red: number, green: number, blue: number];
@@ -66,6 +72,13 @@ export interface ExomuxThemeSpec {
   readonly success: ExomuxRgb;
   readonly warning: ExomuxRgb;
   readonly danger: ExomuxRgb;
+  /**
+   * Every control token this theme resolves to, present on themes that came
+   * from a document. The ten fields above are what most painting needs; this
+   * is how a painter reaches the finer ones — an active title bar, a
+   * scrollbar thumb — without another ten fields.
+   */
+  readonly controls?: Readonly<Record<string, ExomuxRgb>>;
 }
 
 /** Original Exomux themes retained in stable order for persisted workspaces. */
@@ -1124,7 +1137,53 @@ export const EXOMUX_MANIFEST = defineShowcaseManifest({
 
 /** Returns one validated theme, falling back to Midnight Ops. */
 export function exomuxTheme(id: unknown): ExomuxThemeSpec {
-  return EXOMUX_THEMES.find((theme) => theme.id === id) ?? EXOMUX_THEMES[0]!;
+  return exomuxThemeCatalog().find((theme) => theme.id === id) ?? EXOMUX_THEMES[0]!;
+}
+
+const userThemes = new Map<string, ExomuxThemeSpec>();
+
+/**
+ * Every theme that can be selected: the built-ins, then whatever the user has
+ * saved. A saved theme whose id matches a built-in REPLACES it in place rather
+ * than appearing beside it, so fixing a shipped theme leaves one entry named
+ * what it was always named.
+ */
+export function exomuxThemeCatalog(): readonly ExomuxThemeSpec[] {
+  if (userThemes.size === 0) return EXOMUX_THEMES;
+  const catalog = EXOMUX_THEMES.map((theme) => userThemes.get(theme.id) ?? theme);
+  for (const [id, theme] of userThemes) {
+    if (!EXOMUX_THEMES.some((builtIn) => builtIn.id === id)) catalog.push(theme);
+  }
+  return catalog;
+}
+
+/** Adds or replaces a user theme in the catalog. */
+export function registerExomuxTheme(theme: ExomuxThemeSpec): void {
+  userThemes.set(theme.id, theme);
+}
+
+/** Removes a user theme; a built-in it was shadowing comes back. */
+export function unregisterExomuxTheme(id: string): boolean {
+  return userThemes.delete(id);
+}
+
+/** Whether an id belongs to a saved theme rather than a shipped one. */
+export function isExomuxUserTheme(id: string): boolean {
+  return userThemes.has(id);
+}
+
+/**
+ * One control colour for painting: the theme's own value when it came from a
+ * document, and the ten-field approximation when it did not. Every painter
+ * that wants a finer colour than the ten goes through here, so a theme without
+ * a document still paints exactly as it did before.
+ */
+export function exomuxControlColor(
+  theme: ExomuxThemeSpec,
+  token: string,
+  fallback: ExomuxRgb,
+): ExomuxRgb {
+  return theme.controls?.[token] ?? fallback;
 }
 
 /** Stable outer-window identity for one daemon session. */

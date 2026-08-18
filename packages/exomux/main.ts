@@ -1,6 +1,10 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { type AsyncStore, DiagnosticsCollector } from "@ubernaut/deno-tui";
+import { ThemeLibrary } from "@ubernaut/deno-tui";
+import { createExomuxThemeStorage } from "./theme_storage.ts";
+import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
+import { EXOMUX_THEMES, exomuxTheme, registerExomuxTheme } from "./model.ts";
 import { createShowcaseTerminalStore } from "@showcase/kit";
 import { createExomuxTerminalApp, type ExomuxTerminalAppRuntime } from "./app.ts";
 import {
@@ -297,6 +301,19 @@ async function runExomuxClientSession(
   // renamed session's directory without rebuilding the controller.
   const retargetableStore = new ExomuxRetargetableStore(storage.store);
   const config = await loadExomuxConfig(configPath);
+  // Saved themes live beside the config file. They are registered before the
+  // controller reads its preferences, so a desktop that starts on a theme the
+  // user edited starts on the edited one.
+  const themeLibrary = new ThemeLibrary({
+    storage: createExomuxThemeStorage(joinPath(configDirectory, "themes")),
+    builtIns: EXOMUX_THEMES.map((theme) => exomuxThemeDocument(theme)),
+  });
+  for (const entry of await themeLibrary.list()) {
+    if (!entry.editable) continue;
+    const document = await themeLibrary.load(entry.id);
+    if (!document) continue;
+    registerExomuxTheme(exomuxThemeSpecFromDocument(entry.id, document, exomuxTheme(entry.id)));
+  }
   const configWriter = createExomuxConfigWriter(configDirectory, configPath, config);
   // Offer (and drive) the interface shaders whenever Ghostty is available —
   // running inside it, or just installed — so the settings manage the same
@@ -367,6 +384,7 @@ async function runExomuxClientSession(
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
     initialPreferences: exomuxConfigToPreferences(config),
+    themeLibrary,
     onPreferencesChanged: (preferences) => configWriter.writePreferences(preferences),
     initialSessionName: target.name,
     ghosttyDetected: ghostty,

@@ -3930,7 +3930,15 @@ Deno.test("Exomux start menu holds every command and frees the bottom rows", asy
 
     // Every former top-bar command is present, and it hangs below the top bar.
     const layout = exomuxStartMenuLayout(bounds);
-    assertEquals(layout.items.map((item) => item.id), ["new", "network", "sessions", "config", "help", "quit"]);
+    assertEquals(layout.items.map((item) => item.id), [
+      "new",
+      "network",
+      "sessions",
+      "config",
+      "theme",
+      "help",
+      "quit",
+    ]);
     assertEquals(layout.panelRect.row, 1);
     assertEquals(layout.panelRect.column, 0);
     assertEquals(layout.items.find((item) => item.id === "quit")?.danger, true);
