@@ -112,6 +112,13 @@ interface ExomuxStartupLock {
   readonly token: string;
 }
 
+/** One piece of shared desktop state, as relayed by the host. */
+export interface ExomuxWorkspaceUpdate {
+  readonly key: string;
+  readonly revision: number;
+  readonly payload: unknown;
+}
+
 export class ExomuxClientError extends Error {
   constructor(readonly code: string, message: string) {
     super(message);
@@ -160,6 +167,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   readonly #pending = new Map<number, PendingRequest>();
   readonly #attachments = new Map<string, ClientAttachment>();
   readonly #sessionListeners = new Set<(session: ExomuxSessionSummary) => void>();
+  readonly #workspaceListeners = new Set<(state: ExomuxWorkspaceUpdate) => void>();
   readonly #latestSequences = new Map<string, number>();
   /** Authentication completion is a result so late consumers cannot orphan a rejection. */
   readonly #readyResult: Promise<Error | undefined>;
@@ -387,6 +395,25 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     };
   }
 
+  /**
+   * Publishes one piece of shared desktop state. The host retains the newest
+   * revision and relays it to every other attached client; a stale revision is
+   * dropped, so a reconnecting client cannot roll the desktop back.
+   */
+  async publishWorkspace(key: string, revision: number, payload: unknown): Promise<boolean> {
+    const response = await this.#request({ version: 1, type: "workspace", key, revision, payload }, ["ack"]);
+    assertAck(response, "workspace");
+    return true;
+  }
+
+  /** Shared state from another client, or replayed when this client attaches. */
+  subscribeWorkspace(listener: (state: ExomuxWorkspaceUpdate) => void): () => void {
+    this.#workspaceListeners.add(listener);
+    return () => {
+      this.#workspaceListeners.delete(listener);
+    };
+  }
+
   async kill(sessionId: string): Promise<boolean> {
     const response = await this.#request({ version: 1, type: "kill", sessionId }, ["ack"]);
     assertAck(response, "kill", sessionId);
@@ -490,6 +517,21 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     }
     if (!this.#connected) {
       this.#failConnection(new ExomuxClientError("ready-required", "Exomux host did not authenticate first."));
+      return;
+    }
+    if (message.type === "workspace-state") {
+      const update: ExomuxWorkspaceUpdate = {
+        key: message.key,
+        revision: message.revision,
+        payload: message.payload,
+      };
+      for (const listener of [...this.#workspaceListeners]) {
+        try {
+          listener(update);
+        } catch {
+          // One listener's failure must not stop the rest from adopting.
+        }
+      }
       return;
     }
     if (message.type === "output") {

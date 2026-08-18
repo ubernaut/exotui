@@ -256,6 +256,17 @@ export interface ExomuxClientPort {
    * and older transports without topology broadcasts simply omit it.
    */
   subscribeSessions?(listener: (session: ExomuxSessionSummary) => void): () => void;
+  /**
+   * Publishes one piece of shared desktop state — appearance, window
+   * lifecycle — which the host retains and relays to every other attached
+   * client. Optional: transports without the channel simply omit it, and the
+   * desktop stays client-local as it was.
+   */
+  publishWorkspace?(key: string, revision: number, payload: unknown): Promise<boolean>;
+  /** Shared state from another client, or replayed when this client attaches. */
+  subscribeWorkspace?(
+    listener: (state: { readonly key: string; readonly revision: number; readonly payload: unknown }) => void,
+  ): () => void;
   dispose(): Promise<void>;
 }
 

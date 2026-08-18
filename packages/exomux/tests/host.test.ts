@@ -1514,3 +1514,102 @@ Deno.test("exomux broadcasts terminal lifecycle to every authenticated client (U
   clientA.disconnect();
   clientB.disconnect();
 });
+
+// Plan 041 phase B: the shared-state channel. The host retains one record per
+// key and relays it to every OTHER client, so appearance and window lifecycle
+// can be shared without the host understanding either.
+
+Deno.test("workspace state is retained, relayed to other clients, and replayed on attach", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = new ExomuxHostController({ authToken: AUTH_TOKEN, backend });
+  const firstPeer = new FakePeer();
+  const first = host.connect(firstPeer);
+  await authenticate(first);
+  const secondPeer = new FakePeer();
+  const second = host.connect(secondPeer);
+  await authenticate(second);
+
+  const before = secondPeer.messages().length;
+  await first.receive(JSON.stringify({
+    version: 1,
+    type: "workspace",
+    requestId: 7,
+    key: "preferences",
+    revision: 1,
+    payload: { themeId: "matrix" },
+  }));
+
+  // The publisher gets an ack and nothing else; the other client gets the state.
+  const acks = firstPeer.messages().filter((message) => message.type === "ack");
+  assertEquals(acks.at(-1), { version: 1, type: "ack", requestId: 7, operation: "workspace" });
+  assert(
+    !firstPeer.messages().some((message) => message.type === "workspace-state"),
+    "a publisher is not echoed its own state",
+  );
+  const relayed = secondPeer.messages().slice(before).filter((message) => message.type === "workspace-state");
+  assertEquals(relayed.length, 1);
+  assertEquals(relayed[0], {
+    version: 1,
+    type: "workspace-state",
+    key: "preferences",
+    revision: 1,
+    payload: { themeId: "matrix" },
+  });
+
+  // A stale revision cannot roll the desktop back.
+  const beforeStale = secondPeer.messages().length;
+  await first.receive(JSON.stringify({
+    version: 1,
+    type: "workspace",
+    requestId: 8,
+    key: "preferences",
+    revision: 1,
+    payload: { themeId: "paper" },
+  }));
+  assertEquals(
+    secondPeer.messages().slice(beforeStale).filter((message) => message.type === "workspace-state").length,
+    0,
+    "a revision that is not newer is dropped",
+  );
+
+  // A client joining later adopts the desktop as it already is.
+  const thirdPeer = new FakePeer();
+  const third = host.connect(thirdPeer);
+  await authenticate(third);
+  const replayed = thirdPeer.messages().filter((message) => message.type === "workspace-state");
+  assertEquals(replayed.length, 1);
+  assertEquals(replayed[0]?.payload, { themeId: "matrix" });
+
+  await host.shutdown();
+});
+
+Deno.test("workspace keys and payloads are validated at the protocol edge", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = new ExomuxHostController({ authToken: AUTH_TOKEN, backend });
+
+  // A protocol violation is fatal to its connection, so each case gets its own.
+  for (
+    const [label, message] of [
+      ["an upper-case key", { key: "Preferences", revision: 1, payload: {} }],
+      ["a zero revision", { key: "preferences", revision: 0, payload: {} }],
+      ["an oversized payload", { key: "preferences", revision: 1, payload: { blob: "x".repeat(70_000) } }],
+    ] as const
+  ) {
+    const peer = new FakePeer();
+    const connection = host.connect(peer);
+    await authenticate(connection);
+    const before = peer.messages().length;
+    await connection.receive(JSON.stringify({ version: 1, type: "workspace", requestId: 3, ...message }));
+    const responses = peer.messages().slice(before);
+    assert(
+      responses.some((response) => response.type === "error") || peer.closes.length > 0,
+      `${label} is rejected`,
+    );
+    assert(
+      !responses.some((response) => response.type === "ack"),
+      `${label} is never acknowledged`,
+    );
+  }
+
+  await host.shutdown();
+});

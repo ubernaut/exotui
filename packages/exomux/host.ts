@@ -248,6 +248,12 @@ export class ExomuxHostController {
   readonly #limits: Readonly<ExomuxHostLimits>;
   readonly #relocateDescriptor?: (descriptorPath: string) => boolean | Promise<boolean>;
   readonly #connections = new Map<string, HostConnection>();
+  /**
+   * Shared desktop state, by key. The host retains the newest revision and
+   * relays it; it never interprets the payload, so clients can agree on new
+   * kinds of shared state without a protocol change.
+   */
+  readonly #workspace = new Map<string, { revision: number; payload: unknown }>();
   readonly #sessions = new Map<string, HostSession>();
   readonly #shutdownListeners = new Set<() => void>();
   #backendPromise?: Promise<ExomuxTerminalBackendSelection>;
@@ -373,6 +379,17 @@ export class ExomuxHostController {
       }
       connection.authenticated = true;
       connection.enqueue({ version: EXOMUX_PROTOCOL_VERSION, type: "ready", hostId: this.id });
+      // A joining client adopts the desktop as it already is, rather than
+      // waiting for someone to change something.
+      for (const [key, record] of this.#workspace) {
+        connection.enqueue({
+          version: EXOMUX_PROTOCOL_VERSION,
+          type: "workspace-state",
+          key,
+          revision: record.revision,
+          payload: record.payload,
+        });
+      }
       return;
     }
 
@@ -487,6 +504,32 @@ export class ExomuxHostController {
         connection.enqueue(ack(request.requestId, "rename"));
         return;
       }
+      case "workspace": {
+        this.#publishWorkspace(connection, request.key, request.revision, request.payload);
+        connection.enqueue(ack(request.requestId, "workspace"));
+        return;
+      }
+    }
+  }
+
+  /**
+   * Retains one piece of shared state and relays it to every OTHER client. A
+   * stale revision is dropped rather than echoed, so a client that reconnects
+   * with old state cannot roll the desktop back.
+   */
+  #publishWorkspace(origin: HostConnection, key: string, revision: number, payload: unknown): void {
+    const current = this.#workspace.get(key);
+    if (current && revision <= current.revision) return;
+    this.#workspace.set(key, { revision, payload });
+    const message: ExomuxServerMessage = {
+      version: EXOMUX_PROTOCOL_VERSION,
+      type: "workspace-state",
+      key,
+      revision,
+      payload,
+    };
+    for (const client of this.#connections.values()) {
+      if (client !== origin && client.authenticated) client.enqueue(message);
     }
   }
 

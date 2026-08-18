@@ -26,6 +26,8 @@ export const EXOMUX_PROTOCOL_LIMITS = Object.freeze(
     columns: 512,
     rows: 256,
     cells: 65_536,
+    workspaceKeyBytes: 64,
+    workspaceBytes: 64 * 1024,
   } as const,
 );
 
@@ -40,7 +42,8 @@ export type ExomuxRequestOperation =
   | "kill"
   | "ping"
   | "shutdown"
-  | "rename";
+  | "rename"
+  | "workspace";
 
 export interface ExomuxAuthRequest {
   version: typeof EXOMUX_PROTOCOL_VERSION;
@@ -123,6 +126,24 @@ export interface ExomuxRenameRequest {
   descriptorPath: string;
 }
 
+/**
+ * Publishes one piece of shared desktop state to the host, which retains it
+ * and relays it to every other attached client. The host never interprets the
+ * payload: it is the clients that agree what a key means, so a new kind of
+ * shared state needs no protocol change.
+ */
+export interface ExomuxWorkspaceRequest {
+  version: typeof EXOMUX_PROTOCOL_VERSION;
+  type: "workspace";
+  requestId: number;
+  /** What this state is: "preferences", "windows", ... */
+  key: string;
+  /** Monotonic per key; the host keeps the highest it has seen. */
+  revision: number;
+  /** Opaque JSON the clients understand. */
+  payload: unknown;
+}
+
 export type ExomuxClientRequest =
   | ExomuxListRequest
   | ExomuxSpawnRequest
@@ -132,7 +153,8 @@ export type ExomuxClientRequest =
   | ExomuxResizeRequest
   | ExomuxPingRequest
   | ExomuxShutdownRequest
-  | ExomuxRenameRequest;
+  | ExomuxRenameRequest
+  | ExomuxWorkspaceRequest;
 
 export type ExomuxClientMessage = ExomuxAuthRequest | ExomuxClientRequest;
 
@@ -186,7 +208,7 @@ export interface ExomuxAcknowledgedMessage {
   version: typeof EXOMUX_PROTOCOL_VERSION;
   type: "ack";
   requestId: number;
-  operation: "detach" | "input" | "resize" | "kill" | "shutdown" | "rename";
+  operation: "detach" | "input" | "resize" | "kill" | "shutdown" | "rename" | "workspace";
   sessionId?: string;
 }
 
@@ -219,6 +241,15 @@ export interface ExomuxErrorMessage {
   message: string;
 }
 
+/** Shared desktop state, relayed from another client or replayed on attach. */
+export interface ExomuxWorkspaceStateMessage {
+  version: typeof EXOMUX_PROTOCOL_VERSION;
+  type: "workspace-state";
+  key: string;
+  revision: number;
+  payload: unknown;
+}
+
 export type ExomuxServerMessage =
   | ExomuxReadyMessage
   | ExomuxSessionsMessage
@@ -228,7 +259,8 @@ export type ExomuxServerMessage =
   | ExomuxPongMessage
   | ExomuxOutputMessage
   | ExomuxSessionStateMessage
-  | ExomuxErrorMessage;
+  | ExomuxErrorMessage
+  | ExomuxWorkspaceStateMessage;
 
 export class ExomuxProtocolError extends Error {
   constructor(readonly code: string, message: string) {
@@ -249,6 +281,7 @@ const ACK_OPERATIONS = new Set<ExomuxAcknowledgedMessage["operation"]>([
   "kill",
   "shutdown",
   "rename",
+  "workspace",
 ]);
 
 /** Generates a token with 256 bits of entropy. The returned string is 64 lower-case hexadecimal characters. */
@@ -333,6 +366,9 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
     "afterSequence",
     "data",
     "descriptorPath",
+    "key",
+    "revision",
+    "payload",
   ]);
   protocolVersion(root.version);
   const type = stringValue(root.type, "type", 16);
@@ -442,6 +478,17 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
       }
       return { version: 1, type, requestId: requestId(root.requestId), descriptorPath };
     }
+    case "workspace": {
+      exact(root, ["version", "type", "requestId", "key", "revision", "payload"]);
+      return {
+        version: 1,
+        type,
+        requestId: requestId(root.requestId),
+        key: workspaceKey(root.key),
+        revision: positiveInteger(root.revision, "revision"),
+        payload: workspacePayload(root.payload),
+      };
+    }
     default:
       fail("unknown-message", "Unknown Exomux client message type.");
   }
@@ -463,6 +510,9 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
     "data",
     "code",
     "message",
+    "key",
+    "revision",
+    "payload",
   ]);
   protocolVersion(root.version);
   const type = stringValue(root.type, "type", 32);
@@ -542,6 +592,15 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
         data,
       };
     }
+    case "workspace-state":
+      exact(root, ["version", "type", "key", "revision", "payload"]);
+      return {
+        version: 1,
+        type,
+        key: workspaceKey(root.key),
+        revision: positiveInteger(root.revision, "revision"),
+        payload: workspacePayload(root.payload),
+      };
     case "session-state":
       exact(root, ["version", "type", "session"]);
       return { version: 1, type, session: sessionDescriptor(root.session) };
@@ -645,6 +704,31 @@ function record(value: unknown, required: readonly string[], optional: readonly 
     if (!Object.hasOwn(result, key)) fail("missing-field", "Exomux message is missing a required field.");
   }
   return result;
+}
+
+/** Shared-state keys are short, lower-case identifiers the clients agree on. */
+function workspaceKey(value: unknown): string {
+  const key = stringValue(value, "key", EXOMUX_PROTOCOL_LIMITS.workspaceKeyBytes, false);
+  if (!/^[a-z][a-z0-9-]*$/.test(key)) fail("invalid-workspace-key", "Workspace key must be a lower-case identifier.");
+  return key;
+}
+
+/**
+ * The payload is opaque to the host, so it is validated only for shape: plain
+ * JSON, bounded, with nothing that could not survive a round trip.
+ */
+function workspacePayload(value: unknown): unknown {
+  let encoded: string;
+  try {
+    encoded = JSON.stringify(value ?? null);
+  } catch {
+    return fail("invalid-workspace-payload", "Workspace payload must be JSON-serializable.");
+  }
+  if (encoded === undefined) fail("invalid-workspace-payload", "Workspace payload must be JSON-serializable.");
+  if (byteLength(encoded) > EXOMUX_PROTOCOL_LIMITS.workspaceBytes) {
+    fail("workspace-too-large", "Workspace payload exceeds the protocol limit.");
+  }
+  return JSON.parse(encoded);
 }
 
 function exact(value: SafeRecord, required: readonly string[], optional: readonly string[] = []): void {
