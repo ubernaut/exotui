@@ -1,5 +1,5 @@
 {
-  "description": "Modules under src/app that are intentionally reachable from the stable root entrypoint: the original grandfathered set plus the 036/037 feature families promoted to public API (their exports are tracked by budgets/public_api.json). New src/app or Workbench implementation modules should not be added here unless they are intentionally promoted to stable package API.",
+  "description": "Modules under src/app that are intentionally reachable from the stable root entrypoint: the original grandfathered set, the 036/037 feature families promoted to public API, and the 040/042 additions (pointer_gestures, theme_editor). Their exports are tracked by budgets/public_api.json. New src/app or Workbench implementation modules should not be added here unless they are intentionally promoted to stable package API.",
   "legacyAllowedModules": [
     "src/app/accessibility_tree.ts",
     "src/app/action_journal.ts",
@@ -80,6 +80,7 @@
     "src/app/plugin_slots.ts",
     "src/app/plugin_state_migration.ts",
     "src/app/plugins.ts",
+    "src/app/pointer_gestures.ts",
     "src/app/preedit_provider.ts",
     "src/app/property_grid.ts",
     "src/app/route_anchors.ts",
@@ -107,6 +108,7 @@
     "src/app/terminal_commands.ts",
     "src/app/terminal_input.ts",
     "src/app/theme_commands.ts",
+    "src/app/theme_editor.ts",
     "src/app/theme_plugin.ts",
     "src/app/time_picker.ts",
     "src/app/toast_commands.ts",

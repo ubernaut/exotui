@@ -210,35 +210,34 @@ render — or refuses to commit its snapshot signature — so another pass alway
 
 ## UX-015 — Butterchurn drags the whole desktop at 4K fullscreen (P1 perf, user, Aug 16) — **fixed Aug 16 2026**
 
-At ghostty fullscreen (383×101 = 38,683 cells) the desktop stuttered and input lagged with the butterchurn
-background. Measured diagnosis: the GPU render cost is size-independent (fixed 512-wide target, cell-resolution
-readback); the cost was the paint style cache. Butterchurn's quantized palette (COLOR_STEP 16 → 17 levels/channel,
-× bold) can exceed the 8,192-entry cap in a single fullscreen frame, and the overflow policy was **clear-all** — the
-cache wiped itself repeatedly mid-frame, ~31,800 of 38,683 cells missed every frame, and styling alone cost
-~38 ms/frame against a 16.7 ms budget (every clear also evicted the chrome/window styles, so everything re-missed).
+At ghostty fullscreen (383×101 = 38,683 cells) the desktop stuttered and input lagged with the butterchurn background.
+Measured diagnosis: the GPU render cost is size-independent (fixed 512-wide target, cell-resolution readback); the cost
+was the paint style cache. Butterchurn's quantized palette (COLOR_STEP 16 → 17 levels/channel, × bold) can exceed the
+8,192-entry cap in a single fullscreen frame, and the overflow policy was **clear-all** — the cache wiped itself
+repeatedly mid-frame, ~31,800 of 38,683 cells missed every frame, and styling alone cost ~38 ms/frame against a 16.7 ms
+budget (every clear also evicted the chrome/window styles, so everything re-missed).
 
-**Fix:** `MAX_PAINT_STYLE_CACHE` 8,192 → 32,768 — above the worst single-frame palette — and overflow now evicts
-only the oldest half (insertion-order FIFO) instead of clearing, so a pathological palette can never wipe the
-desktop's styles mid-frame. Measured with the real quantized palette at 383×101: **38 → 4.2 ms/frame**, misses
-31,800 → ~117/frame, cache stable at ~3.5k entries. Escape-sequence volume also drops because repeated quantized
-colors let the per-cell diff suppress unchanged cells. Remaining knob if 4K@60 still feels heavy on the laptop:
-butterchurn's updateHz setting (30 Hz halves the PTY write volume). Diagnosis details in the session memory
-(`butterchurn-4k-perf-diagnosis`).
+**Fix:** `MAX_PAINT_STYLE_CACHE` 8,192 → 32,768 — above the worst single-frame palette — and overflow now evicts only
+the oldest half (insertion-order FIFO) instead of clearing, so a pathological palette can never wipe the desktop's
+styles mid-frame. Measured with the real quantized palette at 383×101: **38 → 4.2 ms/frame**, misses 31,800 →
+~117/frame, cache stable at ~3.5k entries. Escape-sequence volume also drops because repeated quantized colors let the
+per-cell diff suppress unchanged cells. Remaining knob if 4K@60 still feels heavy on the laptop: butterchurn's updateHz
+setting (30 Hz halves the PTY write volume). Diagnosis details in the session memory (`butterchurn-4k-perf-diagnosis`).
 
 ## UX-016 — Pincushion mouse offset stays stale until restart (P1 bug, user, Aug 16) — **fixed Aug 16 2026**
 
-Changing the CRT pincushion distortion updated Ghostty's shader immediately (the originating process rewrites the
-GLSL and SIGUSR2-reloads Ghostty) but the mouse warp lagged until an exomux restart. Root cause: the pincushion
-pointer transform reads the process-local `controller.shaderConfig`, and nothing synced that signal ACROSS running
-exomux processes — a second attached client (or the desktop process, when the change came from another client) kept
-warping the mouse against distortion parameters Ghostty was no longer drawing.
+Changing the CRT pincushion distortion updated Ghostty's shader immediately (the originating process rewrites the GLSL
+and SIGUSR2-reloads Ghostty) but the mouse warp lagged until an exomux restart. Root cause: the pincushion pointer
+transform reads the process-local `controller.shaderConfig`, and nothing synced that signal ACROSS running exomux
+processes — a second attached client (or the desktop process, when the change came from another client) kept warping the
+mouse against distortion parameters Ghostty was no longer drawing.
 
-**Fix:** `watchExomuxShaderConfig` in config.ts watches the config file's directory, debounces, reloads, and
-delivers the shader section only when it differs from what was last delivered; every client adopts foreign shader
-changes into `shaderConfig.value` directly (skipping onShadersChanged, so adopting never rewrites files or
-re-triggers a Ghostty reload — no write loops). A process's own persisted write round-trips identical and stays
-silent. The watcher lives for the client attachment and closes in the run loop's finally. Covered by test:
-cross-process magnitude change adopted exactly once; identical rewrites silent.
+**Fix:** `watchExomuxShaderConfig` in config.ts watches the config file's directory, debounces, reloads, and delivers
+the shader section only when it differs from what was last delivered; every client adopts foreign shader changes into
+`shaderConfig.value` directly (skipping onShadersChanged, so adopting never rewrites files or re-triggers a Ghostty
+reload — no write loops). A process's own persisted write round-trips identical and stays silent. The watcher lives for
+the client attachment and closes in the run loop's finally. Covered by test: cross-process magnitude change adopted
+exactly once; identical rewrites silent.
 
 ## Verification
 

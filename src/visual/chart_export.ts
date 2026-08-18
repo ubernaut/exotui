@@ -75,7 +75,13 @@ export function buildChartSnapshot(options: {
 }
 
 /** Shared metadata every format declares. */
-function metadata(snapshot: ChartSnapshot) {
+function metadata(snapshot: ChartSnapshot): {
+  readonly revision: number;
+  readonly xDomain: readonly [number, number];
+  readonly yDomain: readonly [number, number];
+  readonly width: number;
+  readonly height: number;
+} {
   return {
     revision: snapshot.revision,
     xDomain: snapshot.xDomain,

@@ -19,8 +19,8 @@ Many entries carry a **primary verdict + a ⭐ back-feed note** (e.g. "should be
 than `List` — feed it back"). Line numbers are approximate (this file drifts); treat them as anchors.
 
 **Refreshed Aug 14 2026** against the current `app.ts`, folding in the Aug 13–14 mouse/cursor work and the first landed
-WS items from [plan/todo/done/031](../plan/todo/done/031-exomux-exotui-widget-sync.md): WS-001 (`WidgetSurface` promoted —
-`widget_surface.ts` is now a thin alias of `@ubernaut/deno-tui/app`'s `WidgetSurface`) and WS-006 (SCP password →
+WS items from [plan/todo/done/031](../plan/todo/done/031-exomux-exotui-widget-sync.md): WS-001 (`WidgetSurface` promoted
+— `widget_surface.ts` is now a thin alias of `@ubernaut/deno-tui/app`'s `WidgetSurface`) and WS-006 (SCP password →
 composited `ExomuxInputField`) are **done**; WS-003 is library-half done (`List.rowStyle`).
 
 ## The one architectural fact that colors everything

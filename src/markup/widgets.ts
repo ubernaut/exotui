@@ -592,6 +592,7 @@ function windowWidget(): MarkupWidgetDescriptor {
   return { kind: "window", focusable: false, actions: [] };
 }
 
+/** The event types a widget kind responds to before any author override. */
 export function defaultActionsForKind(kind: MarkupWidgetKind): readonly MarkupWidgetEvent["type"][] {
   if (kind === "button") return ["press", "key"];
   if (kind === "checkbox") return ["toggle", "press", "key"];

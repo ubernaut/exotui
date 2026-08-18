@@ -9,6 +9,7 @@ import {
   formatApiInventoryBaseline,
   formatApiInventoryDiff,
   inventorySucceeded,
+  maskLiteralText,
   parseApiExports,
   parseApiInventoryCliArgs,
   parseApiSymbols,
@@ -18,6 +19,56 @@ import {
   formatPackageApiReferenceMarkdown,
   type PackageApiReferenceSection,
 } from "../scripts/api_reference.ts";
+
+Deno.test("a module that carries source code as data does not export that data", () => {
+  // src/tooling/init_templates.ts embeds whole scaffolded projects as
+  // template literals. Before the mask, the scanner read the embedded
+  // `export function createApp()` as a second real `createApp` and the
+  // interpolated specifier as a module that does not exist on disk.
+  const source = [
+    "/** The real one. */",
+    "export const TEMPLATES = {",
+    "  terminal: (importSource: string) => ({",
+    '    "main.ts": `export function createApp() {',
+    "  return 1;",
+    "}",
+    "`,",
+    '    "mod.ts": `export * from "${importSource}/generated.ts";`,',
+    "  }),",
+    "};",
+  ].join("\n");
+
+  assertEquals(parseApiSymbols(source, "src/tooling/init_templates.ts").map((symbol) => symbol.name), [
+    "TEMPLATES",
+  ]);
+  assertEquals(parseApiExports(source, "src/tooling/init_templates.ts"), []);
+});
+
+Deno.test("masking keeps every offset, and specifiers when the caller needs them", () => {
+  const source = 'const a = "one";\nconst b = `two`;\n';
+  const masked = maskLiteralText(source);
+  assertEquals(masked.length, source.length);
+  assertEquals(masked, 'const a = "   ";\nconst b = `   `;\n');
+
+  // The re-export scanner reads the quoted specifier, so only templates blank.
+  assertEquals(
+    maskLiteralText(source, { templateLiteralsOnly: true }),
+    'const a = "one";\nconst b = `   `;\n',
+  );
+});
+
+Deno.test("a quote or backtick inside a comment or regex cannot open a literal", () => {
+  // A single lexer slip here silently blanks the rest of the file, which is
+  // how the first attempt at this mask reduced a 4,231-symbol inventory to 1.
+  const source = [
+    "// don't let this apostrophe open a string",
+    "const pattern = /['\"`]/;",
+    "/* a ` in a block comment */",
+    "export const kept = 1;",
+  ].join("\n");
+
+  assertEquals(parseApiSymbols(source, "src/x.ts").map((symbol) => symbol.name), ["kept"]);
+});
 
 Deno.test("parseApiExports extracts star named and type re-exports", () => {
   assertEquals(

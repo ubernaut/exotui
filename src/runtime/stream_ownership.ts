@@ -99,6 +99,7 @@ const CONTRACT = {
 
 for (const contract of Object.values(CONTRACT)) Object.freeze(contract);
 
+/** The frozen per-transport ownership contract `isStreamActionAllowed` enforces. */
 export const STREAM_OWNERSHIP_CONTRACT: Readonly<Record<StreamTransport, StreamOwnershipContract>> = Object.freeze(
   CONTRACT,
 );

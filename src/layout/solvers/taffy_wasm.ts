@@ -26,6 +26,7 @@ import {
 import type { Rectangle } from "../../types.ts";
 import { insetRectangleByEdges, normalizeRectangle } from "../../utils/rectangles.ts";
 import { TAFFY_LAYOUT_SOLVER_CAPABILITIES } from "../capabilities.ts";
+import type { LayoutSolverCapabilities } from "../capabilities.ts";
 import { measureTerminalTextIntrinsic } from "../measurement.ts";
 import type { ComputedLayoutStyle, LayoutLengthValue } from "../style.ts";
 import {
@@ -178,7 +179,7 @@ function taffyChildren(node: LayoutNode): LayoutNode[] {
 /** The experimental Taffy WASM layout solver. */
 export class TaffyWasmLayoutSolver implements LayoutSolver {
   readonly id = "taffy-wasm";
-  readonly capabilities = Object.freeze({
+  readonly capabilities: LayoutSolverCapabilities = Object.freeze({
     ...TAFFY_LAYOUT_SOLVER_CAPABILITIES,
     availability: "optional" as const,
     displayModes: Object.freeze({

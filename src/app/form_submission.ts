@@ -49,7 +49,7 @@ const SUBMITTABLE: readonly FormSubmissionState[] = ["idle", "succeeded", "faile
  * all transitions run through one recorded path.
  */
 export class FormSubmissionMachine<TValues extends FormValues> {
-  readonly state = new Signal<FormSubmissionState>("idle");
+  readonly state: Signal<FormSubmissionState> = new Signal<FormSubmissionState>("idle");
   readonly #form: FormController<TValues>;
   readonly #async: FormAsyncValidation<TValues> | undefined;
   #transitions: FormSubmissionTransition[] = [];

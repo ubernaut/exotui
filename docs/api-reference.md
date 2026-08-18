@@ -5,33 +5,34 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 11
-- Unique modules: 282
-- Module visits: 611
-- Unique re-export declarations: 406
-- Re-export declaration visits: 611
-- Unique symbol declarations: 3329
-- Symbol declaration visits: 7162
-- Documented symbol declarations: 3328
-- Documentation coverage: 99.97%
+- Entrypoints: 12
+- Unique modules: 496
+- Module visits: 954
+- Unique re-export declarations: 626
+- Re-export declaration visits: 955
+- Unique symbol declarations: 4662
+- Symbol declaration visits: 9304
+- Documented symbol declarations: 4658
+- Documentation coverage: 99.91%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
 ## Entrypoints
 
-| Specifier        | Path                           | Runtime  | Stability    | Modules | Symbols |    Docs |
-| ---------------- | ------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`              | `./mod.ts`                     | terminal | stable       |     245 |    3078 | 100.00% |
-| `./app`          | `./mod.app.ts`                 | terminal | beta         |      51 |      93 | 100.00% |
-| `./web`          | `./mod.web.ts`                 | browser  | beta         |     222 |    2775 | 100.00% |
-| `./remote`       | `./mod.remote.ts`              | remote   | experimental |       5 |      67 | 100.00% |
-| `./three-ascii`  | `./mod.three_ascii.ts`         | shared   | experimental |      13 |      83 | 100.00% |
-| `./theme`        | `./mod.theme.ts`               | shared   | beta         |      10 |     198 | 100.00% |
-| `./runtime`      | `./mod.runtime.ts`             | shared   | beta         |      40 |     615 | 100.00% |
-| `./terminal`     | `./mod.terminal.ts`            | terminal | beta         |      18 |     194 |  99.48% |
-| `./testing`      | `./mod.testing.ts`             | terminal | beta         |       4 |      31 | 100.00% |
-| `./layout/yoga`  | `./src/layout/solvers/yoga.ts` | shared   | experimental |       1 |       4 | 100.00% |
-| `./layout/taffy` | `./src/layout/taffy.ts`        | shared   | experimental |       2 |      24 | 100.00% |
+| Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
+| --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     433 |    4224 | 100.00% |
+| `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3298 | 100.00% |
+| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
+| `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
+| `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      19 |     202 |  99.50% |
+| `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
+| `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
+| `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
+| `./layout/taffy-wasm` | `./src/layout/solvers/taffy_wasm.ts` | shared   | experimental |       1 |       2 | 100.00% |
 
 ## Entrypoint .
 
@@ -40,10 +41,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 245
-- Re-export declarations: 245
-- Exported symbols: 3078
-- Documented symbols: 3078
+- Modules: 433
+- Re-export declarations: 433
+- Exported symbols: 4224
+- Documented symbols: 4224
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -55,11 +56,11 @@ Focused terminal application package with opinionated lifecycle wiring and curat
 - Path: `./mod.app.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 51
-- Re-export declarations: 58
-- Exported symbols: 93
-- Documented symbols: 93
-- Documentation coverage: 100.00%
+- Modules: 53
+- Re-export declarations: 62
+- Exported symbols: 106
+- Documented symbols: 104
+- Documentation coverage: 98.11%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -70,10 +71,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 222
-- Re-export declarations: 223
-- Exported symbols: 2775
-- Documented symbols: 2775
+- Modules: 305
+- Re-export declarations: 306
+- Exported symbols: 3298
+- Documented symbols: 3298
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -85,11 +86,11 @@ Hosted terminal/client bridge protocol and browser WebSocket transport.
 - Path: `./mod.remote.ts`
 - Runtime: remote
 - Stability: experimental
-- Modules: 5
-- Re-export declarations: 4
-- Exported symbols: 67
-- Documented symbols: 67
-- Documentation coverage: 100.00%
+- Modules: 14
+- Re-export declarations: 13
+- Exported symbols: 127
+- Documented symbols: 126
+- Documentation coverage: 99.21%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -115,10 +116,10 @@ Focused theme engines, manifests, resolvers, galleries, and GrWizard-style theme
 - Path: `./mod.theme.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 10
-- Re-export declarations: 9
-- Exported symbols: 198
-- Documented symbols: 198
+- Modules: 16
+- Re-export declarations: 15
+- Exported symbols: 264
+- Documented symbols: 264
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -130,10 +131,10 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Path: `./mod.runtime.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 40
-- Re-export declarations: 39
-- Exported symbols: 615
-- Documented symbols: 615
+- Modules: 81
+- Re-export declarations: 80
+- Exported symbols: 861
+- Documented symbols: 861
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -145,11 +146,11 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Path: `./mod.terminal.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 18
-- Re-export declarations: 17
-- Exported symbols: 194
-- Documented symbols: 193
-- Documentation coverage: 99.48%
+- Modules: 19
+- Re-export declarations: 18
+- Exported symbols: 202
+- Documented symbols: 201
+- Documentation coverage: 99.50%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -160,10 +161,10 @@ Headless terminal app pilot, snapshots, fake input events, stdout capture, and d
 - Path: `./mod.testing.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 4
-- Re-export declarations: 3
-- Exported symbols: 31
-- Documented symbols: 31
+- Modules: 16
+- Re-export declarations: 15
+- Exported symbols: 109
+- Documented symbols: 109
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -198,50 +199,124 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 - Duplicate symbols: 0
 - Missing targets: 0
 
+## Entrypoint ./layout/taffy-wasm
+
+Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
+
+- Path: `./src/layout/solvers/taffy_wasm.ts`
+- Runtime: shared
+- Stability: experimental
+- Modules: 1
+- Re-export declarations: 0
+- Exported symbols: 2
+- Documented symbols: 2
+- Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
 ## Module Catalog
 
 | Module                                                                                          | Entrypoints                             | Re-exports | Symbols | Documented |
 | ----------------------------------------------------------------------------------------------- | --------------------------------------- | ---------: | ------: | ---------: |
-| [`mod.app.ts`](#mod-app-ts)                                                                     | `./app`                                 |         49 |       0 |          0 |
-| [`mod.remote.ts`](#mod-remote-ts)                                                               | `./remote`                              |          4 |       0 |          0 |
+| [`mod.app.ts`](#mod-app-ts)                                                                     | `./app`                                 |         53 |       0 |          0 |
+| [`mod.remote.ts`](#mod-remote-ts)                                                               | `./remote`                              |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                             | `./runtime`                             |          1 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                           | `./terminal`                            |         16 |       0 |          0 |
-| [`mod.testing.ts`](#mod-testing-ts)                                                             | `./testing`                             |          3 |       0 |          0 |
-| [`mod.theme.ts`](#mod-theme-ts)                                                                 | `./theme`                               |          9 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                           | `./terminal`                            |         17 |       0 |          0 |
+| [`mod.testing.ts`](#mod-testing-ts)                                                             | `./testing`                             |         15 |       0 |          0 |
+| [`mod.theme.ts`](#mod-theme-ts)                                                                 | `./theme`                               |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                     | `./three-ascii`                         |          3 |       0 |          0 |
-| [`mod.ts`](#mod-ts)                                                                             | `.`                                     |         41 |       0 |          0 |
+| [`mod.ts`](#mod-ts)                                                                             | `.`                                     |         66 |       0 |          0 |
 | [`mod.web.ts`](#mod-web-ts)                                                                     | `./web`                                 |         61 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                 | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)               | `.`, `./web`                            |          0 |      24 |         24 |
 | [`src/app/action_journal_retention.ts`](#src-app-action-journal-retention-ts)                   | `.`, `./web`                            |          0 |      21 |         21 |
 | [`src/app/action_journal.ts`](#src-app-action-journal-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/action_policies.ts`](#src-app-action-policies-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/actions.ts`](#src-app-actions-ts)                                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
+| [`src/app/animated_background.ts`](#src-app-animated-background-ts)                             | `.`, `./web`                            |          0 |      16 |         16 |
 | [`src/app/app.ts`](#src-app-app-ts)                                                             | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/background_jobs.ts`](#src-app-background-jobs-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/browser_editing.ts`](#src-app-browser-editing-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/calendar.ts`](#src-app-calendar-ts)                                                   | `.`, `./web`                            |          0 |      12 |         12 |
+| [`src/app/clipboard.ts`](#src-app-clipboard-ts)                                                 | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/code_view.ts`](#src-app-code-view-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/command_aliases.ts`](#src-app-command-aliases-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_arguments.ts`](#src-app-command-arguments-ts)                                 | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/command_bindings.ts`](#src-app-command-bindings-ts)                                   | `.`, `./web`                            |          0 |      26 |         26 |
+| [`src/app/command_history.ts`](#src-app-command-history-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_macros.ts`](#src-app-command-macros-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/command_pipelines.ts`](#src-app-command-pipelines-ts)                                 | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_preview.ts`](#src-app-command-preview-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/command_progress.ts`](#src-app-command-progress-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/app/command_search_index.ts`](#src-app-command-search-index-ts)                           | `.`, `./web`                            |          0 |      11 |         11 |
 | [`src/app/commands.ts`](#src-app-commands-ts)                                                   | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
 | [`src/app/component_commands.ts`](#src-app-component-commands-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/compose_sequences.ts`](#src-app-compose-sequences-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/composition.ts`](#src-app-composition-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/content_integrity.ts`](#src-app-content-integrity-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/crash_recovery.ts`](#src-app-crash-recovery-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/data_query_commands.ts`](#src-app-data-query-commands-ts)                             | `.`, `./web`                            |          0 |      24 |         24 |
 | [`src/app/data_table_commands.ts`](#src-app-data-table-commands-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/diff_view.ts`](#src-app-diff-view-ts)                                                 | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/disposables.ts`](#src-app-disposables-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/drag_drop.ts`](#src-app-drag-drop-ts)                                                 | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/event_timeline.ts`](#src-app-event-timeline-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/focus_announcements.ts`](#src-app-focus-announcements-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/focus_commands.ts`](#src-app-focus-commands-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/form_async_validation.ts`](#src-app-form-async-validation-ts)                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_checkpoints.ts`](#src-app-form-checkpoints-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/form_commands.ts`](#src-app-form-commands-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/form_dependencies.ts`](#src-app-form-dependencies-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/form_drafts.ts`](#src-app-form-drafts-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/app/form_paths.ts`](#src-app-form-paths-ts)                                               | `.`, `./web`                            |          0 |      23 |         23 |
+| [`src/app/form_schema.ts`](#src-app-form-schema-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_server_errors.ts`](#src-app-form-server-errors-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/form_submission.ts`](#src-app-form-submission-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_validation_timing.ts`](#src-app-form-validation-timing-ts)                       | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/app/forms.ts`](#src-app-forms-ts)                                                         | `.`, `./web`                            |          0 |      35 |         35 |
+| [`src/app/general_widgets.ts`](#src-app-general-widgets-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/gestures.ts`](#src-app-gestures-ts)                                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/hex_viewer.ts`](#src-app-hex-viewer-ts)                                               | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/history_branches.ts`](#src-app-history-branches-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/app/history.ts`](#src-app-history-ts)                                                     | `.`, `./web`                            |          0 |      37 |         37 |
-| [`src/app/hit_targets.ts`](#src-app-hit-targets-ts)                                             | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/hit_targets.ts`](#src-app-hit-targets-ts)                                             | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/input_commands.ts`](#src-app-input-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/journal_store.ts`](#src-app-journal-store-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/kanban.ts`](#src-app-kanban-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/list_commands.ts`](#src-app-list-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/log_viewer_commands.ts`](#src-app-log-viewer-commands-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/menu_bar_commands.ts`](#src-app-menu-bar-commands-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/metric_series_commands.ts`](#src-app-metric-series-commands-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/mod.ts`](#src-app-mod-ts)                                                             | `.`, `./web`                            |         50 |       0 |          0 |
-| [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                       | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/mod.ts`](#src-app-mod-ts)                                                             | `.`, `./web`                            |        120 |       0 |          0 |
+| [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                       | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/app/navigation_blockers.ts`](#src-app-navigation-blockers-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/navigation_journal.ts`](#src-app-navigation-journal-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/pad_commands.ts`](#src-app-pad-commands-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/paste_stream.ts`](#src-app-paste-stream-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_activation.ts`](#src-app-plugin-activation-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/plugin_capabilities.ts`](#src-app-plugin-capabilities-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_catalog.ts`](#src-app-plugin-catalog-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/plugin_compat.ts`](#src-app-plugin-compat-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_dependencies.ts`](#src-app-plugin-dependencies-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/plugin_lifecycle.ts`](#src-app-plugin-lifecycle-ts)                                   | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/app/plugin_manifest.ts`](#src-app-plugin-manifest-ts)                                     | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/plugin_permission_diff.ts`](#src-app-plugin-permission-diff-ts)                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_rpc_proxies.ts`](#src-app-plugin-rpc-proxies-ts)                               | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/app/plugin_slot_adapters.ts`](#src-app-plugin-slot-adapters-ts)                           | `.`, `./web`                            |          0 |      20 |         20 |
 | [`src/app/plugin_slots.ts`](#src-app-plugin-slots-ts)                                           | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/plugin_state_migration.ts`](#src-app-plugin-state-migration-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/plugins.ts`](#src-app-plugins-ts)                                                     | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
+| [`src/app/pointer_gestures.ts`](#src-app-pointer-gestures-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/preedit_provider.ts`](#src-app-preedit-provider-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/property_grid.ts`](#src-app-property-grid-ts)                                         | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/app/route_anchors.ts`](#src-app-route-anchors-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/route_boundaries.ts`](#src-app-route-boundaries-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/route_guards.ts`](#src-app-route-guards-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/route_loaders.ts`](#src-app-route-loaders-ts)                                         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/route_outlets.ts`](#src-app-route-outlets-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/route_patterns.ts`](#src-app-route-patterns-ts)                                       | `.`, `./web`                            |          0 |      23 |         23 |
+| [`src/app/route_prefetch.ts`](#src-app-route-prefetch-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/router.ts`](#src-app-router-ts)                                                       | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
 | [`src/app/runtime_commands.ts`](#src-app-runtime-commands-ts)                                   | `.`, `./web`                            |          0 |      25 |         25 |
 | [`src/app/screen_persistence.ts`](#src-app-screen-persistence-ts)                               | `.`, `./web`                            |          0 |      19 |         19 |
@@ -251,18 +326,30 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/app/selection_bindings.ts`](#src-app-selection-bindings-ts)                               | `.`, `./web`                            |          0 |       8 |          8 |
 | [`src/app/settings_bindings.ts`](#src-app-settings-bindings-ts)                                 | `.`, `./web`                            |          0 |      21 |         21 |
 | [`src/app/settings.ts`](#src-app-settings-ts)                                                   | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/software_cursor.ts`](#src-app-software-cursor-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/split_pane_commands.ts`](#src-app-split-pane-commands-ts)                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/structure_inspector.ts`](#src-app-structure-inspector-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/surface_transitions.ts`](#src-app-surface-transitions-ts)                             | `./app`                                 |          0 |       9 |          7 |
+| [`src/app/syntax_service.ts`](#src-app-syntax-service-ts)                                       | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/app/table_commands.ts`](#src-app-table-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                           | `./app`                                 |          0 |       6 |          6 |
 | [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                 | `.`, `./web`                            |          0 |      29 |         29 |
 | [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
 | [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                       | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                           | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                           | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/time_picker.ts`](#src-app-time-picker-ts)                                             | `.`, `./web`                            |          0 |      11 |         11 |
 | [`src/app/toast_commands.ts`](#src-app-toast-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/token_editor.ts`](#src-app-token-editor-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/transfer_list.ts`](#src-app-transfer-list-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/tree_commands.ts`](#src-app-tree-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/tree_grid.ts`](#src-app-tree-grid-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/typed_commands.ts`](#src-app-typed-commands-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/widget_commands.ts`](#src-app-widget-commands-ts)                                     | `.`, `./web`                            |          0 |      48 |         48 |
+| [`src/app/widget_surface.ts`](#src-app-widget-surface-ts)                                       | `./app`                                 |          0 |       4 |          4 |
 | [`src/app/window_manager_commands.ts`](#src-app-window-manager-commands-ts)                     | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/workbench_accessibility.ts`](#src-app-workbench-accessibility-ts)                     | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/workbench_ansi_screen.ts`](#src-app-workbench-ansi-screen-ts)                         | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/app/workbench_button_style.ts`](#src-app-workbench-button-style-ts)                       | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/app/workbench_control_layout.ts`](#src-app-workbench-control-layout-ts)                   | `.`, `./web`                            |          0 |      17 |         17 |
@@ -282,12 +369,14 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/app/workbench_workspace_store.ts`](#src-app-workbench-workspace-store-ts)                 | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/workbench_workspace.ts`](#src-app-workbench-workspace-ts)                             | `.`, `./web`                            |          0 |      19 |         19 |
 | [`src/app/workbench/mod.ts`](#src-app-workbench-mod-ts)                                         | `.`, `./web`                            |         19 |       0 |          0 |
+| [`src/app/worker_plugin_host.ts`](#src-app-worker-plugin-host-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/canvas/box.ts`](#src-canvas-box-ts)                                                       | `.`, `./web`                            |          0 |       2 |          2 |
 | [`src/canvas/canvas.ts`](#src-canvas-canvas-ts)                                                 | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/canvas/dirty_region.ts`](#src-canvas-dirty-region-ts)                                     | `.`                                     |          0 |       3 |          3 |
 | [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                       | `.`                                     |          7 |       0 |          0 |
-| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                     | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                       | `.`                                     |          8 |       0 |          0 |
+| [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                 | `.`                                     |          0 |      19 |         19 |
+| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                     | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                   | `.`                                     |          0 |       2 |          2 |
 | [`src/canvas/text.ts`](#src-canvas-text-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                       | `./web`, `./three-ascii`                |          0 |       6 |          6 |
@@ -298,9 +387,11 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/components/catalog.ts`](#src-components-catalog-ts)                                       | `.`, `./web`                            |          0 |      19 |         19 |
 | [`src/components/chart.ts`](#src-components-chart-ts)                                           | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/components/checkbox.ts`](#src-components-checkbox-ts)                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
+| [`src/components/color_picker.ts`](#src-components-color-picker-ts)                             | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/components/combobox.ts`](#src-components-combobox-ts)                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
 | [`src/components/command_palette.ts`](#src-components-command-palette-ts)                       | `.`, `./app`, `./web`                   |          0 |      12 |         12 |
-| [`src/components/context_menu.ts`](#src-components-context-menu-ts)                             | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
+| [`src/components/context_menu.ts`](#src-components-context-menu-ts)                             | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/cycler.ts`](#src-components-cycler-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/components/data_table.ts`](#src-components-data-table-ts)                                 | `.`, `./web`                            |          0 |      16 |         16 |
 | [`src/components/empty_state.ts`](#src-components-empty-state-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/components/file_explorer.ts`](#src-components-file-explorer-ts)                           | `.`, `./web`                            |          0 |       7 |          7 |
@@ -310,17 +401,18 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/components/interaction.ts`](#src-components-interaction-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/components/key_help.ts`](#src-components-key-help-ts)                                     | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/components/label.ts`](#src-components-label-ts)                                           | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
-| [`src/components/list.ts`](#src-components-list-ts)                                             | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
+| [`src/components/list.ts`](#src-components-list-ts)                                             | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
 | [`src/components/log_viewer.ts`](#src-components-log-viewer-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/components/markdown.ts`](#src-components-markdown-ts)                                     | `./app`                                 |          0 |       9 |          9 |
 | [`src/components/menu_bar.ts`](#src-components-menu-bar-ts)                                     | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/components/metric_series.ts`](#src-components-metric-series-ts)                           | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/components/mod.ts`](#src-components-mod-ts)                                               | `.`, `./web`                            |         40 |       0 |          0 |
-| [`src/components/modal.ts`](#src-components-modal-ts)                                           | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
+| [`src/components/mod.ts`](#src-components-mod-ts)                                               | `.`, `./web`                            |         45 |       0 |          0 |
+| [`src/components/modal.ts`](#src-components-modal-ts)                                           | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
 | [`src/components/pad.ts`](#src-components-pad-ts)                                               | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/components/progressbar.ts`](#src-components-progressbar-ts)                               | `.`, `./app`, `./web`                   |          0 |      15 |         15 |
 | [`src/components/radio_group.ts`](#src-components-radio-group-ts)                               | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
 | [`src/components/scroll_area.ts`](#src-components-scroll-area-ts)                               | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/scroll_box_parity.ts`](#src-components-scroll-box-parity-ts)                   | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/components/slider.ts`](#src-components-slider-ts)                                         | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
 | [`src/components/sparkline.ts`](#src-components-sparkline-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/components/spinner.ts`](#src-components-spinner-ts)                                       | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
@@ -329,17 +421,30 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/components/table.ts`](#src-components-table-ts)                                           | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
 | [`src/components/tabs.ts`](#src-components-tabs-ts)                                             | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
 | [`src/components/terminal_output.ts`](#src-components-terminal-output-ts)                       | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/components/terminal_screen.ts`](#src-components-terminal-screen-ts)                       | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/text_area.ts`](#src-components-text-area-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/components/text.ts`](#src-components-text-ts)                                             | `.`, `./app`, `./web`                   |          0 |       2 |          2 |
 | [`src/components/textbox.ts`](#src-components-textbox-ts)                                       | `.`, `./app`, `./web`                   |          0 |      23 |         23 |
 | [`src/components/three_ascii.ts`](#src-components-three-ascii-ts)                               | `./three-ascii`                         |          0 |       2 |          2 |
 | [`src/components/toast.ts`](#src-components-toast-ts)                                           | `.`, `./app`, `./web`                   |          0 |       8 |          8 |
-| [`src/components/tree.ts`](#src-components-tree-ts)                                             | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
+| [`src/components/tree.ts`](#src-components-tree-ts)                                             | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
 | [`src/components/virtual_list.ts`](#src-components-virtual-list-ts)                             | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
 | [`src/content/markdown.ts`](#src-content-markdown-ts)                                           | `./app`                                 |          0 |      14 |         14 |
 | [`src/controls.ts`](#src-controls-ts)                                                           | `.`                                     |          0 |       2 |          2 |
 | [`src/event_emitter.ts`](#src-event-emitter-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/focus.ts`](#src-focus-ts)                                                                 | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/grwizard_themes.ts`](#src-grwizard-themes-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       5 |          5 |
+| [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                             | `.`                                     |          0 |       5 |          5 |
+| [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                       | `.`                                     |          0 |       4 |          4 |
+| [`src/i18n/locale.ts`](#src-i18n-locale-ts)                                                     | `.`                                     |          0 |       6 |          6 |
+| [`src/i18n/message_format.ts`](#src-i18n-message-format-ts)                                     | `.`                                     |          0 |       9 |          9 |
+| [`src/i18n/message_lint.ts`](#src-i18n-message-lint-ts)                                         | `.`                                     |          0 |       5 |          5 |
+| [`src/i18n/messages.ts`](#src-i18n-messages-ts)                                                 | `.`                                     |          0 |       8 |          8 |
+| [`src/i18n/missing_translation_telemetry.ts`](#src-i18n-missing-translation-telemetry-ts)       | `.`                                     |          0 |       3 |          3 |
+| [`src/i18n/mod.ts`](#src-i18n-mod-ts)                                                           | `.`                                     |         10 |       0 |          0 |
+| [`src/i18n/pseudo_locales.ts`](#src-i18n-pseudo-locales-ts)                                     | `.`                                     |          0 |       4 |          4 |
+| [`src/i18n/reactive_locale.ts`](#src-i18n-reactive-locale-ts)                                   | `.`                                     |          0 |       5 |          5 |
+| [`src/i18n/width_variants.ts`](#src-i18n-width-variants-ts)                                     | `.`                                     |          0 |       5 |          5 |
 | [`src/input_envelope.ts`](#src-input-envelope-ts)                                               | `.`, `./web`                            |          0 |      28 |         28 |
 | [`src/input_lifecycle.ts`](#src-input-lifecycle-ts)                                             | `.`                                     |          0 |      24 |         24 |
 | [`src/input_reader/mod.ts`](#src-input-reader-mod-ts)                                           | `.`, `./terminal`                       |          1 |       2 |          2 |
@@ -354,69 +459,136 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/layout/flex_layout.ts`](#src-layout-flex-layout-ts)                                       | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/layout/grid_layout.ts`](#src-layout-grid-layout-ts)                                       | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
 | [`src/layout/horizontal_layout.ts`](#src-layout-horizontal-layout-ts)                           | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/layout/measurement.ts`](#src-layout-measurement-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/layout/measurement.ts`](#src-layout-measurement-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/layout/mod.ts`](#src-layout-mod-ts)                                                       | `.`, `./web`                            |         18 |       0 |          0 |
 | [`src/layout/overlay.ts`](#src-layout-overlay-ts)                                               | `.`, `./web`                            |          0 |      21 |         21 |
 | [`src/layout/recipe.ts`](#src-layout-recipe-ts)                                                 | `.`, `./web`                            |          0 |      18 |         18 |
 | [`src/layout/responsive.ts`](#src-layout-responsive-ts)                                         | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/layout/solver.ts`](#src-layout-solver-ts)                                                 | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/layout/solvers/simple.ts`](#src-layout-solvers-simple-ts)                                 | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/layout/solvers/taffy_wasm.ts`](#src-layout-solvers-taffy-wasm-ts)                         | `./layout/taffy-wasm`                   |          0 |       2 |          2 |
 | [`src/layout/solvers/taffy.ts`](#src-layout-solvers-taffy-ts)                                   | `./layout/taffy`                        |          0 |      24 |         24 |
 | [`src/layout/solvers/yoga.ts`](#src-layout-solvers-yoga-ts)                                     | `./layout/yoga`                         |          0 |       4 |          4 |
 | [`src/layout/split_pane.ts`](#src-layout-split-pane-ts)                                         | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
-| [`src/layout/style.ts`](#src-layout-style-ts)                                                   | `.`, `./web`                            |          0 |      35 |         35 |
+| [`src/layout/style.ts`](#src-layout-style-ts)                                                   | `.`, `./web`                            |          0 |      55 |         55 |
 | [`src/layout/taffy.ts`](#src-layout-taffy-ts)                                                   | `./layout/taffy`                        |          1 |       0 |          0 |
 | [`src/layout/tiled_workspace.ts`](#src-layout-tiled-workspace-ts)                               | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
 | [`src/layout/types.ts`](#src-layout-types-ts)                                                   | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/layout/vertical_layout.ts`](#src-layout-vertical-layout-ts)                               | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
 | [`src/layout/window_manager.ts`](#src-layout-window-manager-ts)                                 | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/markup/cascade.ts`](#src-markup-cascade-ts)                                               | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/markup/cascade.ts`](#src-markup-cascade-ts)                                               | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/markup/css.ts`](#src-markup-css-ts)                                                       | `.`, `./web`                            |          0 |      11 |         11 |
 | [`src/markup/demo_fixtures.ts`](#src-markup-demo-fixtures-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/markup/hot_reload.ts`](#src-markup-hot-reload-ts)                                         | `.`, `./web`                            |          0 |      12 |         12 |
 | [`src/markup/html.ts`](#src-markup-html-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/markup/hydrate.ts`](#src-markup-hydrate-ts)                                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/jsx.ts`](#src-markup-jsx-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/markup/layout_worker.ts`](#src-markup-layout-worker-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/markup/mod.ts`](#src-markup-mod-ts)                                                       | `.`, `./web`                            |         11 |       0 |          0 |
+| [`src/markup/live_dispatch.ts`](#src-markup-live-dispatch-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/markup/live_host.ts`](#src-markup-live-host-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/live_invalidation.ts`](#src-markup-live-invalidation-ts)                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/markup/live_styling.ts`](#src-markup-live-styling-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/markup/live_tree.ts`](#src-markup-live-tree-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/mod.ts`](#src-markup-mod-ts)                                                       | `.`, `./web`                            |         19 |       0 |          0 |
+| [`src/markup/rehydrate.ts`](#src-markup-rehydrate-ts)                                           | `.`, `./web`                            |          0 |       2 |          2 |
 | [`src/markup/support.ts`](#src-markup-support-ts)                                               | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/markup/widgets.ts`](#src-markup-widgets-ts)                                               | `.`, `./web`                            |          0 |      15 |         15 |
+| [`src/markup/widgets.ts`](#src-markup-widgets-ts)                                               | `.`, `./web`                            |          0 |      16 |         16 |
 | [`src/markup/window_history.ts`](#src-markup-window-history-ts)                                 | `.`, `./web`                            |          0 |      12 |         12 |
-| [`src/markup/window_interactions.ts`](#src-markup-window-interactions-ts)                       | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/markup/window_interactions.ts`](#src-markup-window-interactions-ts)                       | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/markup/windows.ts`](#src-markup-windows-ts)                                               | `.`, `./web`                            |          0 |      33 |         33 |
 | [`src/perf/benchmark.ts`](#src-perf-benchmark-ts)                                               | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/perf/cache_budget.ts`](#src-perf-cache-budget-ts)                                         | `.`                                     |          0 |       4 |          4 |
+| [`src/perf/diff_planner.ts`](#src-perf-diff-planner-ts)                                         | `.`                                     |          0 |       4 |          4 |
+| [`src/perf/entrypoint_budget.ts`](#src-perf-entrypoint-budget-ts)                               | `.`                                     |          0 |       7 |          7 |
+| [`src/perf/frame_cadence.ts`](#src-perf-frame-cadence-ts)                                       | `.`                                     |          0 |       3 |          3 |
+| [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                       | `.`                                     |          0 |       5 |          5 |
+| [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)               | `.`                                     |          0 |       6 |          6 |
+| [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                               | `.`                                     |          0 |       5 |          5 |
+| [`src/perf/pools.ts`](#src-perf-pools-ts)                                                       | `.`                                     |          0 |       5 |          5 |
+| [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                       | `.`                                     |          0 |       5 |          5 |
+| [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                   | `.`                                     |          0 |       4 |          4 |
+| [`src/perf/write_coalescer.ts`](#src-perf-write-coalescer-ts)                                   | `.`                                     |          0 |       4 |          4 |
 | [`src/permissions.ts`](#src-permissions-ts)                                                     | `.`                                     |          0 |      23 |         23 |
 | [`src/platform/types.ts`](#src-platform-types-ts)                                               | `./web`                                 |          0 |      10 |         10 |
 | [`src/pointer_input.ts`](#src-pointer-input-ts)                                                 | `.`, `./web`                            |          0 |      40 |         40 |
+| [`src/remote/adaptive_quality.ts`](#src-remote-adaptive-quality-ts)                             | `./remote`                              |          0 |       9 |          9 |
+| [`src/remote/frame_codec.ts`](#src-remote-frame-codec-ts)                                       | `./remote`                              |          0 |      14 |         13 |
+| [`src/remote/frame_flow.ts`](#src-remote-frame-flow-ts)                                         | `./remote`                              |          0 |       4 |          4 |
 | [`src/remote/handshake.ts`](#src-remote-handshake-ts)                                           | `./web`, `./remote`                     |          0 |      28 |         28 |
+| [`src/remote/input_sequencing.ts`](#src-remote-input-sequencing-ts)                             | `./remote`                              |          0 |       5 |          5 |
+| [`src/remote/multi_client.ts`](#src-remote-multi-client-ts)                                     | `./remote`                              |          0 |       5 |          5 |
+| [`src/remote/session_auth.ts`](#src-remote-session-auth-ts)                                     | `./remote`                              |          0 |       7 |          7 |
+| [`src/remote/session_lifecycle.ts`](#src-remote-session-lifecycle-ts)                           | `./remote`                              |          0 |       6 |          6 |
+| [`src/remote/session_resume.ts`](#src-remote-session-resume-ts)                                 | `./remote`                              |          0 |       4 |          4 |
+| [`src/remote/transport_policy.ts`](#src-remote-transport-policy-ts)                             | `./remote`                              |          0 |       6 |          6 |
 | [`src/runtime/async_channel.ts`](#src-runtime-async-channel-ts)                                 | `.`, `./runtime`                        |          0 |      23 |         23 |
 | [`src/runtime/async_iterable.ts`](#src-runtime-async-iterable-ts)                               | `.`, `./web`, `./runtime`               |          0 |      31 |         31 |
+| [`src/runtime/cache_tags.ts`](#src-runtime-cache-tags-ts)                                       | `.`, `./runtime`                        |          0 |       3 |          3 |
 | [`src/runtime/capabilities.ts`](#src-runtime-capabilities-ts)                                   | `.`, `./web`, `./runtime`               |          0 |      16 |         16 |
+| [`src/runtime/cell_screen.ts`](#src-runtime-cell-screen-ts)                                     | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/clock.ts`](#src-runtime-clock-ts)                                                 | `.`, `./web`, `./runtime`               |          0 |      23 |         23 |
+| [`src/runtime/conflict_resolvers.ts`](#src-runtime-conflict-resolvers-ts)                       | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/core_metrics.ts`](#src-runtime-core-metrics-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/data_pipeline_bindings.ts`](#src-runtime-data-pipeline-bindings-ts)               | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
 | [`src/runtime/data_pipeline.ts`](#src-runtime-data-pipeline-ts)                                 | `.`, `./web`, `./runtime`               |          0 |      19 |         19 |
 | [`src/runtime/data_query.ts`](#src-runtime-data-query-ts)                                       | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
 | [`src/runtime/deadline.ts`](#src-runtime-deadline-ts)                                           | `.`, `./runtime`                        |          0 |      12 |         12 |
 | [`src/runtime/diagnostics.ts`](#src-runtime-diagnostics-ts)                                     | `.`, `./runtime`                        |          0 |      12 |         12 |
 | [`src/runtime/graphics_surface.ts`](#src-runtime-graphics-surface-ts)                           | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
+| [`src/runtime/health_snapshot.ts`](#src-runtime-health-snapshot-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                               | `.`, `./runtime`                        |          0 |       5 |          5 |
 | [`src/runtime/kitty_graphics.ts`](#src-runtime-kitty-graphics-ts)                               | `.`, `./web`, `./runtime`               |          0 |      25 |         25 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                     | `.`, `./runtime`                        |         37 |       0 |          0 |
+| [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                               | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                     | `.`, `./runtime`                        |         78 |       0 |          0 |
+| [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                         | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                 | `.`, `./runtime`                        |          0 |       3 |          3 |
+| [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                 | `.`, `./runtime`                        |          0 |      15 |         15 |
+| [`src/runtime/offline_queue.ts`](#src-runtime-offline-queue-ts)                                 | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/offscreen_surface.ts`](#src-runtime-offscreen-surface-ts)                         | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/permission_adapters.ts`](#src-runtime-permission-adapters-ts)                     | `.`, `./runtime`                        |          0 |      11 |         11 |
+| [`src/runtime/priority_scheduler.ts`](#src-runtime-priority-scheduler-ts)                       | `.`, `./runtime`                        |          0 |       4 |          4 |
 | [`src/runtime/process_session.ts`](#src-runtime-process-session-ts)                             | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
 | [`src/runtime/profiles.ts`](#src-runtime-profiles-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
 | [`src/runtime/pty_backend.ts`](#src-runtime-pty-backend-ts)                                     | `.`, `./runtime`, `./terminal`          |          0 |      12 |         12 |
+| [`src/runtime/rate_limiter.ts`](#src-runtime-rate-limiter-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/reflow_screen.ts`](#src-runtime-reflow-screen-ts)                                 | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/render_accounting.ts`](#src-runtime-render-accounting-ts)                         | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/render_loop.ts`](#src-runtime-render-loop-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
 | [`src/runtime/renderer_backends.ts`](#src-runtime-renderer-backends-ts)                         | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
 | [`src/runtime/resource_bindings.ts`](#src-runtime-resource-bindings-ts)                         | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
 | [`src/runtime/resource_cache_policy.ts`](#src-runtime-resource-cache-policy-ts)                 | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
 | [`src/runtime/resource_cache.ts`](#src-runtime-resource-cache-ts)                               | `.`, `./web`, `./runtime`               |          1 |      28 |         28 |
+| [`src/runtime/resource_limits.ts`](#src-runtime-resource-limits-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/resource_loads.ts`](#src-runtime-resource-loads-ts)                               | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
 | [`src/runtime/resource.ts`](#src-runtime-resource-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
+| [`src/runtime/retry_policy.ts`](#src-runtime-retry-policy-ts)                                   | `.`, `./runtime`                        |          0 |      10 |         10 |
 | [`src/runtime/scheduler.ts`](#src-runtime-scheduler-ts)                                         | `.`, `./web`, `./runtime`               |          0 |      13 |         13 |
+| [`src/runtime/screen_mode_policy.ts`](#src-runtime-screen-mode-policy-ts)                       | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/selective_erase.ts`](#src-runtime-selective-erase-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/signal_exporters.ts`](#src-runtime-signal-exporters-ts)                           | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/signal_redaction.ts`](#src-runtime-signal-redaction-ts)                           | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/span_instrumentation.ts`](#src-runtime-span-instrumentation-ts)                   | `.`, `./runtime`                        |          0 |       4 |          4 |
 | [`src/runtime/storage.ts`](#src-runtime-storage-ts)                                             | `.`, `./web`, `./runtime`               |          0 |      10 |         10 |
+| [`src/runtime/stream_ownership.ts`](#src-runtime-stream-ownership-ts)                           | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/stream_resource.ts`](#src-runtime-stream-resource-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/structured_logs.ts`](#src-runtime-structured-logs-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/supervisor.ts`](#src-runtime-supervisor-ts)                                       | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/support_bundle.ts`](#src-runtime-support-bundle-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/task_context.ts`](#src-runtime-task-context-ts)                                   | `.`, `./runtime`                        |          0 |       3 |          3 |
 | [`src/runtime/task_group.ts`](#src-runtime-task-group-ts)                                       | `.`, `./runtime`                        |          0 |      35 |         35 |
 | [`src/runtime/telemetry.ts`](#src-runtime-telemetry-ts)                                         | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
 | [`src/runtime/terminal_backend_registry.ts`](#src-runtime-terminal-backend-registry-ts)         | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
 | [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                           | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
 | [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                 | `.`, `./runtime`, `./terminal`          |          0 |      27 |         27 |
 | [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                               | `./terminal`                            |          0 |       4 |          3 |
+| [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                           | `.`, `./runtime`                        |          0 |       2 |          2 |
+| [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                     | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                           | `.`, `./runtime`, `./terminal`          |          0 |       8 |          8 |
+| [`src/runtime/terminal_parser.ts`](#src-runtime-terminal-parser-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                   | `.`, `./runtime`                        |          0 |      11 |         11 |
+| [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                           | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                       | `.`, `./runtime`                        |          0 |       4 |          4 |
 | [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                             | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
 | [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                     | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
 | [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                       | `./terminal`                            |          0 |       3 |          3 |
@@ -427,7 +599,10 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/runtime/terminal_status.ts`](#src-runtime-terminal-status-ts)                             | `.`, `./runtime`, `./terminal`          |          0 |      18 |         18 |
 | [`src/runtime/terminal_templates.ts`](#src-runtime-terminal-templates-ts)                       | `.`, `./runtime`, `./terminal`          |          0 |      22 |         22 |
 | [`src/runtime/terminal_workspace.ts`](#src-runtime-terminal-workspace-ts)                       | `.`, `./web`, `./runtime`, `./terminal` |          0 |      24 |         24 |
+| [`src/runtime/timeline.ts`](#src-runtime-timeline-ts)                                           | `.`, `./runtime`                        |          0 |       7 |          7 |
+| [`src/runtime/trace_sampling.ts`](#src-runtime-trace-sampling-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/worker_pool.ts`](#src-runtime-worker-pool-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      12 |         12 |
+| [`src/runtime/worker_protocol.ts`](#src-runtime-worker-protocol-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
 | [`src/secrets.ts`](#src-secrets-ts)                                                             | `.`                                     |          0 |      22 |         22 |
 | [`src/selection.ts`](#src-selection-ts)                                                         | `.`, `./web`                            |          0 |      16 |         16 |
 | [`src/signals/computed.ts`](#src-signals-computed-ts)                                           | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
@@ -440,17 +615,42 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/signals/reactivity.ts`](#src-signals-reactivity-ts)                                       | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
 | [`src/signals/signal.ts`](#src-signals-signal-ts)                                               | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
 | [`src/signals/types.ts`](#src-signals-types-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
-| [`src/testing/app.ts`](#src-testing-app-ts)                                                     | `./testing`                             |          0 |       9 |          9 |
+| [`src/surface_animation.ts`](#src-surface-animation-ts)                                         | `.`                                     |          0 |      14 |         14 |
+| [`src/testing/app.ts`](#src-testing-app-ts)                                                     | `./testing`                             |          0 |      11 |         11 |
+| [`src/testing/aria_apg_suites.ts`](#src-testing-aria-apg-suites-ts)                             | `./testing`                             |          0 |       4 |          4 |
+| [`src/testing/contract_tests.ts`](#src-testing-contract-tests-ts)                               | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/differential_terminal.ts`](#src-testing-differential-terminal-ts)                 | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/fault_injection.ts`](#src-testing-fault-injection-ts)                             | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/flake_detection.ts`](#src-testing-flake-detection-ts)                             | `./testing`                             |          0 |       7 |          7 |
 | [`src/testing/input.ts`](#src-testing-input-ts)                                                 | `.`, `./testing`                        |          0 |       7 |          7 |
+| [`src/testing/matrix.ts`](#src-testing-matrix-ts)                                               | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/model_testing.ts`](#src-testing-model-testing-ts)                                 | `./testing`                             |          0 |       8 |          8 |
+| [`src/testing/mutation_testing.ts`](#src-testing-mutation-testing-ts)                           | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/plugin_test_host.ts`](#src-testing-plugin-test-host-ts)                           | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/record_replay.ts`](#src-testing-record-replay-ts)                                 | `./testing`                             |          0 |       7 |          7 |
+| [`src/testing/scene.ts`](#src-testing-scene-ts)                                                 | `./testing`                             |          0 |       8 |          8 |
 | [`src/testing/snapshot.ts`](#src-testing-snapshot-ts)                                           | `.`, `./testing`                        |          0 |      15 |         15 |
+| [`src/testing/visual_report.ts`](#src-testing-visual-report-ts)                                 | `./testing`                             |          0 |       6 |          6 |
 | [`src/theme_binding.ts`](#src-theme-binding-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |       8 |          8 |
+| [`src/theme_contrast.ts`](#src-theme-contrast-ts)                                               | `.`, `./theme`                          |          0 |       7 |          7 |
+| [`src/theme_controls.ts`](#src-theme-controls-ts)                                               | `./theme`                               |          0 |      13 |         13 |
+| [`src/theme_density.ts`](#src-theme-density-ts)                                                 | `.`                                     |          0 |       5 |          5 |
+| [`src/theme_editor_model.ts`](#src-theme-editor-model-ts)                                       | `./theme`                               |          0 |      21 |         21 |
 | [`src/theme_engine_cache.ts`](#src-theme-engine-cache-ts)                                       | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
 | [`src/theme_engine_factory.ts`](#src-theme-engine-factory-ts)                                   | `.`, `./web`, `./theme`                 |          0 |      19 |         19 |
 | [`src/theme_engine_pipeline.ts`](#src-theme-engine-pipeline-ts)                                 | `.`, `./web`, `./theme`                 |          0 |      12 |         12 |
+| [`src/theme_expressions.ts`](#src-theme-expressions-ts)                                         | `.`, `./theme`                          |          0 |       6 |          6 |
 | [`src/theme_gallery.ts`](#src-theme-gallery-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |      11 |         11 |
+| [`src/theme_icons.ts`](#src-theme-icons-ts)                                                     | `.`                                     |          0 |       8 |          8 |
+| [`src/theme_interchange.ts`](#src-theme-interchange-ts)                                         | `.`, `./theme`                          |          0 |       9 |          9 |
+| [`src/theme_motion.ts`](#src-theme-motion-ts)                                                   | `.`                                     |          0 |       7 |          7 |
+| [`src/theme_oklch.ts`](#src-theme-oklch-ts)                                                     | `.`, `./theme`                          |          0 |       9 |          9 |
+| [`src/theme_quantize.ts`](#src-theme-quantize-ts)                                               | `.`                                     |          0 |       6 |          6 |
 | [`src/theme_resolver.ts`](#src-theme-resolver-ts)                                               | `.`, `./web`, `./theme`                 |          0 |      15 |         15 |
+| [`src/theme_token_schemas.ts`](#src-theme-token-schemas-ts)                                     | `.`                                     |          0 |       7 |          7 |
+| [`src/theme_tokens.ts`](#src-theme-tokens-ts)                                                   | `.`                                     |          0 |       6 |          6 |
 | [`src/theme_workspace.ts`](#src-theme-workspace-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
-| [`src/theme.ts`](#src-theme-ts)                                                                 | `.`, `./app`, `./web`, `./theme`        |          0 |     115 |        115 |
+| [`src/theme.ts`](#src-theme-ts)                                                                 | `.`, `./app`, `./web`, `./theme`        |          0 |     116 |        116 |
 | [`src/three_ascii/AcerolaAsciiNode.ts`](#src-three-ascii-acerolaasciinode-ts)                   | `./web`, `./three-ascii`                |          0 |       3 |          3 |
 | [`src/three_ascii/demo_presets.ts`](#src-three-ascii-demo-presets-ts)                           | `./web`, `./three-ascii`                |          0 |      14 |         14 |
 | [`src/three_ascii/frame_options.ts`](#src-three-ascii-frame-options-ts)                         | `./web`, `./three-ascii`                |          0 |       1 |          1 |
@@ -461,12 +661,31 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/three_ascii/render_profile.ts`](#src-three-ascii-render-profile-ts)                       | `./web`, `./three-ascii`                |          0 |       3 |          3 |
 | [`src/three_ascii/renderer.ts`](#src-three-ascii-renderer-ts)                                   | `./web`, `./three-ascii`                |          2 |      22 |         22 |
 | [`src/three_ascii/webgpu_compat.ts`](#src-three-ascii-webgpu-compat-ts)                         | `./web`, `./three-ascii`                |          0 |       3 |          3 |
+| [`src/tooling/attestations.ts`](#src-tooling-attestations-ts)                                   | `.`                                     |          0 |       8 |          8 |
+| [`src/tooling/codemods.ts`](#src-tooling-codemods-ts)                                           | `.`                                     |          0 |       5 |          5 |
+| [`src/tooling/devtools.ts`](#src-tooling-devtools-ts)                                           | `.`                                     |          0 |       9 |          9 |
+| [`src/tooling/diagnostics_hub.ts`](#src-tooling-diagnostics-hub-ts)                             | `.`                                     |          0 |       7 |          7 |
+| [`src/tooling/example_registry.ts`](#src-tooling-example-registry-ts)                           | `.`                                     |          0 |       4 |          4 |
+| [`src/tooling/generators.ts`](#src-tooling-generators-ts)                                       | `.`                                     |          0 |       7 |          7 |
+| [`src/tooling/init_templates.ts`](#src-tooling-init-templates-ts)                               | `.`                                     |          0 |       5 |          5 |
+| [`src/tooling/launcher_template.ts`](#src-tooling-launcher-template-ts)                         | `.`                                     |          0 |       1 |          1 |
+| [`src/tooling/mod.ts`](#src-tooling-mod-ts)                                                     | `.`                                     |          9 |       0 |          0 |
+| [`src/tooling/release_channels.ts`](#src-tooling-release-channels-ts)                           | `.`                                     |          0 |       7 |          7 |
 | [`src/tui.ts`](#src-tui-ts)                                                                     | `.`, `./app`                            |          0 |       3 |          3 |
 | [`src/types.ts`](#src-types-ts)                                                                 | `.`, `./app`, `./remote`                |          0 |       8 |          8 |
+| [`src/unicode/bidi.ts`](#src-unicode-bidi-ts)                                                   | `.`                                     |          0 |       5 |          5 |
 | [`src/unicode/builtin.ts`](#src-unicode-builtin-ts)                                             | `.`                                     |          0 |       4 |          4 |
+| [`src/unicode/conformance.ts`](#src-unicode-conformance-ts)                                     | `.`                                     |          0 |       8 |          8 |
+| [`src/unicode/confusables.ts`](#src-unicode-confusables-ts)                                     | `.`                                     |          0 |       6 |          6 |
+| [`src/unicode/controls.ts`](#src-unicode-controls-ts)                                           | `.`                                     |          0 |       7 |          7 |
 | [`src/unicode/data_pack.ts`](#src-unicode-data-pack-ts)                                         | `.`                                     |          0 |      26 |         26 |
+| [`src/unicode/emoji.ts`](#src-unicode-emoji-ts)                                                 | `.`                                     |          0 |       6 |          6 |
 | [`src/unicode/grapheme.ts`](#src-unicode-grapheme-ts)                                           | `.`                                     |          0 |      21 |         21 |
-| [`src/unicode/mod.ts`](#src-unicode-mod-ts)                                                     | `.`                                     |          4 |       0 |          0 |
+| [`src/unicode/hyphenation.ts`](#src-unicode-hyphenation-ts)                                     | `.`                                     |          0 |       7 |          7 |
+| [`src/unicode/line_break.ts`](#src-unicode-line-break-ts)                                       | `.`                                     |          0 |       8 |          8 |
+| [`src/unicode/mod.ts`](#src-unicode-mod-ts)                                                     | `.`                                     |         13 |       0 |          0 |
+| [`src/unicode/source_display.ts`](#src-unicode-source-display-ts)                               | `.`                                     |          0 |       5 |          5 |
+| [`src/unicode/text_index.ts`](#src-unicode-text-index-ts)                                       | `.`                                     |          0 |       6 |          6 |
 | [`src/unicode/width.ts`](#src-unicode-width-ts)                                                 | `.`, `./web`, `./terminal`              |          0 |      21 |         21 |
 | [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                           | `.`                                     |          0 |      12 |         12 |
 | [`src/utils/async.ts`](#src-utils-async-ts)                                                     | `.`, `./web`                            |          0 |       1 |          1 |
@@ -478,6 +697,17 @@ Validated opt-in adapter boundary for caller-supplied Taffy 0.12.x WASM bridges.
 | [`src/utils/strings.ts`](#src-utils-strings-ts)                                                 | `.`, `./web`                            |          0 |       9 |          9 |
 | [`src/view.ts`](#src-view-ts)                                                                   | `.`, `./web`                            |          0 |       1 |          1 |
 | [`src/viewport.ts`](#src-viewport-ts)                                                           | `.`, `./web`                            |          0 |      18 |         18 |
+| [`src/visual/annotations.ts`](#src-visual-annotations-ts)                                       | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/axes.ts`](#src-visual-axes-ts)                                                     | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/chart_export.ts`](#src-visual-chart-export-ts)                                     | `.`                                     |          0 |       7 |          7 |
+| [`src/visual/downsample.ts`](#src-visual-downsample-ts)                                         | `.`                                     |          0 |       5 |          5 |
+| [`src/visual/heatmap.ts`](#src-visual-heatmap-ts)                                               | `.`                                     |          0 |       6 |          6 |
+| [`src/visual/interactions.ts`](#src-visual-interactions-ts)                                     | `.`                                     |          0 |       5 |          5 |
+| [`src/visual/linked_charts.ts`](#src-visual-linked-charts-ts)                                   | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/marks.ts`](#src-visual-marks-ts)                                                   | `.`                                     |          0 |       6 |          6 |
+| [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         10 |       0 |          0 |
+| [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
+| [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                           | `./web`                                 |          0 |       5 |          5 |
@@ -506,6 +736,8 @@ _Entrypoints: `./app`_
 | `src/tui.ts`                        | named | `Tui`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `src/tui.ts`                        | named | `type TuiOptions`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `src/types.ts`                      | named | `type Rectangle`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `src/app/widget_surface.ts`         | named | `WidgetSurface`, `widgetSurfaceCellData`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `src/app/widget_surface.ts`         | named | `type WidgetSurfaceCell`, `type WidgetSurfaceCellData`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `src/layout/grid_layout.ts`         | named | `GridLayout`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `src/layout/horizontal_layout.ts`   | named | `HorizontalLayout`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `src/layout/split_pane.ts`          | named | `SplitPaneController`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -514,6 +746,8 @@ _Entrypoints: `./app`_
 | `src/layout/vertical_layout.ts`     | named | `VerticalLayout`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `src/app/workbench_window_host.ts`  | named | `WorkbenchWindowHostController`, `createWorkbenchWindowHostController`, `createWorkbenchWindowHostRoot`                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `src/app/workbench_window_host.ts`  | named | `type WorkbenchWindowChromeControl`, `type WorkbenchWindowChromeProjection`, `type WorkbenchWindowHostCommand`, `type WorkbenchWindowHostControllerOptions`, `type WorkbenchWindowHostDescriptor`, `type WorkbenchWindowHostInspection`, `type WorkbenchWindowHostProjection`, `type WorkbenchWindowHostProjectionOptions`, `type WorkbenchWindowHostResult`, `type WorkbenchWindowSemanticNode`, `type WorkbenchWindowSeparatorProjection`, `type WorkbenchWindowShelfItem`, `type WorkbenchWindowSnapPreview`, `type WorkbenchWindowSwitcherProjection` |
+| `src/app/surface_transitions.ts`    | named | `DEFAULT_SURFACE_TRANSITION_SETTINGS`, `SURFACE_TRANSITION_BASE_DURATION_MS`, `SurfaceTransitionAnimator`, `createSurfaceTransitionAnimator`, `surfaceTransitionMotionToken`                                                                                                                                                                                                                                                                                                                                                                              |
+| `src/app/surface_transitions.ts`    | named | `type BeginSurfaceTransitionOptions`, `type SurfaceTransitionAnimatorOptions`, `type SurfaceTransitionOverlay`, `type SurfaceTransitionSettings`                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `src/components/box.ts`             | named | `Box`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `src/components/button.ts`          | named | `Button`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `src/components/checkbox.ts`        | named | `CheckBox`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -549,12 +783,21 @@ _No direct exported symbols._
 
 _Entrypoints: `./remote`_
 
-| Re-export Target             | Kind  | Names                                                                                                               |
-| ---------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
-| `src/web/remote_terminal.ts` | star  | -                                                                                                                   |
-| `src/remote/handshake.ts`    | star  | -                                                                                                                   |
-| `src/types.ts`               | named | `type ConsoleSize`                                                                                                  |
-| `src/input_reader/types.ts`  | named | `type KeyPressEvent`, `type MousePressEvent`, `type MouseScrollEvent`, `type PasteEvent`, `type TerminalFocusEvent` |
+| Re-export Target                  | Kind  | Names                                                                                                               |
+| --------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/web/remote_terminal.ts`      | star  | -                                                                                                                   |
+| `src/remote/handshake.ts`         | star  | -                                                                                                                   |
+| `src/remote/session_auth.ts`      | star  | -                                                                                                                   |
+| `src/remote/adaptive_quality.ts`  | star  | -                                                                                                                   |
+| `src/remote/frame_codec.ts`       | star  | -                                                                                                                   |
+| `src/remote/frame_flow.ts`        | star  | -                                                                                                                   |
+| `src/remote/session_resume.ts`    | star  | -                                                                                                                   |
+| `src/remote/multi_client.ts`      | star  | -                                                                                                                   |
+| `src/remote/session_lifecycle.ts` | star  | -                                                                                                                   |
+| `src/remote/input_sequencing.ts`  | star  | -                                                                                                                   |
+| `src/remote/transport_policy.ts`  | star  | -                                                                                                                   |
+| `src/types.ts`                    | named | `type ConsoleSize`                                                                                                  |
+| `src/input_reader/types.ts`       | named | `type KeyPressEvent`, `type MousePressEvent`, `type MouseScrollEvent`, `type PasteEvent`, `type TerminalFocusEvent` |
 
 _No direct exported symbols._
 
@@ -581,6 +824,7 @@ _Entrypoints: `./terminal`_
 | `src/runtime/terminal_color.ts`            | star | -     |
 | `src/runtime/terminal_backend_registry.ts` | star | -     |
 | `src/runtime/terminal_capabilities.ts`     | star | -     |
+| `src/runtime/terminal_palette.ts`          | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
 | `src/runtime/terminal_sequences.ts`        | star | -     |
@@ -597,11 +841,23 @@ _No direct exported symbols._
 
 _Entrypoints: `./testing`_
 
-| Re-export Target          | Kind | Names |
-| ------------------------- | ---- | ----- |
-| `src/testing/input.ts`    | star | -     |
-| `src/testing/snapshot.ts` | star | -     |
-| `src/testing/app.ts`      | star | -     |
+| Re-export Target                       | Kind | Names |
+| -------------------------------------- | ---- | ----- |
+| `src/testing/input.ts`                 | star | -     |
+| `src/testing/snapshot.ts`              | star | -     |
+| `src/testing/scene.ts`                 | star | -     |
+| `src/testing/visual_report.ts`         | star | -     |
+| `src/testing/matrix.ts`                | star | -     |
+| `src/testing/model_testing.ts`         | star | -     |
+| `src/testing/aria_apg_suites.ts`       | star | -     |
+| `src/testing/contract_tests.ts`        | star | -     |
+| `src/testing/differential_terminal.ts` | star | -     |
+| `src/testing/fault_injection.ts`       | star | -     |
+| `src/testing/flake_detection.ts`       | star | -     |
+| `src/testing/plugin_test_host.ts`      | star | -     |
+| `src/testing/record_replay.ts`         | star | -     |
+| `src/testing/mutation_testing.ts`      | star | -     |
+| `src/testing/app.ts`                   | star | -     |
 
 _No direct exported symbols._
 
@@ -613,6 +869,12 @@ _Entrypoints: `./theme`_
 | ------------------------------ | ---- | ----- |
 | `src/theme.ts`                 | star | -     |
 | `src/theme_binding.ts`         | star | -     |
+| `src/theme_interchange.ts`     | star | -     |
+| `src/theme_expressions.ts`     | star | -     |
+| `src/theme_contrast.ts`        | star | -     |
+| `src/theme_oklch.ts`           | star | -     |
+| `src/theme_controls.ts`        | star | -     |
+| `src/theme_editor_model.ts`    | star | -     |
 | `src/theme_engine_cache.ts`    | star | -     |
 | `src/theme_engine_factory.ts`  | star | -     |
 | `src/theme_engine_pipeline.ts` | star | -     |
@@ -639,49 +901,74 @@ _No direct exported symbols._
 
 _Entrypoints: `.`_
 
-| Re-export Target               | Kind | Names |
-| ------------------------------ | ---- | ----- |
-| `src/component.ts`             | star | -     |
-| `src/controls.ts`              | star | -     |
-| `src/event_emitter.ts`         | star | -     |
-| `src/focus.ts`                 | star | -     |
-| `src/input.ts`                 | star | -     |
-| `src/input_envelope.ts`        | star | -     |
-| `src/input_lifecycle.ts`       | star | -     |
-| `src/pointer_input.ts`         | star | -     |
-| `src/keymap.ts`                | star | -     |
-| `src/keymap_layers.ts`         | star | -     |
-| `src/key_sequences.ts`         | star | -     |
-| `src/selection.ts`             | star | -     |
-| `src/permissions.ts`           | star | -     |
-| `src/secrets.ts`               | star | -     |
-| `src/theme.ts`                 | star | -     |
-| `src/theme_binding.ts`         | star | -     |
-| `src/theme_engine_cache.ts`    | star | -     |
-| `src/theme_engine_factory.ts`  | star | -     |
-| `src/theme_engine_pipeline.ts` | star | -     |
-| `src/theme_gallery.ts`         | star | -     |
-| `src/grwizard_themes.ts`       | star | -     |
-| `src/theme_resolver.ts`        | star | -     |
-| `src/theme_workspace.ts`       | star | -     |
-| `src/api_stability.ts`         | star | -     |
-| `src/types.ts`                 | star | -     |
-| `src/unicode/mod.ts`           | star | -     |
-| `src/view.ts`                  | star | -     |
-| `src/viewport.ts`              | star | -     |
-| `src/tui.ts`                   | star | -     |
-| `src/signals/mod.ts`           | star | -     |
-| `src/layout/mod.ts`            | star | -     |
-| `src/markup/mod.ts`            | star | -     |
-| `src/components/mod.ts`        | star | -     |
-| `src/canvas/mod.ts`            | star | -     |
-| `src/utils/mod.ts`             | star | -     |
-| `src/input_reader/mod.ts`      | star | -     |
-| `src/app/mod.ts`               | star | -     |
-| `src/runtime/mod.ts`           | star | -     |
-| `src/testing/input.ts`         | star | -     |
-| `src/testing/snapshot.ts`      | star | -     |
-| `src/perf/benchmark.ts`        | star | -     |
+| Re-export Target                        | Kind | Names |
+| --------------------------------------- | ---- | ----- |
+| `src/component.ts`                      | star | -     |
+| `src/controls.ts`                       | star | -     |
+| `src/event_emitter.ts`                  | star | -     |
+| `src/focus.ts`                          | star | -     |
+| `src/input.ts`                          | star | -     |
+| `src/input_envelope.ts`                 | star | -     |
+| `src/input_lifecycle.ts`                | star | -     |
+| `src/pointer_input.ts`                  | star | -     |
+| `src/keymap.ts`                         | star | -     |
+| `src/keymap_layers.ts`                  | star | -     |
+| `src/key_sequences.ts`                  | star | -     |
+| `src/selection.ts`                      | star | -     |
+| `src/permissions.ts`                    | star | -     |
+| `src/secrets.ts`                        | star | -     |
+| `src/theme.ts`                          | star | -     |
+| `src/theme_tokens.ts`                   | star | -     |
+| `src/theme_token_schemas.ts`            | star | -     |
+| `src/theme_expressions.ts`              | star | -     |
+| `src/theme_contrast.ts`                 | star | -     |
+| `src/theme_oklch.ts`                    | star | -     |
+| `src/theme_quantize.ts`                 | star | -     |
+| `src/theme_density.ts`                  | star | -     |
+| `src/theme_motion.ts`                   | star | -     |
+| `src/surface_animation.ts`              | star | -     |
+| `src/theme_icons.ts`                    | star | -     |
+| `src/theme_interchange.ts`              | star | -     |
+| `src/theme_binding.ts`                  | star | -     |
+| `src/theme_engine_cache.ts`             | star | -     |
+| `src/theme_engine_factory.ts`           | star | -     |
+| `src/theme_engine_pipeline.ts`          | star | -     |
+| `src/theme_gallery.ts`                  | star | -     |
+| `src/grwizard_themes.ts`                | star | -     |
+| `src/theme_resolver.ts`                 | star | -     |
+| `src/theme_workspace.ts`                | star | -     |
+| `src/api_stability.ts`                  | star | -     |
+| `src/types.ts`                          | star | -     |
+| `src/unicode/mod.ts`                    | star | -     |
+| `src/visual/mod.ts`                     | star | -     |
+| `src/tooling/mod.ts`                    | star | -     |
+| `src/i18n/mod.ts`                       | star | -     |
+| `src/view.ts`                           | star | -     |
+| `src/viewport.ts`                       | star | -     |
+| `src/tui.ts`                            | star | -     |
+| `src/signals/mod.ts`                    | star | -     |
+| `src/layout/mod.ts`                     | star | -     |
+| `src/markup/mod.ts`                     | star | -     |
+| `src/components/mod.ts`                 | star | -     |
+| `src/canvas/mod.ts`                     | star | -     |
+| `src/utils/mod.ts`                      | star | -     |
+| `src/input_reader/mod.ts`               | star | -     |
+| `src/app/mod.ts`                        | star | -     |
+| `src/runtime/mod.ts`                    | star | -     |
+| `src/testing/input.ts`                  | star | -     |
+| `src/testing/snapshot.ts`               | star | -     |
+| `src/perf/benchmark.ts`                 | star | -     |
+| `src/perf/layout_benchmarks.ts`         | star | -     |
+| `src/perf/pools.ts`                     | star | -     |
+| `src/perf/profile_tuner.ts`             | star | -     |
+| `src/perf/cache_budget.ts`              | star | -     |
+| `src/perf/diff_planner.ts`              | star | -     |
+| `src/perf/frame_cadence.ts`             | star | -     |
+| `src/perf/frame_packets.ts`             | star | -     |
+| `src/perf/incremental_serialization.ts` | star | -     |
+| `src/perf/write_coalescer.ts`           | star | -     |
+| `src/perf/entrypoint_budget.ts`         | star | -     |
+| `src/perf/versioned_cache.ts`           | star | -     |
 
 _No direct exported symbols._
 
@@ -776,6 +1063,20 @@ _Entrypoints: `.`, `./web`_
 | `PackageReleasePolicy`            | interface | yes       | yes   |
 | `PackageRuntime`                  | type      | yes       | yes   |
 
+### src/app/accessibility_tree.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `AccessibilityNode`               | interface | yes       | yes   |
+| `AccessibilityRole`               | type      | yes       | yes   |
+| `TERMINAL_EXPOSABLE_SEMANTICS`    | const     | no        | yes   |
+| `TerminalAccessibilityProjection` | interface | yes       | yes   |
+| `toAriaAttributes`                | function  | no        | yes   |
+| `toAriaTree`                      | function  | no        | yes   |
+| `toTerminalProjection`            | function  | no        | yes   |
+
 ### src/app/action_journal_checkpoints.ts
 
 _Entrypoints: `.`, `./web`_
@@ -859,6 +1160,17 @@ _Entrypoints: `.`, `./web`_
 | `parseActionJournal`             | function  | no        | yes   |
 | `replayActionJournal`            | function  | no        | yes   |
 
+### src/app/action_policies.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `ActionPolicy`           | interface | yes       | yes   |
+| `ActionPolicyGate`       | class     | no        | yes   |
+| `ActionVerdict`          | type      | yes       | yes   |
+| `createActionPolicyGate` | function  | no        | yes   |
+
 ### src/app/actions.ts
 
 _Entrypoints: `.`, `./app`, `./web`_
@@ -872,6 +1184,29 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `ActionHandler`       | type      | yes       | yes   |
 | `ActionMiddleware`    | type      | yes       | yes   |
 | `ActionOfType`        | type      | yes       | yes   |
+
+### src/app/animated_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `AnimatedBackground`               | interface | yes       | yes   |
+| `animatedBackgroundAcceptsPicks`   | function  | no        | yes   |
+| `AnimatedBackgroundAdvanceOptions` | interface | yes       | yes   |
+| `AnimatedBackgroundCell`           | interface | yes       | yes   |
+| `animatedBackgroundHasOverlay`     | function  | no        | yes   |
+| `animatedBackgroundHasPresets`     | function  | no        | yes   |
+| `animatedBackgroundIsDisposable`   | function  | no        | yes   |
+| `AnimatedBackgroundOverlayCell`    | interface | yes       | yes   |
+| `AnimatedBackgroundPoint`          | interface | yes       | yes   |
+| `AnimatedBackgroundRgb`            | type      | yes       | yes   |
+| `DisposableAnimatedBackground`     | interface | yes       | yes   |
+| `InteractiveAnimatedBackground`    | interface | yes       | yes   |
+| `mixAnimatedBackgroundRgb`         | function  | no        | yes   |
+| `OverlayAnimatedBackground`        | interface | yes       | yes   |
+| `PresetAnimatedBackground`         | interface | yes       | yes   |
+| `releaseIdleAnimatedBackgrounds`   | function  | no        | yes   |
 
 ### src/app/app.ts
 
@@ -892,6 +1227,96 @@ _Entrypoints: `.`, `./web`_
 | `TuiApp`               | class     | no        | yes   |
 | `TuiAppInspection`     | interface | yes       | yes   |
 | `TuiAppOptions`        | interface | yes       | yes   |
+
+### src/app/background_jobs.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `BackgroundJobBody`          | type      | yes       | yes   |
+| `BackgroundJobHandle`        | interface | yes       | yes   |
+| `BackgroundJobManager`       | class     | no        | yes   |
+| `BackgroundJobState`         | type      | yes       | yes   |
+| `createBackgroundJobManager` | function  | no        | yes   |
+
+### src/app/browser_editing.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `BrowserEditingAdapter`       | class     | no        | yes   |
+| `BrowserEditingEvent`         | interface | yes       | yes   |
+| `CanonicalEditingAction`      | interface | yes       | yes   |
+| `createBrowserEditingAdapter` | function  | no        | yes   |
+
+### src/app/calendar.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `addCivilDays`             | function  | no        | yes   |
+| `CalendarCell`             | interface | yes       | yes   |
+| `CalendarController`       | class     | no        | yes   |
+| `CalendarOptions`          | interface | yes       | yes   |
+| `CivilDate`                | interface | yes       | yes   |
+| `CivilDateRange`           | interface | yes       | yes   |
+| `civilToJdn`               | function  | no        | yes   |
+| `civilWeekday`             | function  | no        | yes   |
+| `compareCivilDates`        | function  | no        | yes   |
+| `createCalendarController` | function  | no        | yes   |
+| `jdnToCivil`               | function  | no        | yes   |
+| `localeWeekStart`          | function  | no        | yes   |
+
+### src/app/clipboard.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `ClipboardPort`                 | interface | yes       | yes   |
+| `createBrowserClipboard`        | function  | no        | yes   |
+| `createCrossContainerSelection` | function  | no        | yes   |
+| `createOsc52Clipboard`          | function  | no        | yes   |
+| `CrossContainerSelection`       | class     | no        | yes   |
+| `SelectableRegion`              | interface | yes       | yes   |
+| `SelectionPoint`                | interface | yes       | yes   |
+
+### src/app/code_view.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `CodeDiagnostic`     | interface | yes       | yes   |
+| `CodeSegment`        | interface | yes       | yes   |
+| `CodeViewController` | class     | no        | yes   |
+| `CodeViewRow`        | interface | yes       | yes   |
+| `ConcealRule`        | interface | yes       | yes   |
+
+### src/app/command_aliases.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `AliasDiagnostic`         | interface | yes       | yes   |
+| `CommandAlias`            | interface | yes       | yes   |
+| `CommandAliasStore`       | class     | no        | yes   |
+| `createCommandAliasStore` | function  | no        | yes   |
+
+### src/app/command_arguments.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `CommandPrompt`             | interface | yes       | yes   |
+| `createSchemaCommandBinder` | function  | no        | yes   |
+| `SchemaCommand`             | interface | yes       | yes   |
+| `SchemaCommandBinder`       | class     | no        | yes   |
 
 ### src/app/command_bindings.ts
 
@@ -925,6 +1350,64 @@ _Entrypoints: `.`, `./web`_
 | `inspectCommandKeyBindings`         | function  | no        | yes   |
 | `rankCommandSurfaceItems`           | function  | no        | yes   |
 | `searchCommandSurfaceItems`         | function  | no        | yes   |
+
+### src/app/command_history.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `CommandArgumentClassification`  | interface | yes       | yes   |
+| `CommandHistoryRecord`           | interface | yes       | yes   |
+| `CommandInvocationHistory`       | class     | no        | yes   |
+| `createCommandInvocationHistory` | function  | no        | yes   |
+
+### src/app/command_macros.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `CommandMacro`               | interface | yes       | yes   |
+| `CommandMacroRecorder`       | class     | no        | yes   |
+| `createCommandMacroRecorder` | function  | no        | yes   |
+| `MacroPlaybackPreview`       | interface | yes       | yes   |
+| `MacroPlaybackResult`        | interface | yes       | yes   |
+| `MacroStep`                  | interface | yes       | yes   |
+
+### src/app/command_pipelines.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `CommandPipeline`       | class    | no        | yes   |
+| `createCommandPipeline` | function | no        | yes   |
+| `PipelineNode`          | type     | yes       | yes   |
+| `PipelineOutcome`       | type     | yes       | yes   |
+
+### src/app/command_preview.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `CommandChange`            | interface | yes       | yes   |
+| `CommandChangeSet`         | interface | yes       | yes   |
+| `CommandPreview`           | interface | yes       | yes   |
+| `CommandPreviewGate`       | class     | no        | yes   |
+| `createCommandPreviewGate` | function  | no        | yes   |
+| `PreviewableCommand`       | interface | yes       | yes   |
+
+### src/app/command_progress.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `CommandProgressEvent`  | interface | yes       | yes   |
+| `CommandProgressScope`  | class     | no        | yes   |
+| `createCommandProgress` | function  | no        | yes   |
 
 ### src/app/command_search_index.ts
 
@@ -972,6 +1455,55 @@ _Entrypoints: `.`, `./web`_
 | `componentCatalogCommands`        | function  | no        | yes   |
 | `inspectComponentCatalogCommands` | function  | no        | yes   |
 
+### src/app/compose_sequences.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `ComposeResult`                  | interface | yes       | yes   |
+| `ComposeSequence`                | type      | yes       | yes   |
+| `ComposeSequenceOptions`         | interface | yes       | yes   |
+| `ComposeSequenceProcessor`       | class     | no        | yes   |
+| `createComposeSequenceProcessor` | function  | no        | yes   |
+
+### src/app/composition.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `CompositionController`       | class     | no        | yes   |
+| `CompositionEvent`            | interface | yes       | yes   |
+| `CompositionState`            | interface | yes       | yes   |
+| `CompositionTransaction`      | interface | yes       | yes   |
+| `createCompositionController` | function  | no        | yes   |
+
+### src/app/content_integrity.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `ContentIntegrityGate`       | class     | no        | yes   |
+| `createContentIntegrityGate` | function  | no        | yes   |
+| `IntegrityExpectation`       | interface | yes       | yes   |
+| `IntegrityResult`            | type      | yes       | yes   |
+| `SignatureVerifier`          | type      | yes       | yes   |
+
+### src/app/crash_recovery.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `parseRecoveryJournal`  | function  | no        | yes   |
+| `RecoveryRecord`        | interface | yes       | yes   |
+| `RecoveryReplayOptions` | interface | yes       | yes   |
+| `RecoveryReport`        | interface | yes       | yes   |
+| `RecoveryStop`          | interface | yes       | yes   |
+| `replayRecoveryJournal` | function  | no        | yes   |
+
 ### src/app/data_query_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1014,6 +1546,20 @@ _Entrypoints: `.`, `./web`_
 | `DataTableCommandOptions` | interface | yes       | yes   |
 | `dataTableCommands`       | function  | no        | yes   |
 
+### src/app/diff_view.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `diffLines`             | function  | no        | yes   |
+| `DiffOp`                | interface | yes       | yes   |
+| `formatLineNumber`      | function  | no        | yes   |
+| `GutterCell`            | interface | yes       | yes   |
+| `signGlyph`             | function  | no        | yes   |
+| `SplitDiffController`   | class     | no        | yes   |
+| `UnifiedDiffController` | class     | no        | yes   |
+
 ### src/app/disposables.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1026,6 +1572,49 @@ _Entrypoints: `.`, `./web`_
 | `Disposer`                  | type      | yes       | yes   |
 | `disposeReverse`            | function  | no        | yes   |
 | `MaybeDisposer`             | type      | yes       | yes   |
+
+### src/app/drag_drop.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `AcceptedDrop`         | interface | yes       | yes   |
+| `adaptBrowserDrop`     | function  | no        | yes   |
+| `adaptTerminalDrop`    | function  | no        | yes   |
+| `createDragDropRouter` | function  | no        | yes   |
+| `DragDropEvent`        | interface | yes       | yes   |
+| `DragDropRouter`       | class     | no        | yes   |
+| `DragFileEntry`        | interface | yes       | yes   |
+| `DragPayload`          | type      | yes       | yes   |
+| `DropOutcome`          | type      | yes       | yes   |
+| `DropPolicy`           | type      | yes       | yes   |
+
+### src/app/event_timeline.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createEventTimelineController` | function  | no        | yes   |
+| `EventTimelineController`       | class     | no        | yes   |
+| `EventTimelineOptions`          | interface | yes       | yes   |
+| `TimelineEvent`                 | interface | yes       | yes   |
+| `TimelineRow`                   | type      | yes       | yes   |
+| `TimelineView`                  | interface | yes       | yes   |
+
+### src/app/focus_announcements.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `FOCUS_TRANSITION_SPEC` | const     | no        | yes   |
+| `FocusRule`             | type      | yes       | yes   |
+| `FocusTransitionKind`   | type      | yes       | yes   |
+| `FocusTransitionSpec`   | interface | yes       | yes   |
+| `ResolvedTransition`    | interface | yes       | yes   |
+| `resolveTransition`     | function  | no        | yes   |
 
 ### src/app/focus_commands.ts
 
@@ -1041,6 +1630,30 @@ _Entrypoints: `.`, `./web`_
 | `focusCommands`       | function  | no        | yes   |
 | `FocusCommandTarget`  | interface | yes       | yes   |
 
+### src/app/form_async_validation.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `AsyncFieldValidator`        | type      | yes       | yes   |
+| `AsyncSchemaValidator`       | type      | yes       | yes   |
+| `createFormAsyncValidation`  | function  | no        | yes   |
+| `FormAsyncSettleResult`      | interface | yes       | yes   |
+| `FormAsyncValidation`        | class     | no        | yes   |
+| `FormAsyncValidationContext` | interface | yes       | yes   |
+
+### src/app/form_checkpoints.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createFormCheckpointHistory` | function  | no        | yes   |
+| `FormCheckpointHistory`       | class     | no        | yes   |
+| `FormCheckpointOptions`       | interface | yes       | yes   |
+| `FormEditKind`                | type      | yes       | yes   |
+
 ### src/app/form_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1054,6 +1667,30 @@ _Entrypoints: `.`, `./web`_
 | `formCommands`               | function  | no        | yes   |
 | `FormCommandSnapshotPayload` | interface | yes       | yes   |
 | `FormFieldCommandPayload`    | interface | yes       | yes   |
+
+### src/app/form_dependencies.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createFormDependencyGraph` | function  | no        | yes   |
+| `FormDependencyGraph`       | class     | no        | yes   |
+| `FormDependencyUpdate`      | interface | yes       | yes   |
+| `FormFieldRule`             | interface | yes       | yes   |
+| `FormFieldUiState`          | interface | yes       | yes   |
+
+### src/app/form_drafts.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createFormDraftAutosaver` | function  | no        | yes   |
+| `DraftStorage`             | interface | yes       | yes   |
+| `FormDraftAutosaver`       | class     | no        | yes   |
+| `FormDraftOptions`         | interface | yes       | yes   |
+| `RestoredDraft`            | interface | yes       | yes   |
 
 ### src/app/form_paths.ts
 
@@ -1084,6 +1721,56 @@ _Entrypoints: `.`, `./web`_
 | `isFormPath`            | function  | no        | yes   |
 | `parseFormPath`         | function  | no        | yes   |
 | `setFormPath`           | function  | no        | yes   |
+
+### src/app/form_schema.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `renderJsonSchemaForm`  | function  | no        | yes   |
+| `SchemaDiagnostic`      | interface | yes       | yes   |
+| `SchemaFormField`       | interface | yes       | yes   |
+| `SchemaValidationError` | interface | yes       | yes   |
+| `SchemaWidgetResolver`  | type      | yes       | yes   |
+| `validateAgainstSchema` | function  | no        | yes   |
+
+### src/app/form_server_errors.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `focusNextFormError`     | function  | no        | yes   |
+| `FormErrorFocusTarget`   | interface | yes       | yes   |
+| `FormServerError`        | interface | yes       | yes   |
+| `FormServerErrorMapping` | interface | yes       | yes   |
+| `mapFormServerErrors`    | function  | no        | yes   |
+
+### src/app/form_submission.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createFormSubmissionMachine` | function  | no        | yes   |
+| `FormSubmissionMachine`       | class     | no        | yes   |
+| `FormSubmissionOutcome`       | interface | yes       | yes   |
+| `FormSubmissionState`         | type      | yes       | yes   |
+| `FormSubmissionTransition`    | interface | yes       | yes   |
+| `FormSubmitHandler`           | type      | yes       | yes   |
+
+### src/app/form_validation_timing.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `createFormValidationScheduler`  | function  | no        | yes   |
+| `FormValidationRun`              | interface | yes       | yes   |
+| `FormValidationScheduler`        | class     | no        | yes   |
+| `FormValidationSchedulerOptions` | interface | yes       | yes   |
+| `FormValidationTiming`           | type      | yes       | yes   |
 
 ### src/app/forms.ts
 
@@ -1126,6 +1813,51 @@ _Entrypoints: `.`, `./web`_
 | `FormValues`                       | type      | yes       | yes   |
 | `minLength`                        | function  | no        | yes   |
 | `required`                         | function  | no        | yes   |
+
+### src/app/general_widgets.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                      | Kind     | Type Only | JSDoc |
+| --------------------------- | -------- | --------- | ----- |
+| `CollapsibleController`     | class    | no        | yes   |
+| `ContentSwitcherController` | class    | no        | yes   |
+| `LoadingController`         | class    | no        | yes   |
+| `MaskedInputController`     | class    | no        | yes   |
+| `renderDigits`              | function | no        | yes   |
+| `SelectionListController`   | class    | no        | yes   |
+
+### src/app/gestures.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `createGestureRecognizer` | function  | no        | yes   |
+| `GestureEvent`            | type      | yes       | yes   |
+| `GestureOptions`          | interface | yes       | yes   |
+| `GesturePointerEvent`     | interface | yes       | yes   |
+| `GestureRecognizer`       | class     | no        | yes   |
+
+### src/app/hex_viewer.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `HexRow`              | interface | yes       | yes   |
+| `HexViewerController` | class     | no        | yes   |
+| `HexViewOptions`      | interface | yes       | yes   |
+
+### src/app/history_branches.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `BranchingHistory`       | class     | no        | yes   |
+| `createBranchingHistory` | function  | no        | yes   |
+| `HistoryDivergence`      | interface | yes       | yes   |
 
 ### src/app/history.ts
 
@@ -1175,16 +1907,12 @@ _Entrypoints: `.`, `./web`_
 
 _Entrypoints: `.`, `./web`_
 
-| Symbol                       | Kind      | Type Only | JSDoc |
-| ---------------------------- | --------- | --------- | ----- |
-| `clipRect`                   | function  | no        | yes   |
-| `contains`                   | function  | no        | yes   |
-| `HitTarget`                  | interface | yes       | yes   |
-| `HitTargetStack`             | class     | no        | yes   |
-| `inset`                      | function  | no        | yes   |
-| `intersects`                 | function  | no        | yes   |
-| `translateHitTargets`        | function  | no        | yes   |
-| `TranslateHitTargetsOptions` | interface | yes       | yes   |
+| Symbol       | Kind     | Type Only | JSDoc |
+| ------------ | -------- | --------- | ----- |
+| `clipRect`   | function | no        | yes   |
+| `contains`   | function | no        | yes   |
+| `inset`      | function | no        | yes   |
+| `intersects` | function | no        | yes   |
 
 ### src/app/input_commands.ts
 
@@ -1198,6 +1926,33 @@ _Entrypoints: `.`, `./web`_
 | `InputCommandOptions` | interface | yes       | yes   |
 | `InputCommandPayload` | interface | yes       | yes   |
 | `inputCommands`       | function  | no        | yes   |
+
+### src/app/journal_store.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createRedactingJournalStore` | function  | no        | yes   |
+| `JournalLoadReport`           | interface | yes       | yes   |
+| `JournalSaveReport`           | interface | yes       | yes   |
+| `JournalStoreIo`              | interface | yes       | yes   |
+| `JournalStoreOptions`         | interface | yes       | yes   |
+| `RedactingJournalStore`       | class     | no        | yes   |
+
+### src/app/kanban.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `CardPosition`           | interface | yes       | yes   |
+| `createKanbanController` | function  | no        | yes   |
+| `KanbanCard`             | interface | yes       | yes   |
+| `KanbanColumn`           | interface | yes       | yes   |
+| `KanbanController`       | class     | no        | yes   |
+| `MoveHandle`             | interface | yes       | yes   |
+| `MoveResult`             | type      | yes       | yes   |
 
 ### src/app/list_commands.ts
 
@@ -1269,7 +2024,60 @@ _Entrypoints: `.`, `./web`_
 | `src/app/data_query_commands.ts`        | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/data_table_commands.ts`        | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/disposables.ts`                | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/browser_editing.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/compose_sequences.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/preedit_provider.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/crash_recovery.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/history_branches.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/journal_store.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/navigation_blockers.ts`        | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/navigation_journal.ts`         | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_anchors.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_boundaries.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_guards.ts`               | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_loaders.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_outlets.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/route_prefetch.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/action_policies.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/accessibility_tree.ts`         | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/focus_announcements.ts`        | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/workbench_accessibility.ts`    | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/calendar.ts`                   | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/clipboard.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/general_widgets.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/content_integrity.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/time_picker.ts`                | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/token_editor.ts`               | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/transfer_list.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/tree_grid.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/syntax_service.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/code_view.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/diff_view.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/structure_inspector.ts`        | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/hex_viewer.ts`                 | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/background_jobs.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_aliases.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_arguments.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_history.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_macros.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_pipelines.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_preview.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/command_progress.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/typed_commands.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/composition.ts`                | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_async_validation.ts`      | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_server_errors.ts`         | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_submission.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_validation_timing.ts`     | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/form_commands.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_dependencies.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_checkpoints.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/drag_drop.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/event_timeline.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/kanban.ts`                     | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/gestures.ts`                   | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_drafts.ts`                | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/form_schema.ts`                | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/focus_commands.ts`             | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/form_paths.ts`                 | named | `FORM_PATH_LIMITS`, `FormPathError`, `deleteFormPath`, `formPath`, `formPathFor`, `formPathSegments`, `formatFormPath`, `getFormPath`, `hasFormPath`, `isFormPath`, `parseFormPath`, `setFormPath`                                                                    |
 | `src/app/form_paths.ts`                 | named | `type DeleteFormPathOptions`, `type FormFieldReference`, `type FormFieldValue`, `type FormPath`, `type FormPathBuilder`, `type FormPathErrorCode`, `type FormPathName`, `type FormPathSegment`, `type FormPathSegments`, `type FormPathValue`, `type FormValuesPatch` |
@@ -1281,10 +2089,24 @@ _Entrypoints: `.`, `./web`_
 | `src/app/menu_bar_commands.ts`          | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/metric_series_commands.ts`     | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/mouse_bindings.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/pointer_gestures.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/theme_editor.ts`               | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/pad_commands.ts`               | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/plugins.ts`                    | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/plugin_slot_adapters.ts`       | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_activation.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_catalog.ts`             | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_capabilities.ts`        | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_compat.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_dependencies.ts`        | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_lifecycle.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_state_migration.ts`     | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_rpc_proxies.ts`         | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_manifest.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/plugin_permission_diff.ts`     | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/worker_plugin_host.ts`         | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/plugin_slots.ts`               | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/property_grid.ts`              | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/router.ts`                     | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/route_patterns.ts`             | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/runtime_commands.ts`           | star  | -                                                                                                                                                                                                                                                                     |
@@ -1299,6 +2121,7 @@ _Entrypoints: `.`, `./web`_
 | `src/app/table_commands.ts`             | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/tabs_commands.ts`              | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/terminal_commands.ts`          | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/paste_stream.ts`               | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/terminal_input.ts`             | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/theme_commands.ts`             | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/theme_plugin.ts`               | star  | -                                                                                                                                                                                                                                                                     |
@@ -1307,6 +2130,8 @@ _Entrypoints: `.`, `./web`_
 | `src/app/window_manager_commands.ts`    | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/widget_commands.ts`            | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/workbench/mod.ts`              | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/software_cursor.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/animated_background.ts`        | star  | -                                                                                                                                                                                                                                                                     |
 
 _No direct exported symbols._
 
@@ -1314,18 +2139,46 @@ _No direct exported symbols._
 
 _Entrypoints: `.`, `./web`_
 
-| Symbol                           | Kind      | Type Only | JSDoc |
-| -------------------------------- | --------- | --------- | ----- |
-| `bindMouseInteractions`          | function  | no        | yes   |
-| `createMouseInteractionRouter`   | function  | no        | yes   |
-| `MouseInteractionContext`        | interface | yes       | yes   |
-| `MouseInteractionDispatchResult` | interface | yes       | yes   |
-| `MouseInteractionEvent`          | type      | yes       | yes   |
-| `MouseInteractionHandler`        | type      | yes       | yes   |
-| `MouseInteractionInspection`     | interface | yes       | yes   |
-| `MouseInteractionKind`           | type      | yes       | yes   |
-| `MouseInteractionRouter`         | class     | no        | yes   |
-| `MouseInteractionTarget`         | interface | yes       | yes   |
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `bindMouseInteractions`            | function  | no        | yes   |
+| `createMouseInteractionRouter`     | function  | no        | yes   |
+| `MouseInteractionContext`          | interface | yes       | yes   |
+| `MouseInteractionDispatchResult`   | interface | yes       | yes   |
+| `MouseInteractionEvent`            | type      | yes       | yes   |
+| `MouseInteractionHandler`          | type      | yes       | yes   |
+| `MouseInteractionInspection`       | interface | yes       | yes   |
+| `MouseInteractionKind`             | type      | yes       | yes   |
+| `MouseInteractionRegionClassifier` | type      | yes       | yes   |
+| `MouseInteractionResolution`       | interface | yes       | yes   |
+| `MouseInteractionRouter`           | class     | no        | yes   |
+| `MouseInteractionRouterOptions`    | interface | yes       | yes   |
+| `MouseInteractionTarget`           | interface | yes       | yes   |
+| `MouseInteractionTransform`        | type      | yes       | yes   |
+
+### src/app/navigation_blockers.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `createNavigationBlockerRegistry` | function  | no        | yes   |
+| `NavigationBlocker`               | type      | yes       | yes   |
+| `NavigationBlockerRegistry`       | class     | no        | yes   |
+| `NavigationBlockOutcome`          | interface | yes       | yes   |
+| `NavigationBlockReason`           | interface | yes       | yes   |
+| `NavigationConfirmer`             | type      | yes       | yes   |
+
+### src/app/navigation_journal.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createNavigationJournal`  | function  | no        | yes   |
+| `NavigationJournal`        | class     | no        | yes   |
+| `NavigationJournalOptions` | interface | yes       | yes   |
+| `NavigationLocation`       | interface | yes       | yes   |
 
 ### src/app/pad_commands.ts
 
@@ -1339,6 +2192,138 @@ _Entrypoints: `.`, `./web`_
 | `PadCommandOptions` | interface | yes       | yes   |
 | `PadCommandPayload` | interface | yes       | yes   |
 | `padCommands`       | function  | no        | yes   |
+
+### src/app/paste_stream.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `openTerminalPasteTransaction`  | function  | no        | yes   |
+| `streamTerminalPaste`           | function  | no        | yes   |
+| `TerminalPasteLimits`           | interface | yes       | yes   |
+| `TerminalPasteStreamController` | class     | no        | yes   |
+| `TerminalPasteTransaction`      | interface | yes       | yes   |
+
+### src/app/plugin_activation.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                              | Kind      | Type Only | JSDoc |
+| ----------------------------------- | --------- | --------- | ----- |
+| `ActivationEventKind`               | type      | yes       | yes   |
+| `ActivationFireResult`              | interface | yes       | yes   |
+| `ActivationState`                   | type      | yes       | yes   |
+| `createPluginActivationCoordinator` | function  | no        | yes   |
+| `LazyPlugin`                        | interface | yes       | yes   |
+| `PluginActivationCoordinator`       | class     | no        | yes   |
+
+### src/app/plugin_capabilities.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `CapabilityPluginDefinition`   | interface | yes       | yes   |
+| `createPluginCapabilityBroker` | function  | no        | yes   |
+| `PluginCapabilityBroker`       | class     | no        | yes   |
+| `PluginCapabilityName`         | type      | yes       | yes   |
+| `PluginInstallResult`          | type      | yes       | yes   |
+
+### src/app/plugin_catalog.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `CatalogEntry`                | interface | yes       | yes   |
+| `CatalogLoadResult`           | type      | yes       | yes   |
+| `createPluginCatalogConsumer` | function  | no        | yes   |
+| `PackageVerification`         | type      | yes       | yes   |
+| `PluginCatalog`               | interface | yes       | yes   |
+| `PluginCatalogConsumer`       | class     | no        | yes   |
+
+### src/app/plugin_compat.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `CandidateRejection`         | interface | yes       | yes   |
+| `CompatResolution`           | type      | yes       | yes   |
+| `HostEnvironment`            | interface | yes       | yes   |
+| `PluginCandidate`            | interface | yes       | yes   |
+| `resolvePluginCompatibility` | function  | no        | yes   |
+
+### src/app/plugin_dependencies.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `DependencyDiagnostic`      | interface | yes       | yes   |
+| `DependencyResolution`      | interface | yes       | yes   |
+| `PluginDependencyNode`      | interface | yes       | yes   |
+| `resolvePluginDependencies` | function  | no        | yes   |
+
+### src/app/plugin_lifecycle.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `createHostContributionRegistry` | function  | no        | yes   |
+| `disablePlugin`                  | function  | no        | yes   |
+| `enablePlugin`                   | function  | no        | yes   |
+| `HostContributionRegistry`       | class     | no        | yes   |
+| `installPlugin`                  | function  | no        | yes   |
+| `LifecyclePlugin`                | interface | yes       | yes   |
+| `LifecycleResult`                | type      | yes       | yes   |
+| `PluginContribution`             | interface | yes       | yes   |
+| `uninstallPlugin`                | function  | no        | yes   |
+
+### src/app/plugin_manifest.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `hostApiSatisfies`               | function  | no        | yes   |
+| `parsePluginManifest`            | function  | no        | yes   |
+| `PLUGIN_MANIFEST_SCHEMA_VERSION` | const     | no        | yes   |
+| `PluginContributions`            | interface | yes       | yes   |
+| `PluginManifest`                 | interface | yes       | yes   |
+| `PluginManifestError`            | class     | no        | yes   |
+| `PluginStateFieldKind`           | type      | yes       | yes   |
+| `validatePluginManifest`         | function  | no        | yes   |
+
+### src/app/plugin_permission_diff.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createPluginPermissionLedger` | function  | no        | yes   |
+| `PermissionApplyResult`        | type      | yes       | yes   |
+| `PermissionDiff`               | interface | yes       | yes   |
+| `PermissionDiffEntry`          | interface | yes       | yes   |
+| `PluginPermissionLedger`       | class     | no        | yes   |
+
+### src/app/plugin_rpc_proxies.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `ContributionFailure`             | interface | yes       | yes   |
+| `ContributionKind`                | type      | yes       | yes   |
+| `ContributionProxyRegistry`       | class     | no        | yes   |
+| `ContributionRef`                 | interface | yes       | yes   |
+| `ContributionRpcError`            | class     | no        | yes   |
+| `ContributionTransport`           | type      | yes       | yes   |
+| `createContributionProxy`         | function  | no        | yes   |
+| `createContributionProxyRegistry` | function  | no        | yes   |
+| `TypedContributionProxy`          | class     | no        | yes   |
 
 ### src/app/plugin_slot_adapters.ts
 
@@ -1391,6 +2376,19 @@ _Entrypoints: `.`, `./web`_
 | `PluginSlotRenderResult`         | interface | yes       | yes   |
 | `RenderPluginSlotOptions`        | interface | yes       | yes   |
 
+### src/app/plugin_state_migration.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `ActivationVerdict`      | type      | yes       | yes   |
+| `createPluginStateStore` | function  | no        | yes   |
+| `PluginStateStore`       | class     | no        | yes   |
+| `StateMigration`         | interface | yes       | yes   |
+| `UpgradeResult`          | type      | yes       | yes   |
+| `VersionedState`         | interface | yes       | yes   |
+
 ### src/app/plugins.ts
 
 _Entrypoints: `.`, `./app`, `./web`_
@@ -1414,6 +2412,104 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `inspectAppPluginCatalog`               | function  | no        | yes   |
 | `inspectAppPluginDefinition`            | function  | no        | yes   |
 | `queryAppPluginDefinitions`             | function  | no        | yes   |
+
+### src/app/pointer_gestures.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createPointerGestureState` | function  | no        | yes   |
+| `PointerGestureEvent`       | interface | yes       | yes   |
+| `PointerGestureOptions`     | interface | yes       | yes   |
+| `PointerGestureOutcome`     | type      | yes       | yes   |
+| `PointerGestureState`       | interface | yes       | yes   |
+| `reducePointerGesture`      | function  | no        | yes   |
+
+### src/app/preedit_provider.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createTerminalPreeditBridge` | function  | no        | yes   |
+| `TerminalPreeditBridge`       | class     | no        | yes   |
+| `TerminalPreeditEvent`        | type      | yes       | yes   |
+| `TerminalPreeditProvider`     | interface | yes       | yes   |
+
+### src/app/property_grid.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createPropertyEditorRegistry` | function  | no        | yes   |
+| `createPropertyGridController` | function  | no        | yes   |
+| `PropertyEditor`               | interface | yes       | yes   |
+| `PropertyEditorRegistry`       | class     | no        | yes   |
+| `PropertyEditResult`           | type      | yes       | yes   |
+| `PropertyGridController`       | class     | no        | yes   |
+| `PropertyGridOptions`          | interface | yes       | yes   |
+| `PropertyRow`                  | interface | yes       | yes   |
+| `PropertySpec`                 | interface | yes       | yes   |
+| `PropertyTransaction`          | interface | yes       | yes   |
+| `PropertyValueSource`          | type      | yes       | yes   |
+
+### src/app/route_anchors.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createRouteAnchorStore` | function  | no        | yes   |
+| `RouteAnchor`            | interface | yes       | yes   |
+| `RouteAnchorHost`        | interface | yes       | yes   |
+| `RouteAnchorStore`       | class     | no        | yes   |
+| `RouteRestoreReport`     | interface | yes       | yes   |
+
+### src/app/route_boundaries.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createRouteBoundaryRegistry` | function  | no        | yes   |
+| `RouteBoundaryOptions`        | interface | yes       | yes   |
+| `RouteBoundaryRegistry`       | class     | no        | yes   |
+| `RouteBoundaryState`          | interface | yes       | yes   |
+
+### src/app/route_guards.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createRouteGuardPipeline` | function  | no        | yes   |
+| `RouteGuard`               | type      | yes       | yes   |
+| `RouteGuardOutcome`        | interface | yes       | yes   |
+| `RouteGuardPipeline`       | class     | no        | yes   |
+| `RouteGuardResult`         | type      | yes       | yes   |
+
+### src/app/route_loaders.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createRouteLoaderScope` | function  | no        | yes   |
+| `RouteLoaderScope`       | class     | no        | yes   |
+| `RouteLoadResult`        | interface | yes       | yes   |
+
+### src/app/route_outlets.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `createRouteOutletTree` | function  | no        | yes   |
+| `RouteActivation`       | interface | yes       | yes   |
+| `RouteNode`             | interface | yes       | yes   |
+| `RouteOutletTree`       | class     | no        | yes   |
 
 ### src/app/route_patterns.ts
 
@@ -1444,6 +2540,17 @@ _Entrypoints: `.`, `./web`_
 | `RoutePatternResolution`              | interface | yes       | yes   |
 | `RoutePatternSegmentKind`             | type      | yes       | yes   |
 | `routeStringParameterCodec`           | const     | no        | yes   |
+
+### src/app/route_prefetch.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `createRoutePrefetcher` | function  | no        | yes   |
+| `RoutePrefetcher`       | class     | no        | yes   |
+| `RoutePrefetchIntent`   | type      | yes       | yes   |
+| `RoutePrefetchOptions`  | interface | yes       | yes   |
 
 ### src/app/router.ts
 
@@ -1653,6 +2760,19 @@ _Entrypoints: `.`, `./web`_
 | `SettingsControllerInspection` | interface | yes       | yes   |
 | `SettingsControllerOptions`    | interface | yes       | yes   |
 
+### src/app/software_cursor.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `AnyMotionTracking`        | interface | yes       | yes   |
+| `AnyMotionTrackingOptions` | interface | yes       | yes   |
+| `createAnyMotionTracking`  | function  | no        | yes   |
+| `softwareCursorRender`     | function  | no        | yes   |
+| `SoftwareCursorRender`     | interface | yes       | yes   |
+| `windowResizeGlyphAt`      | function  | no        | yes   |
+
 ### src/app/split_pane_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1666,6 +2786,50 @@ _Entrypoints: `.`, `./web`_
 | `SplitPaneCommandOptions`  | interface | yes       | yes   |
 | `splitPaneCommands`        | function  | no        | yes   |
 | `SplitPaneSnapshotPayload` | interface | yes       | yes   |
+
+### src/app/structure_inspector.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `InspectorDocument`            | interface | yes       | yes   |
+| `InspectorNode`                | interface | yes       | yes   |
+| `InspectorSearchKind`          | type      | yes       | yes   |
+| `parseToNodeTable`             | function  | no        | yes   |
+| `StructureInspectorController` | class     | no        | yes   |
+
+### src/app/surface_transitions.ts
+
+_Entrypoints: `./app`_
+
+| Symbol                                | Kind      | Type Only | JSDoc |
+| ------------------------------------- | --------- | --------- | ----- |
+| `BeginSurfaceTransitionOptions`       | interface | yes       | no    |
+| `createSurfaceTransitionAnimator`     | function  | no        | yes   |
+| `DEFAULT_SURFACE_TRANSITION_SETTINGS` | const     | no        | yes   |
+| `SURFACE_TRANSITION_BASE_DURATION_MS` | const     | no        | yes   |
+| `SurfaceTransitionAnimator`           | class     | no        | yes   |
+| `SurfaceTransitionAnimatorOptions`    | interface | yes       | no    |
+| `surfaceTransitionMotionToken`        | function  | no        | yes   |
+| `SurfaceTransitionOverlay`            | interface | yes       | yes   |
+| `SurfaceTransitionSettings`           | interface | yes       | yes   |
+
+### src/app/syntax_service.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createLoopbackPorts`      | function  | no        | yes   |
+| `createPatternHighlighter` | function  | no        | yes   |
+| `createSyntaxWorkerHost`   | function  | no        | yes   |
+| `Highlighter`              | interface | yes       | yes   |
+| `HighlightSpan`            | interface | yes       | yes   |
+| `SyntaxPort`               | interface | yes       | yes   |
+| `SyntaxRequest`            | type      | yes       | yes   |
+| `SyntaxResponse`           | type      | yes       | yes   |
+| `SyntaxServiceClient`      | class     | no        | yes   |
 
 ### src/app/table_commands.ts
 
@@ -1797,6 +2961,22 @@ _Entrypoints: `.`, `./web`_
 | `ThemePreviewPayload`             | interface | yes       | yes   |
 | `themeSelectionCommands`          | function  | no        | yes   |
 
+### src/app/theme_editor.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `MemoryThemeStorage`    | class     | no        | yes   |
+| `themeDocumentId`       | function  | no        | yes   |
+| `ThemeEditorController` | class     | no        | yes   |
+| `ThemeEditorInspection` | interface | yes       | yes   |
+| `ThemeEditorOptions`    | interface | yes       | yes   |
+| `ThemeLibrary`          | class     | no        | yes   |
+| `ThemeLibraryEntry`     | interface | yes       | yes   |
+| `ThemeLibraryOptions`   | interface | yes       | yes   |
+| `ThemeStoragePort`      | interface | yes       | yes   |
+
 ### src/app/theme_plugin.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1817,6 +2997,24 @@ _Entrypoints: `.`, `./web`_
 | `ThemeWorkspacePluginInstallContext` | interface | yes       | yes   |
 | `ThemeWorkspacePluginOptions`        | interface | yes       | yes   |
 
+### src/app/time_picker.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `chooseInstant`      | function  | no        | yes   |
+| `CivilTime`          | interface | yes       | yes   |
+| `formatDuration`     | function  | no        | yes   |
+| `offsetMinutesAt`    | function  | no        | yes   |
+| `parseDuration`      | function  | no        | yes   |
+| `resolveWallTime`    | function  | no        | yes   |
+| `stepTime`           | function  | no        | yes   |
+| `TimeStepOptions`    | interface | yes       | yes   |
+| `WallTimeChoice`     | type      | yes       | yes   |
+| `WallTimeResolution` | type      | yes       | yes   |
+| `ZonedInstant`       | interface | yes       | yes   |
+
 ### src/app/toast_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1830,6 +3028,33 @@ _Entrypoints: `.`, `./web`_
 | `ToastCommandPayload` | interface | yes       | yes   |
 | `toastCommands`       | function  | no        | yes   |
 
+### src/app/token_editor.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `createTokenEditor`  | function  | no        | yes   |
+| `DuplicatePolicy`    | type      | yes       | yes   |
+| `Token`              | interface | yes       | yes   |
+| `TokenEditor`        | class     | no        | yes   |
+| `TokenEditorOptions` | interface | yes       | yes   |
+| `TokenSuggestions`   | interface | yes       | yes   |
+
+### src/app/transfer_list.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createTransferListController` | function  | no        | yes   |
+| `TransferItem`                 | interface | yes       | yes   |
+| `TransferListController`       | class     | no        | yes   |
+| `TransferListOptions`          | interface | yes       | yes   |
+| `TransferPreview`              | interface | yes       | yes   |
+| `TransferSide`                 | type      | yes       | yes   |
+| `TransferView`                 | interface | yes       | yes   |
+
 ### src/app/tree_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1842,6 +3067,32 @@ _Entrypoints: `.`, `./web`_
 | `TreeCommandOptions` | interface | yes       | yes   |
 | `TreeCommandPayload` | interface | yes       | yes   |
 | `treeCommands`       | function  | no        | yes   |
+
+### src/app/tree_grid.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createTreeGridController` | function  | no        | yes   |
+| `TreeGridColumn`           | interface | yes       | yes   |
+| `TreeGridController`       | class     | no        | yes   |
+| `TreeGridNode`             | interface | yes       | yes   |
+| `TreeGridRow`              | interface | yes       | yes   |
+
+### src/app/typed_commands.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `CommandInvocationContext`   | interface | yes       | yes   |
+| `CommandInvocationHandle`    | interface | yes       | yes   |
+| `CommandOutcome`             | type      | yes       | yes   |
+| `createTypedCommandRegistry` | function  | no        | yes   |
+| `TypedCommand`               | interface | yes       | yes   |
+| `TypedCommandDescriptor`     | interface | yes       | yes   |
+| `TypedCommandRegistry`       | class     | no        | yes   |
 
 ### src/app/widget_commands.ts
 
@@ -1898,6 +3149,17 @@ _Entrypoints: `.`, `./web`_
 | `TextBoxCommandPayload`     | interface | yes       | yes   |
 | `textBoxCommands`           | function  | no        | yes   |
 
+### src/app/widget_surface.ts
+
+_Entrypoints: `./app`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `WidgetSurface`         | class     | no        | yes   |
+| `WidgetSurfaceCell`     | type      | yes       | yes   |
+| `widgetSurfaceCellData` | function  | no        | yes   |
+| `WidgetSurfaceCellData` | interface | yes       | yes   |
+
 ### src/app/window_manager_commands.ts
 
 _Entrypoints: `.`, `./web`_
@@ -1912,6 +3174,17 @@ _Entrypoints: `.`, `./web`_
 | `windowManagerCommands`       | function  | no        | yes   |
 | `WindowManagerRenameFactory`  | type      | yes       | yes   |
 | `WindowManagerWindowFactory`  | type      | yes       | yes   |
+
+### src/app/workbench_accessibility.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                            | Kind     | Type Only | JSDoc |
+| --------------------------------- | -------- | --------- | ----- |
+| `COLOR_BLIND_SAFE_PALETTE`        | const    | no        | yes   |
+| `createWorkbenchMotion`           | function | no        | yes   |
+| `HIGH_CONTRAST_PALETTE`           | const    | no        | yes   |
+| `WORKBENCH_CONTROL_ACCESSIBILITY` | const    | no        | yes   |
 
 ### src/app/workbench_ansi_screen.ts
 
@@ -2455,6 +3728,18 @@ _Entrypoints: `.`, `./web`_
 
 _No direct exported symbols._
 
+### src/app/worker_plugin_host.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createWorkerPluginInstance` | function  | no        | yes   |
+| `WorkerPluginInstance`       | class     | no        | yes   |
+| `WorkerPluginLimits`         | interface | yes       | yes   |
+| `WorkerRpcMethod`            | interface | yes       | yes   |
+| `WorkerRpcOutcome`           | type      | yes       | yes   |
+
 ### src/canvas/box.ts
 
 _Entrypoints: `.`, `./web`_
@@ -2498,17 +3783,44 @@ _Entrypoints: `.`, `./web`_
 
 _Entrypoints: `.`_
 
-| Re-export Target              | Kind | Names |
-| ----------------------------- | ---- | ----- |
-| `src/canvas/box.ts`           | star | -     |
-| `src/canvas/text.ts`          | star | -     |
-| `src/canvas/canvas.ts`        | star | -     |
-| `src/canvas/dirty_region.ts`  | star | -     |
-| `src/canvas/draw_object.ts`   | star | -     |
-| `src/canvas/sink.ts`          | star | -     |
-| `src/canvas/spatial_index.ts` | star | -     |
+| Re-export Target               | Kind | Names |
+| ------------------------------ | ---- | ----- |
+| `src/canvas/box.ts`            | star | -     |
+| `src/canvas/text.ts`           | star | -     |
+| `src/canvas/canvas.ts`         | star | -     |
+| `src/canvas/dirty_region.ts`   | star | -     |
+| `src/canvas/draw_object.ts`    | star | -     |
+| `src/canvas/sink.ts`           | star | -     |
+| `src/canvas/spatial_index.ts`  | star | -     |
+| `src/canvas/pixel_samplers.ts` | star | -     |
 
 _No direct exported symbols._
+
+### src/canvas/pixel_samplers.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `captureSampledFrame`     | function  | no        | yes   |
+| `compareSqueezeSamplers`  | function  | no        | yes   |
+| `createSamplerBackend`    | function  | no        | yes   |
+| `DENSITY_RAMP`            | const     | no        | yes   |
+| `orthographicCellFrustum` | function  | no        | yes   |
+| `perspectiveCellAspect`   | function  | no        | yes   |
+| `PIXEL_SAMPLER_LIMITS`    | const     | no        | yes   |
+| `preSqueezePixels`        | function  | no        | yes   |
+| `SampledCell`             | interface | yes       | yes   |
+| `sampleDensityRamp`       | function  | no        | yes   |
+| `SampledFrame`            | interface | yes       | yes   |
+| `sampleQuadrants`         | function  | no        | yes   |
+| `SAMPLER_FIXTURES`        | const     | no        | yes   |
+| `SamplerBackend`          | interface | yes       | yes   |
+| `samplerColorError`       | function  | no        | yes   |
+| `SamplerGrid`             | interface | yes       | yes   |
+| `SamplerMode`             | type      | yes       | yes   |
+| `SamplerPixels`           | interface | yes       | yes   |
+| `samplerStatistics`       | function  | no        | yes   |
 
 ### src/canvas/sink.ts
 
@@ -2518,6 +3830,7 @@ _Entrypoints: `.`, `./web`_
 | ------------------------- | --------- | --------- | ----- |
 | `AnsiCanvasSink`          | class     | no        | yes   |
 | `AnsiCanvasSinkOptions`   | interface | yes       | yes   |
+| `AnsiFlushTelemetry`      | interface | yes       | yes   |
 | `CanvasCellSink`          | interface | yes       | yes   |
 | `CanvasCellUpdate`        | interface | yes       | yes   |
 | `CanvasRowRangeUpdate`    | interface | yes       | yes   |
@@ -2649,6 +3962,22 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `Mark`                      | enum      | no        | yes   |
 | `renderCheckBoxMark`        | function  | no        | yes   |
 
+### src/components/color_picker.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `COLOR_PICKER_AXIS_IDS`        | const     | no        | yes   |
+| `ColorPicker`                  | class     | no        | yes   |
+| `ColorPickerAxis`              | interface | yes       | yes   |
+| `ColorPickerAxisId`            | type      | yes       | yes   |
+| `ColorPickerController`        | class     | no        | yes   |
+| `ColorPickerControllerOptions` | interface | yes       | yes   |
+| `ColorPickerInspection`        | interface | yes       | yes   |
+| `ColorPickerOptions`           | interface | yes       | yes   |
+| `ColorPickerSwatch`            | interface | yes       | yes   |
+
 ### src/components/combobox.ts
 
 _Entrypoints: `.`, `./app`, `./web`_
@@ -2694,10 +4023,26 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `ContextMenuControllerOptions` | interface | yes       | yes   |
 | `ContextMenuInspection`        | interface | yes       | yes   |
 | `ContextMenuItem`              | interface | yes       | yes   |
+| `ContextMenuItemStyle`         | type      | yes       | yes   |
 | `ContextMenuOptions`           | interface | yes       | yes   |
+| `contextMenuPlacement`         | function  | no        | yes   |
+| `ContextMenuRowMarker`         | type      | yes       | yes   |
 | `renderContextMenuRows`        | function  | no        | yes   |
 | `shiftContextMenuSelection`    | function  | no        | yes   |
 | `visibleContextMenuItems`      | function  | no        | yes   |
+
+### src/components/cycler.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `Cycler`                  | class     | no        | yes   |
+| `CyclerController`        | class     | no        | yes   |
+| `CyclerControllerOptions` | interface | yes       | yes   |
+| `CyclerInspection`        | interface | yes       | yes   |
+| `CyclerOptions`           | interface | yes       | yes   |
+| `renderCycler`            | function  | no        | yes   |
 
 ### src/components/data_table.ts
 
@@ -2831,6 +4176,11 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `ListControllerOptions` | interface | yes       | yes   |
 | `ListInspection`        | interface | yes       | yes   |
 | `ListOptions`           | interface | yes       | yes   |
+| `ListRowMarker`         | type      | yes       | yes   |
+| `ListRowStyle`          | type      | yes       | yes   |
+| `ListScrollbar`         | interface | yes       | yes   |
+| `listWindowFromTop`     | function  | no        | yes   |
+| `padListRow`            | function  | no        | yes   |
 | `VirtualRow`            | interface | yes       | yes   |
 | `virtualRows`           | function  | no        | yes   |
 | `visibleListRows`       | function  | no        | yes   |
@@ -2903,48 +4253,53 @@ _Entrypoints: `.`, `./web`_
 
 _Entrypoints: `.`, `./web`_
 
-| Re-export Target                    | Kind | Names |
-| ----------------------------------- | ---- | ----- |
-| `src/components/box.ts`             | star | -     |
-| `src/components/breadcrumbs.ts`     | star | -     |
-| `src/components/button.ts`          | star | -     |
-| `src/components/catalog.ts`         | star | -     |
-| `src/components/chart.ts`           | star | -     |
-| `src/components/checkbox.ts`        | star | -     |
-| `src/components/command_palette.ts` | star | -     |
-| `src/components/combobox.ts`        | star | -     |
-| `src/components/context_menu.ts`    | star | -     |
-| `src/components/data_table.ts`      | star | -     |
-| `src/components/empty_state.ts`     | star | -     |
-| `src/components/file_explorer.ts`   | star | -     |
-| `src/components/frame.ts`           | star | -     |
-| `src/components/gauge.ts`           | star | -     |
-| `src/components/input.ts`           | star | -     |
-| `src/components/interaction.ts`     | star | -     |
-| `src/components/label.ts`           | star | -     |
-| `src/components/key_help.ts`        | star | -     |
-| `src/components/list.ts`            | star | -     |
-| `src/components/log_viewer.ts`      | star | -     |
-| `src/components/menu_bar.ts`        | star | -     |
-| `src/components/metric_series.ts`   | star | -     |
-| `src/components/modal.ts`           | star | -     |
-| `src/components/pad.ts`             | star | -     |
-| `src/components/progressbar.ts`     | star | -     |
-| `src/components/radio_group.ts`     | star | -     |
-| `src/components/scroll_area.ts`     | star | -     |
-| `src/components/slider.ts`          | star | -     |
-| `src/components/sparkline.ts`       | star | -     |
-| `src/components/spinner.ts`         | star | -     |
-| `src/components/statusbar.ts`       | star | -     |
-| `src/components/stepper.ts`         | star | -     |
-| `src/components/table.ts`           | star | -     |
-| `src/components/tabs.ts`            | star | -     |
-| `src/components/terminal_output.ts` | star | -     |
-| `src/components/text.ts`            | star | -     |
-| `src/components/textbox.ts`         | star | -     |
-| `src/components/toast.ts`           | star | -     |
-| `src/components/tree.ts`            | star | -     |
-| `src/components/virtual_list.ts`    | star | -     |
+| Re-export Target                      | Kind | Names |
+| ------------------------------------- | ---- | ----- |
+| `src/components/box.ts`               | star | -     |
+| `src/components/breadcrumbs.ts`       | star | -     |
+| `src/components/button.ts`            | star | -     |
+| `src/components/catalog.ts`           | star | -     |
+| `src/components/chart.ts`             | star | -     |
+| `src/components/checkbox.ts`          | star | -     |
+| `src/components/command_palette.ts`   | star | -     |
+| `src/components/combobox.ts`          | star | -     |
+| `src/components/context_menu.ts`      | star | -     |
+| `src/components/cycler.ts`            | star | -     |
+| `src/components/data_table.ts`        | star | -     |
+| `src/components/empty_state.ts`       | star | -     |
+| `src/components/file_explorer.ts`     | star | -     |
+| `src/components/frame.ts`             | star | -     |
+| `src/components/gauge.ts`             | star | -     |
+| `src/components/input.ts`             | star | -     |
+| `src/components/interaction.ts`       | star | -     |
+| `src/components/label.ts`             | star | -     |
+| `src/components/key_help.ts`          | star | -     |
+| `src/components/list.ts`              | star | -     |
+| `src/components/log_viewer.ts`        | star | -     |
+| `src/components/menu_bar.ts`          | star | -     |
+| `src/components/metric_series.ts`     | star | -     |
+| `src/components/color_picker.ts`      | star | -     |
+| `src/components/modal.ts`             | star | -     |
+| `src/components/pad.ts`               | star | -     |
+| `src/components/progressbar.ts`       | star | -     |
+| `src/components/radio_group.ts`       | star | -     |
+| `src/components/scroll_area.ts`       | star | -     |
+| `src/components/scroll_box_parity.ts` | star | -     |
+| `src/components/text_area.ts`         | star | -     |
+| `src/components/slider.ts`            | star | -     |
+| `src/components/sparkline.ts`         | star | -     |
+| `src/components/spinner.ts`           | star | -     |
+| `src/components/statusbar.ts`         | star | -     |
+| `src/components/stepper.ts`           | star | -     |
+| `src/components/table.ts`             | star | -     |
+| `src/components/tabs.ts`              | star | -     |
+| `src/components/terminal_output.ts`   | star | -     |
+| `src/components/terminal_screen.ts`   | star | -     |
+| `src/components/text.ts`              | star | -     |
+| `src/components/textbox.ts`           | star | -     |
+| `src/components/toast.ts`             | star | -     |
+| `src/components/tree.ts`              | star | -     |
+| `src/components/virtual_list.ts`      | star | -     |
 
 _No direct exported symbols._
 
@@ -2956,6 +4311,8 @@ _Entrypoints: `.`, `./app`, `./web`_
 | ------------------------ | --------- | --------- | ----- |
 | `Modal`                  | class     | no        | yes   |
 | `ModalAction`            | interface | yes       | yes   |
+| `modalActionRects`       | function  | no        | yes   |
+| `ModalActionRectsResult` | interface | yes       | yes   |
 | `ModalContent`           | interface | yes       | yes   |
 | `modalContentHeight`     | function  | no        | yes   |
 | `ModalController`        | class     | no        | yes   |
@@ -3045,6 +4402,19 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `scrollbarThumb`               | function  | no        | yes   |
 | `ScrollbarThumb`               | type      | yes       | yes   |
 | `scrollOffsetBy`               | function  | no        | yes   |
+
+### src/components/scroll_box_parity.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `ContentRect`         | interface | yes       | yes   |
+| `cullToViewport`      | function  | no        | yes   |
+| `routeNestedScroll`   | function  | no        | yes   |
+| `scrollChildIntoView` | function  | no        | yes   |
+| `StickyEdgeScroll`    | class     | no        | yes   |
+| `WheelAcceleration`   | class     | no        | yes   |
 
 ### src/components/slider.ts
 
@@ -3170,6 +4540,27 @@ _Entrypoints: `.`, `./web`_
 | `TerminalOutputSource`            | type      | yes       | yes   |
 | `visibleTerminalOutputLines`      | function  | no        | yes   |
 
+### src/components/terminal_screen.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `TerminalScreen`                 | class     | no        | yes   |
+| `TerminalScreenColors`           | interface | yes       | yes   |
+| `TerminalScreenComponentOptions` | interface | yes       | yes   |
+
+### src/components/text_area.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `TextAreaAction`     | type      | yes       | yes   |
+| `TextAreaController` | class     | no        | yes   |
+| `TextAreaRow`        | interface | yes       | yes   |
+| `TextAreaWrapMode`   | type      | yes       | yes   |
+
 ### src/components/text.ts
 
 _Entrypoints: `.`, `./app`, `./web`_
@@ -3250,6 +4641,8 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `TreeOptions`           | interface | yes       | yes   |
 | `TreeRow`               | interface | yes       | yes   |
 | `TreeRowInspection`     | interface | yes       | yes   |
+| `TreeRowMarker`         | type      | yes       | yes   |
+| `TreeRowStyle`          | type      | yes       | yes   |
 
 ### src/components/virtual_list.ts
 
@@ -3336,6 +4729,149 @@ _Entrypoints: `.`, `./web`, `./theme`_
 | `GrWizardThemePalette`           | interface | yes       | yes   |
 | `grWizardThemePaletteDefinition` | function  | no        | yes   |
 | `grWizardThemePalettes`          | const     | no        | yes   |
+
+### src/i18n/formatters.ts
+
+_Entrypoints: `.`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `createLocaleFormatterRegistry`  | function  | no        | yes   |
+| `LocaleDurationValue`            | interface | yes       | yes   |
+| `LocaleFormatterInspection`      | interface | yes       | yes   |
+| `LocaleFormatterRegistry`        | class     | no        | yes   |
+| `LocaleFormatterRegistryOptions` | interface | yes       | yes   |
+
+### src/i18n/locale_scopes.ts
+
+_Entrypoints: `.`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `createLocaleScopeTree` | function  | no        | yes   |
+| `LocaleScopeOverride`   | interface | yes       | yes   |
+| `LocaleScopeTree`       | class     | no        | yes   |
+| `ResolvedLocaleScope`   | interface | yes       | yes   |
+
+### src/i18n/locale.ts
+
+_Entrypoints: `.`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createUnicodeLocaleContext`  | function  | no        | yes   |
+| `UnicodeLocaleContext`        | class     | no        | yes   |
+| `UnicodeLocaleContextOptions` | interface | yes       | yes   |
+| `unicodeLocaleFallbackChain`  | function  | no        | yes   |
+| `UnicodeLocaleInvalidTag`     | interface | yes       | yes   |
+| `UnicodeLocaleResolution`     | interface | yes       | yes   |
+
+### src/i18n/message_format.ts
+
+_Entrypoints: `.`_
+
+| Symbol                                | Kind      | Type Only | JSDoc |
+| ------------------------------------- | --------- | --------- | ----- |
+| `analyzeMessageFormat`                | function  | no        | yes   |
+| `compileMessageFormat`                | function  | no        | yes   |
+| `createMessageFormatFunctionRegistry` | function  | no        | yes   |
+| `MessageFormat`                       | class     | no        | yes   |
+| `MessageFormatAnalysis`               | interface | yes       | yes   |
+| `MessageFormatFunction`               | type      | yes       | yes   |
+| `MessageFormatFunctionRegistry`       | class     | no        | yes   |
+| `MessageFormatPart`                   | interface | yes       | yes   |
+| `MessageFormatValue`                  | interface | yes       | yes   |
+
+### src/i18n/message_lint.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `extractMessageUsages` | function  | no        | yes   |
+| `lintMessages`         | function  | no        | yes   |
+| `MessageLintFinding`   | interface | yes       | yes   |
+| `MessageLintOptions`   | interface | yes       | yes   |
+| `MessageUsage`         | interface | yes       | yes   |
+
+### src/i18n/messages.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createMessageBundleRegistry`  | function  | no        | yes   |
+| `MessageBundleChunk`           | interface | yes       | yes   |
+| `MessageBundleDiagnostic`      | interface | yes       | yes   |
+| `MessageBundleRegistry`        | class     | no        | yes   |
+| `MessageBundleRegistryOptions` | interface | yes       | yes   |
+| `MessageChunkLoader`           | type      | yes       | yes   |
+| `MessageProvenance`            | type      | yes       | yes   |
+| `MessageResolution`            | interface | yes       | yes   |
+
+### src/i18n/missing_translation_telemetry.ts
+
+_Entrypoints: `.`_
+
+| Symbol                              | Kind      | Type Only | JSDoc |
+| ----------------------------------- | --------- | --------- | ----- |
+| `createMissingTranslationTelemetry` | function  | no        | yes   |
+| `MissingTranslationReport`          | interface | yes       | yes   |
+| `MissingTranslationTelemetry`       | class     | no        | yes   |
+
+### src/i18n/mod.ts
+
+_Entrypoints: `.`_
+
+| Re-export Target                            | Kind | Names |
+| ------------------------------------------- | ---- | ----- |
+| `src/i18n/formatters.ts`                    | star | -     |
+| `src/i18n/locale.ts`                        | star | -     |
+| `src/i18n/locale_scopes.ts`                 | star | -     |
+| `src/i18n/message_format.ts`                | star | -     |
+| `src/i18n/message_lint.ts`                  | star | -     |
+| `src/i18n/messages.ts`                      | star | -     |
+| `src/i18n/missing_translation_telemetry.ts` | star | -     |
+| `src/i18n/pseudo_locales.ts`                | star | -     |
+| `src/i18n/reactive_locale.ts`               | star | -     |
+| `src/i18n/width_variants.ts`                | star | -     |
+
+_No direct exported symbols._
+
+### src/i18n/pseudo_locales.ts
+
+_Entrypoints: `.`_
+
+| Symbol               | Kind     | Type Only | JSDoc |
+| -------------------- | -------- | --------- | ----- |
+| `PSEUDO_LOCALE_TAGS` | const    | no        | yes   |
+| `PseudoLocaleKind`   | type     | yes       | yes   |
+| `pseudoLocaleLoader` | function | no        | yes   |
+| `pseudoLocalizeText` | function | no        | yes   |
+
+### src/i18n/reactive_locale.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createReactiveLocaleService`  | function  | no        | yes   |
+| `LocaleSwitchReport`           | interface | yes       | yes   |
+| `LocaleWorld`                  | interface | yes       | yes   |
+| `ReactiveLocaleService`        | class     | no        | yes   |
+| `ReactiveLocaleServiceOptions` | interface | yes       | yes   |
+
+### src/i18n/width_variants.ts
+
+_Entrypoints: `.`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `clipToCells`           | function  | no        | yes   |
+| `measureCells`          | function  | no        | yes   |
+| `selectWidthVariant`    | function  | no        | yes   |
+| `WidthVariant`          | interface | yes       | yes   |
+| `WidthVariantSelection` | interface | yes       | yes   |
 
 ### src/input_envelope.ts
 
@@ -3607,6 +5143,7 @@ _Entrypoints: `.`, `./web`_
 | `LayoutMeasurementCacheOptions`           | interface | yes       | yes   |
 | `LayoutMeasurementCacheStats`             | interface | yes       | yes   |
 | `measureTerminalTextIntrinsic`            | function  | no        | yes   |
+| `measureTerminalTextMinContentWidth`      | function  | no        | yes   |
 | `TerminalTextIntrinsicMeasurementOptions` | interface | yes       | yes   |
 
 ### src/layout/mod.ts
@@ -3740,6 +5277,15 @@ _Entrypoints: `.`, `./web`_
 | `SimpleLayoutSolver`        | class     | no        | yes   |
 | `SimpleLayoutSolverOptions` | interface | yes       | yes   |
 
+### src/layout/solvers/taffy_wasm.ts
+
+_Entrypoints: `./layout/taffy-wasm`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `taffyWasmLayoutSolver` | function | no        | yes   |
+| `TaffyWasmLayoutSolver` | class    | no        | yes   |
+
 ### src/layout/solvers/taffy.ts
 
 _Entrypoints: `./layout/taffy`_
@@ -3803,43 +5349,63 @@ _Entrypoints: `.`, `./app`, `./web`_
 
 _Entrypoints: `.`, `./web`_
 
-| Symbol                       | Kind      | Type Only | JSDoc |
-| ---------------------------- | --------- | --------- | ----- |
-| `applyLayoutDeclaration`     | function  | no        | yes   |
-| `applyLayoutDeclarations`    | function  | no        | yes   |
-| `AUTO_LAYOUT_LENGTH`         | const     | no        | yes   |
-| `autoLength`                 | function  | no        | yes   |
-| `BoxEdges`                   | interface | yes       | yes   |
-| `cellLength`                 | function  | no        | yes   |
-| `clampLayoutSize`            | function  | no        | yes   |
-| `cloneComputedLayoutStyle`   | function  | no        | yes   |
-| `ComputedLayoutStyle`        | interface | yes       | yes   |
-| `defaultComputedLayoutStyle` | function  | no        | yes   |
-| `frLength`                   | function  | no        | yes   |
-| `LayoutAlignContent`         | type      | yes       | yes   |
-| `LayoutAlignItems`           | type      | yes       | yes   |
-| `LayoutBoxSizing`            | type      | yes       | yes   |
-| `LayoutDisplay`              | type      | yes       | yes   |
-| `LayoutFlexDirection`        | type      | yes       | yes   |
-| `LayoutFlexWrap`             | type      | yes       | yes   |
-| `LayoutGridAutoFlow`         | type      | yes       | yes   |
-| `LayoutGridPlacement`        | interface | yes       | yes   |
-| `LayoutJustifyContent`       | type      | yes       | yes   |
-| `LayoutLengthValue`          | interface | yes       | yes   |
-| `LayoutOverflow`             | type      | yes       | yes   |
-| `LayoutOverflowWrap`         | type      | yes       | yes   |
-| `LayoutPosition`             | type      | yes       | yes   |
-| `LayoutSelfAlignment`        | type      | yes       | yes   |
-| `LayoutVisibility`           | type      | yes       | yes   |
-| `LayoutWhiteSpace`           | type      | yes       | yes   |
-| `parseBoxEdges`              | function  | no        | yes   |
-| `parseGridPlacement`         | function  | no        | yes   |
-| `parseGridTrackList`         | function  | no        | yes   |
-| `parseLayoutInteger`         | function  | no        | yes   |
-| `parseLayoutLength`          | function  | no        | yes   |
-| `percentLength`              | function  | no        | yes   |
-| `resolveLayoutLength`        | function  | no        | yes   |
-| `ZERO_BOX_EDGES`             | const     | no        | yes   |
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `applyLayoutDeclaration`         | function  | no        | yes   |
+| `applyLayoutDeclarations`        | function  | no        | yes   |
+| `AUTO_LAYOUT_LENGTH`             | const     | no        | yes   |
+| `autoLength`                     | function  | no        | yes   |
+| `BoxEdges`                       | interface | yes       | yes   |
+| `calcLength`                     | function  | no        | yes   |
+| `cellLength`                     | function  | no        | yes   |
+| `clampLayoutSize`                | function  | no        | yes   |
+| `cloneComputedLayoutStyle`       | function  | no        | yes   |
+| `ComputedLayoutStyle`            | interface | yes       | yes   |
+| `defaultComputedLayoutStyle`     | function  | no        | yes   |
+| `frLength`                       | function  | no        | yes   |
+| `GRID_DENSE_PLACEMENT_SEMANTICS` | const     | no        | yes   |
+| `isIntrinsicLayoutLengthUnit`    | function  | no        | yes   |
+| `LAYOUT_CALC_TERM_LIMIT`         | const     | no        | yes   |
+| `LAYOUT_HATCH_PATTERNS`          | const     | no        | yes   |
+| `LayoutAlignContent`             | type      | yes       | yes   |
+| `LayoutAlignItems`               | type      | yes       | yes   |
+| `LayoutBoxSizing`                | type      | yes       | yes   |
+| `LayoutCalcTerm`                 | interface | yes       | yes   |
+| `LayoutCalcUnit`                 | type      | yes       | yes   |
+| `LayoutDisplay`                  | type      | yes       | yes   |
+| `LayoutDock`                     | type      | yes       | yes   |
+| `LayoutFlexDirection`            | type      | yes       | yes   |
+| `LayoutFlexWrap`                 | type      | yes       | yes   |
+| `LayoutGridAutoFlow`             | type      | yes       | yes   |
+| `LayoutGridAutoRepeat`           | interface | yes       | yes   |
+| `LayoutGridPlacement`            | interface | yes       | yes   |
+| `LayoutGridTrackTemplate`        | interface | yes       | yes   |
+| `LayoutHatch`                    | interface | yes       | yes   |
+| `LayoutHorizontalAlign`          | type      | yes       | yes   |
+| `LayoutJustifyContent`           | type      | yes       | yes   |
+| `LayoutLengthResolutionContext`  | interface | yes       | yes   |
+| `LayoutLengthValue`              | interface | yes       | yes   |
+| `LayoutOverflow`                 | type      | yes       | yes   |
+| `LayoutOverflowWrap`             | type      | yes       | yes   |
+| `LayoutPosition`                 | type      | yes       | yes   |
+| `LayoutSelfAlignment`            | type      | yes       | yes   |
+| `LayoutTitleAlign`               | type      | yes       | yes   |
+| `LayoutVerticalAlign`            | type      | yes       | yes   |
+| `LayoutVisibility`               | type      | yes       | yes   |
+| `LayoutWhiteSpace`               | type      | yes       | yes   |
+| `LOGICAL_EDGE_MODEL`             | const     | no        | yes   |
+| `parseBoxEdges`                  | function  | no        | yes   |
+| `parseGridPlacement`             | function  | no        | yes   |
+| `parseGridTemplateTrackList`     | function  | no        | yes   |
+| `parseGridTrackList`             | function  | no        | yes   |
+| `parseLayoutInteger`             | function  | no        | yes   |
+| `parseLayoutLength`              | function  | no        | yes   |
+| `percentLength`                  | function  | no        | yes   |
+| `resolveGridTemplateArea`        | function  | no        | yes   |
+| `resolveLayoutLength`            | function  | no        | yes   |
+| `resolveLogicalLayoutEdges`      | function  | no        | yes   |
+| `resolveNamedGridPlacement`      | function  | no        | yes   |
+| `ZERO_BOX_EDGES`                 | const     | no        | yes   |
 
 ### src/layout/taffy.ts
 
@@ -3929,9 +5495,11 @@ _Entrypoints: `.`, `./web`_
 | `AppliedTuiCssDeclaration` | interface | yes       | yes   |
 | `applyCssCascade`          | function  | no        | yes   |
 | `ApplyCssCascadeOptions`   | interface | yes       | yes   |
+| `applyCssCascadeSubtree`   | function  | no        | yes   |
 | `matchesCssMedia`          | function  | no        | yes   |
 | `matchesCssSelector`       | function  | no        | yes   |
 | `resolveCssVariables`      | function  | no        | yes   |
+| `TuiCssEnvironment`        | interface | yes       | yes   |
 | `TuiCssNodeState`          | type      | yes       | yes   |
 | `TuiCssViewport`           | interface | yes       | yes   |
 
@@ -3967,6 +5535,25 @@ _Entrypoints: `.`, `./web`_
 | `htmlCssLayoutDemoMarkup`   | const     | no        | yes   |
 | `HtmlCssLayoutDemoOptions`  | interface | yes       | yes   |
 
+### src/markup/hot_reload.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `cssHotReloadDiagnostics`          | function  | no        | yes   |
+| `MarkupHotReloadController`        | class     | no        | yes   |
+| `MarkupHotReloadControllerOptions` | interface | yes       | yes   |
+| `MarkupHotReloadDiagnostic`        | interface | yes       | yes   |
+| `markupHotReloadDiagnostics`       | function  | no        | yes   |
+| `MarkupHotReloadInspection`        | interface | yes       | yes   |
+| `MarkupHotReloadResult`            | interface | yes       | yes   |
+| `MarkupHotReloadSource`            | interface | yes       | yes   |
+| `MarkupHotReloadWatchIo`           | interface | yes       | yes   |
+| `MarkupHotReloadWatchOptions`      | interface | yes       | yes   |
+| `validateMarkupHotReloadSource`    | function  | no        | yes   |
+| `watchMarkupHotReload`             | function  | no        | yes   |
+
 ### src/markup/html.ts
 
 _Entrypoints: `.`, `./web`_
@@ -3989,6 +5576,20 @@ _Entrypoints: `.`, `./web`_
 | `MarkupLayoutOptions`      | interface | yes       | yes   |
 | `MarkupLayoutResult`       | interface | yes       | yes   |
 
+### src/markup/jsx.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `createJsxReconciler` | function  | no        | yes   |
+| `Fragment`            | const     | no        | yes   |
+| `h`                   | function  | no        | yes   |
+| `jsx`                 | function  | no        | yes   |
+| `JsxElement`          | interface | yes       | yes   |
+| `JsxReconciler`       | class     | no        | yes   |
+| `jsxs`                | const     | no        | yes   |
+
 ### src/markup/layout_worker.ts
 
 _Entrypoints: `.`, `./web`_
@@ -4003,6 +5604,65 @@ _Entrypoints: `.`, `./web`_
 | `MarkupLayoutWorkerResult`         | interface | yes       | yes   |
 | `runMarkupLayoutInWorker`          | function  | no        | yes   |
 
+### src/markup/live_dispatch.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createLiveMarkupDispatcher` | function  | no        | yes   |
+| `LiveMarkupDispatcher`       | class     | no        | yes   |
+| `LiveMarkupDispatchResult`   | interface | yes       | yes   |
+| `LiveMarkupEvent`            | interface | yes       | yes   |
+| `LiveMarkupEventContext`     | interface | yes       | yes   |
+| `LiveMarkupHandler`          | type      | yes       | yes   |
+
+### src/markup/live_host.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createLiveMarkupHost`   | function  | no        | yes   |
+| `LiveMarkupCommit`       | interface | yes       | yes   |
+| `LiveMarkupHost`         | class     | no        | yes   |
+| `LiveMarkupHostDispatch` | interface | yes       | yes   |
+| `LiveMarkupHostOptions`  | interface | yes       | yes   |
+
+### src/markup/live_invalidation.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createLiveMarkupInvalidator` | function  | no        | yes   |
+| `LiveMarkupDirtyReason`       | type      | yes       | yes   |
+| `LiveMarkupDirtyRoot`         | interface | yes       | yes   |
+| `LiveMarkupInvalidator`       | class     | no        | yes   |
+
+### src/markup/live_styling.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createLiveMarkupStyler`     | function  | no        | yes   |
+| `LiveMarkupRestyleResult`    | interface | yes       | yes   |
+| `LiveMarkupStyler`           | class     | no        | yes   |
+| `LiveMarkupStylerInspection` | interface | yes       | yes   |
+
+### src/markup/live_tree.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createLiveMarkupTree`   | function  | no        | yes   |
+| `LiveMarkupMutation`     | interface | yes       | yes   |
+| `LiveMarkupQueryOptions` | interface | yes       | yes   |
+| `LiveMarkupTree`         | class     | no        | yes   |
+| `LiveMarkupTreeOptions`  | interface | yes       | yes   |
+
 ### src/markup/mod.ts
 
 _Entrypoints: `.`, `./web`_
@@ -4012,9 +5672,17 @@ _Entrypoints: `.`, `./web`_
 | `src/markup/cascade.ts`             | star | -     |
 | `src/markup/css.ts`                 | star | -     |
 | `src/markup/demo_fixtures.ts`       | star | -     |
+| `src/markup/hot_reload.ts`          | star | -     |
 | `src/markup/html.ts`                | star | -     |
+| `src/markup/jsx.ts`                 | star | -     |
 | `src/markup/hydrate.ts`             | star | -     |
 | `src/markup/layout_worker.ts`       | star | -     |
+| `src/markup/live_dispatch.ts`       | star | -     |
+| `src/markup/live_host.ts`           | star | -     |
+| `src/markup/live_invalidation.ts`   | star | -     |
+| `src/markup/live_styling.ts`        | star | -     |
+| `src/markup/live_tree.ts`           | star | -     |
+| `src/markup/rehydrate.ts`           | star | -     |
 | `src/markup/support.ts`             | star | -     |
 | `src/markup/widgets.ts`             | star | -     |
 | `src/markup/window_history.ts`      | star | -     |
@@ -4022,6 +5690,15 @@ _Entrypoints: `.`, `./web`_
 | `src/markup/windows.ts`             | star | -     |
 
 _No direct exported symbols._
+
+### src/markup/rehydrate.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `MarkupRehydrationResult` | interface | yes       | yes   |
+| `rehydrateMarkupWidgets`  | function  | no        | yes   |
 
 ### src/markup/support.ts
 
@@ -4039,6 +5716,7 @@ _Entrypoints: `.`, `./web`_
 | Symbol                              | Kind      | Type Only | JSDoc |
 | ----------------------------------- | --------- | --------- | ----- |
 | `createDefaultMarkupWidgetRegistry` | function  | no        | yes   |
+| `defaultActionsForKind`             | function  | no        | yes   |
 | `dispatchMarkupWidgetEvent`         | function  | no        | yes   |
 | `HydratedMarkupWidget`              | interface | yes       | yes   |
 | `HydratedMarkupWidgetInspection`    | interface | yes       | yes   |
@@ -4092,6 +5770,7 @@ _Entrypoints: `.`, `./web`_
 | `MarkupWindowInteractionMode`              | type      | yes       | yes   |
 | `MarkupWindowInteractionResult`            | interface | yes       | yes   |
 | `MarkupWindowInteractionStatus`            | type      | yes       | yes   |
+| `markupWindowSnapTargetAtPoint`            | function  | no        | yes   |
 
 ### src/markup/windows.ts
 
@@ -4159,6 +5838,135 @@ _Entrypoints: `.`, `./web`_
 | `queryBenchmarkCases`             | function  | no        | yes   |
 | `summarizeBenchmarkResults`       | function  | no        | yes   |
 | `summarizeBestBenchmarkSummaries` | function  | no        | yes   |
+
+### src/perf/cache_budget.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `BudgetedCache`                | interface | yes       | yes   |
+| `CacheBudgetCoordinator`       | class     | no        | yes   |
+| `ChargeResult`                 | type      | yes       | yes   |
+| `createCacheBudgetCoordinator` | function  | no        | yes   |
+
+### src/perf/diff_planner.ts
+
+_Entrypoints: `.`_
+
+| Symbol          | Kind      | Type Only | JSDoc |
+| --------------- | --------- | --------- | ----- |
+| `DiffStrategy`  | type      | yes       | yes   |
+| `FrameDiffPlan` | interface | yes       | yes   |
+| `planFrameDiff` | function  | no        | yes   |
+| `RowDiffPlan`   | interface | yes       | yes   |
+
+### src/perf/entrypoint_budget.ts
+
+_Entrypoints: `.`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `BudgetBaseline`           | type      | yes       | yes   |
+| `BudgetImprovement`        | interface | yes       | yes   |
+| `BudgetIncrease`           | interface | yes       | yes   |
+| `BudgetReport`             | interface | yes       | yes   |
+| `compareEntrypointBudgets` | function  | no        | yes   |
+| `EntrypointInventory`      | interface | yes       | yes   |
+| `inventoryFromDenoInfo`    | function  | no        | yes   |
+
+### src/perf/frame_cadence.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createFrameCadenceController` | function  | no        | yes   |
+| `FrameCadenceController`       | class     | no        | yes   |
+| `FrameCadenceOptions`          | interface | yes       | yes   |
+
+### src/perf/frame_packets.ts
+
+_Entrypoints: `.`_
+
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `FramePacket`       | interface | yes       | yes   |
+| `PackedCellInput`   | interface | yes       | yes   |
+| `packFramePacket`   | function  | no        | yes   |
+| `unpackFramePacket` | function  | no        | yes   |
+| `UnpackResult`      | type      | yes       | yes   |
+
+### src/perf/incremental_serialization.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `decodeSerialized`     | function  | no        | yes   |
+| `SerializedNode`       | interface | yes       | yes   |
+| `SerializedSnapshot`   | type      | yes       | yes   |
+| `serializeIncremental` | function  | no        | yes   |
+| `serializeSnapshot`    | function  | no        | yes   |
+| `SnapshotSections`     | interface | yes       | yes   |
+
+### src/perf/layout_benchmarks.ts
+
+_Entrypoints: `.`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `buildBenchmarkTree`     | function  | no        | yes   |
+| `LAYOUT_BENCHMARK_SUITE` | const     | no        | yes   |
+| `LayoutBenchmarkResult`  | interface | yes       | yes   |
+| `LayoutBenchmarkSpec`    | interface | yes       | yes   |
+| `runLayoutBenchmark`     | function  | no        | yes   |
+
+### src/perf/pools.ts
+
+_Entrypoints: `.`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `BufferPool`         | class     | no        | yes   |
+| `createBufferPool`   | function  | no        | yes   |
+| `PoolLease`          | interface | yes       | yes   |
+| `PoolOwnershipError` | class     | no        | yes   |
+| `PoolStats`          | interface | yes       | yes   |
+
+### src/perf/profile_tuner.ts
+
+_Entrypoints: `.`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createRuntimeProfileTuner` | function  | no        | yes   |
+| `CurrentProfile`            | interface | yes       | yes   |
+| `ProfileRecommendation`     | interface | yes       | yes   |
+| `ProfileSample`             | interface | yes       | yes   |
+| `RuntimeProfileTuner`       | class     | no        | yes   |
+
+### src/perf/versioned_cache.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `CacheMetrics`            | interface | yes       | yes   |
+| `createMeasurementCaches` | function  | no        | yes   |
+| `MeasurementCaches`       | interface | yes       | yes   |
+| `VersionedCache`          | class     | no        | yes   |
+
+### src/perf/write_coalescer.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createTerminalWriteCoalescer` | function  | no        | yes   |
+| `TerminalWriteCoalescer`       | class     | no        | yes   |
+| `WriteChunkKind`               | type      | yes       | yes   |
+| `WriteSink`                    | interface | yes       | yes   |
 
 ### src/permissions.ts
 
@@ -4254,6 +6062,54 @@ _Entrypoints: `.`, `./web`_
 | `TERMINAL_MOUSE_POINTER_ID`          | const     | no        | yes   |
 | `TerminalMousePointerAdapterOptions` | interface | yes       | yes   |
 
+### src/remote/adaptive_quality.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `AdaptiveQualityController`       | class     | no        | yes   |
+| `AdaptiveQualityOptions`          | interface | yes       | yes   |
+| `createAdaptiveQualityController` | function  | no        | yes   |
+| `DEFAULT_QUALITY_LADDER`          | const     | no        | yes   |
+| `LinkSample`                      | interface | yes       | yes   |
+| `QualityColorDepth`               | type      | yes       | yes   |
+| `QualityFloors`                   | interface | yes       | yes   |
+| `QualityLevel`                    | interface | yes       | yes   |
+| `QualityTransition`               | interface | yes       | yes   |
+
+### src/remote/frame_codec.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `applyCellFrameDelta`  | function  | no        | yes   |
+| `CellFrame`            | interface | yes       | yes   |
+| `CellRun`              | interface | yes       | yes   |
+| `decodeCellFrame`      | function  | no        | yes   |
+| `DecodeResult`         | type      | yes       | yes   |
+| `DeltaSpan`            | interface | yes       | yes   |
+| `encodeCellFrame`      | function  | no        | yes   |
+| `encodeCellFrameDelta` | function  | no        | yes   |
+| `EncodedDeltaFrame`    | interface | yes       | yes   |
+| `EncodedFrame`         | type      | yes       | no    |
+| `EncodedFullFrame`     | interface | yes       | yes   |
+| `FRAME_CODEC_VERSION`  | const     | no        | yes   |
+| `frameChecksum`        | function  | no        | yes   |
+| `StyledCell`           | interface | yes       | yes   |
+
+### src/remote/frame_flow.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createFrameFlowController` | function  | no        | yes   |
+| `FrameFlowController`       | class     | no        | yes   |
+| `FrameFlowOptions`          | interface | yes       | yes   |
+| `SequencedFrame`            | interface | yes       | yes   |
+
 ### src/remote/handshake.ts
 
 _Entrypoints: `./web`, `./remote`_
@@ -4288,6 +6144,81 @@ _Entrypoints: `./web`, `./remote`_
 | `RemoteProtocolVersion`               | interface | yes       | yes   |
 | `ResolvedRemoteHandshakeLimits`       | interface | yes       | yes   |
 | `resolveRemoteHandshakeLimits`        | function  | no        | yes   |
+
+### src/remote/input_sequencing.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createRemoteInputSequencer` | function  | no        | yes   |
+| `InputSequencerOptions`      | interface | yes       | yes   |
+| `InputSubmissionOutcome`     | type      | yes       | yes   |
+| `InputSubmissionReport`      | interface | yes       | yes   |
+| `RemoteInputSequencer`       | class     | no        | yes   |
+
+### src/remote/multi_client.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createMultiClientSession` | function  | no        | yes   |
+| `MultiClientPolicy`        | interface | yes       | yes   |
+| `MultiClientSession`       | class     | no        | yes   |
+| `Participant`              | interface | yes       | yes   |
+| `SessionAnnouncement`      | interface | yes       | yes   |
+
+### src/remote/session_auth.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `AuthDecision`                 | type      | yes       | yes   |
+| `Authenticator`                | type      | yes       | yes   |
+| `createRemoteSessionAuthority` | function  | no        | yes   |
+| `RemoteSessionAuthority`       | class     | no        | yes   |
+| `SessionCapability`            | type      | yes       | yes   |
+| `SessionPrincipal`             | interface | yes       | yes   |
+| `SessionRole`                  | type      | yes       | yes   |
+
+### src/remote/session_lifecycle.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createSessionLifecycleManager` | function  | no        | yes   |
+| `SessionBackend`                | interface | yes       | yes   |
+| `SessionLifecycleManager`       | class     | no        | yes   |
+| `SessionLifecyclePolicy`        | interface | yes       | yes   |
+| `TerminationReason`             | type      | yes       | yes   |
+| `TerminationRecord`             | interface | yes       | yes   |
+
+### src/remote/session_resume.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createSessionResumeManager` | function  | no        | yes   |
+| `ResumeResult`               | type      | yes       | yes   |
+| `SessionCheckpoint`          | interface | yes       | yes   |
+| `SessionResumeManager`       | class     | no        | yes   |
+
+### src/remote/transport_policy.ts
+
+_Entrypoints: `./remote`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createSecureTransportPolicy` | function  | no        | yes   |
+| `SecureTransportPolicy`       | class     | no        | yes   |
+| `TransportCandidate`          | interface | yes       | yes   |
+| `TransportPolicyOptions`      | interface | yes       | yes   |
+| `TransportVerdict`            | type      | yes       | yes   |
+| `VerifiedTransportIdentity`   | interface | yes       | yes   |
 
 ### src/runtime/async_channel.ts
 
@@ -4357,6 +6288,16 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `windowAsyncIterable`                     | function  | no        | yes   |
 | `WindowAsyncIterableOptions`              | interface | yes       | yes   |
 
+### src/runtime/cache_tags.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `CacheInvalidationReport` | interface | yes       | yes   |
+| `createTaggedCacheIndex`  | function  | no        | yes   |
+| `TaggedCacheIndex`        | class     | no        | yes   |
+
 ### src/runtime/capabilities.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -4379,6 +6320,19 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `RuntimeStorageStrategy`       | type      | yes       | yes   |
 | `RuntimeWorkerStrategy`        | type      | yes       | yes   |
 | `summarizeRuntimeCapabilities` | function  | no        | yes   |
+
+### src/runtime/cell_screen.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `CellAttributes`     | interface | yes       | yes   |
+| `CellRect`           | interface | yes       | yes   |
+| `CellScreen`         | class     | no        | yes   |
+| `createCellScreen`   | function  | no        | yes   |
+| `DEFAULT_ATTRIBUTES` | const     | no        | yes   |
+| `ScreenCell`         | interface | yes       | yes   |
 
 ### src/runtime/clock.ts
 
@@ -4409,6 +6363,35 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `VirtualTimerAdvanceResult`     | interface | yes       | yes   |
 | `VirtualTimerScheduler`         | class     | no        | yes   |
 | `VirtualTimerSchedulerOptions`  | interface | yes       | yes   |
+
+### src/runtime/conflict_resolvers.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `Conflict`             | interface | yes       | yes   |
+| `ConflictLedger`       | class     | no        | yes   |
+| `ConflictResolution`   | type      | yes       | yes   |
+| `ConflictResolver`     | type      | yes       | yes   |
+| `createConflictLedger` | function  | no        | yes   |
+| `fieldMergeResolver`   | function  | no        | yes   |
+| `lastWriteResolver`    | function  | no        | yes   |
+| `rejectResolver`       | function  | no        | yes   |
+| `threeWayResolver`     | function  | no        | yes   |
+
+### src/runtime/core_metrics.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `CORE_METRICS`         | const     | no        | yes   |
+| `CoreMetricName`       | type      | yes       | yes   |
+| `CoreMetrics`          | class     | no        | yes   |
+| `CoreMetricsOptions`   | interface | yes       | yes   |
+| `createCoreMetrics`    | function  | no        | yes   |
+| `MetricAttributeError` | class     | no        | yes   |
 
 ### src/runtime/data_pipeline_bindings.ts
 
@@ -4538,6 +6521,30 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `WorkbenchKittyGraphicsSelection`               | interface | yes       | yes   |
 | `WorkbenchKittyGraphicsStatusOptions`           | interface | yes       | yes   |
 
+### src/runtime/health_snapshot.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `ClassifiedFailure`   | interface | yes       | yes   |
+| `createHealthMonitor` | function  | no        | yes   |
+| `HealthMonitor`       | class     | no        | yes   |
+| `HealthSnapshot`      | interface | yes       | yes   |
+| `SubsystemHealth`     | interface | yes       | yes   |
+
+### src/runtime/infinite_query.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createInfiniteQueryController` | function  | no        | yes   |
+| `InfiniteQueryController`       | class     | no        | yes   |
+| `InfiniteQueryFetcher`          | type      | yes       | yes   |
+| `InfiniteQueryOptions`          | interface | yes       | yes   |
+| `InfiniteQueryPage`             | interface | yes       | yes   |
+
 ### src/runtime/kitty_graphics.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -4569,6 +6576,34 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `KittyGraphicsTransmissionMedium`     | type      | yes       | yes   |
 | `KittyGraphicsTransmitOptions`        | interface | yes       | yes   |
 | `wrapKittyGraphicsForTmux`            | function  | no        | yes   |
+
+### src/runtime/kitty_keyboard.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createKittyKeyboardDecoder` | function  | no        | yes   |
+| `KITTY_KEYBOARD_APP_FLAGS`   | const     | no        | yes   |
+| `KITTY_KEYBOARD_FLAGS`       | const     | no        | yes   |
+| `kittyKeyboardEnterSequence` | function  | no        | yes   |
+| `kittyKeyboardExitSequence`  | function  | no        | yes   |
+| `kittyKeyboardQuerySequence` | function  | no        | yes   |
+| `KittyKeyEvent`              | interface | yes       | yes   |
+| `kittyShortcutKey`           | function  | no        | yes   |
+| `parseKittyKey`              | function  | no        | yes   |
+
+### src/runtime/line_attributes.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createLineAttributeScreen` | function  | no        | yes   |
+| `LineAttribute`             | type      | yes       | yes   |
+| `LineAttributeScreen`       | class     | no        | yes   |
+| `LogicalLine`               | interface | yes       | yes   |
+| `RenderedLine`              | interface | yes       | yes   |
 
 ### src/runtime/mod.ts
 
@@ -4604,17 +6639,154 @@ _Entrypoints: `.`, `./runtime`_
 | `src/runtime/terminal_templates.ts`        | star | -     |
 | `src/runtime/terminal_status.ts`           | star | -     |
 | `src/runtime/process_session.ts`           | star | -     |
+| `src/runtime/terminal_palette.ts`          | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
 | `src/runtime/terminal_shell.ts`            | star | -     |
 | `src/runtime/terminal_shell_workspace.ts`  | star | -     |
 | `src/runtime/terminal_session.ts`          | star | -     |
 | `src/runtime/terminal_services.ts`         | star | -     |
+| `src/runtime/cache_tags.ts`                | star | -     |
+| `src/runtime/conflict_resolvers.ts`        | star | -     |
+| `src/runtime/health_snapshot.ts`           | star | -     |
+| `src/runtime/infinite_query.ts`            | star | -     |
+| `src/runtime/mutations.ts`                 | star | -     |
+| `src/runtime/core_metrics.ts`              | star | -     |
+| `src/runtime/observability.ts`             | star | -     |
+| `src/runtime/observability_context.ts`     | star | -     |
+| `src/runtime/offline_queue.ts`             | star | -     |
+| `src/runtime/priority_scheduler.ts`        | star | -     |
+| `src/runtime/rate_limiter.ts`              | star | -     |
+| `src/runtime/permission_adapters.ts`       | star | -     |
+| `src/runtime/resource_limits.ts`           | star | -     |
+| `src/runtime/cell_screen.ts`               | star | -     |
+| `src/runtime/selective_erase.ts`           | star | -     |
+| `src/runtime/line_attributes.ts`           | star | -     |
+| `src/runtime/reflow_screen.ts`             | star | -     |
+| `src/runtime/terminal_margins.ts`          | star | -     |
+| `src/runtime/terminal_parser.ts`           | star | -     |
+| `src/runtime/terminal_operations.ts`       | star | -     |
+| `src/runtime/terminal_passthrough.ts`      | star | -     |
+| `src/runtime/terminal_queries.ts`          | star | -     |
+| `src/runtime/terminal_sanitizer.ts`        | star | -     |
+| `src/runtime/retry_policy.ts`              | star | -     |
+| `src/runtime/signal_exporters.ts`          | star | -     |
+| `src/runtime/signal_redaction.ts`          | star | -     |
+| `src/runtime/span_instrumentation.ts`      | star | -     |
+| `src/runtime/stream_resource.ts`           | star | -     |
+| `src/runtime/structured_logs.ts`           | star | -     |
+| `src/runtime/supervisor.ts`                | star | -     |
+| `src/runtime/support_bundle.ts`            | star | -     |
+| `src/runtime/task_context.ts`              | star | -     |
+| `src/runtime/timeline.ts`                  | star | -     |
+| `src/runtime/trace_sampling.ts`            | star | -     |
+| `src/runtime/worker_protocol.ts`           | star | -     |
 | `src/runtime/task_group.ts`                | star | -     |
 | `src/runtime/terminal_workspace.ts`        | star | -     |
 | `src/runtime/worker_pool.ts`               | star | -     |
+| `src/runtime/screen_mode_policy.ts`        | star | -     |
+| `src/runtime/offscreen_surface.ts`         | star | -     |
+| `src/runtime/kitty_keyboard.ts`            | star | -     |
+| `src/runtime/render_accounting.ts`         | star | -     |
+| `src/runtime/stream_ownership.ts`          | star | -     |
 
 _No direct exported symbols._
+
+### src/runtime/mutations.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createMutationResource` | function  | no        | yes   |
+| `MutationOutcome`        | interface | yes       | yes   |
+| `MutationRequest`        | interface | yes       | yes   |
+| `MutationResource`       | class     | no        | yes   |
+
+### src/runtime/observability_context.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createObservabilityScope` | function  | no        | yes   |
+| `ObservabilityResource`    | interface | yes       | yes   |
+| `ObservabilityScope`       | class     | no        | yes   |
+
+### src/runtime/observability.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `installObservabilityProvider` | function  | no        | yes   |
+| `NOOP_OBSERVABILITY`           | const     | no        | yes   |
+| `ObservabilityAttributes`      | type      | yes       | yes   |
+| `ObservabilityCounter`         | interface | yes       | yes   |
+| `ObservabilityGauge`           | interface | yes       | yes   |
+| `ObservabilityHistogram`       | interface | yes       | yes   |
+| `observabilityInstalled`       | function  | no        | yes   |
+| `observabilityLogger`          | function  | no        | yes   |
+| `ObservabilityLogger`          | interface | yes       | yes   |
+| `observabilityMeter`           | function  | no        | yes   |
+| `ObservabilityMeter`           | interface | yes       | yes   |
+| `ObservabilityProvider`        | interface | yes       | yes   |
+| `ObservabilitySpan`            | interface | yes       | yes   |
+| `observabilityTracer`          | function  | no        | yes   |
+| `ObservabilityTracer`          | interface | yes       | yes   |
+
+### src/runtime/offline_queue.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createOfflineMutationQueue` | function  | no        | yes   |
+| `OfflineMutation`            | interface | yes       | yes   |
+| `OfflineMutationQueue`       | class     | no        | yes   |
+| `OfflineReplayResult`        | interface | yes       | yes   |
+
+### src/runtime/offscreen_surface.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createCodeSurfaceWriter`     | function  | no        | yes   |
+| `createMarkdownSurfaceWriter` | function  | no        | yes   |
+| `createProcessOutputWriter`   | function  | no        | yes   |
+| `OffscreenSegment`            | interface | yes       | yes   |
+| `OffscreenSnapshot`           | interface | yes       | yes   |
+| `OffscreenSurface`            | class     | no        | yes   |
+
+### src/runtime/permission_adapters.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `BrokerAnswer`                  | type      | yes       | yes   |
+| `BrokerPermissionAdapter`       | class     | no        | yes   |
+| `combinePermissionDecisions`    | function  | no        | yes   |
+| `createBrokerPermissionAdapter` | function  | no        | yes   |
+| `createDenoPermissionAdapter`   | function  | no        | yes   |
+| `denoDescriptorFor`             | function  | no        | yes   |
+| `DenoPermissionAdapter`         | class     | no        | yes   |
+| `DenoPermissionQuery`           | type      | yes       | yes   |
+| `PermissionDecider`             | interface | yes       | yes   |
+| `PermissionDecision`            | interface | yes       | yes   |
+| `PermissionRevocation`          | interface | yes       | yes   |
+
+### src/runtime/priority_scheduler.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createPriorityScheduler`  | function  | no        | yes   |
+| `PriorityScheduler`        | class     | no        | yes   |
+| `PrioritySchedulerOptions` | interface | yes       | yes   |
+| `PrioritySchedulerTask`    | interface | yes       | yes   |
 
 ### src/runtime/process_session.ts
 
@@ -4681,6 +6853,45 @@ _Entrypoints: `.`, `./runtime`, `./terminal`_
 | `SigmaPtyModule`                               | interface | yes       | yes   |
 | `SigmaPtySize`                                 | interface | yes       | yes   |
 | `SigmaPtyTerminalBackendOptions`               | interface | yes       | yes   |
+
+### src/runtime/rate_limiter.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createLeakyBucketRateLimiter` | function  | no        | yes   |
+| `createTokenBucketRateLimiter` | function  | no        | yes   |
+| `LeakyBucketOptions`           | interface | yes       | yes   |
+| `LeakyBucketRateLimiter`       | class     | no        | yes   |
+| `TokenBucketOptions`           | interface | yes       | yes   |
+| `TokenBucketRateLimiter`       | class     | no        | yes   |
+
+### src/runtime/reflow_screen.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `createReflowBuffer` | function  | no        | yes   |
+| `DisplayRow`         | interface | yes       | yes   |
+| `LogicalBufferLine`  | interface | yes       | yes   |
+| `ReflowBuffer`       | class     | no        | yes   |
+| `ScrollAnchor`       | interface | yes       | yes   |
+| `StyledChar`         | interface | yes       | yes   |
+
+### src/runtime/render_accounting.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `DebugOverlayOptions`      | interface | yes       | yes   |
+| `RenderAccounting`         | class     | no        | yes   |
+| `RenderAccountingStats`    | interface | yes       | yes   |
+| `renderDebugOverlay`       | function  | no        | yes   |
+| `SchedulerDiagnostics`     | class     | no        | yes   |
+| `SchedulerQueueDiagnostic` | interface | yes       | yes   |
 
 ### src/runtime/render_loop.ts
 
@@ -4795,6 +7006,19 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `ResourceCacheSubscriptionOptions`    | interface | yes       | yes   |
 | `ResourceCacheValueKind`              | type      | yes       | yes   |
 
+### src/runtime/resource_limits.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createResourceLimitRegistry` | function  | no        | yes   |
+| `LimitBudgets`                | type      | yes       | yes   |
+| `LimitDiagnostic`             | interface | yes       | yes   |
+| `LimitDimension`              | type      | yes       | yes   |
+| `LimitState`                  | type      | yes       | yes   |
+| `ResourceLimitRegistry`       | class     | no        | yes   |
+
 ### src/runtime/resource_loads.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -4847,6 +7071,23 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `createAsyncResource`           | function  | no        | yes   |
 | `createCachedAsyncResource`     | function  | no        | yes   |
 
+### src/runtime/retry_policy.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `CircuitBreakerOptions`        | interface | yes       | yes   |
+| `CircuitBreakerRegistry`       | class     | no        | yes   |
+| `CircuitState`                 | type      | yes       | yes   |
+| `createCircuitBreakerRegistry` | function  | no        | yes   |
+| `createRetryPolicy`            | function  | no        | yes   |
+| `RetryClassification`          | type      | yes       | yes   |
+| `RetryClassifier`              | type      | yes       | yes   |
+| `RetryDecision`                | interface | yes       | yes   |
+| `RetryPolicy`                  | class     | no        | yes   |
+| `RetryPolicyOptions`           | interface | yes       | yes   |
+
 ### src/runtime/scheduler.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -4867,6 +7108,69 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `TaskBatchOptions`         | interface | yes       | yes   |
 | `TaskBatchResult`          | interface | yes       | yes   |
 
+### src/runtime/screen_mode_policy.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createScreenModePolicy` | function  | no        | yes   |
+| `SCREEN_MODE_LIMITS`     | const     | no        | yes   |
+| `ScreenMode`             | type      | yes       | yes   |
+| `ScreenModeOptions`      | interface | yes       | yes   |
+| `ScreenModePolicy`       | interface | yes       | yes   |
+
+### src/runtime/selective_erase.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `eraseDisplay`          | function | no        | yes   |
+| `eraseLine`             | function | no        | yes   |
+| `EraseMode`             | type     | yes       | yes   |
+| `selectiveEraseDisplay` | function | no        | yes   |
+| `selectiveEraseLine`    | function | no        | yes   |
+| `writeProtected`        | function | no        | yes   |
+
+### src/runtime/signal_exporters.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `createCallbackExporter` | function  | no        | yes   |
+| `createConsoleExporter`  | function  | no        | yes   |
+| `createInMemoryExporter` | function  | no        | yes   |
+| `createOtlpHttpExporter` | function  | no        | yes   |
+| `ExportableSignal`       | interface | yes       | yes   |
+| `ExporterDeclaration`    | interface | yes       | yes   |
+| `ExporterSink`           | type      | yes       | yes   |
+| `SignalExporter`         | class     | no        | yes   |
+| `SignalExporterOptions`  | interface | yes       | yes   |
+
+### src/runtime/signal_redaction.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createSignalRedactionPipeline` | function  | no        | yes   |
+| `RedactedSignal`                | interface | yes       | yes   |
+| `SignalRedactionPipeline`       | class     | no        | yes   |
+| `SignalSchema`                  | interface | yes       | yes   |
+
+### src/runtime/span_instrumentation.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createSpanInstrumentation` | function  | no        | yes   |
+| `RecordedSpan`              | interface | yes       | yes   |
+| `SpanInstrumentation`       | class     | no        | yes   |
+| `SpanKind`                  | type      | yes       | yes   |
+
 ### src/runtime/storage.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -4883,6 +7187,80 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `PersistentSignal`        | class     | no        | yes   |
 | `PersistentSignalOptions` | interface | yes       | yes   |
 | `RuntimeStoreOptions`     | interface | yes       | yes   |
+
+### src/runtime/stream_ownership.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `isStreamActionAllowed`     | function  | no        | yes   |
+| `STREAM_OWNERSHIP_CONTRACT` | const     | no        | yes   |
+| `StreamActor`               | type      | yes       | yes   |
+| `StreamOwnershipContract`   | interface | yes       | yes   |
+| `StreamTransport`           | type      | yes       | yes   |
+
+### src/runtime/stream_resource.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `consumeIterableStream` | function  | no        | yes   |
+| `consumePushStream`     | function  | no        | yes   |
+| `PullSource`            | type      | yes       | yes   |
+| `PushSource`            | type      | yes       | yes   |
+| `StreamResource`        | class     | no        | yes   |
+| `StreamResourceOptions` | interface | yes       | yes   |
+
+### src/runtime/structured_logs.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createStructuredLogSource`  | function  | no        | yes   |
+| `LegacyDiagnosticEvent`      | interface | yes       | yes   |
+| `LogSeverity`                | type      | yes       | yes   |
+| `StructuredLogRecord`        | interface | yes       | yes   |
+| `StructuredLogSource`        | class     | no        | yes   |
+| `StructuredLogSourceOptions` | interface | yes       | yes   |
+
+### src/runtime/supervisor.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `createSupervisor`    | function  | no        | yes   |
+| `SupervisedChildSpec` | interface | yes       | yes   |
+| `Supervisor`          | class     | no        | yes   |
+| `SupervisorFailure`   | interface | yes       | yes   |
+| `SupervisorOptions`   | interface | yes       | yes   |
+| `SupervisorStrategy`  | type      | yes       | yes   |
+
+### src/runtime/support_bundle.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createSupportBundleBuilder` | function  | no        | yes   |
+| `SafeBundleSection`          | type      | yes       | yes   |
+| `SensitiveBundleSection`     | type      | yes       | yes   |
+| `SupportBundleBuilder`       | class     | no        | yes   |
+| `SupportBundleInputs`        | interface | yes       | yes   |
+| `SupportBundleManifest`      | interface | yes       | yes   |
+
+### src/runtime/task_context.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol              | Kind     | Type Only | JSDoc |
+| ------------------- | -------- | --------- | ----- |
+| `createTaskContext` | function | no        | yes   |
+| `TaskContext`       | class    | no        | yes   |
+| `TaskContextValues` | type     | yes       | yes   |
 
 ### src/runtime/task_group.ts
 
@@ -5024,6 +7402,94 @@ _Entrypoints: `./terminal`_
 | `decodeTerminalColor`        | function | no        | yes   |
 | `encodeTerminalIndexedColor` | function | no        | yes   |
 | `encodeTerminalRgbColor`     | function | no        | yes   |
+
+### src/runtime/terminal_margins.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol               | Kind     | Type Only | JSDoc |
+| -------------------- | -------- | --------- | ----- |
+| `createMarginScreen` | function | no        | yes   |
+| `MarginScreen`       | class    | no        | yes   |
+
+### src/runtime/terminal_operations.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `createTerminalOperationDecoder`   | function  | no        | yes   |
+| `OperationClassification`          | type      | yes       | yes   |
+| `TERMINAL_OPERATION_EVENT_VERSION` | const     | no        | yes   |
+| `TerminalOperationDecoder`         | class     | no        | yes   |
+| `TerminalOperationEvent`           | interface | yes       | yes   |
+
+### src/runtime/terminal_palette.ts
+
+_Entrypoints: `.`, `./runtime`, `./terminal`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `mixTerminalRgb`                | function  | no        | yes   |
+| `ResolvedTerminalCellStyle`     | interface | yes       | yes   |
+| `resolveTerminalCellStyle`      | function  | no        | yes   |
+| `TerminalCellStyleOptions`      | interface | yes       | yes   |
+| `terminalContrastRatio`         | function  | no        | yes   |
+| `terminalPaletteRgb`            | function  | no        | yes   |
+| `terminalReadableForegroundRgb` | function  | no        | yes   |
+| `TerminalRgb`                   | type      | yes       | yes   |
+
+### src/runtime/terminal_parser.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `createIncrementalTerminalParser` | function  | no        | yes   |
+| `IncrementalTerminalParser`       | class     | no        | yes   |
+| `TerminalParserBreach`            | type      | yes       | yes   |
+| `TerminalParserLimits`            | interface | yes       | yes   |
+| `TerminalToken`                   | type      | yes       | yes   |
+
+### src/runtime/terminal_passthrough.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `decodeScreenPassthrough` | function  | no        | yes   |
+| `decodeTmuxPassthrough`   | function  | no        | yes   |
+| `diagnosePassthrough`     | function  | no        | yes   |
+| `encodeScreenPassthrough` | function  | no        | yes   |
+| `encodeTmuxPassthrough`   | function  | no        | yes   |
+| `PassthroughDiagnostic`   | interface | yes       | yes   |
+| `PassthroughError`        | class     | no        | yes   |
+| `PassthroughLayer`        | type      | yes       | yes   |
+| `SCREEN_CHUNK_BYTES`      | const     | no        | yes   |
+| `unwrapPassthrough`       | function  | no        | yes   |
+| `wrapPassthrough`         | function  | no        | yes   |
+
+### src/runtime/terminal_queries.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `createTerminalQueryBroker` | function  | no        | yes   |
+| `IssuedQuery`               | interface | yes       | yes   |
+| `TerminalQueryBroker`       | class     | no        | yes   |
+| `TerminalQueryKind`         | type      | yes       | yes   |
+
+### src/runtime/terminal_sanitizer.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `createStreamingTerminalSanitizer` | function  | no        | yes   |
+| `SanitizerDropReport`              | interface | yes       | yes   |
+| `StreamingTerminalSanitizer`       | class     | no        | yes   |
+| `TerminalSanitizerProfile`         | type      | yes       | yes   |
 
 ### src/runtime/terminal_screen.ts
 
@@ -5222,6 +7688,33 @@ _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 | `TerminalWorkspaceSplitNode`                    | interface | yes       | yes   |
 | `UpsertTerminalWorkspaceSessionOptions`         | interface | yes       | yes   |
 
+### src/runtime/timeline.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `createTimeline`       | function  | no        | yes   |
+| `Timeline`             | class     | no        | yes   |
+| `TimelineEasing`       | type      | yes       | yes   |
+| `TimelineInspection`   | interface | yes       | yes   |
+| `TimelineTween`        | interface | yes       | yes   |
+| `TimelineTweenOptions` | interface | yes       | yes   |
+| `TimelineValue`        | type      | yes       | yes   |
+
+### src/runtime/trace_sampling.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createMetricExemplarHook` | function  | no        | yes   |
+| `createTraceSampler`       | function  | no        | yes   |
+| `MetricExemplar`           | interface | yes       | yes   |
+| `MetricExemplarHook`       | class     | no        | yes   |
+| `SamplingStrategy`         | type      | yes       | yes   |
+| `TraceSampler`             | class     | no        | yes   |
+
 ### src/runtime/worker_pool.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`_
@@ -5240,6 +7733,18 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `WorkerPoolOptions`         | interface | yes       | yes   |
 | `WorkerPoolRunOptions`      | interface | yes       | yes   |
 | `WorkerPoolTerminatedError` | class     | no        | yes   |
+
+### src/runtime/worker_protocol.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createVersionedWorkerRouter` | function  | no        | yes   |
+| `ProtocolWorkerLike`          | interface | yes       | yes   |
+| `VersionedWorkerRouter`       | class     | no        | yes   |
+| `WorkerDeadlineError`         | class     | no        | yes   |
+| `WorkerHandshake`             | interface | yes       | yes   |
 
 ### src/secrets.ts
 
@@ -5414,6 +7919,27 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `LazyDependant` | interface | yes       | yes   |
 | `Subscription`  | interface | yes       | yes   |
 
+### src/surface_animation.ts
+
+_Entrypoints: `.`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `createSurfaceAnimation`      | function  | no        | yes   |
+| `PlacedSurfaceAnimationCell`  | interface | yes       | yes   |
+| `resolveSurfaceAnimationKind` | function  | no        | yes   |
+| `SURFACE_ANIMATION_KINDS`     | const     | no        | yes   |
+| `SurfaceAnimation`            | class     | no        | yes   |
+| `SurfaceAnimationChoice`      | type      | yes       | yes   |
+| `SurfaceAnimationFrame`       | interface | yes       | yes   |
+| `SurfaceAnimationKind`        | type      | yes       | yes   |
+| `SurfaceAnimationOptions`     | interface | yes       | yes   |
+| `SurfaceAnimationOverflow`    | interface | yes       | yes   |
+| `SurfaceAnimationSpeed`       | type      | yes       | yes   |
+| `surfaceAnimationSpeedScale`  | function  | no        | yes   |
+| `SurfaceTransition`           | type      | yes       | yes   |
+| `surfaceTransitionDirection`  | function  | no        | yes   |
+
 ### src/testing/app.ts
 
 _Entrypoints: `./testing`_
@@ -5423,12 +7949,78 @@ _Entrypoints: `./testing`_
 | `createTestTerminalApp`          | function  | no        | yes   |
 | `TerminalAppPilot`               | class     | no        | yes   |
 | `TerminalAppPilotClickResult`    | interface | yes       | yes   |
+| `TerminalAppPilotDragOptions`    | interface | yes       | yes   |
+| `TerminalAppPilotDragResult`     | interface | yes       | yes   |
 | `TerminalAppPilotPointerOptions` | interface | yes       | yes   |
 | `TerminalAppPilotSettleOptions`  | interface | yes       | yes   |
 | `TerminalAppPilotWaitOptions`    | interface | yes       | yes   |
 | `TestTerminalAppHarness`         | interface | yes       | yes   |
 | `TestTerminalAppOptions`         | type      | yes       | yes   |
 | `TestTerminalAppTuiOptions`      | type      | yes       | yes   |
+
+### src/testing/aria_apg_suites.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `AriaCheck`           | interface | yes       | yes   |
+| `AriaPattern`         | type      | yes       | yes   |
+| `AriaPatternReport`   | interface | yes       | yes   |
+| `runAriaPatternSuite` | function  | no        | yes   |
+
+### src/testing/contract_tests.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `ConformanceReport`  | interface | yes       | yes   |
+| `ContractCheck`      | interface | yes       | yes   |
+| `runBackendContract` | function  | no        | yes   |
+| `runPluginContract`  | function  | no        | yes   |
+| `runSolverContract`  | function  | no        | yes   |
+| `runThemeContract`   | function  | no        | yes   |
+
+### src/testing/differential_terminal.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `DifferentialReport`   | interface | yes       | yes   |
+| `DocumentedDivergence` | interface | yes       | yes   |
+| `runDifferential`      | function  | no        | yes   |
+| `runOperationCore`     | function  | no        | yes   |
+| `runReferenceCore`     | function  | no        | yes   |
+| `TerminalDivergence`   | interface | yes       | yes   |
+
+### src/testing/fault_injection.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol             | Kind      | Type Only | JSDoc |
+| ------------------ | --------- | --------- | ----- |
+| `FaultInjected`    | class     | no        | yes   |
+| `FaultInjector`    | interface | yes       | yes   |
+| `FaultSubject`     | interface | yes       | yes   |
+| `FaultSweepReport` | interface | yes       | yes   |
+| `InjectionReport`  | interface | yes       | yes   |
+| `sweepFaults`      | function  | no        | yes   |
+
+### src/testing/flake_detection.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `createFlakeDetector` | function  | no        | yes   |
+| `FlakeArtifact`       | interface | yes       | yes   |
+| `FlakeDetector`       | class     | no        | yes   |
+| `FlakeReport`         | interface | yes       | yes   |
+| `FlakeSubject`        | interface | yes       | yes   |
+| `QuarantineLabel`     | interface | yes       | yes   |
+| `TimingDistribution`  | interface | yes       | yes   |
 
 ### src/testing/input.ts
 
@@ -5443,6 +8035,89 @@ _Entrypoints: `.`, `./testing`_
 | `TestKeyPressOptions`   | interface | yes       | yes   |
 | `TestKeyPressTarget`    | class     | no        | yes   |
 | `TestMouseTarget`       | class     | no        | yes   |
+
+### src/testing/matrix.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `PilotMatrixCell`     | interface | yes       | yes   |
+| `PilotMatrixEntry`    | interface | yes       | yes   |
+| `PilotMatrixKey`      | type      | yes       | yes   |
+| `PilotMatrixOptions`  | interface | yes       | yes   |
+| `PilotMatrixSequence` | interface | yes       | yes   |
+| `runPilotMatrix`      | function  | no        | yes   |
+
+### src/testing/model_testing.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `formatModelTestFailure` | function  | no        | yes   |
+| `ModelCommand`           | interface | yes       | yes   |
+| `ModelStep`              | interface | yes       | yes   |
+| `ModelTestFailure`       | interface | yes       | yes   |
+| `ModelTestOptions`       | interface | yes       | yes   |
+| `ModelTestResult`        | type      | yes       | yes   |
+| `runModelTest`           | function  | no        | yes   |
+| `seededRandom`           | function  | no        | yes   |
+
+### src/testing/mutation_testing.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `formatMutationSurvivors` | function  | no        | yes   |
+| `Mutant`                  | interface | yes       | yes   |
+| `MutantOutcome`           | interface | yes       | yes   |
+| `MutantSet`               | interface | yes       | yes   |
+| `MutationReport`          | interface | yes       | yes   |
+| `runMutationCampaign`     | function  | no        | yes   |
+
+### src/testing/plugin_test_host.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `createPluginTestHost` | function  | no        | yes   |
+| `LifecyclePhase`       | type      | yes       | yes   |
+| `LifecycleRunReport`   | interface | yes       | yes   |
+| `PhaseReport`          | interface | yes       | yes   |
+| `PluginTestHost`       | class     | no        | yes   |
+| `ScriptedTransport`    | interface | yes       | yes   |
+
+### src/testing/record_replay.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `CheckpointRecord`      | interface | yes       | yes   |
+| `DeterministicRuntime`  | class     | no        | yes   |
+| `JournalEntry`          | interface | yes       | yes   |
+| `JournalKind`           | type      | yes       | yes   |
+| `ReplayDivergenceError` | class     | no        | yes   |
+| `RunJournal`            | interface | yes       | yes   |
+| `RuntimeSources`        | interface | yes       | yes   |
+
+### src/testing/scene.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `captureLayoutTree`     | function  | no        | yes   |
+| `captureStyledSpans`    | function  | no        | yes   |
+| `captureTerminalScene`  | function  | no        | yes   |
+| `TerminalCursorCapture` | interface | yes       | yes   |
+| `TerminalLayoutNode`    | interface | yes       | yes   |
+| `TerminalSceneCapture`  | interface | yes       | yes   |
+| `TerminalSceneSources`  | interface | yes       | yes   |
+| `TerminalStyledSpan`    | interface | yes       | yes   |
 
 ### src/testing/snapshot.ts
 
@@ -5466,6 +8141,19 @@ _Entrypoints: `.`, `./testing`_
 | `TestCanvasOptions`           | interface | yes       | yes   |
 | `TestStdout`                  | interface | yes       | yes   |
 
+### src/testing/visual_report.ts
+
+_Entrypoints: `./testing`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `renderSceneDiffReport` | function  | no        | yes   |
+| `renderSceneHtml`       | function  | no        | yes   |
+| `renderSceneSvg`        | function  | no        | yes   |
+| `SceneDiffReport`       | interface | yes       | yes   |
+| `SgrCss`                | interface | yes       | yes   |
+| `sgrToCss`              | function  | no        | yes   |
+
 ### src/theme_binding.ts
 
 _Entrypoints: `.`, `./web`, `./theme`_
@@ -5480,6 +8168,80 @@ _Entrypoints: `.`, `./web`, `./theme`_
 | `ComponentThemeBindingInspection`      | interface | yes       | yes   |
 | `ComponentThemeBindingOptions`         | interface | yes       | yes   |
 | `ThemeBindable`                        | interface | yes       | yes   |
+
+### src/theme_contrast.ts
+
+_Entrypoints: `.`, `./theme`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `ContrastConstraint`         | interface | yes       | yes   |
+| `contrastRatio`              | function  | no        | yes   |
+| `ContrastRepair`             | interface | yes       | yes   |
+| `ContrastReport`             | interface | yes       | yes   |
+| `ContrastViolation`          | interface | yes       | yes   |
+| `enforceContrastConstraints` | function  | no        | yes   |
+| `relativeLuminance`          | function  | no        | yes   |
+
+### src/theme_controls.ts
+
+_Entrypoints: `./theme`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `CONTROL_TOKEN_GROUP_IDS`    | const     | no        | yes   |
+| `CONTROL_TOKEN_GROUP_LABELS` | const     | no        | yes   |
+| `CONTROL_TOKENS`             | const     | no        | yes   |
+| `controlToken`               | function  | no        | yes   |
+| `controlTokenChain`          | function  | no        | yes   |
+| `ControlTokenGroup`          | interface | yes       | yes   |
+| `ControlTokenGroupId`        | type      | yes       | yes   |
+| `controlTokenGroups`         | function  | no        | yes   |
+| `controlTokenRegistry`       | function  | no        | yes   |
+| `ControlTokenRole`           | type      | yes       | yes   |
+| `ControlTokenSpec`           | interface | yes       | yes   |
+| `resolveControlToken`        | function  | no        | yes   |
+| `resolveControlTokens`       | function  | no        | yes   |
+
+### src/theme_density.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `createDensityContext` | function  | no        | yes   |
+| `DENSITY_PROFILES`     | const     | no        | yes   |
+| `DensityContext`       | class     | no        | yes   |
+| `DensityProfileName`   | type      | yes       | yes   |
+| `DensityTokens`        | interface | yes       | yes   |
+
+### src/theme_editor_model.ts
+
+_Entrypoints: `./theme`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `clearThemeToken`         | function  | no        | yes   |
+| `createThemeDocument`     | function  | no        | yes   |
+| `duplicateThemeDocument`  | function  | no        | yes   |
+| `formatHexColor`          | function  | no        | yes   |
+| `missingCoreTokens`       | function  | no        | yes   |
+| `parseHexColor`           | function  | no        | yes   |
+| `renameThemeDocument`     | function  | no        | yes   |
+| `setThemeToken`           | function  | no        | yes   |
+| `THEME_CONTRAST_AA`       | const     | no        | yes   |
+| `THEME_CONTRAST_AA_LARGE` | const     | no        | yes   |
+| `themeContrastFailures`   | function  | no        | yes   |
+| `themeContrastReport`     | function  | no        | yes   |
+| `ThemeContrastVerdict`    | interface | yes       | yes   |
+| `themeDocumentIsComplete` | function  | no        | yes   |
+| `ThemeEditorEntry`        | interface | yes       | yes   |
+| `ThemeEditorGroup`        | interface | yes       | yes   |
+| `themeEditorGroups`       | function  | no        | yes   |
+| `themeEntry`              | function  | no        | yes   |
+| `themeOverrides`          | function  | no        | yes   |
+| `ThemeSwatch`             | interface | yes       | yes   |
+| `themeSwatches`           | function  | no        | yes   |
 
 ### src/theme_engine_cache.ts
 
@@ -5539,6 +8301,19 @@ _Entrypoints: `.`, `./web`, `./theme`_
 | `ThemeEnginePipelineStepInspection` | interface | yes       | yes   |
 | `ThemeEnginePipelineTransform`      | type      | yes       | yes   |
 
+### src/theme_expressions.ts
+
+_Entrypoints: `.`, `./theme`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `ColorDepth`               | type      | yes       | yes   |
+| `ColorExpression`          | type      | yes       | yes   |
+| `CompiledThemeExpressions` | interface | yes       | yes   |
+| `compileThemeExpressions`  | function  | no        | yes   |
+| `Rgb`                      | type      | yes       | yes   |
+| `ThemeExpressionError`     | class     | no        | yes   |
+
 ### src/theme_gallery.ts
 
 _Entrypoints: `.`, `./web`, `./theme`_
@@ -5556,6 +8331,80 @@ _Entrypoints: `.`, `./web`, `./theme`_
 | `ThemeGalleryOptions`               | interface | yes       | yes   |
 | `ThemeGallerySelection`             | interface | yes       | yes   |
 | `ThemeGalleryTokenPreview`          | interface | yes       | yes   |
+
+### src/theme_icons.ts
+
+_Entrypoints: `.`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `createIconRegistry`       | function  | no        | yes   |
+| `IconContractViolation`    | interface | yes       | yes   |
+| `IconDefinition`           | interface | yes       | yes   |
+| `IconPack`                 | interface | yes       | yes   |
+| `IconRegistry`             | class     | no        | yes   |
+| `ResolvedIcon`             | interface | yes       | yes   |
+| `SUPPORTED_WIDTH_PROFILES` | const     | no        | yes   |
+| `validateIconPack`         | function  | no        | yes   |
+
+### src/theme_interchange.ts
+
+_Entrypoints: `.`, `./theme`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `exportThemeDocument`       | function  | no        | yes   |
+| `importThemeDocument`       | function  | no        | yes   |
+| `migrateThemeDocument`      | function  | no        | yes   |
+| `SUPPORTED_THEME_FEATURES`  | const     | no        | yes   |
+| `THEME_INTERCHANGE_VERSION` | const     | no        | yes   |
+| `ThemeDocument`             | interface | yes       | yes   |
+| `ThemeInterchangeError`     | class     | no        | yes   |
+| `ThemeMigrationEntry`       | interface | yes       | yes   |
+| `validateThemeDocument`     | function  | no        | yes   |
+
+### src/theme_motion.ts
+
+_Entrypoints: `.`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `createMotionContext` | function  | no        | yes   |
+| `easingValue`         | function  | no        | yes   |
+| `MotionContext`       | class     | no        | yes   |
+| `MotionEasing`        | type      | yes       | yes   |
+| `MotionToken`         | interface | yes       | yes   |
+| `ResolvedMotion`      | type      | yes       | yes   |
+| `StaticBehavior`      | type      | yes       | yes   |
+
+### src/theme_oklch.ts
+
+_Entrypoints: `.`, `./theme`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `generateTonalPalette` | function  | no        | yes   |
+| `Oklch`                | interface | yes       | yes   |
+| `oklchInGamut`         | function  | no        | yes   |
+| `oklchToRgb`           | function  | no        | yes   |
+| `rgbToOklch`           | function  | no        | yes   |
+| `surfaceLadder`        | function  | no        | yes   |
+| `SurfaceLadder`        | interface | yes       | yes   |
+| `TONAL_STOPS`          | const     | no        | yes   |
+| `TonalPalette`         | interface | yes       | yes   |
+
+### src/theme_quantize.ts
+
+_Entrypoints: `.`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `perceptualDistance` | function  | no        | yes   |
+| `QuantizeCollision`  | interface | yes       | yes   |
+| `QuantizedToken`     | interface | yes       | yes   |
+| `quantizePalette`    | function  | no        | yes   |
+| `QuantizeReport`     | interface | yes       | yes   |
+| `QuantizeTarget`     | type      | yes       | yes   |
 
 ### src/theme_resolver.ts
 
@@ -5578,6 +8427,33 @@ _Entrypoints: `.`, `./web`, `./theme`_
 | `ThemeStyleResolution`           | interface | yes       | yes   |
 | `ThemeTokenRequest`              | interface | yes       | yes   |
 | `ThemeTokenResolution`           | interface | yes       | yes   |
+
+### src/theme_token_schemas.ts
+
+_Entrypoints: `.`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `ComponentTokenSchema`       | interface | yes       | yes   |
+| `resolveComponentToken`      | function  | no        | yes   |
+| `ThemeStateValues`           | type      | yes       | yes   |
+| `TokenCoverageIssue`         | interface | yes       | yes   |
+| `TokenCoverageReport`        | interface | yes       | yes   |
+| `TokenRequirement`           | interface | yes       | yes   |
+| `validateThemeTokenCoverage` | function  | no        | yes   |
+
+### src/theme_tokens.ts
+
+_Entrypoints: `.`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `CoreThemeTokenName`          | type      | yes       | yes   |
+| `createSemanticTokenRegistry` | function  | no        | yes   |
+| `NamespacedThemeTokenName`    | type      | yes       | yes   |
+| `SemanticTokenDeclaration`    | interface | yes       | yes   |
+| `SemanticTokenRegistry`       | class     | no        | yes   |
+| `SemanticTokenValues`         | type      | yes       | yes   |
 
 ### src/theme_workspace.ts
 
@@ -5714,6 +8590,7 @@ _Entrypoints: `.`, `./app`, `./web`, `./theme`_
 | `ThemeValidationIssueKind`                | type      | yes       | yes   |
 | `ThemeVariantCoverageInspection`          | interface | yes       | yes   |
 | `validateThemeOptions`                    | function  | no        | yes   |
+| `withFocusCue`                            | function  | no        | yes   |
 
 ### src/three_ascii/AcerolaAsciiNode.ts
 
@@ -5874,6 +8751,140 @@ _Entrypoints: `./web`, `./three-ascii`_
 | `probeCompatibleWebGPUDevice`      | function | no        | yes   |
 | `resetCompatibleWebGPUDeviceCache` | function | no        | yes   |
 
+### src/tooling/attestations.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `AttestationVerification` | type      | yes       | yes   |
+| `buildProvenance`         | function  | no        | yes   |
+| `buildSpdxDocument`       | function  | no        | yes   |
+| `DependencyEntry`         | interface | yes       | yes   |
+| `ProvenanceStatement`     | interface | yes       | yes   |
+| `sha256Hex`               | function  | no        | yes   |
+| `SpdxDocument`            | interface | yes       | yes   |
+| `verifyAttestations`      | function  | no        | yes   |
+
+### src/tooling/codemods.ts
+
+_Entrypoints: `.`_
+
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `Codemod`           | interface | yes       | yes   |
+| `CodemodResult`     | interface | yes       | yes   |
+| `CodemodRule`       | type      | yes       | yes   |
+| `runCodemod`        | function  | no        | yes   |
+| `UnsupportedSyntax` | interface | yes       | yes   |
+
+### src/tooling/devtools.ts
+
+_Entrypoints: `.`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `ConsoleEntry`              | interface | yes       | yes   |
+| `FilteredConsoleController` | class     | no        | yes   |
+| `HotReloadErrorSurface`     | class     | no        | yes   |
+| `KeyDiagnosticRecord`       | interface | yes       | yes   |
+| `KeyDiagnosticsController`  | class     | no        | yes   |
+| `LayoutInspection`          | interface | yes       | yes   |
+| `LayoutInspectorController` | class     | no        | yes   |
+| `WorkerResourceRow`         | interface | yes       | yes   |
+| `workerResourceRows`        | function  | no        | yes   |
+
+### src/tooling/diagnostics_hub.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `CellDiffStats`        | interface | yes       | yes   |
+| `createDiagnosticsHub` | function  | no        | yes   |
+| `DiagnosticsHub`       | class     | no        | yes   |
+| `DiagnosticsSnapshot`  | interface | yes       | yes   |
+| `FrameTimingStats`     | interface | yes       | yes   |
+| `InvalidationRecord`   | interface | yes       | yes   |
+| `ResourceRecord`       | interface | yes       | yes   |
+
+### src/tooling/example_registry.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `buildExampleRegistry` | function  | no        | yes   |
+| `entryForExample`      | function  | no        | yes   |
+| `ExampleEntry`         | interface | yes       | yes   |
+| `ExampleRegistry`      | interface | yes       | yes   |
+
+### src/tooling/generators.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `applyPlan`            | function  | no        | yes   |
+| `ArtifactKind`         | type      | yes       | yes   |
+| `generateArtifact`     | function  | no        | yes   |
+| `GeneratedArtifact`    | interface | yes       | yes   |
+| `planGeneration`       | function  | no        | yes   |
+| `PlannedFile`          | type      | yes       | yes   |
+| `validateArtifactName` | function  | no        | yes   |
+
+### src/tooling/init_templates.ts
+
+_Entrypoints: `.`_
+
+| Symbol             | Kind     | Type Only | JSDoc |
+| ------------------ | -------- | --------- | ----- |
+| `generateTemplate` | function | no        | yes   |
+| `TEMPLATE_KINDS`   | const    | no        | yes   |
+| `TEMPLATE_VERSION` | const    | no        | yes   |
+| `TemplateFiles`    | type     | yes       | yes   |
+| `TemplateKind`     | type     | yes       | yes   |
+
+### src/tooling/launcher_template.ts
+
+_Entrypoints: `.`_
+
+| Symbol                     | Kind     | Type Only | JSDoc |
+| -------------------------- | -------- | --------- | ----- |
+| `generateLauncherTemplate` | function | no        | yes   |
+
+### src/tooling/mod.ts
+
+_Entrypoints: `.`_
+
+| Re-export Target                   | Kind | Names |
+| ---------------------------------- | ---- | ----- |
+| `src/tooling/codemods.ts`          | star | -     |
+| `src/tooling/example_registry.ts`  | star | -     |
+| `src/tooling/generators.ts`        | star | -     |
+| `src/tooling/init_templates.ts`    | star | -     |
+| `src/tooling/launcher_template.ts` | star | -     |
+| `src/tooling/attestations.ts`      | star | -     |
+| `src/tooling/release_channels.ts`  | star | -     |
+| `src/tooling/diagnostics_hub.ts`   | star | -     |
+| `src/tooling/devtools.ts`          | star | -     |
+
+_No direct exported symbols._
+
+### src/tooling/release_channels.ts
+
+_Entrypoints: `.`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `ChannelDeclaration`       | interface | yes       | yes   |
+| `createReleaseTagRegistry` | function  | no        | yes   |
+| `PublishResult`            | type      | yes       | yes   |
+| `RELEASE_CHANNELS`         | const     | no        | yes   |
+| `ReleaseChannel`           | type      | yes       | yes   |
+| `ReleaseTagRegistry`       | class     | no        | yes   |
+| `UpgradeDiagnostic`        | interface | yes       | yes   |
+
 ### src/tui.ts
 
 _Entrypoints: `.`, `./app`_
@@ -5899,6 +8910,18 @@ _Entrypoints: `.`, `./app`, `./remote`_
 | `Stdin`       | type      | yes       | yes   |
 | `Stdout`      | type      | yes       | yes   |
 
+### src/unicode/bidi.ts
+
+_Entrypoints: `.`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `bidiParagraph`       | function  | no        | yes   |
+| `BidiParagraph`       | interface | yes       | yes   |
+| `bidiParagraphOfText` | function  | no        | yes   |
+| `BidiRun`             | interface | yes       | yes   |
+| `lookupBidiClass`     | function  | no        | yes   |
+
 ### src/unicode/builtin.ts
 
 _Entrypoints: `.`_
@@ -5909,6 +8932,48 @@ _Entrypoints: `.`_
 | `BUILTIN_UNICODE_DATA_PACK_INSPECTION` | const | no        | yes   |
 | `DEFAULT_UNICODE_DATA_PACK_REGISTRY`   | const | no        | yes   |
 | `UNICODE_DATA_VERSION`                 | const | no        | yes   |
+
+### src/unicode/conformance.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `ConformanceGateResult`   | interface | yes       | yes   |
+| `EMOJI_SAMPLE`            | const     | no        | yes   |
+| `runBidiConformance`      | function  | no        | yes   |
+| `runEmojiConformance`     | function  | no        | yes   |
+| `runGraphemeConformance`  | function  | no        | yes   |
+| `runLineBreakConformance` | function  | no        | yes   |
+| `runWidthConformance`     | function  | no        | yes   |
+| `WIDTH_TAILORING_SAMPLE`  | const     | no        | yes   |
+
+### src/unicode/confusables.ts
+
+_Entrypoints: `.`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `confusableSkeleton`            | function  | no        | yes   |
+| `createIdentifierSecurityGuard` | function  | no        | yes   |
+| `IdentifierSecurityGuard`       | class     | no        | yes   |
+| `IdentifierWarning`             | interface | yes       | yes   |
+| `restrictionLevel`              | function  | no        | yes   |
+| `RestrictionLevel`              | type      | yes       | yes   |
+
+### src/unicode/controls.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `ControlExpandedCell`     | interface | yes       | yes   |
+| `ControlExpansion`        | interface | yes       | yes   |
+| `ControlExpansionOptions` | interface | yes       | yes   |
+| `ControlRenderMode`       | type      | yes       | yes   |
+| `expandTerminalControls`  | function  | no        | yes   |
+| `nextTerminalTabStop`     | function  | no        | yes   |
+| `TerminalTabStops`        | interface | yes       | yes   |
 
 ### src/unicode/data_pack.ts
 
@@ -5943,6 +9008,19 @@ _Entrypoints: `.`_
 | `UnicodeValuedRange`                | interface | yes       | yes   |
 | `validateUnicodeDataPack`           | function  | no        | yes   |
 
+### src/unicode/emoji.ts
+
+_Entrypoints: `.`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `classifyEmojiSequence`  | function  | no        | yes   |
+| `emojiAwareTextWidth`    | function  | no        | yes   |
+| `EmojiAwareWidthOptions` | interface | yes       | yes   |
+| `EmojiSequenceKind`      | type      | yes       | yes   |
+| `EmojiSequenceSpan`      | interface | yes       | yes   |
+| `segmentEmojiSequences`  | function  | no        | yes   |
+
 ### src/unicode/grapheme.ts
 
 _Entrypoints: `.`_
@@ -5971,18 +9049,81 @@ _Entrypoints: `.`_
 | `UnicodeGraphemeSegmenter`           | class     | no        | yes   |
 | `UnicodeGraphemeSegmenterInspection` | interface | yes       | yes   |
 
+### src/unicode/hyphenation.ts
+
+_Entrypoints: `.`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `breakWordForDisplay`       | function  | no        | yes   |
+| `createHyphenationRegistry` | function  | no        | yes   |
+| `HyphenatedBreak`           | interface | yes       | yes   |
+| `HyphenationOpportunity`    | interface | yes       | yes   |
+| `HyphenationProvider`       | interface | yes       | yes   |
+| `HyphenationRegistry`       | class     | no        | yes   |
+| `stripSoftHyphens`          | function  | no        | yes   |
+
+### src/unicode/line_break.ts
+
+_Entrypoints: `.`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `LineBreakClass`         | type      | yes       | yes   |
+| `lineBreakOpportunities` | function  | no        | yes   |
+| `LineBreakOpportunity`   | interface | yes       | yes   |
+| `LineBreakOptions`       | interface | yes       | yes   |
+| `lookupLineBreakClass`   | function  | no        | yes   |
+| `TerminalWrapOptions`    | interface | yes       | yes   |
+| `TerminalWrappedLine`    | interface | yes       | yes   |
+| `wrapTerminalText`       | function  | no        | yes   |
+
 ### src/unicode/mod.ts
 
 _Entrypoints: `.`_
 
-| Re-export Target           | Kind | Names |
-| -------------------------- | ---- | ----- |
-| `src/unicode/data_pack.ts` | star | -     |
-| `src/unicode/builtin.ts`   | star | -     |
-| `src/unicode/grapheme.ts`  | star | -     |
-| `src/unicode/width.ts`     | star | -     |
+| Re-export Target                | Kind | Names |
+| ------------------------------- | ---- | ----- |
+| `src/unicode/data_pack.ts`      | star | -     |
+| `src/unicode/bidi.ts`           | star | -     |
+| `src/unicode/conformance.ts`    | star | -     |
+| `src/unicode/builtin.ts`        | star | -     |
+| `src/unicode/grapheme.ts`       | star | -     |
+| `src/unicode/width.ts`          | star | -     |
+| `src/unicode/emoji.ts`          | star | -     |
+| `src/unicode/text_index.ts`     | star | -     |
+| `src/unicode/confusables.ts`    | star | -     |
+| `src/unicode/controls.ts`       | star | -     |
+| `src/unicode/hyphenation.ts`    | star | -     |
+| `src/unicode/line_break.ts`     | star | -     |
+| `src/unicode/source_display.ts` | star | -     |
 
 _No direct exported symbols._
+
+### src/unicode/source_display.ts
+
+_Entrypoints: `.`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `analyzeSourceLine`      | function  | no        | yes   |
+| `renderSourceLineSafely` | function  | no        | yes   |
+| `SourceAtom`             | interface | yes       | yes   |
+| `SourceDisplayFinding`   | interface | yes       | yes   |
+| `tokenizeSourceLine`     | function  | no        | yes   |
+
+### src/unicode/text_index.ts
+
+_Entrypoints: `.`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `createUnicodeTextIndex`       | function  | no        | yes   |
+| `UNICODE_TEXT_INDEX_MAX_UTF16` | const     | no        | yes   |
+| `UnicodeTextIndex`             | class     | no        | yes   |
+| `UnicodeTextPosition`          | interface | yes       | yes   |
+| `UnicodeTextResolution`        | type      | yes       | yes   |
+| `UnicodeTextUnit`              | type      | yes       | yes   |
 
 ### src/unicode/width.ts
 
@@ -6142,6 +9283,152 @@ _Entrypoints: `.`, `./web`_
 | `viewportThumbGlyph`          | function  | no        | yes   |
 | `viewportWindow`              | function  | no        | yes   |
 | `ViewportWindow`              | interface | yes       | yes   |
+
+### src/visual/annotations.ts
+
+_Entrypoints: `.`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `AnnotationLayoutOptions` | interface | yes       | yes   |
+| `ChartAnnotation`         | type      | yes       | yes   |
+| `layoutAnnotations`       | function  | no        | yes   |
+| `PlacedAnnotation`        | interface | yes       | yes   |
+
+### src/visual/axes.ts
+
+_Entrypoints: `.`_
+
+| Symbol        | Kind      | Type Only | JSDoc |
+| ------------- | --------- | --------- | ----- |
+| `AxisLayout`  | interface | yes       | yes   |
+| `AxisOptions` | interface | yes       | yes   |
+| `AxisTick`    | interface | yes       | yes   |
+| `buildAxis`   | function  | no        | yes   |
+
+### src/visual/chart_export.ts
+
+_Entrypoints: `.`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `buildChartSnapshot`     | function  | no        | yes   |
+| `ChartSnapshot`          | interface | yes       | yes   |
+| `exportChartCells`       | function  | no        | yes   |
+| `exportChartData`        | function  | no        | yes   |
+| `exportChartDescription` | function  | no        | yes   |
+| `exportChartSvg`         | function  | no        | yes   |
+| `SnapshotSeries`         | interface | yes       | yes   |
+
+### src/visual/downsample.ts
+
+_Entrypoints: `.`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `createStreamingDownsampler` | function  | no        | yes   |
+| `DataPoint`                  | interface | yes       | yes   |
+| `lttbDownsample`             | function  | no        | yes   |
+| `minMaxDownsample`           | function  | no        | yes   |
+| `StreamingDownsampler`       | class     | no        | yes   |
+
+### src/visual/heatmap.ts
+
+_Entrypoints: `.`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `HeatmapCell`        | interface | yes       | yes   |
+| `HeatmapLegendEntry` | interface | yes       | yes   |
+| `HeatmapOptions`     | interface | yes       | yes   |
+| `HeatmapRender`      | interface | yes       | yes   |
+| `HeatmapTarget`      | type      | yes       | yes   |
+| `renderHeatmap`      | function  | no        | yes   |
+
+### src/visual/interactions.ts
+
+_Entrypoints: `.`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `BrushSelection`                   | interface | yes       | yes   |
+| `ChartInteractionController`       | class     | no        | yes   |
+| `ChartInteractionOptions`          | interface | yes       | yes   |
+| `createChartInteractionController` | function  | no        | yes   |
+| `CrosshairState`                   | interface | yes       | yes   |
+
+### src/visual/linked_charts.ts
+
+_Entrypoints: `.`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `ChartLinkGroup`       | class     | no        | yes   |
+| `createChartLinkGroup` | function  | no        | yes   |
+| `LinkedChartState`     | interface | yes       | yes   |
+| `LinkUpdate`           | interface | yes       | yes   |
+
+### src/visual/marks.ts
+
+_Entrypoints: `.`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `createMarkCanvas`   | function  | no        | yes   |
+| `GlyphCapabilities`  | interface | yes       | yes   |
+| `MarkBackend`        | type      | yes       | yes   |
+| `MarkCanvas`         | class     | no        | yes   |
+| `MarkRender`         | interface | yes       | yes   |
+| `resolveMarkBackend` | function  | no        | yes   |
+
+### src/visual/mod.ts
+
+_Entrypoints: `.`_
+
+| Re-export Target              | Kind | Names |
+| ----------------------------- | ---- | ----- |
+| `src/visual/annotations.ts`   | star | -     |
+| `src/visual/chart_export.ts`  | star | -     |
+| `src/visual/axes.ts`          | star | -     |
+| `src/visual/downsample.ts`    | star | -     |
+| `src/visual/heatmap.ts`       | star | -     |
+| `src/visual/interactions.ts`  | star | -     |
+| `src/visual/linked_charts.ts` | star | -     |
+| `src/visual/marks.ts`         | star | -     |
+| `src/visual/scales.ts`        | star | -     |
+| `src/visual/series.ts`        | star | -     |
+
+_No direct exported symbols._
+
+### src/visual/scales.ts
+
+_Entrypoints: `.`_
+
+| Symbol            | Kind      | Type Only | JSDoc |
+| ----------------- | --------- | --------- | ----- |
+| `Band`            | interface | yes       | yes   |
+| `bandScale`       | function  | no        | yes   |
+| `BandScale`       | interface | yes       | yes   |
+| `ContinuousScale` | interface | yes       | yes   |
+| `linearScale`     | function  | no        | yes   |
+| `logScale`        | function  | no        | yes   |
+| `ordinalScale`    | function  | no        | yes   |
+| `OrdinalScale`    | interface | yes       | yes   |
+| `symlogScale`     | function  | no        | yes   |
+| `timeScale`       | function  | no        | yes   |
+| `toCell`          | function  | no        | yes   |
+
+### src/visual/series.ts
+
+_Entrypoints: `.`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `renderSeries`        | function  | no        | yes   |
+| `renderStackedArea`   | function  | no        | yes   |
+| `SeriesKind`          | type      | yes       | yes   |
+| `SeriesPoint`         | interface | yes       | yes   |
+| `SeriesRenderOptions` | interface | yes       | yes   |
 
 ### src/web/cell_canvas_sink.ts
 

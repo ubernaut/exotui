@@ -11,7 +11,8 @@
 //
 // New code wants MouseInteractionRouter. This is for the demos that predate it.
 
-import { clipRect, contains, intersects, type Rectangle } from "@ubernaut/deno-tui";
+import { clipRect, contains, intersects } from "../src/app/hit_targets.ts";
+import type { Rectangle } from "../src/types.ts";
 
 /** Hit target record used by pointer routers and immediate-mode workbench renderers. */
 export interface HitTarget<Action> {

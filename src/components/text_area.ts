@@ -143,7 +143,7 @@ export class TextAreaController {
     return { topRow: this.#topRow, leftColumn: this.#leftColumn };
   }
 
-  scrollTo(topRow: number, leftColumn = this.#leftColumn): void {
+  scrollTo(topRow: number, leftColumn: number = this.#leftColumn): void {
     const rows = this.#visualLines();
     this.#topRow = Math.max(0, Math.min(topRow, Math.max(0, rows.length - 1)));
     this.#leftColumn = this.#wrapMode === "none" ? Math.max(0, leftColumn) : 0;

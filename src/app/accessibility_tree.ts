@@ -52,7 +52,12 @@ export interface AccessibilityNode {
  * protocols can expose. Everything else is browser-only, and terminal
  * docs must not claim more.
  */
-export const TERMINAL_EXPOSABLE_SEMANTICS = Object.freeze({
+export const TERMINAL_EXPOSABLE_SEMANTICS: Readonly<{
+  windowTitle: string;
+  bell: string;
+  announcement: string;
+  notExposable: readonly string[];
+}> = Object.freeze({
   windowTitle: "OSC 0/2 — one line of context, no structure",
   bell: "BEL — a single attention signal, no content",
   announcement: "printed text — a linear string the shell/screen-reader may read",

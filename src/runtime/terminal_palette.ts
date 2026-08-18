@@ -139,6 +139,7 @@ interface MemoizedTerminalCellStyle {
 const cellStyleMemos = new WeakMap<TerminalCellStyleOptions, Map<string, MemoizedTerminalCellStyle>>();
 const CELL_STYLE_MEMO_LIMIT = 4096;
 
+/** Resolves one terminal cell to its final colours, honouring cursor, opacity, and ground. */
 export function resolveTerminalCellStyle(
   cell: Pick<TerminalScreenCell, "char" | "foreground" | "background" | "bold">,
   column: number,
