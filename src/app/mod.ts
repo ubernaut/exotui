@@ -102,6 +102,7 @@ export * from "./menu_bar_commands.ts";
 export * from "./metric_series_commands.ts";
 export * from "./mouse_bindings.ts";
 export * from "./pointer_gestures.ts";
+export * from "./theme_editor.ts";
 export * from "./pad_commands.ts";
 export * from "./plugins.ts";
 export * from "./plugin_slot_adapters.ts";

@@ -46,6 +46,36 @@ function oklchToLinear(color: Oklch): [number, number, number] {
   return oklabToLinearSrgb(color.l, color.c * Math.cos(radians), color.c * Math.sin(radians));
 }
 
+function srgbToLinearChannel(value: number): number {
+  const v = Math.max(0, Math.min(1, value / 255));
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+
+/**
+ * The inverse of {@linkcode oklchToRgb}: sRGB to OKLCH, so an editor can pick
+ * a colour APART along perceptual axes. Dragging lightness this way keeps the
+ * hue where the user put it, which is what makes "same colour, readable
+ * version" a slider move instead of a guess.
+ *
+ * Hue is undefined for a grey; this reports 0 and a chroma of 0, and
+ * `oklchToRgb` round-trips that back to the same grey.
+ */
+export function rgbToOklch(rgb: Rgb): Oklch {
+  const r = srgbToLinearChannel(rgb[0]);
+  const g = srgbToLinearChannel(rgb[1]);
+  const b = srgbToLinearChannel(rgb[2]);
+  const l_ = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m_ = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s_ = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+  const a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+  const bAxis = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
+  const chroma = Math.sqrt(a * a + bAxis * bAxis);
+  if (chroma < 1e-7) return { l, c: 0, h: 0 };
+  const hue = (Math.atan2(bAxis, a) * 180) / Math.PI;
+  return { l, c: chroma, h: hue < 0 ? hue + 360 : hue };
+}
+
 /** Is an OKLCH color inside the sRGB gamut? */
 export function oklchInGamut(color: Oklch): boolean {
   return inGamut(oklchToLinear(color));
