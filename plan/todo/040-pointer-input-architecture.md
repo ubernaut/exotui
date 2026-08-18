@@ -1,7 +1,13 @@
 # Pointer input architecture
 
-Status: phases 0-6 implemented August 17 2026. Architecture review page with diagrams:
-https://claude.ai/code/artifact/f913a0e4-8081-46c9-80b9-8957b2545714 — awaiting the user's live check before push.
+Status: complete — phases 0-6 shipped (e2a42b47) and confirmed working on a real desktop and phone by the user, August
+18 2026. Architecture review page with diagrams: https://claude.ai/code/artifact/f913a0e4-8081-46c9-80b9-8957b2545714
+
+One regression escaped to the user and was fixed in 888fd904: button and wheel events acted on the block cursor's
+REMEMBERED cell, which only motion updated, so a phone (which sends no hover motion at all) froze the cursor at the
+first tap and redirected every later tap, drag and scroll to it. Every event now moves the cursor and acts on the same
+cell. Two tests had asserted the broken behavior; they are replaced by three that pin the fix, including the no-hover
+tap sequence the harness default (block cursor off) hid.
 
 User direction (Aug 17 2026): stop chaining hacks. Software should be composed of discrete modules that are easily and
 independently tested, whose domain is clear and easy to understand, and which are easy to swap out. The pointer path
