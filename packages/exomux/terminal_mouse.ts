@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import {
+  contains,
   encodeTerminalMouse,
   POINTER_INPUT_SCHEMA_VERSION,
   type PointerInputEvent,
@@ -401,13 +402,4 @@ function clampToClient(
     column: Math.max(rect.column, Math.min(rect.column + Math.max(1, rect.width) - 1, Math.floor(column))),
     row: Math.max(rect.row, Math.min(rect.row + Math.max(1, rect.height) - 1, Math.floor(row))),
   };
-}
-
-function contains(
-  rect: WorkbenchWindowChromeProjection["clientRect"],
-  column: number,
-  row: number,
-): boolean {
-  return rect.width > 0 && rect.height > 0 && column >= rect.column && row >= rect.row &&
-    column < rect.column + rect.width && row < rect.row + rect.height;
 }

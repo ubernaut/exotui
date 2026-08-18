@@ -32,6 +32,8 @@ import {
   type PointerInputEvent,
 } from "../pointer_input.ts";
 import { Signal } from "../signals/signal.ts";
+import { contains as containsCell } from "./hit_targets.ts";
+import { createPointerGestureState, type PointerGestureState, reducePointerGesture } from "./pointer_gestures.ts";
 import type { Rectangle } from "../types.ts";
 import {
   createMarkupWindowHistoryAdapter,
@@ -360,7 +362,13 @@ export class WorkbenchWindowHostController<TId extends string = string> {
   readonly #input: InputEnvelopeFactory;
   readonly #commandStep: number;
   /** Pending first title-bar click for host-owned double-click-to-maximize. */
-  #lastTitleBarClick?: { windowId: string; at: number };
+  /**
+   * Title-bar click/drag/double-click recognition, as one state machine
+   * (src/app/pointer_gestures.ts) rather than flags. It decides on the
+   * release: a press that travels is a drag, so "click to focus, then drag"
+   * moves a window instead of snapping it full screen.
+   */
+  #titleBarGesture: PointerGestureState = createPointerGestureState();
   readonly #titlebarLayouts = new Map<string, WorkbenchTitlebarLayout>();
   readonly #titlebarCommands = new Map<
     string,
@@ -675,6 +683,22 @@ export class WorkbenchWindowHostController<TId extends string = string> {
       return hostResult("invalid", false, undefined, undefined, undefined, "pointer-event-is-invalid");
     }
     if (this.#separatorResize) return this.#routeSeparatorResize(event, bounds);
+    if (event.kind !== "down" && options.doubleClickMaximizeMs !== undefined) {
+      const cell = event.coordinates.cell;
+      const advanced = reducePointerGesture(this.#titleBarGesture, {
+        kind: event.kind === "move" ? "move" : event.kind === "up" ? "up" : "cancel",
+        column: cell?.x ?? Number.NaN,
+        row: cell?.y ?? Number.NaN,
+        timestamp: event.timestamp,
+      }, { doubleClickMs: options.doubleClickMaximizeMs });
+      this.#titleBarGesture = advanced.state;
+      if (advanced.outcome.kind === "double-click") {
+        // Let an in-flight move settle first, then toggle: the release still
+        // belongs to the gesture that owns it.
+        if (this.interactions.inspect().active) this.#routeInteraction(event, bounds);
+        return this.execute({ kind: "toggle-maximize", id: advanced.outcome.id }, bounds, options);
+      }
+    }
     if (this.interactions.inspect().active) return this.#routeInteraction(event, bounds);
     if (event.kind === "down") {
       const point = event.coordinates.cell;
@@ -707,15 +731,14 @@ export class WorkbenchWindowHostController<TId extends string = string> {
       // read as a double-tap. Timestamps come from the input envelope, so the
       // host needs no clock of its own.
       if (primaryActivation && event.device === "mouse" && options.doubleClickMaximizeMs !== undefined) {
-        const id = bareTitleBarWindowAt(projection, point.x, point.y);
-        if (id !== undefined) {
-          const at = event.timestamp;
-          const last = this.#lastTitleBarClick;
-          const doubleClicked = last?.windowId === id && at >= last.at &&
-            at - last.at <= options.doubleClickMaximizeMs;
-          this.#lastTitleBarClick = doubleClicked ? undefined : { windowId: id, at };
-          if (doubleClicked) return this.execute({ kind: "toggle-maximize", id }, bounds);
-        }
+        const advanced = reducePointerGesture(this.#titleBarGesture, {
+          kind: "down",
+          id: bareTitleBarWindowAt(projection, point.x, point.y),
+          column: point.x,
+          row: point.y,
+          timestamp: event.timestamp,
+        }, { doubleClickMs: options.doubleClickMaximizeMs });
+        this.#titleBarGesture = advanced.state;
       }
       // Floating windows paint above the tiled separator layer. Route them
       // first so an expanded separator hit target cannot pierce floating
@@ -1615,10 +1638,6 @@ function insetRect(rect: Rectangle, amount: number): Rectangle {
     width: Math.max(0, rect.width - amount * 2),
     height: Math.max(0, rect.height - amount * 2),
   };
-}
-
-function containsCell(rect: Rectangle, column: number, row: number): boolean {
-  return column >= rect.column && row >= rect.row && column < rect.column + rect.width && row < rect.row + rect.height;
 }
 
 function keyEdge(key: string): TiledWorkspaceDockEdge | undefined {

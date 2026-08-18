@@ -96,6 +96,17 @@ import {
   formatExomuxFlushTelemetry,
 } from "./debug_log.ts";
 import { exomuxPincushionMagnitude, exomuxPointerWarpCell, isRunningInGhostty } from "./ghostty.ts";
+import { contains, type MouseInteractionRouter } from "@ubernaut/deno-tui";
+import { buildExomuxPointerModel, type ExomuxPointerTarget, exomuxWindowRegionResolver } from "./pointer_targets.ts";
+import {
+  EXOMUX_FOOTER_ROWS,
+  EXOMUX_HEADER_ROWS,
+  EXOMUX_MENU_QUIT_WIDTH,
+  EXOMUX_START_BUTTON,
+  exomuxBodyRect,
+  exomuxMenuQuitRect,
+  exomuxShelfBounds,
+} from "./desktop_layout.ts";
 import { EXOMUX_PROTOCOL_LIMITS } from "./protocol.ts";
 import {
   type ExomuxSettingsButtonCells,
@@ -216,14 +227,14 @@ export interface ExomuxTerminalAppRuntime {
 // One top bar, no bottom bars: the window taskbar sits inline on the top row
 // and every command lives in the start-menu dropdown, so all other rows are
 // terminal real estate.
-const HEADER_ROWS = 1;
-const FOOTER_ROWS = 0;
+const HEADER_ROWS = EXOMUX_HEADER_ROWS;
+const FOOTER_ROWS = EXOMUX_FOOTER_ROWS;
 const SESSION_LIST_START = 3;
 /** Start-menu button occupying the top-left, opening the command dropdown. */
 const START_BUTTON_IDLE_LABEL = "≡ Exomux ▾";
 const START_BUTTON_PREFIX_LABEL = "≡ PREFIX ▾";
-const START_BUTTON = Object.freeze({ column: 0, row: 0, width: 14, height: 1 });
-const MENU_QUIT_WIDTH = 5;
+const START_BUTTON = EXOMUX_START_BUTTON;
+const MENU_QUIT_WIDTH = EXOMUX_MENU_QUIT_WIDTH;
 /** Command items listed in the start-menu dropdown, in display order. */
 const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: string; readonly danger?: boolean }[] =
   Object.freeze([
@@ -302,14 +313,7 @@ export function exomuxStartMenuItems(controller: ExomuxController): readonly Exo
   ]);
 }
 
-function menuQuitRect(bounds: Rectangle): Rectangle {
-  return {
-    column: bounds.column + Math.max(0, bounds.width - MENU_QUIT_WIDTH),
-    row: 0,
-    width: Math.min(MENU_QUIT_WIDTH, bounds.width),
-    height: 1,
-  };
-}
+const menuQuitRect = exomuxMenuQuitRect;
 
 /** One command row inside the start-menu dropdown. */
 export interface ExomuxStartMenuItemLayout {
@@ -747,10 +751,9 @@ export function mountExomuxDesktop(
     if (mousePointer.peek() !== undefined) mousePointer.value = undefined;
   };
   // With the pincushion CRT shader on under Ghostty, the terminal grid is
-  // visually warped but Ghostty still reports the mouse in raw grid cells. Warp
-  // the reported cell through the exact shader map (exomuxPincushionSource) so
-  // the block cursor — and clicks/drags/scrolls — land under the OS pointer
-  // instead of drifting outward in the distorted regions.
+  // visually warped but Ghostty still reports the mouse in raw grid cells. One
+  // authority (pointer_space.ts) maps a reported cell to the cell displayed
+  // there, and the block cursor, clicks, drags, and scrolls all go through it.
   const runningInGhostty = isRunningInGhostty();
   const pincushionActive = (): boolean => runningInGhostty && controller.shaderConfig.peek().effects.pincushion.enabled;
   const warpPointerCell = (x: number, y: number): { readonly x: number; readonly y: number } => {
@@ -918,24 +921,10 @@ export function mountExomuxDesktop(
   // When the background sim last actually advanced, so a sustained-input stall
   // can be capped instead of freezing the field until the user stops.
   let lastBackgroundAdvanceAt = performance.now();
-  const bodyRect = own(
-    new Computed<Rectangle>(() => ({
-      column: 0,
-      row: Math.min(HEADER_ROWS, Math.max(0, app.tui.rectangle.value.height - 1)),
-      width: Math.max(1, app.tui.rectangle.value.width),
-      height: Math.max(1, app.tui.rectangle.value.height - HEADER_ROWS - FOOTER_ROWS),
-    })),
-  );
+  const bodyRect = own(new Computed<Rectangle>(() => exomuxBodyRect(app.tui.rectangle.value)));
   // The window taskbar shares the top bar: it starts just past the start button
   // and stops short of the quick quit control on the right.
-  const shelfBounds = own(
-    new Computed<Rectangle>(() => {
-      const width = app.tui.rectangle.value.width;
-      const column = START_BUTTON.width + 1;
-      const available = Math.max(0, width - column - MENU_QUIT_WIDTH - 1);
-      return { column, row: 0, width: Math.max(1, available), height: 1 };
-    }),
-  );
+  const shelfBounds = own(new Computed<Rectangle>(() => exomuxShelfBounds(app.tui.rectangle.value)));
   // Live titlebar status tags, projected first-class by the window host
   // (WS-008) instead of being baked into the painted title by hand.
   const windowTitleAdornments = (windowId: string): readonly string[] => {
@@ -2323,12 +2312,65 @@ export function mountExomuxDesktop(
     }).then(() => handled);
   };
 
+  /**
+   * The cell a pointer event acts on: the one the block cursor is showing.
+   *
+   * Motion moves the cursor; a button event does not. A press therefore lands
+   * exactly where the user can see the cursor blinking, even if the terminal's
+   * report for the press disagrees with the last motion it sent — the cursor is
+   * the pointer's position, not a picture of it. Without the block cursor there
+   * is nothing on screen to be faithful to, so events use their own warped cell.
+   */
+  const cursorQuantized = <T extends MousePressEvent | MouseScrollEvent>(event: T): T => {
+    const warped = warpPointerEvent(event);
+    const motion = "drag" in warped && warped.drag === true;
+    const cursor = controller.globalSettings.peek().blockCursor ? mousePointer.peek() : undefined;
+    if (motion || !cursor) {
+      backgroundSetPointer({ column: warped.x, row: warped.y });
+      return warped;
+    }
+    return warped.x === cursor.column && warped.y === cursor.row
+      ? warped
+      : { ...warped, x: cursor.column, y: cursor.row };
+  };
+
+  // One answer for "what is at this cell", built from the frame the desktop
+  // just painted and reused until that frame changes. Dispatch below reads it
+  // instead of each branch testing its own rectangle in its own order.
+  let pointerModelCache: { key: string; projection: unknown; model: MouseInteractionRouter } | undefined;
+  const pointerModel = (): MouseInteractionRouter => {
+    const projection = windowProjection.peek();
+    const body = bodyRect.peek();
+    const shelf = shelfBounds.peek();
+    const bounds = app.tui.rectangle.peek();
+    const key =
+      `${modalOpen()}|${body.width}x${body.height}@${body.row}|${shelf.column}+${shelf.width}|${bounds.width}`;
+    if (pointerModelCache && pointerModelCache.projection === projection && pointerModelCache.key === key) {
+      return pointerModelCache.model;
+    }
+    const model = buildExomuxPointerModel({
+      body,
+      shelf,
+      startButton: EXOMUX_START_BUTTON,
+      quit: menuQuitRect(bounds),
+      projection,
+      modalOpen: modalOpen(),
+      windowRegionAt: exomuxWindowRegionResolver(
+        projection,
+        (column, row) => controller.windowHost.interactions.hitTest({ column, row }, body),
+      ),
+    });
+    pointerModelCache = { key, projection, model };
+    return model;
+  };
+  /** What the pointer is over, in the vocabulary dispatch switches on. */
+  const pointerTargetAt = (column: number, row: number) => pointerModel().resolve<ExomuxPointerTarget>(column, row);
+
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
-    // One rule everywhere (user direction): the block cursor's cell IS the
-    // click's cell. Every pointer event maps through the same warp, so what
-    // the cursor shows is exactly what a click, drag, or scroll acts on.
-    event = warpPointerEvent(event);
-    backgroundSetPointer({ column: event.x, row: event.y });
+    // One rule everywhere: the block cursor's cell IS the click's cell.
+    event = cursorQuantized(event);
+    const target = pointerTargetAt(event.x, event.y)?.payload;
+    const targetRegion = pointerTargetAt(event.x, event.y)?.region;
     if (modalOpen()) {
       if (terminalMouse.hasLegacyCapture) {
         const packet = terminalMouse.routeLegacyPress(
@@ -2352,13 +2394,13 @@ export function mountExomuxDesktop(
     // through raw-rect router targets, so the distorted top corners stay
     // clickable exactly where they are drawn.
     if (!event.drag && !event.release && event.button === 0) {
-      if (contains(START_BUTTON, event.x, event.y)) {
+      if (target?.kind === "start") {
         await enqueue(() => {
           controller.toggleStartMenu(currentButterchurnPreset());
         });
         return true;
       }
-      if (contains(menuQuitRect(app.tui.rectangle.peek()), event.x, event.y)) {
+      if (target?.kind === "quit") {
         await activateMenu("quit");
         return true;
       }
@@ -2373,7 +2415,7 @@ export function mountExomuxDesktop(
     // bar belongs to whatever window gesture is in flight — claiming those
     // here swallowed the release, left the gesture active forever, and made
     // every later window click dead.
-    if (!event.drag && !event.release && contains(shelfBounds.peek(), event.x, event.y)) {
+    if (!event.drag && !event.release && target?.kind === "shelf") {
       if (event.button === 0) {
         const command = terminalBarCommandAt(event.x, event.y);
         if (command) await enqueue(() => performTerminalBarAction(command.item.action));
@@ -2385,8 +2427,10 @@ export function mountExomuxDesktop(
     // reporting on owns its own right-click, so the menu yields to it there.
     if (event.button === 2 && !event.drag && !event.release && contains(bodyRect.peek(), event.x, event.y)) {
       const overReportingTerminal = (() => {
-        const window = clientWindowAt(windowProjection.peek(), event.x, event.y);
-        const sessionId = window ? exomuxSessionIdFromWindow(window.id) : undefined;
+        const hit = pointerTargetAt(event.x, event.y);
+        const payload = hit?.payload;
+        if (payload?.kind !== "window" || hit?.region !== "client") return false;
+        const sessionId = exomuxSessionIdFromWindow(payload.windowId);
         return sessionId ? controller.windowSettingsFor(sessionId).mouseReporting : false;
       })();
       if (!overReportingTerminal) {
@@ -2415,7 +2459,9 @@ export function mountExomuxDesktop(
     // The `config` titlebar button carries no built-in window command, so claim
     // its press here before the host treats the title bar as a move gesture.
     if (!event.drag && !event.release && event.button === 0) {
-      const configSessionId = configControlSessionAt(projectionBefore, event.x, event.y);
+      const configSessionId = target?.kind === "window" && targetRegion === "control:config"
+        ? exomuxSessionIdFromWindow(target.windowId)
+        : undefined;
       if (configSessionId) {
         await enqueue(() => {
           controller.openWindowConfig(configSessionId);
@@ -2425,20 +2471,26 @@ export function mountExomuxDesktop(
     }
     // Double-click-to-maximize on title bars is host-owned now (WS-008): the
     // window host detects it from envelope timestamps inside handlePointer.
-    const clientWindow = clientWindowAt(projectionBefore, event.x, event.y);
-    // Bare desktop: the background gets first refusal, which is how ripe ivy
-    // fruit is picked. It only claims the click when something was actually
-    // there, so an ordinary desktop click still falls through. A field may also
-    // claim specific cells it paints over window chrome — the rain drain plug
-    // is on the bottom row, which is usually somebody's window.
+    // Client content per the model: chrome and controls are not client cells,
+    // which is the distinction four separate walks used to make by hand.
+    const clientWindowId = target?.kind === "window" && targetRegion === "client" ? target.windowId : undefined;
+    const clientWindow = clientWindowId
+      ? [...projectionBefore.floatingWindows, ...projectionBefore.tiledWindows]
+        .find((window) => window.id === clientWindowId)
+      : undefined;
+    // A field may paint a control on top of windows and claim those cells by
+    // asking — the rain drain plug sits on the bottom row, which is usually
+    // somebody's window. That opt-in is the only part of a background that
+    // sits above the stack; everything else it paints is the bottom of it and
+    // is consulted after every window, at the end of this router.
     if (!event.drag && !event.release && event.button === 0) {
       const field = activeBackgroundField();
-      if (exomuxBackgroundAcceptsPicks(field) && contains(bodyRect.peek(), event.x, event.y)) {
-        const reachable = !clientWindow || (field.picksOverWindows?.(event.x, event.y) ?? false);
-        if (reachable && field.pick(event.x, event.y)) {
-          metaballRevision.value += 1;
-          return true;
-        }
+      if (
+        exomuxBackgroundAcceptsPicks(field) && contains(bodyRect.peek(), event.x, event.y) &&
+        (field.picksOverWindows?.(event.x, event.y) ?? false) && field.pick(event.x, event.y)
+      ) {
+        metaballRevision.value += 1;
+        return true;
       }
     }
     const result = controller.windowHost.handleMouse(
@@ -2490,6 +2542,17 @@ export function mountExomuxDesktop(
       const command = result.command;
       void enqueue(() => runWindowCommand(command, true));
     }
+    // The background is the bottom of the stack, so it answers only what every
+    // window above it declined. It still claims just the cells it actually
+    // painted something on — ripe ivy fruit, a circuit gate — so an ordinary
+    // click on bare desktop falls through to nothing, as it should.
+    if (!handled && !event.drag && !event.release && event.button === 0 && target?.kind === "desktop") {
+      const field = activeBackgroundField();
+      if (exomuxBackgroundAcceptsPicks(field) && field.pick(event.x, event.y)) {
+        metaballRevision.value += 1;
+        return true;
+      }
+    }
     return handled;
   };
 
@@ -2523,8 +2586,7 @@ export function mountExomuxDesktop(
   };
 
   const routeWindowScroll = (event: MouseScrollEvent): Promise<boolean> => {
-    event = warpPointerEvent(event);
-    backgroundSetPointer({ column: event.x, row: event.y });
+    event = cursorQuantized(event);
     // The background-config modal owns the wheel over its list pane, scrolling
     // that viewport rather than letting the gesture fall through or die.
     if (controller.backgroundConfigVisible.peek()) {
@@ -7161,25 +7223,6 @@ function menuRect(id: ExomuxMenuId, bounds: Rectangle): Rectangle {
 }
 
 /** Returns the session whose `config` titlebar button covers one cell, when any. */
-function configControlSessionAt(
-  projection: WorkbenchWindowHostProjection,
-  column: number,
-  row: number,
-): string | undefined {
-  const windows = [...projection.tiledWindows, ...projection.floatingWindows];
-  for (let index = windows.length - 1; index >= 0; index -= 1) {
-    const window = windows[index]!;
-    if (!contains(window.rect, column, row)) continue;
-    for (const control of window.controls) {
-      if (control.kind === "config" && contains(control.hitRect, column, row)) {
-        return exomuxSessionIdFromWindow(window.id);
-      }
-    }
-    return undefined;
-  }
-  return undefined;
-}
-
 /**
  * The block cursor's glyph when it sits on a floating window's draggable border:
  * the title-bar row moves the window, the side/bottom edges and bottom corners
@@ -7319,10 +7362,6 @@ function mergePointerExcursion(excursion: ExomuxPointerMoveExcursion, event: Poi
 
 function primaryPointerActivation(event: PointerInputEvent): boolean {
   return event.primary && (event.button === 0 || (event.device !== "mouse" && event.button === null));
-}
-
-function contains(rect: Rectangle, column: number, row: number): boolean {
-  return column >= rect.column && row >= rect.row && column < rect.column + rect.width && row < rect.row + rect.height;
 }
 
 /**

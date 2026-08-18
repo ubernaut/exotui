@@ -14,11 +14,25 @@ const PROJECTION = {
   floatingWindows: [{
     rect: { column: 4, row: 2, width: 20, height: 8 },
     clientRect: { column: 5, row: 3, width: 18, height: 6 },
+    // Two title-bar buttons, as every real window has.
+    controls: [
+      { kind: "minimize", hitRect: { column: 18, row: 2, width: 3, height: 1 } },
+      { kind: "close", hitRect: { column: 21, row: 2, width: 2, height: 1 } },
+    ],
   }],
 } as unknown as WorkbenchWindowHostProjection;
 
 Deno.test("windowResizeGlyphAt maps a floating window's drag edges to glyphs", () => {
   assertEquals(windowResizeGlyphAt(PROJECTION, 10, 2), "✥"); // title row moves
+  // A press on a title-bar button activates the button; no gesture ever starts,
+  // so the cursor must not offer a move it cannot deliver.
+  assertEquals(windowResizeGlyphAt(PROJECTION, 18, 2), undefined); // minimize button
+  assertEquals(windowResizeGlyphAt(PROJECTION, 20, 2), undefined); // still minimize
+  assertEquals(windowResizeGlyphAt(PROJECTION, 22, 2), undefined); // close button
+  assertEquals(windowResizeGlyphAt(PROJECTION, 17, 2), "✥"); // bare cell before them
+  // The title row's outer columns are resize corners to the hit test.
+  assertEquals(windowResizeGlyphAt(PROJECTION, 4, 2), "⤡"); // top-left corner
+  assertEquals(windowResizeGlyphAt(PROJECTION, 23, 2), "⤢"); // top-right corner
   assertEquals(windowResizeGlyphAt(PROJECTION, 4, 6), "↔"); // left edge
   assertEquals(windowResizeGlyphAt(PROJECTION, 23, 6), "↔"); // right edge
   assertEquals(windowResizeGlyphAt(PROJECTION, 10, 9), "↕"); // bottom edge

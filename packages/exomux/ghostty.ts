@@ -264,52 +264,16 @@ export function exomuxPincushionSource(
   return { u: (cx * scale) * 0.5 + 0.5, v: (cy * scale) * 0.5 + 0.5 };
 }
 
-/** One candidate source cell of an output cell's warped footprint. */
-export interface ExomuxPointerFootprintCell {
-  readonly x: number;
-  readonly y: number;
-  /** Share of the output cell's footprint this source cell owns, 0..1. */
-  readonly cover: number;
-}
-
 /**
- * Every source cell an output cell's pincushion footprint covers, sorted by
- * covered area. Axis extents come from the cell's edge midpoints (the radial
- * map couples the axes, so midlines bound each axis more faithfully than
- * diagonal corners).
- */
-export function exomuxPointerFootprint(
-  x: number,
-  y: number,
-  columns: number,
-  rows: number,
-  magnitude: number,
-): ExomuxPointerFootprintCell[] {
-  const left = exomuxPincushionSource(x / columns, (y + 0.5) / rows, magnitude);
-  const right = exomuxPincushionSource((x + 1) / columns, (y + 0.5) / rows, magnitude);
-  const top = exomuxPincushionSource((x + 0.5) / columns, y / rows, magnitude);
-  const bottom = exomuxPincushionSource((x + 0.5) / columns, (y + 1) / rows, magnitude);
-  const u0 = Math.min(left.u, right.u) * columns;
-  const u1 = Math.max(left.u, right.u) * columns;
-  const v0 = Math.min(top.v, bottom.v) * rows;
-  const v1 = Math.max(top.v, bottom.v) * rows;
-  const cells: { x: number; y: number; cover: number }[] = [];
-  for (let column = Math.floor(u0); column <= Math.ceil(u1) - 1; column += 1) {
-    if (column < 0 || column >= columns) continue;
-    for (let row = Math.floor(v0); row <= Math.ceil(v1) - 1; row += 1) {
-      if (row < 0 || row >= rows) continue;
-      const coverU = Math.min(u1, column + 1) - Math.max(u0, column);
-      const coverV = Math.min(v1, row + 1) - Math.max(v0, row);
-      cells.push({ x: column, y: row, cover: coverU * coverV });
-    }
-  }
-  cells.sort((a, b) => b.cover - a.cover);
-  return cells.length > 0 ? cells : [{ x, y, cover: 1 }];
-}
-
-/**
- * The source cell an output cell dominantly shows: the footprint's area-max
- * candidate. Off-grid results (the black corner margin) keep the raw cell.
+ * The grid cell whose content the pincushion displays at reported cell (x, y).
+ *
+ * Sampling the output cell's centre answers exactly what the pointer asks —
+ * what is drawn under this spot — so the block cursor drawn at the result
+ * lands back under the pointer once the shader warps the frame. Cells that
+ * sample outside the grid (the black corner margin the distortion leaves)
+ * keep their reported coordinates: nothing is displayed there to aim at.
+ *
+ * This mirrors the GLSL emitted below; keep the two identical.
  */
 export function exomuxPointerWarpCell(
   x: number,
@@ -318,9 +282,12 @@ export function exomuxPointerWarpCell(
   rows: number,
   magnitude: number,
 ): { readonly x: number; readonly y: number } {
-  const footprint = exomuxPointerFootprint(x, y, columns, rows, magnitude);
-  const dominant = footprint[0]!;
-  return { x: dominant.x, y: dominant.y };
+  if (!Number.isFinite(magnitude) || magnitude <= 0) return { x, y };
+  const source = exomuxPincushionSource((x + 0.5) / columns, (y + 0.5) / rows, magnitude);
+  const column = Math.floor(source.u * columns);
+  const row = Math.floor(source.v * rows);
+  if (column < 0 || column >= columns || row < 0 || row >= rows) return { x, y };
+  return { x: column, y: row };
 }
 
 export function generateExomuxShader(

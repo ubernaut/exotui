@@ -11,7 +11,7 @@
 // keepalive while the cursor is on and always restores the terminal on
 // teardown. Promoted from the exomux terminal multiplexer.
 
-import type { Rectangle } from "../types.ts";
+import { contains as cursorCellIn } from "./hit_targets.ts";
 import type { WorkbenchWindowHostProjection } from "./workbench_window_host.ts";
 
 /** The software cursor's cell and glyph for one frame. */
@@ -19,11 +19,6 @@ export interface SoftwareCursorRender {
   readonly column: number;
   readonly row: number;
   readonly glyph: string;
-}
-
-function cursorCellIn(rect: Rectangle, column: number, row: number): boolean {
-  return column >= rect.column && column < rect.column + rect.width &&
-    row >= rect.row && row < rect.row + rect.height;
 }
 
 /**
@@ -40,11 +35,24 @@ export function windowResizeGlyphAt(
     const window = projection.floatingWindows[index]!;
     if (!cursorCellIn(window.rect, column, row)) continue;
     if (cursorCellIn(window.clientRect, column, row)) return undefined; // inside the content
+    // A title-bar control is a button, and a press on one activates it instead
+    // of starting a gesture. The hit test calls its cells "title" all the same,
+    // so the cursor has to exclude them itself or it promises a drag that can
+    // never happen — a third of a title bar can be buttons.
+    const controls = window.controls ?? [];
+    for (let control = controls.length - 1; control >= 0; control -= 1) {
+      if (cursorCellIn(controls[control]!.hitRect, column, row)) return undefined;
+    }
     const rect = window.rect;
     const onLeft = column === rect.column;
     const onRight = column === rect.column + rect.width - 1;
     const onBottom = row === rect.row + rect.height - 1;
-    if (row === rect.row) return "✥"; // the title-bar row drags to move
+    const onTop = row === rect.row;
+    // The title row's outer columns are resize corners to the hit test, so the
+    // cursor has to say resize there rather than promise a move.
+    if (onTop && onLeft) return "⤡"; // top-left ↔ bottom-right resize
+    if (onTop && onRight) return "⤢"; // top-right ↔ bottom-left resize
+    if (onTop) return "✥"; // the rest of the title-bar row drags to move
     if (onBottom && onLeft) return "⤢"; // bottom-left ↔ top-right resize
     if (onBottom && onRight) return "⤡"; // bottom-right ↔ top-left resize
     if (onLeft || onRight) return "↔"; // side edges resize width

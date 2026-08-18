@@ -1,106 +1,27 @@
 // Copyright 2023 Im-Beast. MIT license.
+
+// Rectangle arithmetic for terminal-cell layout and hit testing.
+//
+// This file also carried HitTargetStack, an immediate-mode rect-to-action
+// stack that answered "what is at this cell" with its own precedence rules and
+// had no production consumer. MouseInteractionRouter answers that question
+// with paint order, drag capture, live bounds and region classification, and
+// is what the desktop actually uses, so the second answer is gone: one
+// question, one API (plan/todo/040).
 import type { Rectangle } from "../types.ts";
 
-/** Hit target record used by pointer routers and immediate-mode workbench renderers. */
-export interface HitTarget<Action> {
-  rect: Rectangle;
-  action: Action;
-}
-
-/** LIFO hit target stack where later targets are visually above earlier targets. */
-export class HitTargetStack<Action> {
-  #targets: Array<HitTarget<Action>> = [];
-
-  get length(): number {
-    return this.#targets.length;
-  }
-
-  add(rect: Rectangle, action: Action): void {
-    this.#targets.push({ rect, action });
-  }
-
-  clear(): void {
-    this.#targets = [];
-  }
-
-  at(index: number): HitTarget<Action> | undefined {
-    return this.#targets[index];
-  }
-
-  remove(index: number): void {
-    this.#targets.splice(index, 1);
-  }
-
-  updateRect(index: number, rect: Rectangle): void {
-    const target = this.#targets[index];
-    if (!target) return;
-    target.rect = rect;
-  }
-
-  find(x: number, y: number): HitTarget<Action> | undefined {
-    for (let index = this.#targets.length - 1; index >= 0; index -= 1) {
-      const target = this.#targets[index]!;
-      if (contains(target.rect, x, y)) return target;
-    }
-  }
-
-  findExpanded(
-    x: number,
-    y: number,
-    expand: (rect: Rectangle, target: HitTarget<Action>) => Rectangle | undefined,
-  ): HitTarget<Action> | undefined {
-    for (let index = this.#targets.length - 1; index >= 0; index -= 1) {
-      const target = this.#targets[index]!;
-      const rect = expand(target.rect, target);
-      if (rect && contains(rect, x, y)) return { rect, action: target.action };
-    }
-  }
-
-  entries(): Array<HitTarget<Action>> {
-    const entries = new Array<HitTarget<Action>>(this.#targets.length);
-    for (let index = 0; index < this.#targets.length; index += 1) {
-      const target = this.#targets[index]!;
-      entries[index] = { rect: { ...target.rect }, action: target.action };
-    }
-    return entries;
-  }
-}
-
-/** Options for translating and clipping a suffix of a hit target stack. */
-export interface TranslateHitTargetsOptions {
-  startIndex: number;
-  columnDelta?: number;
-  rowDelta?: number;
-  clip: Rectangle;
-}
-
 /**
- * Translates all hit targets added after a known stack index, clipping or removing targets that leave the viewport.
+ * Returns true when a terminal-cell coordinate is inside a rectangle.
+ *
+ * The canonical implementation: the pointer path had grown seven copies of
+ * this, and a cell belonging to different things depending on which copy asked
+ * is how clicks went missing. Negative sizes clamp to empty rather than
+ * inverting, which is what the pointer router always did defensively.
  */
-export function translateHitTargets<Action>(
-  targets: HitTargetStack<Action>,
-  options: TranslateHitTargetsOptions,
-): void {
-  const columnDelta = options.columnDelta ?? 0;
-  const rowDelta = options.rowDelta ?? 0;
-  for (let index = targets.length - 1; index >= options.startIndex; index -= 1) {
-    const target = targets.at(index)!;
-    const translated = {
-      ...target.rect,
-      column: target.rect.column + columnDelta,
-      row: target.rect.row + rowDelta,
-    };
-    if (!intersects(translated, options.clip)) {
-      targets.remove(index);
-      continue;
-    }
-    targets.updateRect(index, clipRect(translated, options.clip));
-  }
-}
-
-/** Returns true when a terminal-cell coordinate is inside a rectangle. */
 export function contains(rect: Rectangle, x: number, y: number): boolean {
-  return x >= rect.column && x < rect.column + rect.width && y >= rect.row && y < rect.row + rect.height;
+  return x >= rect.column && y >= rect.row &&
+    x < rect.column + Math.max(0, rect.width) &&
+    y < rect.row + Math.max(0, rect.height);
 }
 
 /** Returns true when two rectangles overlap. */

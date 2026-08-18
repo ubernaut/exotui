@@ -5,7 +5,6 @@ import {
   compactSpaces,
   createWorkbenchShellSession,
   dispatchWorkbenchTextPromptInput,
-  HitTargetStack,
   layoutWorkbenchButtonRow,
   layoutWorkbenchModal,
   layoutWorkbenchPopover,
@@ -16,7 +15,6 @@ import {
   resolveWorkbenchGlobalKey,
   resolveWorkbenchShellBackend,
   resolveWorkbenchThreeTerminalPressureBudget,
-  translateHitTargets,
   visibleMenuSlice,
   visibleMenuSliceInto,
   visibleProjectedMenuSliceInto,
@@ -58,15 +56,6 @@ Deno.test("workbench facade exposes renderer-neutral helpers", () => {
     ["minimize", "maximize", "restore", "close"],
   );
 
-  const stack = new HitTargetStack<string>();
-  stack.add({ column: 1, row: 1, width: 4, height: 2 }, "demo");
-  translateHitTargets(stack, {
-    startIndex: 0,
-    columnDelta: 2,
-    rowDelta: 1,
-    clip: { column: 0, row: 0, width: 10, height: 10 },
-  });
-  assertEquals(stack.find(3, 2)?.action, "demo");
   assertEquals(
     layoutWorkbenchModal({ bounds: { column: 0, row: 0, width: 80, height: 24 }, contentHeight: 10 }).rect,
     { column: 4, row: 7, width: 72, height: 10 },

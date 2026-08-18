@@ -29,7 +29,7 @@ import { CommandRegistry } from "../src/app/commands.ts";
 import type { Command, CommandActionFactory } from "../src/app/commands.ts";
 import { createDisposableStack, DisposableStack, disposeReverse } from "../src/app/disposables.ts";
 import { bindHistoryCommands, bindRouteHistory, historyCommands, HistoryStack } from "../src/app/history.ts";
-import { clipRect, contains, HitTargetStack, inset, intersects, translateHitTargets } from "../src/app/hit_targets.ts";
+import { clipRect, contains, inset, intersects } from "../src/app/hit_targets.ts";
 import { bindMouseInteractions, createMouseInteractionRouter } from "../src/app/mouse_bindings.ts";
 import {
   createAppPlugin,
@@ -313,73 +313,6 @@ Deno.test("app byte and optional-number formatters cover spaced and compact disp
   assertEquals(formatOptionalNumber(null, "W"), "--");
   assertEquals(formatOptionalNumber(99.4, "W"), "99.4W");
   assertEquals(formatOptionalNumber(1815, "MHz"), "1815MHz");
-});
-
-Deno.test("HitTargetStack finds the topmost matching target", () => {
-  const stack = new HitTargetStack<string>();
-  stack.add({ column: 0, row: 0, width: 4, height: 4 }, "bottom");
-  stack.add({ column: 1, row: 1, width: 2, height: 2 }, "top");
-
-  assertEquals(stack.length, 2);
-  assertEquals(stack.find(1, 1)?.action, "top");
-  assertEquals(stack.find(3, 3)?.action, "bottom");
-  assertEquals(stack.find(4, 4), undefined);
-});
-
-Deno.test("HitTargetStack supports indexed update remove clear and cloned inspection", () => {
-  const stack = new HitTargetStack<{ id: string }>();
-  const action = { id: "a" };
-  stack.add({ column: 0, row: 0, width: 2, height: 2 }, action);
-  stack.updateRect(0, { column: 4, row: 4, width: 1, height: 1 });
-
-  const entries = stack.entries();
-  entries[0]!.rect.column = 99;
-  assertEquals(stack.find(4, 4)?.action, action);
-
-  stack.remove(0);
-  assertEquals(stack.length, 0);
-  stack.add({ column: 0, row: 0, width: 1, height: 1 }, { id: "b" });
-  stack.clear();
-  assertEquals(stack.length, 0);
-});
-
-Deno.test("HitTargetStack finds expanded targets without cloning the whole stack", () => {
-  const stack = new HitTargetStack<string>();
-  stack.add({ column: 0, row: 0, width: 1, height: 1 }, "bottom");
-  stack.add({ column: 4, row: 0, width: 1, height: 1 }, "top");
-
-  const hit = stack.findExpanded(3, 0, (rect) => ({
-    column: rect.column - 1,
-    row: rect.row,
-    width: rect.width + 2,
-    height: rect.height,
-  }));
-
-  assertEquals(hit, { rect: { column: 3, row: 0, width: 3, height: 1 }, action: "top" });
-  hit!.rect.column = 99;
-  assertEquals(stack.find(4, 0), { rect: { column: 4, row: 0, width: 1, height: 1 }, action: "top" });
-});
-
-Deno.test("translateHitTargets translates clips and removes a stack suffix", () => {
-  const stack = new HitTargetStack<string>();
-  stack.add({ column: 0, row: 0, width: 2, height: 2 }, "before");
-  const startIndex = stack.length;
-  stack.add({ column: 0, row: 0, width: 4, height: 2 }, "visible");
-  stack.add({ column: 7, row: 4, width: 4, height: 2 }, "clipped");
-  stack.add({ column: 20, row: 20, width: 2, height: 2 }, "removed");
-
-  translateHitTargets(stack, {
-    startIndex,
-    columnDelta: 2,
-    rowDelta: 1,
-    clip: { column: 0, row: 0, width: 10, height: 6 },
-  });
-
-  assertEquals(stack.entries(), [
-    { rect: { column: 0, row: 0, width: 2, height: 2 }, action: "before" },
-    { rect: { column: 2, row: 1, width: 4, height: 2 }, action: "visible" },
-    { rect: { column: 9, row: 5, width: 1, height: 1 }, action: "clipped" },
-  ]);
 });
 
 Deno.test("hit target rectangle helpers handle containment intersection clipping and inset", () => {
@@ -4118,3 +4051,92 @@ async function runCommandFactory<TAction extends Action>(command: Command<TActio
     await (command.action as CommandActionFactory<TAction>)(command);
   }
 }
+
+// Phase 1 of plan/todo/040. The router gained the two hooks whose absence made
+// callers hand-roll resolution: a cell transform (a display shader warps what
+// the user sees while the terminal reports undistorted cells) and a region
+// classifier (which part of a surface a point falls in).
+
+Deno.test("router transform maps a reported cell once, for resolution and handlers alike", async () => {
+  const router = createMouseInteractionRouter({ transform: (x, y) => ({ x: x - 10, y: y - 4 }) });
+  const seen: Array<{ x: number; y: number; localX: number; localY: number }> = [];
+  router.register({
+    id: "panel",
+    bounds: { column: 0, row: 0, width: 10, height: 4 },
+    onPress: (event, context) => {
+      seen.push({ x: event.x, y: event.y, localX: context.localX, localY: context.localY });
+      return true;
+    },
+  });
+
+  // A press reported at (12,5) is really over the panel's (2,1).
+  const result = await router.dispatch(createTestMousePress({ x: 12, y: 5 }));
+  assertEquals(result.handled, true);
+  assertEquals(result.targetId, "panel");
+  assertEquals(seen, [{ x: 2, y: 1, localX: 2, localY: 1 }], "handlers see transformed coordinates");
+
+  // Callers can ask the same question dispatch asks.
+  assertEquals(router.toTargetSpace(12, 5), { x: 2, y: 1 });
+  assertEquals(router.resolve(12, 5)?.id, "panel");
+  // Untransformed, that cell belongs to nobody.
+  assertEquals(router.resolve(12, 5)?.localX, 2);
+
+  // A transform that throws or returns nonsense leaves the cell alone.
+  router.setTransform(() => {
+    throw new Error("bad transform");
+  });
+  assertEquals(router.toTargetSpace(3, 2), { x: 3, y: 2 });
+  router.setTransform(() => ({ x: Number.NaN, y: 0 }));
+  assertEquals(router.toTargetSpace(3, 2), { x: 3, y: 2 });
+  router.setTransform(undefined);
+  assertEquals(router.toTargetSpace(12, 5), { x: 12, y: 5 });
+});
+
+Deno.test("router regions name the part of a target a cell falls in", async () => {
+  const router = createMouseInteractionRouter();
+  const regions: Array<string | undefined> = [];
+  router.register({
+    id: "window",
+    bounds: { column: 5, row: 5, width: 20, height: 10 },
+    payload: { title: "shell" },
+    regionAt: (localX, localY, payload) => {
+      assertEquals(payload, { title: "shell" }, "the classifier gets its own payload");
+      if (localY === 0) return localX >= 17 ? "control" : "title";
+      return "client";
+    },
+    onPress: (_event, context) => {
+      regions.push(context.region);
+      return true;
+    },
+  });
+
+  assertEquals(router.resolve(6, 5)?.region, "title");
+  assertEquals(router.resolve(23, 5)?.region, "control");
+  assertEquals(router.resolve(6, 9)?.region, "client");
+  assertEquals(router.resolve(100, 100), undefined, "off every target resolves to nothing");
+
+  await router.dispatch(createTestMousePress({ x: 23, y: 5 }));
+  assertEquals(regions, ["control"], "handlers receive the same region resolve reports");
+
+  // A classifier that throws is descriptive only; the press still lands.
+  router.register({
+    id: "broken",
+    bounds: { column: 0, row: 0, width: 3, height: 3 },
+    zIndex: 5,
+    regionAt: () => {
+      throw new Error("bad classifier");
+    },
+    onPress: () => true,
+  });
+  assertEquals(router.resolve(1, 1)?.region, undefined);
+  assertEquals((await router.dispatch(createTestMousePress({ x: 1, y: 1 }))).handled, true);
+});
+
+Deno.test("a target without a classifier reports no region", () => {
+  const router = createMouseInteractionRouter();
+  router.register({ id: "plain", bounds: { column: 0, row: 0, width: 4, height: 4 }, onPress: () => true });
+  const resolved = router.resolve(2, 2);
+  assertEquals(resolved?.id, "plain");
+  assertEquals(resolved?.region, undefined);
+  assertEquals(resolved?.localX, 2);
+});

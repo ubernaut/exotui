@@ -2,6 +2,7 @@
 import type { MousePressEvent, MouseScrollEvent } from "../input_reader/types.ts";
 import type { Rectangle } from "../types.ts";
 import { OrderedIdCollection } from "../utils/collections.ts";
+import { contains } from "./hit_targets.ts";
 
 /** Public type alias for a mouse Interaction Event. */
 export type MouseInteractionEvent = MousePressEvent | MouseScrollEvent;
@@ -17,6 +18,8 @@ export interface MouseInteractionContext<TPayload = unknown> {
   kind: MouseInteractionKind;
   captured: boolean;
   payload?: TPayload;
+  /** The target's own name for the point, when it classifies its regions. */
+  region?: string;
 }
 
 /** Callback signature for handling mouse Interaction events. */
@@ -24,6 +27,28 @@ export type MouseInteractionHandler<TEvent extends MouseInteractionEvent, TPaylo
   event: TEvent,
   context: MouseInteractionContext<TPayload>,
 ) => void | boolean | Promise<void | boolean>;
+
+/**
+ * Maps a reported cell into the space targets are registered in.
+ *
+ * A display shader can warp the grid the user sees while the terminal keeps
+ * reporting undistorted cells; without this hook a caller has to bypass the
+ * router entirely to compensate, which is exactly how exomux ended up with a
+ * hand-rolled cascade. Read live state inside the function — it is called per
+ * event, like `bounds` and `zIndex`.
+ */
+export type MouseInteractionTransform = (x: number, y: number) => { readonly x: number; readonly y: number };
+
+/**
+ * Classifies a point WITHIN a target: title bar, edge, control, row, content.
+ * Whoever lays a surface out owns this, so hit-testing reads the geometry the
+ * surface already computed to paint itself instead of re-deriving it.
+ */
+export type MouseInteractionRegionClassifier<TPayload = unknown> = (
+  localX: number,
+  localY: number,
+  payload: TPayload | undefined,
+) => string | undefined;
 
 /** Public interface describing a mouse Interaction Target. */
 export interface MouseInteractionTarget<TPayload = unknown> {
@@ -34,6 +59,8 @@ export interface MouseInteractionTarget<TPayload = unknown> {
   disabled?: boolean | (() => boolean);
   captureDrag?: boolean;
   payload?: TPayload;
+  /** Sub-region classifier; see {@link MouseInteractionRegionClassifier}. */
+  regionAt?: MouseInteractionRegionClassifier<TPayload>;
   onPress?: MouseInteractionHandler<MousePressEvent, TPayload>;
   onDrag?: MouseInteractionHandler<MousePressEvent, TPayload>;
   onRelease?: MouseInteractionHandler<MousePressEvent, TPayload>;
@@ -51,6 +78,24 @@ export interface MouseInteractionInspection {
   hasDragHandler: boolean;
   hasReleaseHandler: boolean;
   hasScrollHandler: boolean;
+}
+
+/**
+ * The single answer to "what is at this cell": which target owns it, where the
+ * cell falls inside that target, and which of its regions that is.
+ */
+export interface MouseInteractionResolution<TPayload = unknown> {
+  id: string;
+  bounds: Rectangle;
+  localX: number;
+  localY: number;
+  region?: string;
+  payload?: TPayload;
+}
+
+/** Options accepted when constructing a router. */
+export interface MouseInteractionRouterOptions {
+  transform?: MouseInteractionTransform;
 }
 
 /** Public interface describing a mouse Interaction Dispatch Result. */
@@ -76,6 +121,57 @@ export class MouseInteractionRouter {
   #sequence = 0;
   #captureId?: string;
   #suppressCapturedGesture = false;
+  #transform?: MouseInteractionTransform;
+
+  constructor(options: MouseInteractionRouterOptions = {}) {
+    this.#transform = options.transform;
+  }
+
+  /** Installs (or clears) the cell transform every dispatch passes through. */
+  setTransform(transform?: MouseInteractionTransform): void {
+    this.#transform = transform;
+  }
+
+  /**
+   * Maps a reported cell into target space. Callers that need to ask the same
+   * question the router asks — a drawn cursor, a hit map — go through this so
+   * they cannot disagree with dispatch about where the pointer is.
+   */
+  toTargetSpace(x: number, y: number): { readonly x: number; readonly y: number } {
+    if (!this.#transform) return { x, y };
+    try {
+      const mapped = this.#transform(x, y);
+      if (!mapped || !Number.isFinite(mapped.x) || !Number.isFinite(mapped.y)) return { x, y };
+      return { x: Math.trunc(mapped.x), y: Math.trunc(mapped.y) };
+    } catch {
+      return { x, y };
+    }
+  }
+
+  /**
+   * Resolves a reported cell all the way to a target and its region. This is
+   * the one entry point for "what is at this cell"; everything that answers
+   * that question should call it rather than walking geometry itself.
+   */
+  resolve<TPayload = unknown>(
+    x: number,
+    y: number,
+    kind: MouseInteractionKind = "press",
+  ): MouseInteractionResolution<TPayload> | undefined {
+    const cell = this.toTargetSpace(x, y);
+    const resolved = this.#resolveHit(cell.x, cell.y, kind);
+    if (!resolved) return undefined;
+    const localX = cell.x - resolved.bounds.column;
+    const localY = cell.y - resolved.bounds.row;
+    return {
+      id: resolved.target.id,
+      bounds: resolved.bounds,
+      localX,
+      localY,
+      region: regionOf(resolved.target, localX, localY),
+      payload: resolved.target.payload as TPayload | undefined,
+    };
+  }
 
   register<TPayload>(target: MouseInteractionTarget<TPayload>): () => void {
     const registered: RegisteredMouseInteractionTarget<TPayload> = {
@@ -134,6 +230,10 @@ export class MouseInteractionRouter {
 
   async dispatch(event: MouseInteractionEvent): Promise<MouseInteractionDispatchResult> {
     const kind = interactionKind(event);
+    // One transform at ingress: resolution and every handler then see the same
+    // cell, so what the pointer points at and what the click acts on agree.
+    const mapped = this.toTargetSpace(event.x, event.y);
+    if (mapped.x !== event.x || mapped.y !== event.y) event = { ...event, x: mapped.x, y: mapped.y };
     if (kind === "press") this.#suppressCapturedGesture = false;
     if ((kind === "drag" || kind === "release") && this.#suppressCapturedGesture) {
       if (kind === "release") this.#suppressCapturedGesture = false;
@@ -164,14 +264,17 @@ export class MouseInteractionRouter {
     }
 
     const bounds = resolved.bounds;
+    const localX = event.x - bounds.column;
+    const localY = event.y - bounds.row;
     const handled = await handler(event, {
       id: target.id,
       bounds,
-      localX: event.x - bounds.column,
-      localY: event.y - bounds.row,
+      localX,
+      localY,
       kind,
       captured,
       payload: target.payload,
+      region: regionOf(target, localX, localY),
     }) !== false;
 
     if (kind === "press" && (target.captureDrag ?? true)) {
@@ -226,9 +329,22 @@ function compareRegisteredMouseTargets(
   return zIndexOf(right) - zIndexOf(left) || right.sequence - left.sequence;
 }
 
+/** A target's own name for a point inside it, or undefined when it has none. */
+function regionOf(target: RegisteredMouseInteractionTarget, localX: number, localY: number): string | undefined {
+  if (!target.regionAt) return undefined;
+  try {
+    return target.regionAt(localX, localY, target.payload);
+  } catch {
+    // A classifier is descriptive: a broken one must not swallow the event.
+    return undefined;
+  }
+}
+
 /** Creates an mouse Interaction Router. */
-export function createMouseInteractionRouter(): MouseInteractionRouter {
-  return new MouseInteractionRouter();
+export function createMouseInteractionRouter(
+  options: MouseInteractionRouterOptions = {},
+): MouseInteractionRouter {
+  return new MouseInteractionRouter(options);
 }
 
 /** Binds mouse Interactions behavior and returns a disposer when applicable. */
@@ -311,11 +427,4 @@ function zIndexOf(target: MouseInteractionTarget): number {
 
 function disabled(target: MouseInteractionTarget): boolean {
   return typeof target.disabled === "function" ? target.disabled() : target.disabled ?? false;
-}
-
-function contains(bounds: Rectangle, x: number, y: number): boolean {
-  return x >= bounds.column &&
-    y >= bounds.row &&
-    x < bounds.column + Math.max(0, bounds.width) &&
-    y < bounds.row + Math.max(0, bounds.height);
 }

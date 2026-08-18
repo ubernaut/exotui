@@ -764,14 +764,17 @@ Deno.test("workbench window host projects title adornments and owns double-click
     assertEquals(normal.titleAdornments, ["[SCROLL]", "[NO MOUSE]"]);
     assertEquals(projection.tiledWindows[0]?.titleAdornments, []);
 
-    // Two quick primary mouse downs on the bare title bar toggle maximize.
+    // Two quick primary mouse clicks on the bare title bar toggle maximize.
+    // The toggle waits for the second release: a press that moves before it
+    // lifts is a drag, and a drag has to move the window instead.
     const options = { doubleClickMaximizeMs: 400 };
     const barColumn = normal.titleBarRect.column + 2;
     const barRow = normal.titleBarRect.row;
     const first = host.handlePointer(pointer("down", barColumn, barRow, 10), BOUNDS, options);
     assert(first.handled);
     host.handlePointer(pointer("up", barColumn, barRow, 11), BOUNDS, options);
-    const second = host.handlePointer(pointer("down", barColumn, barRow, 12), BOUNDS, options);
+    host.handlePointer(pointer("down", barColumn, barRow, 12), BOUNDS, options);
+    const second = host.handlePointer(pointer("up", barColumn, barRow, 13), BOUNDS, options);
     assertEquals(second.command, { kind: "toggle-maximize", id: "normal" });
     assertEquals(
       host.project(BOUNDS).windows.find((window) => window.id === "normal")?.state,
@@ -787,6 +790,53 @@ Deno.test("workbench window host projects title adornments and owns double-click
     host.handlePointer(pointer("up", slowColumn, again.titleBarRect.row, 101), BOUNDS, options);
     const slow = host.handlePointer(pointer("down", slowColumn, again.titleBarRect.row, 700), BOUNDS, options);
     assert(slow.command?.kind !== "toggle-maximize");
+  } finally {
+    host.dispose();
+    workspace.dispose();
+  }
+});
+
+// Regression: the software cursor drew its move glyph across the whole title
+// row, including the control buttons, where a press activates the button and no
+// gesture ever starts. A third of a title bar can be buttons, so the cursor was
+// promising a drag it could not deliver — "the cursor says move and the window
+// will not move" — and the outer title columns are resize corners besides.
+Deno.test("the software cursor glyph agrees with the host's own hit test", async () => {
+  const { windowResizeGlyphAt } = await import("../src/app/software_cursor.ts");
+  const workspace = new TiledWorkspaceController();
+  const host = createHost(workspace);
+  try {
+    const projection = host.project(BOUNDS);
+    const window = projection.floatingWindows.find((candidate) => candidate.id === "normal");
+    assert(window);
+    assert(window.controls.length > 0, "the window carries title-bar buttons");
+
+    const MOVE = "✥";
+    const RESIZE = new Set(["↔", "↕", "⤢", "⤡"]);
+    let movable = 0;
+    for (let row = window.rect.row; row < window.rect.row + window.rect.height; row += 1) {
+      for (let column = window.rect.column; column < window.rect.column + window.rect.width; column += 1) {
+        const glyph = windowResizeGlyphAt(projection, column, row);
+        const onControl = window.controls.some((control) =>
+          column >= control.hitRect.column && column < control.hitRect.column + control.hitRect.width &&
+          row >= control.hitRect.row && row < control.hitRect.row + control.hitRect.height
+        );
+        const region = host.interactions.hitTest({ column, row }, BOUNDS)?.region;
+        if (onControl) {
+          assertEquals(glyph, undefined, `a button at (${column},${row}) must not offer a move`);
+          continue;
+        }
+        if (region === "title-bar") {
+          assertEquals(glyph, MOVE, `the draggable title cell (${column},${row}) must offer a move`);
+          movable += 1;
+        } else if (region === "client" || region === undefined) {
+          assertEquals(glyph, undefined, `content at (${column},${row}) has no gesture`);
+        } else {
+          assert(glyph && RESIZE.has(glyph), `the ${region} edge at (${column},${row}) must offer a resize`);
+        }
+      }
+    }
+    assert(movable > 0, "some of the title bar is still draggable");
   } finally {
     host.dispose();
     workspace.dispose();

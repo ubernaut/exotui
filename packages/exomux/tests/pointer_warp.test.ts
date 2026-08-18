@@ -3,7 +3,8 @@ import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
 import { createExomuxController } from "../controller.ts";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef } from "../app.ts";
 import { FakeExomuxClient } from "./fakes.ts";
-import { defaultExomuxShaderConfig, exomuxPointerWarpCell, type ExomuxShaderConfig } from "../ghostty.ts";
+import { defaultExomuxShaderConfig, type ExomuxShaderConfig } from "../ghostty.ts";
+import { exomuxPointerWarpCell } from "../ghostty.ts";
 
 function pincushionOn(magnitude: number): ExomuxShaderConfig {
   const base = defaultExomuxShaderConfig();

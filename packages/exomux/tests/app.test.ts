@@ -414,10 +414,13 @@ Deno.test("Double-clicking a window title bar toggles maximize and restore", asy
     const y = terminal.titleBarRect.row;
     assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, undefined);
 
-    // Two quick clicks on the same title bar maximize the window.
+    // Two quick clicks on the same title bar maximize the window. The second
+    // click has to complete: a press that moves before it lifts is a drag, and
+    // the window must move rather than snap full screen.
     await harness.app.mouse.dispatch(createTestMousePress({ x, y }));
     await harness.app.mouse.dispatch(createTestMousePress({ x, y, release: true, button: undefined }));
     await harness.app.mouse.dispatch(createTestMousePress({ x, y }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y, release: true, button: undefined }));
     await mounted.whenIdle();
     assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, windowId);
 
@@ -431,6 +434,9 @@ Deno.test("Double-clicking a window title bar toggles maximize and restore", asy
       createTestMousePress({ x: restoreX, y: restoreY, release: true, button: undefined }),
     );
     await harness.app.mouse.dispatch(createTestMousePress({ x: restoreX, y: restoreY }));
+    await harness.app.mouse.dispatch(
+      createTestMousePress({ x: restoreX, y: restoreY, release: true, button: undefined }),
+    );
     await mounted.whenIdle();
     assertEquals(controller.windowHost.controller.inspect().maximizedWindowId, undefined);
   } finally {
