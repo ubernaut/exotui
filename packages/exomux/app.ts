@@ -34,6 +34,7 @@ import {
   type WorkbenchWindowHostProjectionOptions,
 } from "@ubernaut/deno-tui";
 import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "@ubernaut/deno-tui";
+import { wrapTextBoxLines } from "@ubernaut/deno-tui";
 import {
   layoutWorkbenchButtonRowInto,
   type WorkbenchButtonRowItem,
@@ -1678,6 +1679,9 @@ export function mountExomuxDesktop(
         controller.themeRevision.value,
         controller.prefixPending.value,
         controller.helpVisible.value,
+        // The reference scrolls, and a frame keyed only on "help is open"
+        // repainted nothing when it moved.
+        controller.helpScroll.value,
         controller.pendingKillSessionId.value,
         controller.status.value,
         selectedSessionIndex.value,
@@ -2591,6 +2595,10 @@ export function mountExomuxDesktop(
       scrollBackgroundConfigList(event.x, event.y, Math.sign(event.scroll));
       return Promise.resolve(true);
     }
+    if (controller.helpVisible.peek()) {
+      scrollHelp(Math.sign(event.scroll));
+      return Promise.resolve(true);
+    }
     if (modalOpen()) return Promise.resolve(true);
     if (contains(shelfBounds.peek(), event.x, event.y)) return Promise.resolve(true);
     const packet = terminalMouse.routeLegacyScroll(event, windowProjection.peek());
@@ -2599,6 +2607,14 @@ export function mountExomuxDesktop(
       return Promise.resolve(true);
     }
     return Promise.resolve(scrollWindowAt(event.x, event.y, wheelDeltaAt(event.x, event.y, event.scroll)));
+  };
+
+  /** Moves the key reference by whole lines, clamped to what it can reach. */
+  const scrollHelp = (delta: number): void => {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const layout = exomuxHelpLayout(windowProjection.peek().bounds, controller.helpScroll.peek());
+    if (layout.maxScroll === 0) return;
+    controller.helpScroll.value = Math.max(0, Math.min(layout.scroll + delta, layout.maxScroll));
   };
 
   const routeTerminalPointer = (
@@ -3076,7 +3092,14 @@ export function mountExomuxDesktop(
       modalTrackPointer(event);
       return true;
     },
-    onScroll: () => true,
+    // The catcher stops the wheel from reaching the desktop underneath, but a
+    // modal that scrolls has to hear it first: swallowing it here is why the
+    // key reference could grow taller than a phone with no way to reach the
+    // rest of it.
+    onScroll: (event) => {
+      if (controller.helpVisible.peek()) scrollHelp(Math.sign(event.scroll));
+      return true;
+    },
   }));
   // The start and quit buttons are handled inside routeWindowPointer on the
   // warped (and control-snapped) cell — dedicated raw-rect router targets
@@ -3172,7 +3195,10 @@ export function mountExomuxDesktop(
     if (controller.helpVisible.peek()) {
       if (event.key === "escape" || event.key === "?" || event.key.toLowerCase() === "q") {
         controller.closeHelp();
-      }
+      } else if (event.key === "down" || event.key === "j") scrollHelp(1);
+      else if (event.key === "up" || event.key === "k") scrollHelp(-1);
+      else if (event.key === "pagedown" || event.key === "space") scrollHelp(5);
+      else if (event.key === "pageup") scrollHelp(-5);
       return;
     }
     if (controller.pendingKillSessionId.peek()) {
@@ -4377,7 +4403,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   if (controller.startMenuVisible.peek()) {
     paintStartMenu(painter, bounds, theme, controller, options.startMenuView, options.startMenuSelection ?? 0);
   }
-  if (controller.helpVisible.peek()) paintHelp(painter, projection, theme);
+  if (controller.helpVisible.peek()) paintHelp(painter, projection, theme, controller.helpScroll.peek());
   if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme, options.quitModalSelection);
   const scpRequest = controller.pendingScp.peek();
   if (scpRequest) {
@@ -5254,36 +5280,105 @@ function paintSwitcher(
   }
 }
 
+/** One row of the key reference: what you press, and what it does. */
+interface ExomuxHelpEntry {
+  readonly keys: string;
+  readonly action: string;
+}
+
+const EXOMUX_HELP_ENTRIES: readonly ExomuxHelpEntry[] = [
+  { keys: "Ctrl-N c", action: "new floating term" },
+  { keys: 'Ctrl-N % / "', action: "split right / below" },
+  { keys: "Ctrl-N f/Space", action: "float or tile" },
+  { keys: "Ctrl-N z", action: "maximize / restore" },
+  { keys: "Ctrl-N arrows", action: "snap to edge" },
+  { keys: "Ctrl-N m", action: "minimize to shelf" },
+  { keys: "Ctrl-N n / p", action: "next / previous" },
+  { keys: "Ctrl-N w", action: "window switcher" },
+  { keys: "Ctrl-N s", action: "session manager" },
+  { keys: "Ctrl-N r", action: "refresh and recover" },
+  { keys: "Ctrl-N t", action: "cycle theme" },
+  { keys: "Ctrl-N Ctrl-N", action: "send literal prefix" },
+  { keys: "Ctrl-N b", action: "cycle background" },
+  { keys: "Ctrl-N [ / ]", action: "previous / next preset" },
+  { keys: "Click desktop", action: "skip preset" },
+  { keys: "Ctrl-N l", action: "force full redraw" },
+  { keys: "Ctrl-N d / x", action: "detach window" },
+  { keys: "Ctrl-N &", action: "request terminal kill" },
+];
+
+const EXOMUX_HELP_NOTES: readonly string[] = [
+  "Wheel terminals or swipe vertically for styled history; [SCROLL] marks copy mode.",
+  "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
+  "Ctrl-N & asks before killing. Drag title bars; drag borders to resize.",
+  "Top bar: start menu at the left, open terminals beside it, quit at the right.",
+  "F1 opens/closes help. Escape, q, or ? close it; mouse and touch use Close.",
+];
+
+const EXOMUX_HELP_KEY_COLUMN = Math.max(...EXOMUX_HELP_ENTRIES.map((entry) => entry.keys.length));
+
+/**
+ * The key reference laid out for the width it actually has. Two columns when
+ * there is room for two, one column when there is not — the table used to be
+ * fifteen pre-formatted strings, so a phone truncated every single row to
+ * "Ctrl-N c        new floating te..." and the reference stopped referring to
+ * anything. Exported so the layout can size and scroll around the result.
+ */
+export function exomuxHelpLines(width: number): readonly string[] {
+  const inner = Math.max(1, Math.floor(width));
+  const cell = (entry: ExomuxHelpEntry) => `${entry.keys.padEnd(EXOMUX_HELP_KEY_COLUMN)}  ${entry.action}`;
+  const cellWidth = Math.max(...EXOMUX_HELP_ENTRIES.map((entry) => cell(entry).length));
+  const lines = ["EXOMUX KEY REFERENCE", ""];
+  if (inner >= cellWidth * 2 + 2) {
+    for (let index = 0; index < EXOMUX_HELP_ENTRIES.length; index += 2) {
+      const left = cell(EXOMUX_HELP_ENTRIES[index]!);
+      const right = EXOMUX_HELP_ENTRIES[index + 1];
+      lines.push(right ? `${left.padEnd(cellWidth)}  ${cell(right)}` : left);
+    }
+  } else if (inner >= cellWidth) {
+    for (const entry of EXOMUX_HELP_ENTRIES) lines.push(cell(entry));
+  } else {
+    // Too narrow even for one key-and-action column: put the action on its own
+    // indented line rather than cutting it off. A key whose action you cannot
+    // read is not a reference entry.
+    for (const entry of EXOMUX_HELP_ENTRIES) {
+      lines.push(entry.keys);
+      for (const wrapped of exomuxModalProse(entry.action, Math.max(1, inner - 2))) lines.push(`  ${wrapped}`);
+    }
+  }
+  lines.push("");
+  for (const note of EXOMUX_HELP_NOTES) lines.push(...exomuxModalProse(note, inner));
+  return lines;
+}
+
 function paintHelp(
   painter: DesktopPainter,
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
+  scroll = 0,
 ): void {
-  const lines = [
-    "EXOMUX KEY REFERENCE",
-    'Ctrl-N c        new floating term  Ctrl-N % / "   split right / below',
-    "Ctrl-N f/Space  float or tile      Ctrl-N z         maximize / restore",
-    "Ctrl-N arrows   snap to edge       Ctrl-N m         minimize to shelf",
-    "Ctrl-N n / p    next / previous    Ctrl-N w         window switcher",
-    "Ctrl-N s        session manager    Ctrl-N r         refresh and recover",
-    "Ctrl-N t        cycle theme        Ctrl-N Ctrl-N    send literal prefix",
-    "Ctrl-N b        cycle background   Ctrl-N [ / ]     previous / next preset",
-    "Click desktop   skip preset        Ctrl-N l         force full redraw",
-    "Ctrl-N d / x    detach window      Ctrl-N &         request terminal kill",
-    "Wheel terminals or swipe vertically for styled history; [SCROLL] marks copy mode.",
-    "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
-    "Ctrl-N & asks before killing. Drag title bars; drag borders to resize.",
-    "Top bar: start menu at the left, open terminals beside it, quit at the right.",
-    "F1 opens/closes help. Escape, q, or ? close it; mouse and touch use Close.",
-  ];
-  const { rect, closeRect } = exomuxHelpLayout(projection.bounds);
+  const { rect, closeRect, lines, scroll: offset, maxScroll } = exomuxHelpLayout(projection.bounds, scroll);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
-  for (let index = 0; index < Math.min(lines.length, Math.max(0, rect.height - 3)); index += 1) {
-    painter.write(rect.column + 1, rect.row + 1 + index, fitText(lines[index]!, rect.width - 2), {
-      foreground: index === 0 ? theme.accent : theme.text,
+  const visibleRows = Math.max(0, rect.height - 3);
+  for (let index = 0; index < visibleRows; index += 1) {
+    const line = lines[offset + index];
+    if (line === undefined) break;
+    painter.write(rect.column + 1, rect.row + 1 + index, fitText(line, rect.width - 2), {
+      foreground: offset + index === 0 ? theme.accent : theme.text,
       background: theme.surfaceStrong,
-      bold: index === 0,
+      bold: offset + index === 0,
+    });
+  }
+  // A reference that scrolled without saying so would read as one that had
+  // simply lost its second half.
+  if (maxScroll > 0) {
+    const hint = `${offset > 0 ? "^" : " "} ${offset + visibleRows}/${lines.length} ${
+      offset < maxScroll ? "v" : " "
+    } scroll`;
+    painter.write(rect.column + 1, closeRect.row, fitText(hint, Math.max(0, closeRect.column - rect.column - 2)), {
+      foreground: theme.muted,
+      background: theme.surfaceStrong,
     });
   }
   painter.write(closeRect.column, closeRect.row, "[ Close ]", {
@@ -5291,6 +5386,37 @@ function paintHelp(
     background: theme.accent,
     bold: true,
   });
+}
+
+/** Rows the kill modal's buttons occupy: one when they spread, two stacked. */
+function killActionRows(cancel: Rectangle, confirm: Rectangle): number {
+  return cancel.row === confirm.row ? 1 : 2;
+}
+
+/** Rows the quit modal's buttons occupy: one when they spread, three stacked. */
+function quitActionRows(cancel: Rectangle, detach: Rectangle, terminate: Rectangle): number {
+  return cancel.row === detach.row && detach.row === terminate.row ? 1 : 3;
+}
+
+/**
+ * Draws a modal's wrapped body under its title, stopping before the action
+ * row so a long explanation can never overwrite the buttons.
+ */
+function paintModalProse(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  prose: readonly string[],
+  theme: ExomuxThemeSpec,
+  actionRows = 1,
+): void {
+  const top = rect.row + 3;
+  const limit = rect.row + Math.max(1, rect.height - 1 - actionRows);
+  for (let index = 0; index < prose.length && top + index < limit; index += 1) {
+    painter.write(rect.column + 2, top + index, fitText(prose[index]!, rect.width - 4), {
+      foreground: theme.text,
+      background: theme.surfaceStrong,
+    });
+  }
 }
 
 /** Marks the modal button the keyboard selection rests on. */
@@ -5317,7 +5443,8 @@ function paintKillConfirmation(
 ): void {
   const theme = controller.theme.peek();
   const title = controller.runtime(sessionId)?.summary.peek().title ?? sessionId;
-  const { rect, cancelRect, confirmRect } = exomuxKillLayout(projection.bounds);
+  const { rect, bodyRows, cancelRect, confirmRect } = exomuxKillLayout(projection.bounds);
+  const prose = exomuxModalProse(`${title} (${sessionId})`, Math.max(1, rect.width - 4)).slice(0, bodyRows);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "!", { foreground: theme.danger, background: theme.surfaceStrong, bold: true });
   painter.write(rect.column + 2, rect.row + 1, fitText("TERMINATE HOST SESSION?", rect.width - 4), {
@@ -5325,15 +5452,7 @@ function paintKillConfirmation(
     background: theme.surfaceStrong,
     bold: true,
   });
-  painter.write(
-    rect.column + 2,
-    rect.row + Math.min(3, Math.max(1, rect.height - 2)),
-    fitText(`${title} (${sessionId})`, rect.width - 4),
-    {
-      foreground: theme.text,
-      background: theme.surfaceStrong,
-    },
-  );
+  paintModalProse(painter, rect, prose, theme, killActionRows(cancelRect, confirmRect));
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
     foreground: theme.text,
     background: theme.surface,
@@ -5354,7 +5473,7 @@ function paintQuitModal(
   theme: ExomuxThemeSpec,
   selectedActionId?: string,
 ): void {
-  const { rect, cancelRect, detachRect, terminateRect } = exomuxQuitLayout(projection.bounds);
+  const { rect, prose, cancelRect, detachRect, terminateRect } = exomuxQuitLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "!", { foreground: theme.warning, background: theme.surfaceStrong, bold: true });
   painter.write(rect.column + 2, rect.row + 1, fitText("END EXOMUX SESSION?", rect.width - 4), {
@@ -5362,15 +5481,7 @@ function paintQuitModal(
     background: theme.surfaceStrong,
     bold: true,
   });
-  painter.write(
-    rect.column + 2,
-    rect.row + Math.min(3, Math.max(1, rect.height - 2)),
-    fitText("Detach keeps terminals running · Terminate kills the host and every terminal", rect.width - 4),
-    {
-      foreground: theme.text,
-      background: theme.surfaceStrong,
-    },
-  );
+  paintModalProse(painter, rect, prose, theme, quitActionRows(cancelRect, detachRect, terminateRect));
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
     foreground: theme.text,
     background: theme.surface,
@@ -5391,16 +5502,48 @@ function paintQuitModal(
   paintModalSelectionMarker(painter, terminateRect, theme, selectedActionId === "terminate");
 }
 
-interface ExomuxHelpLayout {
-  readonly rect: Rectangle;
-  readonly closeRect: Rectangle;
+/** The end-session modal's explanation, wrapped to whatever box it gets. */
+const EXOMUX_QUIT_PROSE = "Detach keeps terminals running · Terminate kills the host and every terminal";
+
+/**
+ * Modal prose laid out for the width it actually has, using the toolkit's own
+ * wrapper. Truncation is the wrong answer for a modal body: on a phone the box
+ * is about 34 columns, and every description was being cut to its first clause
+ * — "Detach keeps terminals runn..." — which is precisely the thing the modal
+ * exists to say. Exported so layouts can size themselves around the result.
+ */
+export function exomuxModalProse(text: string, width: number): readonly string[] {
+  if (width <= 0) return [];
+  return wrapTextBoxLines([text], Math.floor(width)).map((line) => line.text);
 }
 
-function exomuxHelpLayout(bounds: Rectangle): ExomuxHelpLayout {
+export interface ExomuxHelpLayout {
+  readonly rect: Rectangle;
+  readonly closeRect: Rectangle;
+  /** Every line of the reference, reflowed for this box's width. */
+  readonly lines: readonly string[];
+  /** First visible line, clamped to what the box can actually reach. */
+  readonly scroll: number;
+  readonly maxScroll: number;
+}
+
+/** Layout for the key reference; exported for deterministic pointer tests. */
+export function exomuxHelpLayout(bounds: Rectangle, scroll = 0): ExomuxHelpLayout {
   const width = fitModalSpan(bounds.width, 24, 84, 4);
-  const height = fitModalSpan(bounds.height, 3, 15, 2);
+  const lines = exomuxHelpLines(Math.max(1, width - 2));
+  // Take the rows the reference needs, up to what the screen has. On a desktop
+  // that is the whole thing; on a phone it is as much as fits, and the rest is
+  // reachable by scrolling.
+  const height = Math.min(lines.length + 3, fitModalSpan(bounds.height, 3, bounds.height, 2));
   const rect = centeredRect(bounds, width, height);
-  return { rect, closeRect: rightAlignedButton(rect, 9) };
+  const maxScroll = Math.max(0, lines.length - Math.max(0, rect.height - 3));
+  return {
+    rect,
+    closeRect: rightAlignedButton(rect, 9),
+    lines,
+    scroll: Math.max(0, Math.min(Math.floor(scroll), maxScroll)),
+    maxScroll,
+  };
 }
 
 /** A button pinned to a modal's bottom-right, clamped to stay inside the box. */
@@ -5416,19 +5559,34 @@ function rightAlignedButton(rect: Rectangle, width: number): Rectangle {
 
 interface ExomuxKillLayout {
   readonly rect: Rectangle;
+  /** Rows reserved for the terminal's name, wrapped. */
+  readonly bodyRows: number;
   readonly cancelRect: Rectangle;
   readonly confirmRect: Rectangle;
 }
 
+/**
+ * The kill modal's geometry, which deliberately does NOT depend on the name of
+ * the terminal it is about to kill: the pointer router lays this out to hit-test
+ * a click and has no subject to hand it, so a text-dependent height would put
+ * the buttons somewhere other than where they were drawn. Two body rows are
+ * reserved, which is what a wrapped title needs on the narrowest box.
+ */
 function exomuxKillLayout(bounds: Rectangle): ExomuxKillLayout {
   const width = fitModalSpan(bounds.width, 24, 62, 6);
-  const rect = centeredRect(bounds, width, fitModalSpan(bounds.height, 3, 8, 2));
-  const [cancelRect, confirmRect] = modalButtonRects(rect, [10, 8]);
-  return { rect, cancelRect: cancelRect!, confirmRect: confirmRect! };
+  const buttonWidths = [10, 8];
+  const height = modalHeightForBody(bounds, width, EXOMUX_KILL_BODY_ROWS, buttonWidths, 5);
+  const rect = centeredRect(bounds, width, height);
+  const [cancelRect, confirmRect] = modalButtonRects(rect, buttonWidths);
+  return { rect, bodyRows: EXOMUX_KILL_BODY_ROWS, cancelRect: cancelRect!, confirmRect: confirmRect! };
 }
+
+const EXOMUX_KILL_BODY_ROWS = 2;
 
 export interface ExomuxQuitLayout {
   readonly rect: Rectangle;
+  /** The explanation, already wrapped to this box's width. */
+  readonly prose: readonly string[];
   readonly cancelRect: Rectangle;
   readonly detachRect: Rectangle;
   readonly terminateRect: Rectangle;
@@ -5437,10 +5595,34 @@ export interface ExomuxQuitLayout {
 /** Layout for the end-session modal; exported for deterministic pointer tests. */
 export function exomuxQuitLayout(bounds: Rectangle): ExomuxQuitLayout {
   const width = fitModalSpan(bounds.width, 40, 82, 6);
-  // Enough rows to stack the three buttons if the box has to go narrow.
-  const rect = centeredRect(bounds, width, fitModalSpan(bounds.height, 5, 8, 2));
-  const [cancelRect, detachRect, terminateRect] = modalButtonRects(rect, [10, 10, 13]);
-  return { rect, cancelRect: cancelRect!, detachRect: detachRect!, terminateRect: terminateRect! };
+  const prose = exomuxModalProse(EXOMUX_QUIT_PROSE, Math.max(1, width - 4));
+  // Border, title, blank, prose, blank, buttons, border. The buttons stack when
+  // the box is too narrow to spread them, and a narrow box is also where the
+  // prose runs to several lines, so the height has to follow both.
+  const buttonWidths = [10, 10, 13];
+  const height = modalHeightForBody(bounds, width, prose.length, buttonWidths, 5);
+  const rect = centeredRect(bounds, width, height);
+  const [cancelRect, detachRect, terminateRect] = modalButtonRects(rect, buttonWidths);
+  return { rect, prose, cancelRect: cancelRect!, detachRect: detachRect!, terminateRect: terminateRect! };
+}
+
+/**
+ * Rows a modal needs for its wrapped body plus its action row, clamped to the
+ * screen. Stacking is asked of the same layout the buttons will use, so the
+ * box can never be a row short of the buttons it is about to place.
+ */
+function modalHeightForBody(
+  bounds: Rectangle,
+  width: number,
+  bodyRows: number,
+  buttonWidths: readonly number[],
+  minimum: number,
+): number {
+  const probe = { column: 0, row: 0, width, height: minimum };
+  const stacked = modalActionRects(probe, buttonWidths).stacked;
+  const actionRows = stacked ? buttonWidths.length : 1;
+  const desired = 4 + Math.max(1, bodyRows) + actionRows;
+  return Math.min(Math.max(minimum, desired), fitModalSpan(bounds.height, minimum, bounds.height, 2));
 }
 
 /** Layout for the global config modal; exported for deterministic pointer tests. */
@@ -5833,7 +6015,7 @@ function paintBackgroundConfigModal(
     ? `Pick an image · ${controller.backgroundBrowsePath.peek() || "/"}`
     : specs.length > 0
     ? "Settings"
-    : "This background has nothing to configure.";
+    : "Nothing to configure.";
   painter.write(rect.column + 2, rect.row + 1, fitText(header, Math.max(0, rect.width - 4)), {
     foreground: pane === "list" ? theme.accent : theme.muted,
     background: theme.surfaceStrong,
@@ -6309,11 +6491,15 @@ export interface ExomuxWindowConfigLayout {
 export function exomuxWindowConfigLayout(bounds: Rectangle): ExomuxWindowConfigLayout {
   const width = fitModalSpan(bounds.width, 44, 72, 6);
   const rowCount = EXOMUX_WINDOW_SETTING_SPECS.length;
-  // Frame + title + blank + rows + blank + buttons + frame.
-  const height = Math.min(rowCount + 6, fitModalSpan(bounds.height, 8, bounds.height, 2));
+  // The detail line explains the selected setting, and on a narrow box it
+  // wraps. Reserve the rows the LONGEST detail needs rather than the selected
+  // one's, so moving the selection never resizes the box under the pointer.
+  const detailRows = exomuxWindowDetailRows(width);
+  // Frame + title + blank + rows + blank + detail + buttons + frame.
+  const height = Math.min(rowCount + 5 + detailRows, fitModalSpan(bounds.height, 8, bounds.height, 2));
   const rect = centeredRect(bounds, width, height);
   const firstRow = rect.row + 2;
-  const usableRows = Math.max(0, rect.height - 5);
+  const usableRows = Math.max(0, rect.height - 4 - detailRows);
   const rowRects: Rectangle[] = [];
   for (let index = 0; index < Math.min(rowCount, usableRows); index += 1) {
     rowRects.push({ column: rect.column + 2, row: firstRow + index, width: Math.max(0, rect.width - 4), height: 1 });
@@ -6416,12 +6602,17 @@ function paintWindowConfigModal(
       });
     }
   }
-  const detail = EXOMUX_WINDOW_SETTING_SPECS[selected]?.detail ?? "";
-  const detailRow = rect.row + Math.max(1, rect.height - 3);
-  painter.write(rect.column + 2, detailRow, fitText(detail, Math.max(0, rect.width - 4)), {
-    foreground: theme.muted,
-    background: theme.surfaceStrong,
-  });
+  const detailLines = exomuxModalProse(
+    EXOMUX_WINDOW_SETTING_SPECS[selected]?.detail ?? "",
+    Math.max(1, rect.width - 4),
+  );
+  const detailTop = rect.row + Math.max(1, rect.height - 2 - detailLines.length);
+  for (let index = 0; index < detailLines.length; index += 1) {
+    painter.write(rect.column + 2, detailTop + index, fitText(detailLines[index]!, Math.max(0, rect.width - 4)), {
+      foreground: theme.muted,
+      background: theme.surfaceStrong,
+    });
+  }
   painter.write(resetRect.column, resetRect.row, "[ Reset ]", {
     foreground: theme.text,
     background: theme.surface,
@@ -6432,6 +6623,15 @@ function paintWindowConfigModal(
     background: theme.accent,
     bold: true,
   });
+}
+
+/** Rows the per-window settings detail needs at this width, worst case. */
+function exomuxWindowDetailRows(width: number): number {
+  let rows = 1;
+  for (const spec of EXOMUX_WINDOW_SETTING_SPECS) {
+    rows = Math.max(rows, exomuxModalProse(spec.detail ?? "", Math.max(1, width - 4)).length);
+  }
+  return rows;
 }
 
 /** Layout for the shader manager modal; exported for deterministic pointer tests. */

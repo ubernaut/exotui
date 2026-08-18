@@ -23,6 +23,7 @@ import {
   type ExomuxAppMountRef,
   exomuxGlobalConfigLayout,
   exomuxGlyphColumns,
+  exomuxHelpLayout,
   exomuxManagerRows,
   exomuxMetaballBackgroundVisible,
   exomuxMetaballGradientColors,
@@ -2876,15 +2877,11 @@ function canvasCell(value: unknown): string {
     : String(value ?? "");
 }
 
-function helpClosePoint(bounds: { column: number; row: number; width: number; height: number }) {
-  const width = Math.min(84, Math.max(24, bounds.width - 4));
-  const height = Math.min(15, Math.max(3, bounds.height - 2));
-  const column = bounds.column + Math.max(0, Math.floor((bounds.width - width) / 2));
-  const row = bounds.row + Math.max(0, Math.floor((bounds.height - height) / 2));
-  return {
-    column: column + Math.max(1, width - 10),
-    row: row + Math.max(1, height - 2),
-  };
+function helpClosePoint(bounds: Rectangle) {
+  // Derived from the app's own layout, not a copy of its arithmetic: the copy
+  // silently stopped agreeing the moment the reference learned to reflow.
+  const { closeRect } = exomuxHelpLayout(bounds);
+  return { column: closeRect.column, row: closeRect.row };
 }
 
 function killButtonPoints(bounds: { column: number; row: number; width: number; height: number }) {

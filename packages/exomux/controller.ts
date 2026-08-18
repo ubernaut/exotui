@@ -730,6 +730,12 @@ export class ExomuxController {
   readonly themeRevision = new Signal(0);
   readonly prefixPending = new Signal(false);
   readonly helpVisible = new Signal(false);
+  /**
+   * First visible line of the key reference. The reference does not fit on a
+   * phone at any font size, so on a narrow screen it reflows to one column and
+   * scrolls rather than silently hiding half of itself.
+   */
+  readonly helpScroll = new Signal(0);
   readonly pendingKillSessionId = new Signal<string | undefined>(undefined);
   readonly quitModalVisible = new Signal(false);
   /** Whether the top-left start menu dropdown is open. */
@@ -1785,6 +1791,7 @@ export class ExomuxController {
     this.prefixPending.value = false;
     this.pendingKillSessionId.value = undefined;
     this.helpVisible.value = true;
+    this.helpScroll.value = 0;
     this.status.value = "Exomux key reference open · Escape, tap, or click closes help.";
   }
 
@@ -1792,6 +1799,7 @@ export class ExomuxController {
   closeHelp(): void {
     if (this.#disposed) return;
     this.helpVisible.value = false;
+    this.helpScroll.value = 0;
     this.status.value = this.#statusSummary();
   }
 
@@ -3381,6 +3389,7 @@ export class ExomuxController {
     this.themeRevision.dispose();
     this.prefixPending.dispose();
     this.helpVisible.dispose();
+    this.helpScroll.dispose();
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();
     this.hostSessions.dispose();
