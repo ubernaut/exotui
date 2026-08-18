@@ -6486,9 +6486,9 @@ function paintGlobalSettingsWindow(
   // and say so by going flat rather than by doing nothing when clicked.
   const editable = controller.activeThemeIsEditable;
   const themeActions: readonly [Rectangle, string, boolean][] = [
-    [layout.themeEditorRect, "[ new ]", true],
-    [layout.themeEditRect, "[ edit ]", editable],
-    [layout.themeDeleteRect, "[ del ]", editable],
+    [layout.themeEditorRect, EXOMUX_THEME_ACTION_LABELS[0], true],
+    [layout.themeEditRect, EXOMUX_THEME_ACTION_LABELS[1], editable],
+    [layout.themeDeleteRect, EXOMUX_THEME_ACTION_LABELS[2], editable],
   ];
   for (const [actionRect, label, enabled] of themeActions) {
     if (actionRect.width <= 0) continue;
@@ -8149,6 +8149,15 @@ function paintThemeEditorRow(
  * because a button overlapping its own heading is worse than no button.
  */
 /**
+ * The theme toolbar's labels, in order. Exported because the layout sizes the
+ * rects from these exact strings and the painter draws these exact strings —
+ * when the two disagreed by one column every button rendered as "[ n...".
+ */
+export const EXOMUX_THEME_ACTION_LABELS = ["[ new ]", "[ edit ]", "[ del ]"] as const;
+
+const THEME_ACTION_GAP = 1;
+
+/**
  * The theme list's toolbar. All three buttons always exist: when they do not
  * fit beside the word "Theme" they WRAP onto rows of their own below it, and
  * the picker underneath moves down to make room. Dropping a button was the
@@ -8163,15 +8172,16 @@ function themeHeaderActionRects(
   themeDeleteRect: Rectangle;
   themeToolbarRows: number;
 } {
-  const widths = [7, 8, 7];
-  const total = widths.reduce((sum, width) => sum + width, 0);
+  const widths = EXOMUX_THEME_ACTION_LABELS.map((label) => label.length);
+  const inlineTotal = widths.reduce((sum, width) => sum + width, 0) +
+    THEME_ACTION_GAP * (widths.length - 1);
   const available = Math.max(0, header.width);
-  // Beside the heading when there is room for "Theme" plus all three.
-  if (available - 7 >= total) {
-    let column = header.column + header.width - total;
+  // Beside the heading when there is room for "Theme", a gap, and all three.
+  if (available - 7 >= inlineTotal) {
+    let column = header.column + header.width - inlineTotal;
     const inline = widths.map((width) => {
-      const rect: Rectangle = { column, row: header.row, width: width - 1, height: 1 };
-      column += width;
+      const rect: Rectangle = { column, row: header.row, width, height: 1 };
+      column += width + THEME_ACTION_GAP;
       return rect;
     });
     return {
@@ -8181,19 +8191,19 @@ function themeHeaderActionRects(
       themeToolbarRows: 0,
     };
   }
-  // Otherwise they get their own rows, packed left to right, wrapping.
+  // Otherwise they get rows of their own, packed left to right, wrapping.
   const rects: Rectangle[] = [];
   let column = header.column;
   let row = header.row + 1;
   let used = 1;
   for (const width of widths) {
-    if (column > header.column && column + width - 1 > header.column + available) {
+    if (column > header.column && column + width > header.column + available) {
       column = header.column;
       row += 1;
       used += 1;
     }
-    rects.push({ column, row, width: Math.max(1, Math.min(width - 1, available)), height: 1 });
-    column += width;
+    rects.push({ column, row, width: Math.min(width, Math.max(1, available)), height: 1 });
+    column += width + THEME_ACTION_GAP;
   }
   return {
     themeEditorRect: rects[0]!,

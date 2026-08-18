@@ -24,9 +24,12 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 Both surfaced the first time `deno task health` was run after the pointer refactor; neither is in either test suite,
 which is why they went unnoticed.
 
-- **`render/textbox-wrap-250` misses its budget** — 10.9–15.0 ms against a 5 ms ceiling, measured three times idle.
-  **Pre-existing**: it fails identically at `737923fe`, before this session's work, so the budget and the code have
-  disagreed for a while. Needs someone to decide which is wrong.
+- **`render/textbox-wrap-250` misses its budget by ~60x** — 10.9–15.0 ms against a 5 ms ceiling. Not a stale budget: it
+  measured **0.179 ms** at `1c692900`, the commit that added it. Bisected to **`795e2d70` ("muxstone", Jul 21)**, which
+  made textbox wrapping grapheme-aware — `graphemeBoundaries` per line, then `textWidth` per grapheme inside the fitting
+  loop. The correctness is right (emoji, combining marks, CJK all wrap properly now); the question is whether the
+  per-grapheme `textWidth` call can be avoided for the ASCII fast path, which is what a 250-row wrap is mostly made of.
+  Decide: optimise the loop, or accept the cost and raise the budget with a comment saying why.
 - **`api-workbench:check` was broken by plan 040** — fixed Aug 18. The two workbench demos imported `HitTargetStack`,
   which 040 deleted from the library; they now carry their own copy in `app/api_workbench_hit_targets.ts`, because
   immediate-mode demos genuinely want a per-frame LIFO stack and the library genuinely wants one pointer authority.

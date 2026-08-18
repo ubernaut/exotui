@@ -6,6 +6,7 @@ import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
 import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/deno-tui";
 import {
   createExomuxTerminalOptions,
+  EXOMUX_THEME_ACTION_LABELS,
   type ExomuxAppMountRef,
   exomuxGlobalConfigLayout,
   exomuxThemeEditorLayout,
@@ -519,8 +520,14 @@ Deno.test("the theme toolbar wraps instead of overflowing, and the picker moves 
     const layout = exomuxGlobalConfigLayout({ column: 0, row: 0, width, height: 26 }, 0, 0);
     const buttons = [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect];
     const header = layout.themeHeaderRect;
-    for (const rect of buttons) {
+    for (const [index, rect] of buttons.entries()) {
       assert(rect.width > 0, `at ${width} columns a button vanished`);
+      // The rect has to hold the label the painter will draw into it. One
+      // column short and every button rendered as "[ n...".
+      assert(
+        rect.width >= EXOMUX_THEME_ACTION_LABELS[index]!.length,
+        `at ${width} columns "${EXOMUX_THEME_ACTION_LABELS[index]}" got ${rect.width} columns`,
+      );
       assert(
         rect.column + rect.width <= header.column + header.width,
         `at ${width} columns a button ran past its column`,
