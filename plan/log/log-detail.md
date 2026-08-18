@@ -66,6 +66,22 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**A mask that blanked the thing being parsed (Aug 18).** Fixing `api-inventory` meant stopping its regex scanner from
+reading inside string and template literals. The first version masked every literal kind for both scanners — and
+`mod.ts` is nothing but `export * from "./src/..."` lines, so blanking string contents erased every module specifier and
+the crawl found nothing. The inventory went from 4,231 symbols to 1. The gate's exit code alone would not have shown
+this, because a 1-symbol inventory has no duplicates and 100% doc coverage; dumping the full symbol list before and
+after and diffing them did. The fix tracks every literal kind but blanks selectively: the symbol scanner never reads a
+literal, the re-export scanner needs the quoted specifier. _Rule: when a change is meant to remove a few things, prove
+it removed exactly those and not a category._
+
+**A budget measuring an artifact nobody rebuilt (Aug 18).** `e2e` had been failing its 500,000-byte ceiling at 532,789.
+That number was never the bundle's size — `web:pages:build` had been broken since the `040` follow-up, and a failing
+build leaves the previous artifact checked in, so the gate was measuring something weeks stale. Once the build worked
+the real figure was 566,013. Marking `src/layout/capabilities.ts` tree-shake-safe (33 KB of frozen data, the second
+largest input) recovered zero bytes, because the demo references it. _Rule: a size gate on a checked-in artifact only
+means something if the build that produces it is green._
+
 **Reading the tail of a gate run and calling it green (Aug 18).** `deno task health` prints one line per gate; I ran it
 piped through `tail -14`, saw fourteen `ok` lines, and reported that every gate passed. `format` runs first and was
 failing, along with five others. The exit code is the only honest signal — and a pipeline's exit code is the last
