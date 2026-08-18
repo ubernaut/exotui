@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 954
 - Unique re-export declarations: 626
 - Re-export declaration visits: 955
-- Unique symbol declarations: 4662
-- Symbol declaration visits: 9304
-- Documented symbol declarations: 4658
+- Unique symbol declarations: 4665
+- Symbol declaration visits: 9310
+- Documented symbol declarations: 4661
 - Documentation coverage: 99.91%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,9 +21,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     433 |    4224 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     433 |    4227 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3298 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3301 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
@@ -43,8 +43,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 433
 - Re-export declarations: 433
-- Exported symbols: 4224
-- Documented symbols: 4224
+- Exported symbols: 4227
+- Documented symbols: 4227
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -73,8 +73,8 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Stability: beta
 - Modules: 305
 - Re-export declarations: 306
-- Exported symbols: 3298
-- Documented symbols: 3298
+- Exported symbols: 3301
+- Documented symbols: 3301
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -432,7 +432,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/content/markdown.ts`](#src-content-markdown-ts)                                           | `./app`                                 |          0 |      14 |         14 |
 | [`src/controls.ts`](#src-controls-ts)                                                           | `.`                                     |          0 |       2 |          2 |
 | [`src/event_emitter.ts`](#src-event-emitter-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/focus.ts`](#src-focus-ts)                                                                 | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/focus.ts`](#src-focus-ts)                                                                 | `.`, `./web`                            |          0 |      12 |         12 |
 | [`src/grwizard_themes.ts`](#src-grwizard-themes-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       5 |          5 |
 | [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                             | `.`                                     |          0 |       5 |          5 |
 | [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                       | `.`                                     |          0 |       4 |          4 |
@@ -4716,7 +4716,10 @@ _Entrypoints: `.`, `./web`_
 | `FocusNavigationOptions`   | interface | yes       | yes   |
 | `FocusNavigationTarget`    | interface | yes       | yes   |
 | `FocusScope`               | class     | no        | yes   |
+| `isFocusDisabled`          | function  | no        | yes   |
 | `ModalFocusBindingOptions` | interface | yes       | yes   |
+| `resolveSelectionPaint`    | function  | no        | yes   |
+| `SelectionPaintState`      | type      | yes       | yes   |
 
 ### src/grwizard_themes.ts
 

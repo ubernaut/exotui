@@ -66,6 +66,21 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**The focus authority 044 asked for already existed (Aug 18).** The task file's design sketch opened with "a focus
+authority — one owner per application", written before anyone looked. `src/focus.ts` has had `FocusManager`,
+`FocusScope`, `bindFocusNavigation` and `bindModalFocus` for a long time, with `src/app/focus_commands.ts` wiring it to
+the command registry. Building a second one would have produced exactly the competing authority `040` was cleaning up.
+What it lacked was any notion of `disabled`: a three-item manager with the middle item disabled showed `next()`
+overwriting that item's state with `base` on the _first_ call — `applyFocus` repaints every registered item — and
+focusing it on the second. So a disabled control both lost its look and could take the keyboard. _Rule: audit before
+designing; a sketch written from the symptom will invent a component the repository already has._
+
+**A fifth theme state that could not exist (Aug 18).** The same sketch asked for `selected-unfocused` as a resolved
+state "per element", alongside `focused` and `selected`. `ThemeState` is `base | focused | active | disabled` and
+indexes `Theme` directly, so adding a member demands a fifth style from every theme and every preset. The mismatch is
+that selection belongs to a _row_ while focus belongs to a _component_ — one list is a single focusable drawing many
+rows. Splitting them into `SelectionPaintState` left the theme model untouched.
+
 **A mask that blanked the thing being parsed (Aug 18).** Fixing `api-inventory` meant stopping its regex scanner from
 reading inside string and template literals. The first version masked every literal kind for both scanners — and
 `mod.ts` is nothing but `export * from "./src/..."` lines, so blanking string contents erased every module specifier and

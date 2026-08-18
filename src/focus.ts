@@ -10,6 +10,30 @@ export interface Focusable {
   state: Component["state"];
 }
 
+/**
+ * How one row of a collection should be painted, once focus and selection are
+ * told apart.
+ *
+ * `selected` is the current item of a collection that holds the keyboard;
+ * `selected-unfocused` is the current item of a collection that does not.
+ * Painting both with the accent is what makes a screen with three lists look
+ * like it has three cursors.
+ */
+export type SelectionPaintState = "selected" | "selected-unfocused" | "unselected";
+
+/** Resolves one row's paint state from the two facts that decide it. */
+export function resolveSelectionPaint(
+  options: { readonly selected: boolean; readonly collectionFocused: boolean },
+): SelectionPaintState {
+  if (!options.selected) return "unselected";
+  return options.collectionFocused ? "selected" : "selected-unfocused";
+}
+
+/** True when the focusable cannot take the keyboard. */
+export function isFocusDisabled(item: Focusable): boolean {
+  return item.state.peek() === "disabled";
+}
+
 /** Serializable inspection snapshot for focus Manager. */
 export interface FocusManagerInspection {
   count: number;
@@ -41,7 +65,7 @@ export class FocusManager {
     if (index < 0) return;
     const wasCurrent = index === this.index;
     this.items.splice(index, 1);
-    component.state.value = "base";
+    if (!isFocusDisabled(component)) component.state.value = "base";
 
     if (this.items.length === 0) {
       this.index = -1;
@@ -57,7 +81,7 @@ export class FocusManager {
 
   clear(): void {
     for (const item of this.items) {
-      item.state.value = "base";
+      if (!isFocusDisabled(item)) item.state.value = "base";
     }
     this.items.length = 0;
     this.index = -1;
@@ -68,6 +92,7 @@ export class FocusManager {
   }
 
   focus(component: Focusable): void {
+    if (isFocusDisabled(component)) return;
     const index = this.items.indexOf(component);
     if (index < 0) {
       this.register(component);
@@ -80,14 +105,18 @@ export class FocusManager {
 
   next(): Focusable | undefined {
     if (this.items.length === 0) return undefined;
-    this.index = (this.index + 1 + this.items.length) % this.items.length;
+    const target = this.seek(1);
+    if (target < 0) return this.current();
+    this.index = target;
     this.applyFocus();
     return this.current();
   }
 
   previous(): Focusable | undefined {
     if (this.items.length === 0) return undefined;
-    this.index = (this.index - 1 + this.items.length) % this.items.length;
+    const target = this.seek(-1);
+    if (target < 0) return this.current();
+    this.index = target;
     this.applyFocus();
     return this.current();
   }
@@ -100,11 +129,32 @@ export class FocusManager {
     };
   }
 
+  /** True when this item is the one currently holding the keyboard. */
+  isFocused(item: Focusable): boolean {
+    return this.current() === item;
+  }
+
   private applyFocus(): void {
     for (let itemIndex = 0; itemIndex < this.items.length; itemIndex += 1) {
       const item = this.items[itemIndex]!;
+      // A disabled control keeps its own look; focus never paints over it.
+      if (isFocusDisabled(item)) continue;
       item.state.value = itemIndex === this.index ? "focused" : "base";
     }
+  }
+
+  /**
+   * Steps `step` positions from the current index, skipping disabled items and
+   * wrapping. Returns -1 when every item is disabled, so a screen of disabled
+   * controls cannot spin here.
+   */
+  private seek(step: number): number {
+    const count = this.items.length;
+    for (let offset = 1; offset <= count; offset += 1) {
+      const candidate = (this.index + step * offset + count * offset) % count;
+      if (!isFocusDisabled(this.items[candidate]!)) return candidate;
+    }
+    return -1;
   }
 }
 
