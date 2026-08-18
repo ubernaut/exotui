@@ -3,6 +3,18 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 18 2026 — the wrap that got 60x slower
+
+`render/textbox-wrap-250` had been failing its 5 ms budget at 10.9–15.0 ms. Bisected to `795e2d70` (Jul 21), which made
+textbox wrapping grapheme-aware — correct for emoji, combining marks and CJK, and 60x slower. Profiling put 77% of the
+cost in the grapheme segmenter rather than the wrap loop everyone would have looked at first.
+
+Inside ASCII, every rule that joins two scalars into one cluster needs a code point at or above U+0080; the single
+exception is CR × LF. So an ASCII fast path is exact rather than approximate. It took `graphemeBoundaries` from 7.07 ms
+to 0.43 ms, and the case from 10.9–15.0 ms to 1.3–2.3 ms. Verified three ways: the official UAX #29 break test still
+passes, boundaries agree with `Intl.Segmenter` across every ASCII code point in context, and wrap output is
+byte-identical to a fixture captured from the previous implementation.
+
 ## August 18 2026 — planning structure
 
 Adopted the [vibe-plan](https://github.com/ubernaut/vibe-plan) layout: `plan/PLAN.md` became the user-owned

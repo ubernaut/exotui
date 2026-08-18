@@ -19,10 +19,10 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 4. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
    check**, because animations only play on a real terminal. Nothing else blocks on it.
 
-## Gate failures found August 18 2026
+## Gate failures found August 18 2026 — both fixed
 
 Both surfaced the first time `deno task health` was run after the pointer refactor; neither is in either test suite,
-which is why they went unnoticed.
+which is why they went unnoticed. `deno task health` is green as of Aug 18.
 
 - **`render/textbox-wrap-250` misses its budget by ~60x** — 10.9–15.0 ms against a 5 ms ceiling. Not a stale budget: it
   measured **0.179 ms** at `1c692900`, the commit that added it. Bisected to **`795e2d70` ("muxstone", Jul 21)**, which

@@ -948,6 +948,17 @@ function frozenTextBoxFindResult(
   });
 }
 
+/** Tabs as the spaces they are drawn as, without allocating when there are none. */
+function untab(text: string): string {
+  return text.includes("\t") ? text.replaceAll("\t", " ") : text;
+}
+
+/** A cluster as text, tabs mapped to the space they are drawn as. */
+function sliceForWidth(line: string, start: number, end: number): string {
+  const segment = line.slice(start, end);
+  return segment === "\t" ? " " : segment;
+}
+
 /** Public helper for wrap Text Box Lines. */
 export function wrapTextBoxLines(
   lines: readonly string[],
@@ -992,7 +1003,7 @@ export function wrapTextBoxLinesInto(
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex]!;
     if (!wordWrap) {
-      writeVisualLine(lineIndex, 0, line.length, cropToWidth(line.replaceAll("\t", " "), safeWidth), false);
+      writeVisualLine(lineIndex, 0, line.length, cropToWidth(untab(line), safeWidth), false);
       continue;
     }
     if (line.length === 0) {
@@ -1011,11 +1022,17 @@ export function wrapTextBoxLinesInto(
       while (fitBoundaryIndex + 1 < boundaries.length) {
         const start = boundaries[fitBoundaryIndex]!;
         const end = boundaries[fitBoundaryIndex + 1]!;
-        const grapheme = line.slice(start, end);
-        const width = textWidth(grapheme === "\t" ? " " : grapheme);
+        // The overwhelmingly common cluster is one printable ASCII code unit,
+        // one column wide. Measuring it by slicing a string out of the line and
+        // handing that to textWidth costs an allocation and a call per
+        // character; a char-code test answers the same question. A tab counts
+        // as one column, matching the space it is drawn as below.
+        const code = end - start === 1 ? line.charCodeAt(start) : -1;
+        const ascii = code >= 0x20 ? code < 0x7f : code === 0x09;
+        const width = ascii ? 1 : textWidth(sliceForWidth(line, start, end));
         if (fitBoundaryIndex > startBoundaryIndex && segmentWidth + width > safeWidth) break;
         segmentWidth += width;
-        if (grapheme === " " && start > startColumn) separatorBoundaryIndex = fitBoundaryIndex;
+        if (code === 0x20 && start > startColumn) separatorBoundaryIndex = fitBoundaryIndex;
         fitBoundaryIndex += 1;
         // Always make progress when one grapheme is wider than the viewport.
         if (segmentWidth >= safeWidth) break;
@@ -1026,7 +1043,7 @@ export function wrapTextBoxLinesInto(
           lineIndex,
           startColumn,
           line.length,
-          cropToWidth(line.slice(startColumn).replaceAll("\t", " "), safeWidth),
+          cropToWidth(untab(line.slice(startColumn)), safeWidth),
           continuation,
         );
         break;
@@ -1038,14 +1055,13 @@ export function wrapTextBoxLinesInto(
         lineIndex,
         startColumn,
         endColumn,
-        cropToWidth(line.slice(startColumn, endColumn).replaceAll("\t", " "), safeWidth),
+        cropToWidth(untab(line.slice(startColumn, endColumn)), safeWidth),
         continuation,
       );
       startBoundaryIndex = separatorBoundaryIndex >= 0 ? separatorBoundaryIndex + 1 : endBoundaryIndex;
       while (startBoundaryIndex + 1 < boundaries.length) {
         const start = boundaries[startBoundaryIndex]!;
-        const end = boundaries[startBoundaryIndex + 1]!;
-        if (line.slice(start, end) !== " ") break;
+        if (boundaries[startBoundaryIndex + 1]! - start !== 1 || line.charCodeAt(start) !== 0x20) break;
         startBoundaryIndex += 1;
       }
       continuation = true;

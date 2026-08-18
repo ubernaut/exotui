@@ -1,0 +1,345 @@
+[
+  {
+    "lines": [
+      "note-001 alpha beta gamma delta epsilon zeta eta theta"
+    ],
+    "width": 31,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 25,
+        "text": "note-001 alpha beta gamma",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 26,
+        "endColumn": 54,
+        "text": "delta epsilon zeta eta theta",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "short"
+    ],
+    "width": 31,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 5,
+        "text": "short",
+        "continuation": false
+      }
+    ]
+  },
+  {
+    "lines": [
+      ""
+    ],
+    "width": 10,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 0,
+        "text": "",
+        "continuation": false
+      }
+    ]
+  },
+  {
+    "lines": [
+      "   leading spaces collapse at a break"
+    ],
+    "width": 12,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 10,
+        "text": "   leading",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 11,
+        "endColumn": 17,
+        "text": "spaces",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 18,
+        "endColumn": 29,
+        "text": "collapse at",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 30,
+        "endColumn": 37,
+        "text": "a break",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "supercalifragilisticexpialidocious"
+    ],
+    "width": 8,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 8,
+        "text": "supercal",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 8,
+        "endColumn": 16,
+        "text": "ifragili",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 16,
+        "endColumn": 24,
+        "text": "sticexpi",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 24,
+        "endColumn": 32,
+        "text": "alidocio",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 32,
+        "endColumn": 34,
+        "text": "us",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "tab\tseparated\tcolumns here"
+    ],
+    "width": 12,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 12,
+        "text": "tab separate",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 12,
+        "endColumn": 21,
+        "text": "d columns",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 22,
+        "endColumn": 26,
+        "text": "here",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "wide 日本語 text mixed with ascii"
+    ],
+    "width": 14,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 8,
+        "text": "wide 日本語",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 9,
+        "endColumn": 19,
+        "text": "text mixed",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 20,
+        "endColumn": 30,
+        "text": "with ascii",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "emoji 👩‍👩‍👧‍👦 family stays whole"
+    ],
+    "width": 12,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 17,
+        "text": "emoji 👩‍👩‍👧‍👦",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 18,
+        "endColumn": 24,
+        "text": "family",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 25,
+        "endColumn": 36,
+        "text": "stays whole",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "trailing space  "
+    ],
+    "width": 6,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 6,
+        "text": "traili",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 6,
+        "endColumn": 8,
+        "text": "ng",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 9,
+        "endColumn": 14,
+        "text": "space",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "a\r\nb"
+    ],
+    "width": 4,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 4,
+        "text": "a\r",
+        "continuation": false
+      }
+    ]
+  },
+  {
+    "lines": [
+      "ctrl\u0007bell and \u001b[31mansi\u001b[0m"
+    ],
+    "width": 10,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 9,
+        "text": "ctrl\u0007bell",
+        "continuation": false
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 10,
+        "endColumn": 13,
+        "text": "and",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 14,
+        "endColumn": 24,
+        "text": "\u001b[31mansi\u001b",
+        "continuation": true
+      },
+      {
+        "lineIndex": 0,
+        "startColumn": 24,
+        "endColumn": 27,
+        "text": "[0m",
+        "continuation": true
+      }
+    ]
+  },
+  {
+    "lines": [
+      "one",
+      "two three four five",
+      ""
+    ],
+    "width": 9,
+    "wrapped": [
+      {
+        "lineIndex": 0,
+        "startColumn": 0,
+        "endColumn": 3,
+        "text": "one",
+        "continuation": false
+      },
+      {
+        "lineIndex": 1,
+        "startColumn": 0,
+        "endColumn": 3,
+        "text": "two",
+        "continuation": false
+      },
+      {
+        "lineIndex": 1,
+        "startColumn": 4,
+        "endColumn": 9,
+        "text": "three",
+        "continuation": true
+      },
+      {
+        "lineIndex": 1,
+        "startColumn": 10,
+        "endColumn": 19,
+        "text": "four five",
+        "continuation": true
+      },
+      {
+        "lineIndex": 2,
+        "startColumn": 0,
+        "endColumn": 0,
+        "text": "",
+        "continuation": false
+      }
+    ]
+  }
+]

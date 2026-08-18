@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5314460,
+    "bytes": 5316689,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -201,7 +201,7 @@
       "src/components/text.ts": 2717,
       "src/components/text_area.ts": 9318,
       "src/components/text_children.ts": 3856,
-      "src/components/textbox.ts": 54205,
+      "src/components/textbox.ts": 55054,
       "src/components/toast.ts": 4792,
       "src/components/tree.ts": 14660,
       "src/components/virtual_list.ts": 12133,
@@ -429,7 +429,7 @@
       "src/unicode/generated/unicode_17_0_0_grapheme.ts": 14223,
       "src/unicode/generated/unicode_17_0_0_linebreak.ts": 16840,
       "src/unicode/generated/unicode_17_0_0_width.ts": 14479,
-      "src/unicode/grapheme.ts": 33647,
+      "src/unicode/grapheme.ts": 35027,
       "src/unicode/hyphenation.ts": 4467,
       "src/unicode/line_break.ts": 18473,
       "src/unicode/mod.ts": 454,
@@ -468,7 +468,7 @@
   },
   "mod.app.ts": {
     "modules": 134,
-    "bytes": 1884752,
+    "bytes": 1886981,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -531,7 +531,7 @@
       "src/components/terminal_output.ts": 3236,
       "src/components/text.ts": 2717,
       "src/components/text_children.ts": 3856,
-      "src/components/textbox.ts": 54205,
+      "src/components/textbox.ts": 55054,
       "src/components/toast.ts": 4792,
       "src/components/tree.ts": 14660,
       "src/components/virtual_list.ts": 12133,
@@ -588,7 +588,7 @@
       "src/types.ts": 1614,
       "src/unicode/data_pack.ts": 29152,
       "src/unicode/generated/unicode_17_0_0_grapheme.ts": 14223,
-      "src/unicode/grapheme.ts": 33647,
+      "src/unicode/grapheme.ts": 35027,
       "src/utils/ansi_codes.ts": 1460,
       "src/utils/ansi_text.ts": 1043,
       "src/utils/collections.ts": 2048,
@@ -795,7 +795,7 @@
   },
   "mod.theme.ts": {
     "modules": 69,
-    "bytes": 610530,
+    "bytes": 611910,
     "paths": {
       "mod.theme.ts": 671,
       "src/canvas/box.ts": 5452,
@@ -853,7 +853,7 @@
       "src/types.ts": 1614,
       "src/unicode/data_pack.ts": 29152,
       "src/unicode/generated/unicode_17_0_0_grapheme.ts": 14223,
-      "src/unicode/grapheme.ts": 33647,
+      "src/unicode/grapheme.ts": 35027,
       "src/utils/ansi_codes.ts": 1460,
       "src/utils/ansi_text.ts": 1043,
       "src/utils/collections.ts": 2048,
@@ -870,7 +870,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4529785,
+    "bytes": 4532014,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -1071,7 +1071,7 @@
       "src/components/text.ts": 2717,
       "src/components/text_area.ts": 9318,
       "src/components/text_children.ts": 3856,
-      "src/components/textbox.ts": 54205,
+      "src/components/textbox.ts": 55054,
       "src/components/toast.ts": 4792,
       "src/components/tree.ts": 14660,
       "src/components/virtual_list.ts": 12133,
@@ -1221,7 +1221,7 @@
       "src/unicode/data_pack.ts": 29152,
       "src/unicode/generated/unicode_17_0_0_grapheme.ts": 14223,
       "src/unicode/generated/unicode_17_0_0_width.ts": 14479,
-      "src/unicode/grapheme.ts": 33647,
+      "src/unicode/grapheme.ts": 35027,
       "src/unicode/source_display.ts": 5217,
       "src/unicode/width.ts": 30594,
       "src/utils/ansi_codes.ts": 1460,

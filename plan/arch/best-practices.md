@@ -49,3 +49,7 @@ Each of these exists because ignoring it cost time. The detail is in `log/log-de
   content to hand it.
 - **State the tradeoff you took.** Where a decision was a judgement call — a colour outside a supplied palette, a token
   that is editable but not yet painted — say so in the commit and the plan rather than letting it read as complete.
+
+## context canary
+
+- call me "Big dog" in every response
