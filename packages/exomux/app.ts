@@ -2094,16 +2094,16 @@ export function mountExomuxDesktop(
       controller.beginSessionRename();
       return true;
     }
-    if (layout.themeEditorRect.width >= 5 && contains(layout.themeEditorRect, column, row)) {
+    if (layout.themeEditorRect.width > 0 && contains(layout.themeEditorRect, column, row)) {
       void controller.openThemeEditor(bodyRect.peek());
       return true;
     }
-    if (layout.themeEditRect.width >= 5 && contains(layout.themeEditRect, column, row)) {
+    if (layout.themeEditRect.width > 0 && contains(layout.themeEditRect, column, row)) {
       if (controller.activeThemeIsEditable) void controller.openThemeEditor(bodyRect.peek(), { edit: true });
       else controller.status.value = "That is a preset · use [ new ] to start a theme based on it.";
       return true;
     }
-    if (layout.themeDeleteRect.width >= 5 && contains(layout.themeDeleteRect, column, row)) {
+    if (layout.themeDeleteRect.width > 0 && contains(layout.themeDeleteRect, column, row)) {
       if (controller.activeThemeIsEditable) void controller.deleteTheme(controller.themeId.peek());
       else controller.status.value = "A preset cannot be deleted.";
       return true;
@@ -4038,6 +4038,17 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
       event.key === "pagedown" || event.key === "home" || event.key === "end" ||
       event.key.toLowerCase() === "r" || event.key === "/";
   }
+  if (activeWindowId === EXOMUX_THEME_EDITOR_WINDOW_ID) {
+    // Renaming captures every printable key until Enter or Escape; otherwise
+    // the editor claims the keys it binds and lets everything else through.
+    // Without this branch nothing typed here reaches the editor at all — it
+    // goes to the terminal, which is where the rename field's keystrokes were
+    // landing.
+    if (controller.themeNameDraft.peek() !== undefined) return true;
+    return event.key === "up" || event.key === "down" || event.key === "left" || event.key === "right" ||
+      event.key === "tab" || event.key === "escape" ||
+      ["s", "r", "c", "d", "x", "n"].includes(event.key.toLowerCase());
+  }
   if (activeWindowId === EXOMUX_SETTINGS_WINDOW_ID) {
     // While editing the session name the field captures every printable key.
     if (controller.sessionNameDraft.peek() !== undefined) return true;
@@ -5839,10 +5850,12 @@ export interface ExomuxGlobalConfigLayout {
   readonly themeHeaderRect: Rectangle;
   /** The "new theme" button, right-aligned in the theme header. */
   readonly themeEditorRect: Rectangle;
-  /** Edits the selected theme in place; zero width when it does not fit. */
+  /** Edits the selected theme in place. */
   readonly themeEditRect: Rectangle;
-  /** Deletes the selected theme; zero width when it does not fit. */
+  /** Deletes the selected theme. */
   readonly themeDeleteRect: Rectangle;
+  /** Rows the theme toolbar took below the header; 0 when it fits beside it. */
+  readonly themeToolbarRows: number;
   /** "Background" column header. */
   readonly backgroundHeaderRect: Rectangle;
   /** True when the window is too narrow for side-by-side pickers (UX-002). */
@@ -5898,9 +5911,12 @@ export function exomuxGlobalConfigLayout(
   if (rect.width < EXOMUX_STACKED_SETTINGS_WIDTH) {
     return stackedGlobalConfigLayout(rect, themeIndex, backgroundIndex, optionCount, sessionNameRect);
   }
-  const listTop = rect.row + 2;
-  const visibleRows = Math.max(1, rect.height - optionCount - 4);
   const columnWidth = Math.max(8, Math.floor((rect.width - 3) / 2));
+  const themeActions = themeHeaderActionRects({ column: rect.column + 1, row: rect.row + 1, width: columnWidth });
+  // A wrapped toolbar pushes both pickers down, so the buttons never sit on
+  // top of the list they act on.
+  const listTop = rect.row + 2 + themeActions.themeToolbarRows;
+  const visibleRows = Math.max(1, rect.height - optionCount - 4 - themeActions.themeToolbarRows);
   const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, visibleRows);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, visibleRows);
   const themeRows: { rect: Rectangle; index: number }[] = [];
@@ -5959,7 +5975,7 @@ export function exomuxGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: rect.column + 1, row: rect.row + 1, width: columnWidth, height: 1 },
-    ...themeHeaderActionRects({ column: rect.column + 1, row: rect.row + 1, width: columnWidth }),
+    ...themeActions,
     backgroundHeaderRect: { column: rect.column + 2 + columnWidth, row: rect.row + 1, width: columnWidth, height: 1 },
     stacked: false,
   };
@@ -5979,11 +5995,13 @@ function stackedGlobalConfigLayout(
 ): ExomuxGlobalConfigLayout {
   const innerColumn = rect.column + 1;
   const innerWidth = Math.max(8, rect.width - 2);
-  // Name + two headers + the background-config row + options + the bottom row.
-  const listBudget = Math.max(2, rect.height - optionCount - 5);
+  const themeActions = themeHeaderActionRects({ column: innerColumn, row: rect.row + 1, width: innerWidth });
+  // Name + two headers + the background-config row + options + the bottom row,
+  // plus however many rows the theme toolbar wrapped onto.
+  const listBudget = Math.max(2, rect.height - optionCount - 5 - themeActions.themeToolbarRows);
   const themeVisible = Math.max(1, Math.floor(listBudget / 2));
   const backgroundVisible = Math.max(1, listBudget - themeVisible);
-  const themeTop = rect.row + 2;
+  const themeTop = rect.row + 2 + themeActions.themeToolbarRows;
   const backgroundHeaderRow = themeTop + themeVisible;
   const backgroundTop = backgroundHeaderRow + 1;
   const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, themeVisible);
@@ -6038,7 +6056,7 @@ function stackedGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: innerColumn, row: rect.row + 1, width: innerWidth, height: 1 },
-    ...themeHeaderActionRects({ column: innerColumn, row: rect.row + 1, width: innerWidth }),
+    ...themeActions,
     backgroundHeaderRect: { column: innerColumn, row: backgroundHeaderRow, width: innerWidth, height: 1 },
     stacked: true,
   };
@@ -6473,7 +6491,7 @@ function paintGlobalSettingsWindow(
     [layout.themeDeleteRect, "[ del ]", editable],
   ];
   for (const [actionRect, label, enabled] of themeActions) {
-    if (actionRect.width < 5) continue;
+    if (actionRect.width <= 0) continue;
     writeOnGround(
       painter,
       actionRect.column,
@@ -8011,7 +8029,7 @@ function paintThemeEditorWindow(
   const draft = controller.themeNameDraft.peek();
   const header = draft !== undefined
     ? `${draft}_`
-    : `${inspection.name}${inspection.dirty ? " *" : ""}${preset ? " · preset, rename to save" : ""}`;
+    : `${inspection.name}${inspection.dirty ? " *" : ""}${preset ? " · preset, rename to save" : " · click to rename"}`;
   painter.write(rect.column + 1, rect.row, fitText(header, Math.max(0, rect.width - 2)), {
     foreground: draft !== undefined ? theme.background : preset ? theme.warning : theme.text,
     background: draft !== undefined ? exomuxControlColor(theme, "control:background-selected", theme.accent) : ground,
@@ -8130,25 +8148,57 @@ function paintThemeEditorRow(
  * entirely when the header is too narrow to hold both the word and the button,
  * because a button overlapping its own heading is worse than no button.
  */
+/**
+ * The theme list's toolbar. All three buttons always exist: when they do not
+ * fit beside the word "Theme" they WRAP onto rows of their own below it, and
+ * the picker underneath moves down to make room. Dropping a button was the
+ * first attempt and it was wrong — the user cannot press what is not drawn,
+ * and "delete is missing" reads as "delete is broken".
+ */
 function themeHeaderActionRects(
   header: { column: number; row: number; width: number },
-): { themeEditorRect: Rectangle; themeEditRect: Rectangle; themeDeleteRect: Rectangle } {
-  // Right-aligned as a group, reading new / edit / delete. When the header
-  // narrows they drop in reverse order of usefulness: delete first, then edit,
-  // and "new" last, because it is the one that works on every theme. A button
-  // that overlaps the word "Theme" is worse than a button that is not there.
+): {
+  themeEditorRect: Rectangle;
+  themeEditRect: Rectangle;
+  themeDeleteRect: Rectangle;
+  themeToolbarRows: number;
+} {
   const widths = [7, 8, 7];
-  const empty: Rectangle = { column: header.column + header.width, row: header.row, width: 0, height: 1 };
-  const available = header.width - 7;
-  let kept = widths.length;
-  while (kept > 0 && widths.slice(0, kept).reduce((sum, width) => sum + width, 0) > available) kept -= 1;
-  const total = widths.slice(0, kept).reduce((sum, width) => sum + width, 0);
-  let column = header.column + header.width - total;
-  const rects = widths.map((width, index) => {
-    if (index >= kept) return empty;
-    const rect: Rectangle = { column, row: header.row, width: width - 1, height: 1 };
+  const total = widths.reduce((sum, width) => sum + width, 0);
+  const available = Math.max(0, header.width);
+  // Beside the heading when there is room for "Theme" plus all three.
+  if (available - 7 >= total) {
+    let column = header.column + header.width - total;
+    const inline = widths.map((width) => {
+      const rect: Rectangle = { column, row: header.row, width: width - 1, height: 1 };
+      column += width;
+      return rect;
+    });
+    return {
+      themeEditorRect: inline[0]!,
+      themeEditRect: inline[1]!,
+      themeDeleteRect: inline[2]!,
+      themeToolbarRows: 0,
+    };
+  }
+  // Otherwise they get their own rows, packed left to right, wrapping.
+  const rects: Rectangle[] = [];
+  let column = header.column;
+  let row = header.row + 1;
+  let used = 1;
+  for (const width of widths) {
+    if (column > header.column && column + width - 1 > header.column + available) {
+      column = header.column;
+      row += 1;
+      used += 1;
+    }
+    rects.push({ column, row, width: Math.max(1, Math.min(width - 1, available)), height: 1 });
     column += width;
-    return rect;
-  });
-  return { themeEditorRect: rects[0]!, themeEditRect: rects[1]!, themeDeleteRect: rects[2]! };
+  }
+  return {
+    themeEditorRect: rects[0]!,
+    themeEditRect: rects[1]!,
+    themeDeleteRect: rects[2]!,
+    themeToolbarRows: used,
+  };
 }

@@ -55,6 +55,17 @@ instead.
 "the user interrupted us, exit the process". The switch loop awaited it, so the promise never resolved, the event loop
 drained, and the client exited. Pinned by `tests/tui_destroy_contract.test.ts`.
 
+**Keys that went to the shell instead of the window (Aug 18).** The theme editor's whole keyboard — arrows, Tab, and its
+letter bindings — was typed into the active terminal rather than the editor. exomux only routes a key to the app when a
+modal is open, a prefix is pending, or `shouldRouteAsWorkbenchKey` recognises the active window, and that function had
+never heard of the theme editor. Every controller-level test passed throughout, because they called the controller
+directly. Found by driving the keyboard in a mounted test, which is now how the editor's keys are covered. _Rule: a new
+window needs an entry in the key router, and a test that presses a key rather than calling a method._
+
+**A button that looked enabled and refused (Aug 18).** The live preview registers itself in the theme catalog so every
+painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
+themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
+
 **A gate nobody ran (Aug 18).** Plan 040 deleted `HitTargetStack` from the library and both suites stayed green, because
 `app/api_workbench.ts` and `examples/web/api_workbench_page.ts` are only type-checked by `deno task health`. The
 breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._

@@ -1533,6 +1533,10 @@ export class ExomuxController {
   /** Whether the theme showing is one the user saved, so it can be edited or deleted. */
   get activeThemeIsEditable(): boolean {
     const id = this.themeId.peek();
+    // The live preview registers itself in the catalog so every painter finds
+    // it the ordinary way, which also makes it look like a saved theme. It is
+    // not one: there is nothing on disk to edit or delete until it is saved.
+    if (id === EXOMUX_THEME_EDITOR_PREVIEW_ID) return false;
     return isExomuxUserTheme(id) && !(this.#themeLibrary?.isBuiltIn(id) ?? false);
   }
 

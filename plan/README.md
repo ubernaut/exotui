@@ -28,7 +28,8 @@ optional.
 - `todo/done/`: completed task files worth retaining.
 - `todo/hiatus/`: paused task files that may be resumed.
 - `arch/`: cross-cutting architecture, stack choices, and decisions that affect more than one task. Do not document what
-  is already obvious from the code.
+  is already obvious from the code. Embed simple Mermaid diagrams in the relevant document; keep larger or reusable
+  diagram sources in `arch/diagrams/`.
 - `test/`: the shared test strategy and project-wide completion expectations. Task-specific acceptance checks belong in
   the task file.
 - `log/log-summary.md`: concise durable progress, decisions, and pivots.

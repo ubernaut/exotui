@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertStringIncludes } from "./deps.ts";
+import type { Key } from "@ubernaut/deno-tui";
 import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
 import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/deno-tui";
 import {
@@ -502,35 +503,162 @@ Deno.test("a saved theme can be edited in place and deleted from settings", asyn
   }
 });
 
-Deno.test("the theme toolbar drops buttons rather than overlapping its heading", () => {
+Deno.test("the theme toolbar wraps instead of overflowing, and the picker moves down", () => {
   const wide = exomuxGlobalConfigLayout({ column: 0, row: 0, width: 90, height: 30 }, 0, 0);
-  for (const rect of [wide.themeEditorRect, wide.themeEditRect, wide.themeDeleteRect]) {
-    assert(rect.width >= 5, "a roomy window fits all three");
-  }
+  assertEquals(wide.themeToolbarRows, 0, "a roomy header keeps them beside the heading");
   assert(
     wide.themeEditorRect.column < wide.themeEditRect.column &&
       wide.themeEditRect.column < wide.themeDeleteRect.column,
     "they read new, edit, delete",
   );
+  assertEquals(wide.themeRows[0]!.rect.row, wide.themeHeaderRect.row + 1, "and the list follows immediately");
 
-  // They drop in reverse order of usefulness, and never land on the heading.
-  for (const width of [60, 30, 22, 14]) {
-    const layout = exomuxGlobalConfigLayout({ column: 0, row: 0, width, height: 24 }, 0, 0);
-    const present = [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect].map((rect) =>
-      rect.width >= 5
-    );
-    assert(!present[1] || present[0], "edit never survives new");
-    assert(!present[2] || present[1], "delete never survives edit");
-    for (const rect of [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect]) {
-      if (rect.width < 5) continue;
+  // Every width: all three exist, none overlaps the heading or leaves the box,
+  // and none sits on a row the picker is using.
+  for (const width of [90, 72, 60, 52, 44, 34, 26, 18]) {
+    const layout = exomuxGlobalConfigLayout({ column: 0, row: 0, width, height: 26 }, 0, 0);
+    const buttons = [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect];
+    const header = layout.themeHeaderRect;
+    for (const rect of buttons) {
+      assert(rect.width > 0, `at ${width} columns a button vanished`);
       assert(
-        rect.column >= layout.themeHeaderRect.column + 6,
-        `at ${width} columns a button landed on the word Theme`,
+        rect.column + rect.width <= header.column + header.width,
+        `at ${width} columns a button ran past its column`,
       );
-      assert(
-        rect.column + rect.width <= layout.themeHeaderRect.column + layout.themeHeaderRect.width,
-        `at ${width} columns a button overflowed the header`,
-      );
+      if (layout.themeToolbarRows === 0) {
+        assert(rect.column >= header.column + 6, `at ${width} columns a button landed on the word Theme`);
+        assertEquals(rect.row, header.row);
+      } else {
+        assert(rect.row > header.row, `at ${width} columns a wrapped button stayed on the header row`);
+      }
     }
+    for (const row of [...layout.themeRows, ...layout.backgroundRows]) {
+      for (const rect of buttons) {
+        assert(
+          row.rect.row !== rect.row || row.rect.column + row.rect.width <= rect.column,
+          `at ${width} columns a button sat on top of a picker row`,
+        );
+      }
+    }
+  }
+
+  // A wrapped toolbar costs the picker rows rather than covering them.
+  const wrapped = exomuxGlobalConfigLayout({ column: 0, row: 0, width: 60, height: 26 }, 0, 0);
+  assert(wrapped.themeToolbarRows > 0, "60 columns is too narrow to keep them inline");
+  assertEquals(wrapped.themeRows[0]!.rect.row, wrapped.themeHeaderRect.row + 1 + wrapped.themeToolbarRows);
+});
+
+Deno.test("an unsaved theme is not offered for editing or deletion", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [], themeLibrary: library() });
+  try {
+    await controller.ready;
+    controller.setTheme("matrix");
+    await controller.openThemeEditor(BOUNDS);
+    // The live preview registers in the catalog so painters find it, which
+    // made it look like a saved theme the buttons could act on. It has never
+    // been written, so there is nothing to edit in place or delete.
+    assertEquals(controller.themeId.peek(), "theme-editor-preview");
+    assertEquals(controller.activeThemeIsEditable, false);
+    assertEquals(await controller.deleteTheme(controller.themeId.peek()), false);
+    assertStringIncludes(controller.status.peek(), "saved");
+
+    // Once saved, both apply.
+    assertEquals(await controller.saveThemeEditor(), true);
+    assertEquals(controller.activeThemeIsEditable, true);
+    const savedId = controller.themeId.peek();
+    assertEquals(await controller.deleteTheme(savedId), true);
+  } finally {
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
+  }
+});
+
+Deno.test("clicking the editor's name and typing renames the theme", async () => {
+  const sessions = [session("rename-shell", "zsh", 0)];
+  const client = new FakeExomuxClient(sessions);
+  const controller = await createExomuxController({ client, initialSessions: sessions, themeLibrary: library() });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headless } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headless, size: { columns: 100, rows: 32 } });
+  try {
+    await harness.pilot.settle();
+    controller.setTheme("matrix");
+    await controller.openThemeEditor(mount.current!.bodyRect.peek());
+    await harness.pilot.settle();
+    const window = mount.current!.windowProjection.peek().windows.find((entry) =>
+      entry.id === EXOMUX_THEME_EDITOR_WINDOW_ID
+    )!;
+
+    // The header row is the rename field; clicking it starts an edit.
+    await harness.pilot.click(window.clientRect.column + 3, window.clientRect.row);
+    await harness.pilot.settle();
+    assert(controller.themeNameDraft.peek() !== undefined, "clicking the name started a rename");
+
+    for (let index = 0; index < 40; index += 1) await harness.pilot.press("backspace");
+    for (const character of "Nightshade") {
+      await harness.pilot.press(character.toLowerCase() as Key, {
+        ...(character === character.toUpperCase() ? { shift: true } : {}),
+        buffer: new TextEncoder().encode(character),
+      });
+    }
+    await harness.pilot.press("return");
+    await harness.pilot.settle();
+
+    assertEquals(controller.themeNameDraft.peek(), undefined);
+    assertEquals(controller.themeEditor.peek()!.document.peek().name, "Nightshade");
+    assertEquals(await controller.saveThemeEditor(), true);
+    assertEquals(controller.themeId.peek(), "nightshade");
+    unregisterExomuxTheme("nightshade");
+  } finally {
+    harness.destroy();
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
+  }
+});
+
+// Every one of these went to the terminal instead of the editor until the key
+// router learned the window exists. The controller-level tests passed the whole
+// time, which is exactly why this one drives the keyboard.
+
+Deno.test("the editor's keys reach the editor rather than the shell", async () => {
+  const sessions = [session("keys-shell", "zsh", 0)];
+  const client = new FakeExomuxClient(sessions);
+  const controller = await createExomuxController({ client, initialSessions: sessions, themeLibrary: library() });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headless } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headless, size: { columns: 100, rows: 32 } });
+  try {
+    await harness.pilot.settle();
+    await controller.openThemeEditor(mount.current!.bodyRect.peek());
+    await harness.pilot.settle();
+    const editor = controller.themeEditor.peek()!;
+    const runtime = controller.runtime("keys-shell")!;
+    const writesBefore = client.inputs.length;
+
+    const first = editor.token.peek();
+    await harness.pilot.press("down");
+    await harness.pilot.settle();
+    assert(editor.token.peek() !== first, "down moved the selected control");
+
+    const axis = editor.picker.axis.peek();
+    await harness.pilot.press("tab");
+    await harness.pilot.settle();
+    assert(editor.picker.axis.peek() !== axis, "tab moved the axis");
+
+    const before = editor.color();
+    await harness.pilot.press("right");
+    await harness.pilot.settle();
+    assert(
+      editor.color().join() !== before.join(),
+      `right adjusted the colour, saw ${before.join()} -> ${editor.color().join()}`,
+    );
+
+    assertEquals(client.inputs.length, writesBefore, "and none of it was typed into the shell");
+    assert(runtime.attached.peek(), "which is still attached and would have taken the bytes");
+  } finally {
+    harness.destroy();
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
   }
 });
