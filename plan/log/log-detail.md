@@ -66,6 +66,15 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**Reading the tail of a gate run and calling it green (Aug 18).** `deno task health` prints one line per gate; I ran it
+piped through `tail -14`, saw fourteen `ok` lines, and reported that every gate passed. `format` runs first and was
+failing, along with five others. The exit code is the only honest signal — and a pipeline's exit code is the last
+command's, so `deno task health | tail` reports grep's success, not health's. Capture to a file and check `$?`.
+
+**"PASS" from a task that only prints (Aug 18).** While checking whether those failures predated the branch I ran
+`deno task api-reference` and recorded a pass because it exited 0. That task prints the reference to stdout; only
+`--check=<path>` compares it to the checked-in file. The gate had been failing at origin/main too.
+
 **A gate nobody ran (Aug 18).** Plan 040 deleted `HitTargetStack` from the library and both suites stayed green, because
 `app/api_workbench.ts` and `examples/web/api_workbench_page.ts` are only type-checked by `deno task health`. The
 breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._

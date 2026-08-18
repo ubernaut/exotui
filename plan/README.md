@@ -13,10 +13,10 @@ For every task, read:
 2. `todo/priority.md` for the current order of work.
 3. The specific task file, when one exists.
 
-Read relevant files from `arch/`, `test/`, `refs/`, and `log/log-summary.md` as needed. Do not load `log/log-detail.md`
-by default; scan it — with a targeted search rather than a full read — when the current task may have been attempted
-before, or when a subsystem has a history of failed approaches. That reading rule does not make detailed logging
-optional.
+Read relevant files from `workflow/`, `arch/`, `test/`, `refs/`, and `log/log-summary.md` as needed. Do not load
+`log/log-detail.md` by default; scan it — with a targeted search rather than a full read — when the current task may
+have been attempted before, or when a subsystem has a history of failed approaches. That reading rule does not make
+detailed logging optional.
 
 ## What belongs where
 
@@ -35,6 +35,8 @@ optional.
 - `log/log-summary.md`: concise durable progress, decisions, and pivots.
 - `log/log-detail.md`: the development record — attempts, failures, pivots, and reproductions, in enough detail that the
   same ground is not retrodden.
+- `workflow/`: how work is done here — the development loop and version control. Keep them practical; add process only
+  when it prevents a recurring mistake.
 - `refs/`: reference material that is actually used; link each reference from the plan or task that needs it.
 
 Use `todo/_template.md` when a task file is warranted. Delete unused sections rather than filling them with boilerplate.
