@@ -163,28 +163,26 @@ export const EXOMUX_THEMES = [
     danger: [170, 0, 0],
   },
   {
-    // Miami after dark: a violet night, never a navy one, so the neon on top
-    // of it reads as neon. The palette's electric blue draws every border, its
-    // cyan is lightened into the body text, and hot pink is the one thing that
-    // lights up under focus. The mint does double duty so the green is
-    // actually on screen rather than waiting for a success message: full
-    // strength for success, dimmed for the secondary text that is everywhere —
-    // dimmed because at full strength it competes with the body text instead
-    // of sitting behind it (9.3:1 against 16.4:1). Warning and danger are derived: the
-    // palette has no warm end, and those two must not be mistaken for the
-    // accent or for each other.
+    // Miami by day. The palette is neon, and neon only works on a dark ground
+    // when it is TEXT: at full strength on white, the hot pink measures 2.7:1
+    // and cannot be read. So the light ground takes the palette as washes —
+    // cyan paper, blue panels — and every role that has to be read is the same
+    // hue carried down until it can be: mint for secondary text and success,
+    // hot pink for focus, the blue for structure. Warning is the one colour
+    // from outside the palette: it has no warm end, and a warning that reads
+    // as pink or teal is a warning nobody sees.
     id: "miami",
     label: "Miami Neon",
-    background: [14, 8, 24],
-    surface: [26, 14, 40],
-    surfaceStrong: [46, 22, 64],
-    border: [31, 162, 255],
-    text: [201, 251, 250],
-    muted: [98, 204, 144],
-    accent: [247, 101, 184],
-    success: [122, 255, 180],
-    warning: [255, 209, 128],
-    danger: [255, 94, 118],
+    background: [214, 250, 249],
+    surface: [240, 255, 254],
+    surfaceStrong: [176, 222, 255],
+    border: [10, 132, 224],
+    text: [10, 45, 70],
+    muted: [23, 122, 84],
+    accent: [198, 24, 118],
+    success: [8, 124, 76],
+    warning: [163, 96, 0],
+    danger: [186, 16, 44],
   },
 ] as const satisfies readonly ExomuxThemeSpec[];
 
@@ -627,10 +625,22 @@ export const EXOMUX_BORDER_STYLES: Readonly<Record<ExomuxBorderStyleId, ExomuxBo
  * keep the main theme foreground.
  */
 export function exomuxActiveTitlebarForeground(theme: ExomuxThemeSpec): ExomuxRgb {
-  return EXOMUX_LIGHT_THEME_IDS.includes(theme.id) ? [255, 255, 255] : [0, 0, 0];
+  // Judged from the accent itself rather than from a list of light theme ids:
+  // the rule is "contrast the bar", and a theme can be light while its accent
+  // is bright, or dark while its accent is deep. The threshold reproduces the
+  // hand-kept list exactly — every light theme's accent sits below it, every
+  // dark theme's above — and keeps holding when a new theme arrives.
+  return exomuxRelativeLuminance(theme.accent) < 0.3 ? [255, 255, 255] : [0, 0, 0];
 }
 
-const EXOMUX_LIGHT_THEME_IDS: readonly ExomuxThemeId[] = ["paper", "parchment", "seaglass", "templeos"];
+/** WCAG relative luminance, used wherever a colour has to be read against another. */
+export function exomuxRelativeLuminance(color: ExomuxRgb): number {
+  const channel = (value: number): number => {
+    const scaled = value / 255;
+    return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(color[0]) + 0.7152 * channel(color[1]) + 0.0722 * channel(color[2]);
+}
 
 /** Resolves a persisted border style id, falling back to the Zellij-style thin frame. */
 export function exomuxBorderStyleId(value: unknown): ExomuxBorderStyleId {
