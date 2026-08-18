@@ -19,6 +19,23 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 4. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
    check**, because animations only play on a real terminal. Nothing else blocks on it.
 
+## `deno task health` is red — six gates, all pre-existing
+
+Verified at `origin/main` (`ab98acbc`), so none of these came from this session's work. They are listed here because the
+trunk is supposed to stay releasable and currently is not.
+
+- **`format`** — 11 unformatted files at `origin/main`, 7 after this branch fixes its own two. The rest are generated
+  Unicode tables, three completed plan files, `docs/exomux-component-audit.md`, and `packages/exomux/audio_scripted.ts`.
+  Some are formatted per `packages/exomux`'s own config and disagree with the root's; that conflict needs deciding
+  before running `deno fmt` over them.
+- **`api-inventory`** — duplicate exported symbol `createApp` in `src/app/app.ts` and `src/tooling/init_templates.ts`.
+- **`api-reference`** — `docs/api-reference.md` is stale. Regenerating is a 3,620-line diff, so it has been stale for a
+  while. Note that `deno task api-reference` PRINTS the reference; only `--check=` verifies it, which is how it looked
+  like it was passing.
+- **`package-check`**, **`release-check`**, **`web-pages-build`** — failing; causes not yet diagnosed.
+
+Worth one `bug/health-gates` branch rather than being absorbed into unrelated work.
+
 ## Gate failures found August 18 2026 — both fixed
 
 Both surfaced the first time `deno task health` was run after the pointer refactor; neither is in either test suite,
