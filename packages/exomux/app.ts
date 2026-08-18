@@ -2058,7 +2058,6 @@ export function mountExomuxDesktop(
     for (const tokenRow of layout.tokenRows) {
       if (!contains(tokenRow.rect, column, row)) continue;
       editor.selectToken(tokenRow.token);
-      controller.themeEditorScroll.value = scrollTop;
       return true;
     }
     for (const cell of layout.swatchCells) {
@@ -2095,8 +2094,18 @@ export function mountExomuxDesktop(
       controller.beginSessionRename();
       return true;
     }
-    if (layout.themeEditorRect.width >= 6 && contains(layout.themeEditorRect, column, row)) {
+    if (layout.themeEditorRect.width >= 5 && contains(layout.themeEditorRect, column, row)) {
       void controller.openThemeEditor(bodyRect.peek());
+      return true;
+    }
+    if (layout.themeEditRect.width >= 5 && contains(layout.themeEditRect, column, row)) {
+      if (controller.activeThemeIsEditable) void controller.openThemeEditor(bodyRect.peek(), { edit: true });
+      else controller.status.value = "That is a preset · use [ new ] to start a theme based on it.";
+      return true;
+    }
+    if (layout.themeDeleteRect.width >= 5 && contains(layout.themeDeleteRect, column, row)) {
+      if (controller.activeThemeIsEditable) void controller.deleteTheme(controller.themeId.peek());
+      else controller.status.value = "A preset cannot be deleted.";
       return true;
     }
     if (controller.ghosttyDetected.peek() && contains(layout.shadersRect, column, row)) {
@@ -2238,10 +2247,44 @@ export function mountExomuxDesktop(
     return true;
   };
 
+  /** Pulls the token list to wherever the selection just moved. */
+  const followThemeEditorSelection = (): void => {
+    const editor = controller.themeEditor.peek();
+    const clientRect = windowProjection.peek().windows.find(
+      (candidate) => candidate.id === EXOMUX_THEME_EDITOR_WINDOW_ID,
+    )?.clientRect;
+    if (!editor || !clientRect) return;
+    const rows = exomuxThemeEditorRows(editor);
+    const layout = exomuxThemeEditorLayout(clientRect, rows, editor.picker.inspect().swatches.length, 0);
+    controller.themeEditorScroll.value = exomuxThemeEditorScrollTop(
+      rows,
+      editor.token.peek(),
+      layout.tokenListRect.height,
+      controller.themeEditorScroll.peek(),
+    );
+  };
+
+  /** Scrolls the theme editor's token list under the pointer. */
+  const scrollThemeEditorAt = (column: number, row: number, delta: number): boolean => {
+    const editor = controller.themeEditor.peek();
+    const clientRect = windowProjection.peek().windows.find(
+      (candidate) => candidate.id === EXOMUX_THEME_EDITOR_WINDOW_ID,
+    )?.clientRect;
+    if (!editor || !clientRect) return true;
+    const rows = exomuxThemeEditorRows(editor);
+    const layout = exomuxThemeEditorLayout(clientRect, rows, editor.picker.inspect().swatches.length, 0);
+    if (!contains(layout.tokenListRect, column, row)) return true;
+    const maximum = Math.max(0, rows.length - layout.tokenListRect.height);
+    const next = controller.themeEditorScroll.peek() + Math.trunc(delta);
+    controller.themeEditorScroll.value = Math.max(0, Math.min(next, maximum));
+    return true;
+  };
+
   const scrollWindowAt = (column: number, row: number, delta: number): boolean => {
     const window = clientWindowAt(windowProjection.peek(), column, row);
     if (!window) return false;
     if (window.id === EXOMUX_SETTINGS_WINDOW_ID) return scrollSettingsListAt(column, row, delta);
+    if (window.id === EXOMUX_THEME_EDITOR_WINDOW_ID) return scrollThemeEditorAt(column, row, delta);
     return scrollClientWindow(window.id, delta);
   };
 
@@ -3456,9 +3499,13 @@ export function mountExomuxDesktop(
         const index = tokens.indexOf(editor.token.peek());
         const key = event.key.toLowerCase();
         if (event.key === "escape") controller.closeThemeEditor(bodyRect.peek());
-        else if (event.key === "up") editor.selectToken(tokens[Math.max(0, index - 1)] ?? tokens[0]!);
-        else if (event.key === "down") editor.selectToken(tokens[Math.min(tokens.length - 1, index + 1)] ?? tokens[0]!);
-        else if (event.key === "left") editor.picker.nudge(event.shift ? -10 : -1);
+        else if (event.key === "up") {
+          editor.selectToken(tokens[Math.max(0, index - 1)] ?? tokens[0]!);
+          followThemeEditorSelection();
+        } else if (event.key === "down") {
+          editor.selectToken(tokens[Math.min(tokens.length - 1, index + 1)] ?? tokens[0]!);
+          followThemeEditorSelection();
+        } else if (event.key === "left") editor.picker.nudge(event.shift ? -10 : -1);
         else if (event.key === "right") editor.picker.nudge(event.shift ? 10 : 1);
         else if (event.key === "tab") editor.picker.cycleAxis(event.shift ? -1 : 1);
         else if (key === "s") void controller.saveThemeEditor();
@@ -5792,6 +5839,10 @@ export interface ExomuxGlobalConfigLayout {
   readonly themeHeaderRect: Rectangle;
   /** The "new theme" button, right-aligned in the theme header. */
   readonly themeEditorRect: Rectangle;
+  /** Edits the selected theme in place; zero width when it does not fit. */
+  readonly themeEditRect: Rectangle;
+  /** Deletes the selected theme; zero width when it does not fit. */
+  readonly themeDeleteRect: Rectangle;
   /** "Background" column header. */
   readonly backgroundHeaderRect: Rectangle;
   /** True when the window is too narrow for side-by-side pickers (UX-002). */
@@ -5908,7 +5959,7 @@ export function exomuxGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: rect.column + 1, row: rect.row + 1, width: columnWidth, height: 1 },
-    themeEditorRect: themeEditorButtonRect({ column: rect.column + 1, row: rect.row + 1, width: columnWidth }),
+    ...themeHeaderActionRects({ column: rect.column + 1, row: rect.row + 1, width: columnWidth }),
     backgroundHeaderRect: { column: rect.column + 2 + columnWidth, row: rect.row + 1, width: columnWidth, height: 1 },
     stacked: false,
   };
@@ -5987,7 +6038,7 @@ function stackedGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: innerColumn, row: rect.row + 1, width: innerWidth, height: 1 },
-    themeEditorRect: themeEditorButtonRect({ column: innerColumn, row: rect.row + 1, width: innerWidth }),
+    ...themeHeaderActionRects({ column: innerColumn, row: rect.row + 1, width: innerWidth }),
     backgroundHeaderRect: { column: innerColumn, row: backgroundHeaderRow, width: innerWidth, height: 1 },
     stacked: true,
   };
@@ -6412,16 +6463,24 @@ function paintGlobalSettingsWindow(
     }, g(theme.surfaceStrong));
   };
   header(layout.themeHeaderRect, "Theme", pane === "theme");
-  // Editing a theme starts from the theme list, because what you are about to
-  // edit is whichever one is selected there.
-  if (layout.themeEditorRect.width >= 6) {
+  // The theme list's toolbar: what you are about to act on is whichever theme
+  // is selected below. Edit and delete only apply to a theme the user saved,
+  // and say so by going flat rather than by doing nothing when clicked.
+  const editable = controller.activeThemeIsEditable;
+  const themeActions: readonly [Rectangle, string, boolean][] = [
+    [layout.themeEditorRect, "[ new ]", true],
+    [layout.themeEditRect, "[ edit ]", editable],
+    [layout.themeDeleteRect, "[ del ]", editable],
+  ];
+  for (const [actionRect, label, enabled] of themeActions) {
+    if (actionRect.width < 5) continue;
     writeOnGround(
       painter,
-      layout.themeEditorRect.column,
-      layout.themeEditorRect.row,
-      fitText("[ new ]", layout.themeEditorRect.width),
-      { foreground: theme.background, bold: true },
-      g(theme.accent),
+      actionRect.column,
+      actionRect.row,
+      fitText(label, actionRect.width),
+      { foreground: enabled ? theme.background : theme.muted, bold: enabled },
+      g(enabled ? theme.accent : theme.surface),
     );
   }
   header(layout.backgroundHeaderRect, "Background", pane === "background");
@@ -7943,12 +8002,8 @@ function paintThemeEditorWindow(
   const picker = editor.picker.inspect();
   const rows = exomuxThemeEditorRows(editor);
   const probe = exomuxThemeEditorLayout(rect, rows, picker.swatches.length, 0);
-  const scrollTop = exomuxThemeEditorScrollTop(
-    rows,
-    inspection.token,
-    probe.tokenListRect.height,
-    controller.themeEditorScroll.peek(),
-  );
+  const maximum = Math.max(0, rows.length - probe.tokenListRect.height);
+  const scrollTop = Math.max(0, Math.min(controller.themeEditorScroll.peek(), maximum));
   const layout = exomuxThemeEditorLayout(rect, rows, picker.swatches.length, scrollTop);
 
   // Header: the theme's name and whether it has unsaved changes.
@@ -8075,7 +8130,25 @@ function paintThemeEditorRow(
  * entirely when the header is too narrow to hold both the word and the button,
  * because a button overlapping its own heading is worse than no button.
  */
-function themeEditorButtonRect(header: { column: number; row: number; width: number }): Rectangle {
-  const width = Math.min(7, Math.max(0, header.width - 7));
-  return { column: header.column + Math.max(0, header.width - width), row: header.row, width, height: 1 };
+function themeHeaderActionRects(
+  header: { column: number; row: number; width: number },
+): { themeEditorRect: Rectangle; themeEditRect: Rectangle; themeDeleteRect: Rectangle } {
+  // Right-aligned as a group, reading new / edit / delete. When the header
+  // narrows they drop in reverse order of usefulness: delete first, then edit,
+  // and "new" last, because it is the one that works on every theme. A button
+  // that overlaps the word "Theme" is worse than a button that is not there.
+  const widths = [7, 8, 7];
+  const empty: Rectangle = { column: header.column + header.width, row: header.row, width: 0, height: 1 };
+  const available = header.width - 7;
+  let kept = widths.length;
+  while (kept > 0 && widths.slice(0, kept).reduce((sum, width) => sum + width, 0) > available) kept -= 1;
+  const total = widths.slice(0, kept).reduce((sum, width) => sum + width, 0);
+  let column = header.column + header.width - total;
+  const rects = widths.map((width, index) => {
+    if (index >= kept) return empty;
+    const rect: Rectangle = { column, row: header.row, width: width - 1, height: 1 };
+    column += width;
+    return rect;
+  });
+  return { themeEditorRect: rects[0]!, themeEditRect: rects[1]!, themeDeleteRect: rects[2]! };
 }

@@ -91,6 +91,7 @@ import {
   initialExomuxWorkspaceState,
   isExomuxSessionId,
   isExomuxSshTarget,
+  isExomuxUserTheme,
   normalizeExomuxBackgroundSettings,
   normalizeExomuxGlobalSettings,
   normalizeExomuxWorkspaceState,
@@ -1513,7 +1514,10 @@ export class ExomuxController {
    * straight through to the desktop — the preview IS the desktop, because a
    * preview pane in a terminal is a lie you have to maintain.
    */
-  openThemeEditor(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): Promise<void> {
+  openThemeEditor(
+    bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS,
+    options: { readonly edit?: boolean } = {},
+  ): Promise<void> {
     this.#assertActive();
     this.prefixPending.value = false;
     this.helpVisible.value = false;
@@ -1523,7 +1527,32 @@ export class ExomuxController {
     // Opening reads the saved themes, to name the new one something free.
     // Returned rather than fired and forgotten so a caller — a test, or a
     // command that wants to act on the editor — can wait for it.
-    return this.themeEditor.peek() ? Promise.resolve() : this.#createThemeEditor();
+    return this.themeEditor.peek() ? Promise.resolve() : this.#createThemeEditor(options.edit === true);
+  }
+
+  /** Whether the theme showing is one the user saved, so it can be edited or deleted. */
+  get activeThemeIsEditable(): boolean {
+    const id = this.themeId.peek();
+    return isExomuxUserTheme(id) && !(this.#themeLibrary?.isBuiltIn(id) ?? false);
+  }
+
+  /** Deletes a saved theme by id and falls back to a preset. */
+  async deleteTheme(id: string): Promise<boolean> {
+    if (!this.#themeLibrary || this.#disposed) return false;
+    if (this.#themeLibrary.isBuiltIn(id) || !await this.#themeLibrary.remove(id)) {
+      this.status.value = "Only a theme you saved can be deleted.";
+      return false;
+    }
+    unregisterExomuxTheme(id);
+    if (this.themeId.peek() === id) this.setTheme(EXOMUX_THEMES[0]!.id);
+    const editor = this.themeEditor.peek();
+    if (editor && themeDocumentId(editor.document.peek().name) === id) {
+      this.closeThemeEditor(this.#lastBounds);
+      editor.dispose();
+      this.themeEditor.value = undefined;
+    }
+    this.status.value = "Theme deleted.";
+    return true;
   }
 
   /**
@@ -1533,10 +1562,17 @@ export class ExomuxController {
    * collide, and leaves the original exactly where it was. Opening it on a
    * theme you already saved edits that one.
    */
-  async #createThemeEditor(): Promise<void> {
+  async #createThemeEditor(editInPlace = false): Promise<void> {
     const active = exomuxTheme(this.themeId.peek());
     let document = exomuxThemeDocument(active);
-    if (this.#themeLibrary && this.#themeLibrary.isBuiltIn(themeDocumentId(document.name))) {
+    // Editing in place is only offered for a theme the user saved; a preset
+    // still yields a copy, because the alternative is a button that silently
+    // does something other than what it says.
+    const saved = editInPlace && this.#themeLibrary
+      ? await this.#themeLibrary.load(themeDocumentId(document.name))
+      : undefined;
+    if (saved) document = saved;
+    else if (this.#themeLibrary && this.#themeLibrary.isBuiltIn(themeDocumentId(document.name))) {
       document = renameThemeDocument(document, await this.#themeLibrary.uniqueName(`${document.name} custom`));
     }
     if (this.#disposed || this.themeEditor.peek()) return;
@@ -1615,19 +1651,8 @@ export class ExomuxController {
   /** Deletes the saved theme being edited and falls back to a preset. */
   async deleteEditedTheme(): Promise<boolean> {
     const editor = this.themeEditor.peek();
-    if (!editor || !this.#themeLibrary) return false;
-    const id = themeDocumentId(editor.document.peek().name);
-    if (this.#themeLibrary.isBuiltIn(id) || !await this.#themeLibrary.remove(id)) {
-      this.status.value = "Nothing to delete: this theme has never been saved.";
-      return false;
-    }
-    unregisterExomuxTheme(id);
-    this.setTheme(EXOMUX_THEMES[0]!.id);
-    this.closeThemeEditor(this.#lastBounds);
-    this.themeEditor.peek()?.dispose();
-    this.themeEditor.value = undefined;
-    this.status.value = "Theme deleted.";
-    return true;
+    if (!editor) return false;
+    return await this.deleteTheme(themeDocumentId(editor.document.peek().name));
   }
 
   /** Closes the theme editor, keeping whatever was applied to the desktop. */

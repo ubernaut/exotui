@@ -80,6 +80,17 @@ const CHROME_TOKENS: readonly ControlTokenSpec[] = [
     description: "The ground every panel, window body and control sits on.",
   },
   {
+    // The ground the whole desktop sits on. Grouped with the basics rather
+    // than with the desktop furniture: it is the first colour anyone wants to
+    // change, and it was previously the thirty-third row of the list.
+    name: "desktop:background",
+    group: "chrome",
+    label: "Desktop background",
+    fallback: "surface",
+    role: "background",
+    description: "Behind every window, where the wallpaper or animation shows.",
+  },
+  {
     name: "chrome:foreground",
     group: "chrome",
     label: "Text",
@@ -330,14 +341,6 @@ const CONTROL_SURFACE_TOKENS: readonly ControlTokenSpec[] = [
     against: "scrollbar:track",
   },
   // The desktop around the windows.
-  {
-    name: "desktop:background",
-    group: "desktop",
-    label: "Desktop",
-    fallback: "surface",
-    role: "background",
-    description: "Behind every window, where the wallpaper or animation shows.",
-  },
   {
     name: "desktop:topbar-background",
     group: "desktop",

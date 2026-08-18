@@ -1,0 +1,87 @@
+# Project log — detail
+
+Decisions, dead ends, and reproductions, in enough detail that the same ground is not retrodden. This file is long by
+design: consult it when about to attempt something that may have been tried, rather than reading it start to finish.
+
+Entries begin August 17 2026, when this log was started; earlier history is in the task files under `todo/done/` and in
+`git log`.
+
+---
+
+## Dead ends and corrections
+
+**A coordinate-space model for padding that did not exist (Aug 17).** Built a 183-line `pointer_space.ts` plus 213 lines
+of tests to correct terminal padding between pixel and cell coordinates — before measuring. Measured against real
+Ghostty afterwards: `CSI 14 t` reports the text area as exactly `columns × cellWidth`, so the padding model was
+identically zero in every case. Deleted. _Rule: measure the real terminal before modelling it._
+
+**Tests that asserted the bug (Aug 17).** While fixing the block-cursor pointer redirect, two tests were written that
+pinned the broken behaviour — "a click acts where the block cursor is, not where the press claims" — and passed happily.
+_Rule: a test states the intent; if it reads like a description of the current code, it is not a test._
+
+**Chained pointer fixes (Aug 16–17).** Shelf swallowing releases, double-click stealing drags, the cursor lying over
+buttons, and the background getting first refusal were each fixed in place until the stack stopped holding. The rebuild
+(`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
+design signal, not a bug._
+
+**Shadowing a preset (Aug 18).** The theme editor originally let a saved theme shadow a built-in of the same name, on
+the theory that "fixing a shipped theme" was the common case. The user's direction was the opposite: presets are the
+floor everyone can get back to. Saving over one is now refused, and opening the editor starts a copy. Two test files had
+to be rewritten because they pinned the old rule.
+
+---
+
+## Reproductions worth keeping
+
+**Version skew between a new client and an old daemon (Aug 18).** Reproduced by `git worktree add <dir> 22edad56` and
+running that build's `serveExomuxHost` against the current `connectExomuxWebSocket`: publishing the shared-state message
+throws "connection closed" and every later attach fails the same way. This is the general recipe for any protocol
+change.
+
+**Wheel scrolling that never reached its handler (Aug 18).** The modal catcher answered every scroll with `true`, and
+the desktop's paint signature omitted the scroll offset, so the frame stayed put even when the offset moved. Neither was
+visible by reading the code; both were obvious the moment a test turned the wheel and read the frame back.
+
+**Theme edits that repainted the previous theme (Aug 18).** `controller.theme` was a `Computed` over `themeId` alone.
+While editing, the id is stable and only the colours change, so the Computed handed back the pre-edit spec. It now
+depends on `themeRevision`.
+
+**A geometry function that depended on its content (Aug 18).** The kill modal's layout briefly took the terminal name it
+displays, to size itself around the wrapped text. The pointer router lays the same modal out to hit-test a click and has
+no name to hand it, so the buttons would have been drawn in one place and clicked in another. Geometry now reserves rows
+instead.
+
+**Session switching to a black screen (Aug 17).** `Tui.destroy()` does not emit the `destroy` event — that event means
+"the user interrupted us, exit the process". The switch loop awaited it, so the promise never resolved, the event loop
+drained, and the client exited. Pinned by `tests/tui_destroy_contract.test.ts`.
+
+**A gate nobody ran (Aug 18).** Plan 040 deleted `HitTargetStack` from the library and both suites stayed green, because
+`app/api_workbench.ts` and `examples/web/api_workbench_page.ts` are only type-checked by `deno task health`. The
+breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._
+
+---
+
+## Environment hazards
+
+- **Never drive the maintainer's live exomux** from a script or test: it attaches to the running daemon and a real tmux.
+  Isolate with `XDG_STATE_HOME` and a private tmux socket. Read-only probes (list, brief attach and detach) are safe and
+  have been used to verify fixes against the real daemon.
+- **GUI applications launched from the sandbox** appear on the maintainer's session and every screenshot path returns
+  black. Visual confirmation has to come from them.
+- **GPU validation failures reproduce only on the maintainer's strict Intel laptop**, not in the lenient sandbox. Their
+  debug logs are the evidence.
+- **ICC task creation silently dry-runs on stale evidence.** Rebuild `build-git-history` and `index` first, then verify
+  `task.json` exists.
+
+---
+
+## Standing user direction
+
+Collected from field reports, because these recur:
+
+- Software should be composed of discrete modules that are easy to test, swap, and understand. Chaining hacks is not
+  acceptable, and neither is a refactor that leaves the pieces entangled.
+- Dogfood the toolkit. exomux hand-drawing what exotui already provides is a defect in both.
+- Presets and shipped defaults are a floor to get back to; user work never overwrites them.
+- Say what was actually done, including the parts that were not. A tradeoff stated is fine; a tradeoff implied to be
+  complete is not.

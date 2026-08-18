@@ -14,8 +14,6 @@ import {
   FileExplorerController,
   fitCellText,
   formatWorkbenchDiagnosticStatus,
-  type HitTarget,
-  HitTargetStack,
   hydrateWorkbenchPanelWorkspaceStore,
   initialWorkbenchDiagnosticLogRows,
   layoutWorkbenchTitlebar,
@@ -46,7 +44,6 @@ import {
   type TiledWorkspaceSeparatorAxis,
   type TiledWorkspaceSnapshot,
   type TiledWorkspaceWindow,
-  translateHitTargets,
   updateWorkbenchStringLineSignals,
   type WorkbenchButtonTone,
   type WorkbenchDropdownOverlayRenderCommand,
@@ -70,6 +67,7 @@ import {
   WorkbenchWorkspaceViewportController,
   writeStringFrameRow,
 } from "../../mod.web.ts";
+import { type HitTarget, HitTargetStack, translateHitTargets } from "../../app/api_workbench_hit_targets.ts";
 import {
   WorkbenchButtonRowBufferCache,
   WorkbenchModalBufferCache,

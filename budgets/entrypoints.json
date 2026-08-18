@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5314224,
+    "bytes": 5314460,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -388,7 +388,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 14394,
+      "src/theme_controls.ts": 14630,
       "src/theme_density.ts": 3770,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
@@ -795,7 +795,7 @@
   },
   "mod.theme.ts": {
     "modules": 69,
-    "bytes": 610294,
+    "bytes": 610530,
     "paths": {
       "mod.theme.ts": 671,
       "src/canvas/box.ts": 5452,
@@ -837,7 +837,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 14394,
+      "src/theme_controls.ts": 14630,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
       "src/theme_engine_factory.ts": 15576,
@@ -870,7 +870,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4529549,
+    "bytes": 4529785,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -1183,7 +1183,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 14394,
+      "src/theme_controls.ts": 14630,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
       "src/theme_engine_factory.ts": 15576,

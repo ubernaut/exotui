@@ -12,7 +12,6 @@ import {
   findWorkbenchWorkspace,
   fitCellText as fit,
   formatWorkbenchDiagnosticStatus,
-  HitTargetStack,
   initialWorkbenchDiagnosticLogRows,
   isWorkbenchVisualizationWindowId,
   loadWorkbenchWorkspaceStorage,
@@ -26,7 +25,6 @@ import {
   resolveWorkbenchTerminalOutputKeyAction,
   resolveWorkbenchTerminalShellKeyAction,
   subscribeWorkbenchDiagnosticLog,
-  translateHitTargets,
   type WorkbenchAnsiScreenFlushStats,
   WorkbenchAnsiScreenPainter,
   workbenchBuiltInWindowTogglePlan,
@@ -57,6 +55,7 @@ import {
   workbenchWorkspaceWindowEntries,
   writeFrame,
 } from "../src/app/workbench/mod.ts";
+import { HitTargetStack, translateHitTargets } from "./api_workbench_hit_targets.ts";
 import {
   activeWorkspaceNameAfterWindowMutation,
   API_WORKBENCH_WORKSPACE_STORE_KEY,

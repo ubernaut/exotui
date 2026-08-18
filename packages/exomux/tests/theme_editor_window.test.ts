@@ -403,3 +403,134 @@ Deno.test("a name is bounded and an empty one is simply abandoned", async () => 
     await controller.dispose();
   }
 });
+
+// User direction (Aug 18 2026): edit and delete a saved theme from settings,
+// and the desktop's base colour has to be reachable — it was the thirty-third
+// row of a list showing twenty-five, with no wheel.
+
+Deno.test("the desktop background is among the first colours offered", async () => {
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [], themeLibrary: library() });
+  try {
+    await controller.ready;
+    await controller.openThemeEditor(BOUNDS);
+    const rows = exomuxThemeEditorRows(controller.themeEditor.peek()!);
+    const index = rows.findIndex((row) => row.token === "desktop:background");
+    assert(index >= 0, "the desktop ground is editable at all");
+    assert(index < 8, `expected it near the top, found it at row ${index}`);
+    assertEquals(rows[index]!.label, "Desktop background");
+  } finally {
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
+  }
+});
+
+Deno.test("the wheel reaches the end of the token list, and the selection pulls the view back", async () => {
+  const sessions = [session("wheel-shell", "zsh", 0)];
+  const client = new FakeExomuxClient(sessions);
+  const controller = await createExomuxController({ client, initialSessions: sessions, themeLibrary: library() });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headless } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headless, size: { columns: 100, rows: 30 } });
+  try {
+    await harness.pilot.settle();
+    await controller.openThemeEditor(mount.current!.bodyRect.peek());
+    await harness.pilot.settle();
+    const editor = controller.themeEditor.peek()!;
+    const window = mount.current!.windowProjection.peek().windows.find((entry) =>
+      entry.id === EXOMUX_THEME_EDITOR_WINDOW_ID
+    )!;
+    const rows = exomuxThemeEditorRows(editor);
+    const layout = exomuxThemeEditorLayout(window.clientRect, rows, editor.picker.inspect().swatches.length, 0);
+    assert(rows.length > layout.tokenListRect.height, "the list is longer than the window, which is the whole point");
+
+    const point = { x: layout.tokenListRect.column + 2, y: layout.tokenListRect.row + 2 };
+    for (let notch = 0; notch < 60; notch += 1) await harness.pilot.scroll(1, point.x, point.y);
+    const maximum = rows.length - layout.tokenListRect.height;
+    assertEquals(controller.themeEditorScroll.peek(), maximum, "the wheel reaches the last row and stops there");
+
+    for (let notch = 0; notch < 80; notch += 1) await harness.pilot.scroll(-1, point.x, point.y);
+    assertEquals(controller.themeEditorScroll.peek(), 0, "and comes back to the top");
+  } finally {
+    harness.destroy();
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
+  }
+});
+
+Deno.test("a saved theme can be edited in place and deleted from settings", async () => {
+  const shared = library();
+  const client = new FakeExomuxClient([]);
+  const controller = await createExomuxController({ client, initialSessions: [], themeLibrary: shared });
+  try {
+    await controller.ready;
+    controller.setTheme("matrix");
+    assertEquals(controller.activeThemeIsEditable, false, "a preset is neither editable nor deletable");
+
+    // Make one to work with.
+    await controller.openThemeEditor(BOUNDS);
+    controller.themeEditor.peek()!.selectToken("chrome:accent");
+    controller.themeEditor.peek()!.picker.setColor([1, 2, 3]);
+    assertEquals(await controller.saveThemeEditor(), true);
+    const savedId = controller.themeId.peek();
+    controller.closeThemeEditor(BOUNDS);
+    controller.themeEditor.peek()!.dispose();
+    controller.themeEditor.value = undefined;
+    assertEquals(controller.activeThemeIsEditable, true);
+
+    // [ edit ] opens that theme itself, not another copy of it.
+    await controller.openThemeEditor(BOUNDS, { edit: true });
+    const editor = controller.themeEditor.peek()!;
+    assertEquals(editor.document.peek().name, "Matrix Phosphor custom");
+    assertEquals(editor.document.peek().tokens["chrome:accent"], [1, 2, 3], "with the edit already in it");
+    assertEquals(editor.dirty.peek(), false, "and nothing to save until something changes");
+    editor.picker.setColor([4, 5, 6]);
+    assertEquals(await controller.saveThemeEditor(), true);
+    assertEquals((await shared.list()).filter((entry) => entry.editable).length, 1, "still one theme, not two");
+
+    // [ del ] removes it and falls back to a preset.
+    assertEquals(await controller.deleteTheme(savedId), true);
+    assertEquals((await shared.list()).filter((entry) => entry.editable).length, 0);
+    assertEquals(controller.themeId.peek(), EXOMUX_THEMES[0]!.id);
+    assertEquals(controller.themeEditor.peek(), undefined, "and closes the editor that was editing it");
+    // A preset refuses.
+    assertEquals(await controller.deleteTheme("matrix"), false);
+    assertStringIncludes(controller.status.peek(), "saved");
+  } finally {
+    unregisterExomuxTheme("theme-editor-preview");
+    await controller.dispose();
+  }
+});
+
+Deno.test("the theme toolbar drops buttons rather than overlapping its heading", () => {
+  const wide = exomuxGlobalConfigLayout({ column: 0, row: 0, width: 90, height: 30 }, 0, 0);
+  for (const rect of [wide.themeEditorRect, wide.themeEditRect, wide.themeDeleteRect]) {
+    assert(rect.width >= 5, "a roomy window fits all three");
+  }
+  assert(
+    wide.themeEditorRect.column < wide.themeEditRect.column &&
+      wide.themeEditRect.column < wide.themeDeleteRect.column,
+    "they read new, edit, delete",
+  );
+
+  // They drop in reverse order of usefulness, and never land on the heading.
+  for (const width of [60, 30, 22, 14]) {
+    const layout = exomuxGlobalConfigLayout({ column: 0, row: 0, width, height: 24 }, 0, 0);
+    const present = [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect].map((rect) =>
+      rect.width >= 5
+    );
+    assert(!present[1] || present[0], "edit never survives new");
+    assert(!present[2] || present[1], "delete never survives edit");
+    for (const rect of [layout.themeEditorRect, layout.themeEditRect, layout.themeDeleteRect]) {
+      if (rect.width < 5) continue;
+      assert(
+        rect.column >= layout.themeHeaderRect.column + 6,
+        `at ${width} columns a button landed on the word Theme`,
+      );
+      assert(
+        rect.column + rect.width <= layout.themeHeaderRect.column + layout.themeHeaderRect.width,
+        `at ${width} columns a button overflowed the header`,
+      );
+    }
+  }
+});
