@@ -831,6 +831,7 @@ export class ExomuxController {
   #disposed = false;
   #disposePromise?: Promise<void>;
   /** Serializes adopted-session window reconciliation (UX-007). */
+  #closedSweep?: Promise<void>;
   #adoptionQueue: Promise<void> = Promise.resolve();
   /** The in-flight local spawn, so adoption never races its reconciliation. */
   #spawnFlight?: Promise<void>;
@@ -2558,6 +2559,12 @@ export class ExomuxController {
         runtime.summary.value = summary;
         this.#publishSessions();
       }
+      // A terminal that stopped running may have been closed by another client
+      // attached to this host, in which case the daemon has already dropped
+      // it. The broadcast cannot tell that apart from a shell that merely
+      // exited, so ask: the daemon's list is the authority, and anything it no
+      // longer has is closed everywhere rather than left as a dead frame.
+      if (!summary.running) this.#scheduleClosedSessionSweep();
       return;
     }
     if (!summary.running) return;
@@ -2567,6 +2574,55 @@ export class ExomuxController {
         // A failed adoption must not wedge the queue; the next broadcast for
         // the same session retries.
       });
+  }
+
+  /**
+   * Removes terminals the daemon no longer has. Coalesced: a burst of exit
+   * broadcasts sweeps once. Unlike `refreshSessions` this keeps every runtime
+   * the host still lists, so live scrollback and screen state survive.
+   */
+  #scheduleClosedSessionSweep(): void {
+    if (this.#disposed || this.#closedSweep) return;
+    this.#closedSweep = (async () => {
+      try {
+        await this.#sweepClosedSessions();
+      } catch {
+        // A failed sweep is retried by the next exit broadcast.
+      } finally {
+        this.#closedSweep = undefined;
+      }
+    })();
+    void this.#closedSweep;
+  }
+
+  async #sweepClosedSessions(): Promise<void> {
+    if (this.#disposed) return;
+    const listed = normalizeSessionList(await this.client.list());
+    if (this.#disposed) return;
+    const listedIds = new Set(listed.map((session) => session.id));
+    const stale = [...this.#runtimes.keys()].filter((sessionId) =>
+      !listedIds.has(sessionId) &&
+      // A local kill owns its own teardown; do not race it.
+      !this.#killFlights.has(sessionId)
+    );
+    if (stale.length === 0) return;
+    const staleIds = new Set(stale);
+    const survivors = new Map(
+      [...this.#runtimes].filter(([sessionId]) => !staleIds.has(sessionId)),
+    );
+    const reconciliation = await this.#reconcileWindows(this.#windowDescriptors(survivors));
+    if (!windowReconciliationApplied(reconciliation)) return;
+    for (const sessionId of stale) {
+      const runtime = this.#runtimes.get(sessionId);
+      if (!runtime) continue;
+      runtime.attachGeneration += 1;
+      this.#runtimes.delete(sessionId);
+      this.#lifecycleTails.delete(sessionId);
+      disposeTerminalRuntime(runtime);
+    }
+    this.#publishSessions();
+    this.#persistActiveSession();
+    this.status.value = this.#statusSummary();
   }
 
   async #adoptBroadcastSession(summary: ExomuxSessionSummary): Promise<void> {

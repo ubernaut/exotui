@@ -56,6 +56,17 @@ export class FakeExomuxClient implements ExomuxClientPort {
     for (const listener of [...this.#broadcastListeners]) listener(summary);
   }
 
+  /**
+   * The final state of a session the host has dropped: listeners hear it, but
+   * a later `list` no longer returns it — exactly what the real daemon does
+   * when another client kills a terminal (broadcast, then delete).
+   */
+  emitSessionRemoved(summary: ExomuxSessionSummary): void {
+    this.#sessions.delete(summary.id);
+    this.#listeners.delete(summary.id);
+    for (const listener of [...this.#broadcastListeners]) listener(summary);
+  }
+
   listSnapshot(): ExomuxSessionSummary[] {
     return [...this.#sessions.values()];
   }
