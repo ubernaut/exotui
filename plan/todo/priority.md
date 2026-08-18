@@ -9,14 +9,10 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
    model that components and themes can both see, and a paint vocabulary that distinguishes "this is the current item"
    from "this is where your typing goes". Library-level; exomux is the first consumer.
 
-2. **`043` Edit a saved theme.** _(User direction, Aug 18.)_ `[ edit ]` beside `[ new ]` in the settings theme header,
-   opening the editor on the selected theme when it is one of the user's. `[ new ]` keeps its meaning — a copy of the
-   selected theme — and presets stay read-only.
-
-3. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
-4. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
+3. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
    check**, because animations only play on a real terminal. Nothing else blocks on it.
 
 ## `deno task health` is red — six gates, all pre-existing
@@ -39,14 +35,16 @@ Worth one `bug/health-gates` branch rather than being absorbed into unrelated wo
 ## Gate failures found August 18 2026 — both fixed
 
 Both surfaced the first time `deno task health` was run after the pointer refactor; neither is in either test suite,
-which is why they went unnoticed. `deno task health` is green as of Aug 18.
+which is why they went unnoticed. Both are fixed. They are not the six gates above, which are older and still red.
 
-- **`render/textbox-wrap-250` misses its budget by ~60x** — 10.9–15.0 ms against a 5 ms ceiling. Not a stale budget: it
-  measured **0.179 ms** at `1c692900`, the commit that added it. Bisected to **`795e2d70` ("muxstone", Jul 21)**, which
-  made textbox wrapping grapheme-aware — `graphemeBoundaries` per line, then `textWidth` per grapheme inside the fitting
-  loop. The correctness is right (emoji, combining marks, CJK all wrap properly now); the question is whether the
-  per-grapheme `textWidth` call can be avoided for the ASCII fast path, which is what a 250-row wrap is mostly made of.
-  Decide: optimise the loop, or accept the cost and raise the budget with a comment saying why.
+- **`render/textbox-wrap-250` missed its budget by ~60x** — fixed Aug 18 by `ab98acbc`. It ran 10.9–15.0 ms against a 5
+  ms ceiling, having measured **0.179 ms** at `1c692900` where it was added; bisected to **`795e2d70` ("muxstone",
+  Jul 21)**, which made textbox wrapping grapheme-aware. Profiling put 77% of the cost in the grapheme segmenter rather
+  than the wrap loop. The decision was to optimise rather than raise the budget, because inside ASCII the fast path is
+  exact, not approximate: every rule joining two scalars into one cluster needs a code point at or above U+0080, and the
+  sole exception is CR × LF. `graphemeBoundaries` went 7.07 ms → 0.43 ms and the case 10.9–15.0 ms → 1.3–2.3 ms, with
+  the UAX #29 break test, an `Intl.Segmenter` cross-check over every ASCII code point in context, and a byte-identical
+  wrap fixture as the evidence.
 - **`api-workbench:check` was broken by plan 040** — fixed Aug 18. The two workbench demos imported `HitTargetStack`,
   which 040 deleted from the library; they now carry their own copy in `app/api_workbench_hit_targets.ts`, because
   immediate-mode demos genuinely want a per-frame LIFO stack and the library genuinely wants one pointer authority.

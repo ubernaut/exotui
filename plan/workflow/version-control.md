@@ -61,8 +61,11 @@ For work that has to reach `main` incomplete, keep it behind a flag or an inacti
 
 ## Current state vs target
 
-**Current:** work to date — including everything in this session — has been committed straight to `main` and pushed.
-That is why `main`'s history is a sequence of single large commits rather than merges.
+**Current:** every commit up to `ab98acbc` went straight to `main` and was pushed, which is why `main`'s history is a
+sequence of single large commits rather than merges. The loop starts with this document: it and the plan corrections
+beside it are being developed on `feature/trunk-based-workflow` and reach `main` as a branch, not as a direct commit.
+The releasable-trunk rule at the top of this file is still aspirational — `main` fails six `deno task health` gates (see
+`../todo/priority.md`) and does not hold until `bug/health-gates` lands.
 
 **Target:** the loop above, starting with the change that adds this document. The rule that matters most in a
 one-maintainer repository is not the pull request itself but what the pull request forces: a branch that can be thrown
