@@ -1,6 +1,6 @@
 # Multi-client shared state
 
-Status: planned August 18 2026 — implementing now.
+Status: complete August 18 2026.
 
 User report (Aug 18 2026): attaching two clients to the same exomux session shows very little shared state. Changing the
 theme on one does not change the other; closing a window on one leaves it on the other, dead or labelled "[EXITED]".
@@ -47,12 +47,21 @@ channel to the protocol and carry every shared payload on it.
 
 ## Phases
 
-- [ ] **A — session removal.** Teach `#acceptBroadcastSession` to reconcile removals: a session that stops running, or
+- [x] **A — session removal.** Teach `#acceptBroadcastSession` to reconcile removals: a session that stops running, or
       that the daemon has dropped, removes its runtime and its window on every client, not just the initiator. Broadcast
       detach from the host so closing a window propagates. Prune already-dead sessions on attach.
-- [ ] **B — shared-state channel.** `workspace` client->host message and `workspace-state` host->client event, with host
+- [x] **B — shared-state channel.** `workspace` client->host message and `workspace-state` host->client event, with host
       retention and relay-to-others; delivered on auth. Protocol normalizers, host state, client API, tests.
-- [ ] **C — preferences over the channel.** theme, background, globalSettings, backgroundSettings publish and adopt
-      live. The config file stays the durable per-machine default.
-- [ ] **D — window lifecycle over the channel.** minimized/closed/maximized and focus order shared; geometry stays
-      local, with the existing reflow keeping each client's windows on its own screen.
+- [x] **C — preferences over the channel.** theme, background, globalSettings, backgroundSettings publish and adopt
+      live. The config file stays the durable per-machine default. One correction to the design as written: the config
+      file and the layout snapshot are startup DEFAULTS, not overrides. A client that joins a desktop which is already
+      up adopts what is on screen, so `#initialize` skips the appearance assignment once `#adoptSharedPreferences` has
+      run — otherwise the host's replay lands first and initialization immediately clobbers it.
+- [x] **D — window lifecycle over the channel.** Closed and minimized are shared; geometry stays local, with the
+      existing reflow keeping each client's windows on its own screen.
+
+      Maximize and focus order are NOT shared, against the original bullet. Both are viewport-derived here: under the
+      mobile layout `presentWindow` maximizes its target and puts everything else away, so sharing either would let a
+      phone impose its one-window navigation on a desktop. For the same reason a mobile client publishes
+      `minimized: null` — "no opinion" — and ignores an adopted minimized set, while still publishing and adopting
+      closes, which are deliberate on any screen size.

@@ -86,9 +86,16 @@ import {
   initialExomuxWorkspaceState,
   isExomuxSessionId,
   isExomuxSshTarget,
+  normalizeExomuxBackgroundSettings,
+  normalizeExomuxGlobalSettings,
   normalizeExomuxWorkspaceState,
   withExomuxBackgroundString,
 } from "./model.ts";
+
+/** Shared-state key for desktop appearance (plan 041). */
+export const EXOMUX_PREFERENCES_KEY = "preferences";
+/** Shared-state key carrying which windows are closed or put away. */
+export const EXOMUX_WINDOWS_KEY = "windows";
 
 /** Stable host-manager window shown alongside terminal windows. */
 export const EXOMUX_SESSIONS_WINDOW_ID = "sessions" as const;
@@ -832,6 +839,18 @@ export class ExomuxController {
   #disposePromise?: Promise<void>;
   /** Serializes adopted-session window reconciliation (UX-007). */
   #closedSweep?: Promise<void>;
+  #unsubscribeWorkspace?: () => void;
+  /**
+   * Revisions must increase across clients on one host, so they start from the
+   * wall clock rather than from zero; two clients that both started at 1 would
+   * have their first publishes silently dropped as stale.
+   */
+  #workspaceRevision = Date.now();
+  #publishedPreferences?: string;
+  /** Set once this client has taken appearance from the live desktop. */
+  #adoptedPreferences = false;
+  #publishedWindows?: string;
+  #adoptingWindows = false;
   #adoptionQueue: Promise<void> = Promise.resolve();
   /** The in-flight local spawn, so adoption never races its reconciliation. */
   #spawnFlight?: Promise<void>;
@@ -929,6 +948,15 @@ export class ExomuxController {
     this.#unsubscribeSessions = this.client.subscribeSessions?.((session) => {
       this.#acceptBroadcastSession(session);
     });
+    // Appearance is a property of the desktop, not of one client's screen, so
+    // it rides the host's shared-state channel (plan 041).
+    this.#unsubscribeWorkspace = this.client.subscribeWorkspace?.((state) => {
+      if (state.key === EXOMUX_PREFERENCES_KEY) this.#adoptSharedPreferences(state.revision, state.payload);
+      else if (state.key === EXOMUX_WINDOWS_KEY) this.#adoptSharedWindows(state.revision, state.payload);
+    });
+    // Every durable window change bumps this, which is exactly when the closed
+    // and minimized sets are worth re-checking against what the desktop shows.
+    this.windowHost.commitRevision.subscribe(() => this.#publishSharedWindows());
     this.ready = this.#initialize();
   }
 
@@ -2581,6 +2609,131 @@ export class ExomuxController {
    * broadcasts sweeps once. Unlike `refreshSessions` this keeps every runtime
    * the host still lists, so live scrollback and screen state survive.
    */
+  /** The appearance every client attached to this host should be showing. */
+  #sharedPreferencesPayload(): Record<string, unknown> {
+    return {
+      themeId: this.themeId.peek(),
+      backgroundId: this.backgroundId.peek(),
+      globalSettings: this.globalSettings.peek(),
+      backgroundSettings: this.backgroundSettings.peek(),
+    };
+  }
+
+  /** Publishes appearance when it actually changed, never on every persist. */
+  #publishSharedPreferences(): void {
+    const publish = this.client.publishWorkspace;
+    if (!publish) return;
+    const payload = this.#sharedPreferencesPayload();
+    const signature = JSON.stringify(payload);
+    if (signature === this.#publishedPreferences) return;
+    this.#publishedPreferences = signature;
+    this.#workspaceRevision += 1;
+    void publish.call(this.client, EXOMUX_PREFERENCES_KEY, this.#workspaceRevision, payload).catch(() => {
+      // The desktop keeps working unshared if the host refuses the update.
+    });
+  }
+
+  /**
+   * Adopts appearance another client set. Assigning the signals directly is
+   * deliberate: the setters publish, and echoing a change back to the client
+   * that made it would ping-pong revisions between the two.
+   */
+  #adoptSharedPreferences(revision: number, payload: unknown): void {
+    if (this.#disposed) return;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+    if (revision > this.#workspaceRevision) this.#workspaceRevision = revision;
+    this.#adoptedPreferences = true;
+    const record = payload as Record<string, unknown>;
+    this.themeId.value = exomuxTheme(record.themeId).id;
+    this.backgroundId.value = exomuxBackgroundId(record.backgroundId);
+    this.globalSettings.value = normalizeExomuxGlobalSettings(record.globalSettings);
+    this.backgroundSettings.value = normalizeExomuxBackgroundSettings(record.backgroundSettings);
+    this.#publishedPreferences = JSON.stringify(this.#sharedPreferencesPayload());
+    this.themeRevision.value += 1;
+    for (const runtime of this.#runtimes.values()) runtime.renderRevision.value += 1;
+    // The durable config file follows, so a restart keeps what was adopted.
+    this.#onPreferencesChanged?.({
+      themeId: this.themeId.peek(),
+      backgroundId: this.backgroundId.peek(),
+      globalSettings: this.globalSettings.peek(),
+      backgroundSettings: this.backgroundSettings.peek(),
+      butterchurnFavorites: this.butterchurnFavorites.peek(),
+    });
+    this.status.value = this.#statusSummary();
+  }
+
+  /**
+   * The window state that belongs to the desktop rather than to one screen.
+   *
+   * Closing is always a deliberate "I am done with this" and travels from any
+   * client. Minimizing is deliberate on a roomy screen but AUTOMATIC on a
+   * phone, where `presentWindow` puts everything else away to give one window
+   * the display — so a mobile client publishes `minimized: null`, meaning "no
+   * opinion", and leaves the desktop's own arrangement alone. Maximize, focus
+   * and geometry stay local for the same reason: they describe a viewport.
+   */
+  #sharedWindowsPayload(): { closed: string[]; minimized: string[] | null } {
+    const windows = this.windowHost.controller.inspect().windows;
+    const closed: string[] = [];
+    const minimized: string[] = [];
+    for (const window of windows) {
+      if (window.state === "closed") closed.push(window.id);
+      else if (window.state === "minimized") minimized.push(window.id);
+    }
+    closed.sort();
+    minimized.sort();
+    return { closed, minimized: this.mobileLayout() ? null : minimized };
+  }
+
+  #publishSharedWindows(): void {
+    const publish = this.client.publishWorkspace;
+    if (!publish || this.#disposed || this.#adoptingWindows) return;
+    const payload = this.#sharedWindowsPayload();
+    const signature = JSON.stringify(payload);
+    if (signature === this.#publishedWindows) return;
+    this.#publishedWindows = signature;
+    this.#workspaceRevision += 1;
+    void publish.call(this.client, EXOMUX_WINDOWS_KEY, this.#workspaceRevision, payload).catch(() => {
+      // Unshared windows are still perfectly usable on this client.
+    });
+  }
+
+  /** Applies another client's closed and put-away sets to this desktop. */
+  #adoptSharedWindows(revision: number, payload: unknown): void {
+    if (this.#disposed) return;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+    const record = payload as Record<string, unknown>;
+    const closed = new Set(sharedWindowIds(record.closed));
+    const minimizedList = Array.isArray(record.minimized) ? new Set(sharedWindowIds(record.minimized)) : undefined;
+    if (revision > this.#workspaceRevision) this.#workspaceRevision = revision;
+    // A phone maximizes whatever it is showing, so adopting someone else's
+    // put-away set would fight its own layout; it takes closes only.
+    const minimized = this.mobileLayout() ? undefined : minimizedList;
+    const bounds = this.#lastBounds;
+    this.#adoptingWindows = true;
+    try {
+      for (const window of this.windowHost.controller.inspect().windows) {
+        const wantsClosed = closed.has(window.id);
+        if (wantsClosed) {
+          if (window.state !== "closed") this.windowHost.execute({ kind: "close", id: window.id }, bounds);
+          continue;
+        }
+        const wantsMinimized = minimized?.has(window.id) ?? window.state === "minimized";
+        if (window.state === "closed" || (window.state === "minimized" && !wantsMinimized)) {
+          this.windowHost.execute({ kind: "restore", id: window.id }, bounds);
+        } else if (wantsMinimized && window.state !== "minimized") {
+          this.windowHost.execute({ kind: "minimize", id: window.id }, bounds);
+        }
+      }
+    } finally {
+      this.#adoptingWindows = false;
+    }
+    // Adopting is not a new opinion, so record it as already published.
+    this.#publishedWindows = JSON.stringify(this.#sharedWindowsPayload());
+    if (this.mobileLayout(bounds)) this.refillMobileLayout(bounds);
+    this.status.value = this.#statusSummary();
+  }
+
   #scheduleClosedSessionSweep(): void {
     if (this.#disposed || this.#closedSweep) return;
     this.#closedSweep = (async () => {
@@ -2869,6 +3022,7 @@ export class ExomuxController {
   /** Detaches every client view, persists layout, and leaves daemon PTYs alive. */
   dispose(): Promise<void> {
     this.#unsubscribeSessions?.();
+    this.#unsubscribeWorkspace?.();
     this.#unsubscribeSessions = undefined;
     this.#disposePromise ??= this.#dispose();
     return this.#disposePromise;
@@ -2877,24 +3031,23 @@ export class ExomuxController {
   async #initialize(): Promise<void> {
     await this.kernel.ready;
     const restored = normalizeExomuxWorkspaceState(this.kernel.appState.peek());
-    this.themeId.value = restored.themeId;
     this.#terminalOrdinal = restored.terminalOrdinal;
     this.savedHosts.value = restored.savedHosts;
     this.sessionHosts.value = restored.sessionHosts;
-    this.backgroundId.value = restored.backgroundId;
     this.windowSettings.value = restored.windowSettings;
-    this.globalSettings.value = restored.globalSettings;
-    this.backgroundSettings.value = restored.backgroundSettings;
     // The durable config file is the source of truth for preferences shared
-    // across sessions, so it overrides the per-session layout snapshot.
+    // across sessions, so it overrides the per-session layout snapshot. Both
+    // are startup DEFAULTS: a desktop that is already up has an appearance,
+    // and a client joining it adopts what is on screen rather than imposing
+    // whatever this machine happened to save last.
     const preferences = this.#initialPreferences;
-    if (preferences) {
-      this.themeId.value = preferences.themeId;
-      this.backgroundId.value = preferences.backgroundId;
-      this.globalSettings.value = preferences.globalSettings;
-      this.backgroundSettings.value = preferences.backgroundSettings;
-      this.butterchurnFavorites.value = preferences.butterchurnFavorites;
+    if (!this.#adoptedPreferences) {
+      this.themeId.value = preferences?.themeId ?? restored.themeId;
+      this.backgroundId.value = preferences?.backgroundId ?? restored.backgroundId;
+      this.globalSettings.value = preferences?.globalSettings ?? restored.globalSettings;
+      this.backgroundSettings.value = preferences?.backgroundSettings ?? restored.backgroundSettings;
     }
+    if (preferences) this.butterchurnFavorites.value = preferences.butterchurnFavorites;
     for (const [sessionId, settings] of Object.entries(restored.windowSettings)) {
       this.#applyWindowSettings(sessionId, settings);
     }
@@ -3185,6 +3338,7 @@ export class ExomuxController {
       backgroundSettings: this.backgroundSettings.peek(),
       butterchurnFavorites: this.butterchurnFavorites.peek(),
     });
+    this.#publishSharedPreferences();
   }
 
   #statusSummary(): string {
@@ -3497,4 +3651,10 @@ function defaultExomuxShell(): string {
   } catch {
     return "/bin/sh";
   }
+}
+
+/** Window ids from an untrusted shared-state payload. */
+function sharedWindowIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
 }

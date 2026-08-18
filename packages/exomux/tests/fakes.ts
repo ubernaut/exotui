@@ -28,6 +28,10 @@ export class FakeExomuxClient implements ExomuxClientPort {
   readonly #listeners = new Map<string, (frame: ExomuxOutputFrame) => void>();
   readonly #sessionListeners = new Map<string, (session: ExomuxSessionSummary) => void>();
   readonly #broadcastListeners = new Set<(session: ExomuxSessionSummary) => void>();
+  readonly #workspace = new Map<string, { revision: number; payload: unknown }>();
+  readonly #workspaceListeners = new Set<
+    (state: { readonly key: string; readonly revision: number; readonly payload: unknown }) => void
+  >();
   readonly #pendingInputAcks: Array<() => void> = [];
   #ordinal = 1;
 
@@ -61,6 +65,29 @@ export class FakeExomuxClient implements ExomuxClientPort {
    * a later `list` no longer returns it — exactly what the real daemon does
    * when another client kills a terminal (broadcast, then delete).
    */
+  /** In-memory shared-state channel mirroring the daemon's retain-and-relay. */
+  publishWorkspace(key: string, revision: number, payload: unknown): Promise<boolean> {
+    const current = this.#workspace.get(key);
+    if (current && revision <= current.revision) return Promise.resolve(true);
+    this.#workspace.set(key, { revision, payload });
+    // The real host skips the publisher; this fake relays to everyone, which
+    // is stricter — a controller that cannot tolerate its own echo fails here.
+    for (const listener of [...this.#workspaceListeners]) listener({ key, revision, payload });
+    return Promise.resolve(true);
+  }
+
+  subscribeWorkspace(
+    listener: (state: { readonly key: string; readonly revision: number; readonly payload: unknown }) => void,
+  ): () => void {
+    this.#workspaceListeners.add(listener);
+    for (const [key, record] of this.#workspace) {
+      listener({ key, revision: record.revision, payload: record.payload });
+    }
+    return () => {
+      this.#workspaceListeners.delete(listener);
+    };
+  }
+
   emitSessionRemoved(summary: ExomuxSessionSummary): void {
     this.#sessions.delete(summary.id);
     this.#listeners.delete(summary.id);
