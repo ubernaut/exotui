@@ -163,21 +163,24 @@ export const EXOMUX_THEMES = [
     danger: [170, 0, 0],
   },
   {
-    // Miami after dark: a violet night with neon standing on top of it. The
-    // five palette colors take the roles that suit them — electric blue draws
-    // the structure, hot pink is the one thing that lights up under focus,
-    // mint is what "fine" looks like, soft pink carries secondary text, and
-    // cyan is lightened into the body text so long sessions stay readable.
-    // Warning and danger are derived: the palette has no warm end, and those
-    // two must not be mistaken for the accent or for each other.
+    // Miami after dark: a violet night, never a navy one, so the neon on top
+    // of it reads as neon. The palette's electric blue draws every border, its
+    // cyan is lightened into the body text, and hot pink is the one thing that
+    // lights up under focus. The mint does double duty so the green is
+    // actually on screen rather than waiting for a success message: full
+    // strength for success, dimmed for the secondary text that is everywhere —
+    // dimmed because at full strength it competes with the body text instead
+    // of sitting behind it (9.3:1 against 16.4:1). Warning and danger are derived: the
+    // palette has no warm end, and those two must not be mistaken for the
+    // accent or for each other.
     id: "miami",
     label: "Miami Neon",
-    background: [10, 8, 26],
-    surface: [20, 15, 42],
-    surfaceStrong: [33, 23, 64],
+    background: [14, 8, 24],
+    surface: [26, 14, 40],
+    surfaceStrong: [46, 22, 64],
     border: [31, 162, 255],
     text: [201, 251, 250],
-    muted: [249, 141, 201],
+    muted: [98, 204, 144],
     accent: [247, 101, 184],
     success: [122, 255, 180],
     warning: [255, 209, 128],
