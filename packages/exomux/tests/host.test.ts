@@ -1613,3 +1613,56 @@ Deno.test("workspace keys and payloads are validated at the protocol edge", asyn
 
   await host.shutdown();
 });
+
+// A daemon outlives the clients that connect to it — that is the entire point
+// of detaching — so a client reinstalled around a running daemon routinely
+// speaks a slightly larger protocol than the daemon knows. Closing the
+// connection over that takes every live terminal down with it. That is how a
+// shared-state message from a newer client bricked reattaching to a daemon
+// which had been holding a tmux session for an hour and a half.
+
+Deno.test("exomux host refuses an unknown message type without dropping the session", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+  const peer = new FakePeer();
+  const connection = host.connect(peer);
+  await authenticate(connection);
+  await connection.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "/bin/fake" }));
+  assert(peer.messages().some((message) => message.type === "spawned"), "the session exists before the skew");
+
+  await connection.receive(wire({ version: 1, type: "presence", requestId: 7, payload: { any: true } }));
+
+  assertEquals(peer.closes, [], "version skew does not close the connection");
+  const refusal = peer.messages().find((message) => message.type === "error");
+  assertEquals(refusal?.code, "unknown-message");
+  assertEquals(
+    refusal?.requestId,
+    7,
+    "the refusal is correlated, so only that call fails — an uncorrelated error is terminal on the client",
+  );
+
+  // The connection is still usable, which is the whole point: the terminal
+  // this client is showing survives the skew.
+  await connection.receive(wire({ version: 1, type: "list", requestId: 8 }));
+  assertEquals(peer.messages().filter((message) => message.type === "sessions").length, 1);
+
+  await host.shutdown();
+});
+
+Deno.test("an unknown message type still closes when uncorrelated or unauthenticated", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+
+  const uncorrelated = new FakePeer();
+  const first = host.connect(uncorrelated);
+  await authenticate(first);
+  await first.receive(wire({ version: 1, type: "presence", payload: 1 }));
+  assertEquals(uncorrelated.closes, [{ code: 1002, reason: "protocol-error" }]);
+
+  const unauthenticated = new FakePeer();
+  const second = host.connect(unauthenticated);
+  await second.receive(wire({ version: 1, type: "presence", requestId: 3 }));
+  assertEquals(unauthenticated.closes.length, 1, "an unauthenticated stranger is still shown the door");
+
+  await host.shutdown();
+});

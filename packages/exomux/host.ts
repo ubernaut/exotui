@@ -361,6 +361,20 @@ export class ExomuxHostController {
       message = decodeExomuxClientMessage(encoded);
     } catch (error) {
       const protocol = protocolError(error);
+      // A message type this daemon has never heard of is version skew, not an
+      // attack: the daemon outlives the client that launched it, so a newer
+      // client reinstalled around it will speak a slightly larger protocol.
+      // Answering that by closing the connection kills every live terminal the
+      // client is showing, so an authenticated client gets a correlated
+      // refusal for that one request and keeps its session. Anything else —
+      // malformed, oversized, wrong version, unauthenticated — still closes.
+      const correlation = protocol.code === "unknown-message" && connection.authenticated
+        ? salvageRequestId(encoded)
+        : undefined;
+      if (correlation !== undefined) {
+        connection.enqueue(errorMessage(protocol.code, protocol.message, correlation));
+        return;
+      }
       connection.enqueue(errorMessage(protocol.code, protocol.message));
       connection.close(1002, "protocol-error");
       return;
@@ -1439,6 +1453,25 @@ function ack(
     operation,
     ...(sessionId ? { sessionId } : {}),
   };
+}
+
+/**
+ * Recovers just the request id from a message this daemon could not otherwise
+ * parse, so the refusal can be correlated to the call that caused it. An
+ * uncorrelated error is terminal on the client, which is exactly what must not
+ * happen for a request the client can simply be told "no" about.
+ */
+function salvageRequestId(encoded: string): number | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(encoded);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  const candidate = (parsed as Record<string, unknown>).requestId;
+  if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < 0) return undefined;
+  return candidate;
 }
 
 function errorMessage(code: string, message: string, requestId?: number): ExomuxErrorMessage {

@@ -680,6 +680,9 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
   descriptor = {
     schemaVersion: 1,
     flowControlledReplay: true,
+    // Advertised so a client that predates the shared-state channel never
+    // sends a message this daemon would answer by closing the connection.
+    sharedWorkspace: true,
     hostId: server.controller.id,
     url: address.url,
     token: authToken,

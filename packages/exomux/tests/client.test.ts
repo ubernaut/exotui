@@ -630,8 +630,15 @@ Deno.test("Exomux host descriptor is private atomic and strictly normalized", as
       await Deno.chmod(directory, 0o700);
     }
 
-    await Deno.writeTextFile(path, JSON.stringify({ ...descriptor, unexpected: true }));
-    await assertRejects(() => readExomuxHostDescriptor(path), Error, "invalid");
+    // An unrecognised key is tolerated and dropped. Strictness here bought no
+    // safety — anyone who can write this file can write a perfectly valid one,
+    // and every field that matters is still validated — while it cost forward
+    // compatibility: a daemon newer than its client is the normal state after
+    // an upgrade, and rejecting its descriptor strands the terminals it holds.
+    await Deno.writeTextFile(path, JSON.stringify({ ...capableDescriptor, unexpected: true }));
+    assertEquals(await readExomuxHostDescriptor(path), capableDescriptor);
+    // A key this build DOES know, carrying a value it does not accept, is
+    // still corruption rather than skew.
     await Deno.writeTextFile(path, JSON.stringify({ ...descriptor, flowControlledReplay: false }));
     await assertRejects(() => readExomuxHostDescriptor(path), Error, "invalid");
   } finally {
@@ -1001,4 +1008,80 @@ Deno.test({
       await Deno.remove(stateRoot, { recursive: true }).catch(() => undefined);
     }
   },
+});
+
+// The daemon is meant to outlive the client that launched it, so "a newer
+// client, an older daemon" is the normal state of affairs after an upgrade —
+// not an edge case. A capability the daemon never advertised must therefore
+// never be exercised: sending it is fatal on hosts old enough not to know it.
+
+Deno.test("a client does not publish shared state to a host that never advertised it", async () => {
+  const token = createExomuxAuthToken();
+  const backend = new FakeRetainingBackend();
+  const server = serveExomuxHost({ authToken: token, backend, port: 0 });
+  const address = await server.address;
+  const client = await connectExomuxWebSocket({ url: address.url, authToken: token, requestTimeoutMs: 2_000 });
+  try {
+    const spawned = await client.spawn({ command: "/bin/fake", title: "skew" });
+    // No sharedWorkspace in the connect options: this stands in for a daemon
+    // whose descriptor predates the channel.
+    assertEquals(await client.publishWorkspace("preferences", 1, { themeId: "matrix" }), false);
+    assertEquals(client.connected, true, "the connection survives, so the terminals do too");
+    const attached = await client.attach(spawned.id, { onOutput: () => {} });
+    assertEquals(attached.session.id, spawned.id);
+  } finally {
+    await client.dispose();
+    await server.controller.shutdown();
+  }
+});
+
+Deno.test("a client publishes shared state once the host advertises the channel", async () => {
+  const token = createExomuxAuthToken();
+  const server = serveExomuxHost({ authToken: token, port: 0 });
+  const address = await server.address;
+  const client = await connectExomuxWebSocket({
+    url: address.url,
+    authToken: token,
+    requestTimeoutMs: 2_000,
+    sharedWorkspace: true,
+  });
+  try {
+    assertEquals(await client.publishWorkspace("preferences", 1, { themeId: "matrix" }), true);
+  } finally {
+    await client.dispose();
+    await server.controller.shutdown();
+  }
+});
+
+Deno.test("a descriptor written by a newer daemon still loads", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-descriptor-skew-" });
+  await Deno.chmod(directory, 0o700);
+  const path = `${directory}/host.json`;
+  try {
+    // Written by hand the way a future daemon would: fields this build has
+    // never heard of. Rejecting the file would strand every terminal that
+    // daemon is holding, which is the opposite of what strictness is for.
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify({
+        schemaVersion: 1,
+        hostId: "future-host",
+        url: "ws://127.0.0.1:9/exomux/v1",
+        token: "ab".repeat(32),
+        pid: 4242,
+        startedAt: 1_700_000_000_000,
+        flowControlledReplay: true,
+        sharedWorkspace: true,
+        somethingAddedLater: { nested: true },
+      }),
+    );
+    await Deno.chmod(path, 0o600);
+    const descriptor = await readExomuxHostDescriptor(path);
+    assert(descriptor, "the file loaded");
+    assertEquals(descriptor.hostId, "future-host");
+    assertEquals(descriptor.sharedWorkspace, true);
+    assertEquals("somethingAddedLater" in descriptor, false, "unknown fields are ignored, not carried forward");
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
 });

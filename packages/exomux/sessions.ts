@@ -166,6 +166,7 @@ async function probeExomuxSession(
       authToken: descriptor.token,
       requestTimeoutMs: options.timeoutMs ?? DEFAULT_SESSION_PROBE_TIMEOUT_MS,
       flowControlledReplay: descriptor.flowControlledReplay === true,
+      sharedWorkspace: descriptor.sharedWorkspace === true,
       createWebSocket: options.createWebSocket,
     });
     const terminals = (await client.list()).map((session) =>

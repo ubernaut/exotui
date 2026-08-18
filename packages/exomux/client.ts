@@ -42,6 +42,7 @@ export interface ExomuxLocalHostDescriptor {
   readonly startedAt: number;
   /** New hosts advertise replay backpressure; absence identifies legacy queue behavior. */
   readonly flowControlledReplay?: true;
+  readonly sharedWorkspace?: true;
 }
 
 /** Minimal WebSocket seam used by deterministic client tests. */
@@ -60,6 +61,7 @@ export interface ConnectExomuxWebSocketOptions {
   readonly authToken: string;
   readonly requestTimeoutMs?: number;
   readonly flowControlledReplay?: boolean;
+  readonly sharedWorkspace?: boolean;
   readonly createWebSocket?: (url: string) => ExomuxWebSocketLike;
 }
 
@@ -164,6 +166,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   readonly #authToken: string;
   readonly #requestTimeoutMs: number;
   readonly #flowControlledReplay: boolean;
+  readonly #sharedWorkspace: boolean;
   readonly #pending = new Map<number, PendingRequest>();
   readonly #attachments = new Map<string, ClientAttachment>();
   readonly #sessionListeners = new Set<(session: ExomuxSessionSummary) => void>();
@@ -210,6 +213,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     this.#authToken = options.authToken;
     this.#requestTimeoutMs = normalizeTimeout(options.requestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS);
     this.#flowControlledReplay = options.flowControlledReplay === true;
+    this.#sharedWorkspace = options.sharedWorkspace === true;
     this.#socket = options.createWebSocket?.(url) ?? new WebSocket(url);
     this.#socket.binaryType = "arraybuffer";
     this.#readyResult = new Promise<Error | undefined>((resolve) => {
@@ -401,6 +405,12 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
    * dropped, so a reconnecting client cannot roll the desktop back.
    */
   async publishWorkspace(key: string, revision: number, payload: unknown): Promise<boolean> {
+    // A daemon outlives the client that launched it, so a freshly installed
+    // client routinely meets a host from the previous version. Sending a
+    // message that host cannot parse is fatal — it answers an unknown type by
+    // closing the connection, which takes every live terminal with it. Publish
+    // only when the daemon's own descriptor said it understands the channel.
+    if (!this.#sharedWorkspace) return false;
     const response = await this.#request({ version: 1, type: "workspace", key, revision, payload }, ["ack"]);
     assertAck(response, "workspace");
     return true;
@@ -924,11 +934,13 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
   const descriptors = Object.getOwnPropertyDescriptors(value);
   const keys = Object.keys(descriptors);
   const required = ["schemaVersion", "hostId", "url", "token", "pid", "startedAt"];
-  const optional = ["flowControlledReplay"];
+  // Unknown keys are IGNORED rather than rejected: a descriptor is written by
+  // whichever daemon happens to be running, which may be newer than this
+  // client. Rejecting its file would strand every terminal that daemon holds.
+  // Structural checks stay strict — the file is parsed, not trusted.
   if (
     Object.getPrototypeOf(value) !== Object.prototype || Object.getOwnPropertySymbols(value).length > 0 ||
     required.some((key) => !keys.includes(key)) ||
-    keys.some((key) => !required.includes(key) && !optional.includes(key)) ||
     keys.some((key) => !("value" in descriptors[key]!) || !descriptors[key]!.enumerable)
   ) {
     throw invalidDescriptor();
@@ -939,7 +951,8 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.hostId) || !isExomuxAuthToken(record.token) ||
     !Number.isSafeInteger(record.pid) || (record.pid as number) < 1 ||
     typeof record.startedAt !== "number" || !Number.isFinite(record.startedAt) || record.startedAt < 0 ||
-    (keys.includes("flowControlledReplay") && record.flowControlledReplay !== true)
+    (keys.includes("flowControlledReplay") && record.flowControlledReplay !== true) ||
+    (keys.includes("sharedWorkspace") && record.sharedWorkspace !== true)
   ) {
     throw invalidDescriptor();
   }
@@ -951,6 +964,7 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     pid: record.pid as number,
     startedAt: Math.floor(record.startedAt),
     ...(record.flowControlledReplay === true ? { flowControlledReplay: true as const } : {}),
+    ...(record.sharedWorkspace === true ? { sharedWorkspace: true as const } : {}),
   });
 }
 
@@ -971,6 +985,7 @@ async function tryConnectDescriptor(
       authToken: descriptor.token,
       requestTimeoutMs: options.requestTimeoutMs ?? Math.min(1_500, options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS),
       flowControlledReplay: descriptor.flowControlledReplay === true,
+      sharedWorkspace: descriptor.sharedWorkspace === true,
       createWebSocket: options.createWebSocket,
     });
     await client.ping();
