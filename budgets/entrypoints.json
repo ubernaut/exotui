@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5318448,
+    "bytes": 5320338,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -207,7 +207,7 @@
       "src/components/virtual_list.ts": 12133,
       "src/controls.ts": 4238,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 6613,
+      "src/focus.ts": 8503,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/i18n/formatters.ts": 5656,
@@ -468,7 +468,7 @@
   },
   "mod.app.ts": {
     "modules": 134,
-    "bytes": 1887435,
+    "bytes": 1889325,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -537,7 +537,7 @@
       "src/components/virtual_list.ts": 12133,
       "src/content/markdown.ts": 24769,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 6613,
+      "src/focus.ts": 8503,
       "src/focus_navigation_events.ts": 502,
       "src/input_envelope.ts": 33166,
       "src/input_reader/mod.ts": 17830,
@@ -649,7 +649,7 @@
   },
   "mod.testing.ts": {
     "modules": 87,
-    "bytes": 718302,
+    "bytes": 720192,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4349,
@@ -682,7 +682,7 @@
       "src/component.ts": 8181,
       "src/components/catalog.ts": 17590,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 6613,
+      "src/focus.ts": 8503,
       "src/focus_navigation_events.ts": 502,
       "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
@@ -870,7 +870,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4532808,
+    "bytes": 4534698,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -1076,7 +1076,7 @@
       "src/components/tree.ts": 14660,
       "src/components/virtual_list.ts": 12133,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 6613,
+      "src/focus.ts": 8503,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/input_envelope.ts": 33166,
