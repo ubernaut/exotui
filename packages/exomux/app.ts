@@ -2323,15 +2323,13 @@ export function mountExomuxDesktop(
    */
   const cursorQuantized = <T extends MousePressEvent | MouseScrollEvent>(event: T): T => {
     const warped = warpPointerEvent(event);
-    const motion = "drag" in warped && warped.drag === true;
-    const cursor = controller.globalSettings.peek().blockCursor ? mousePointer.peek() : undefined;
-    if (motion || !cursor) {
-      backgroundSetPointer({ column: warped.x, row: warped.y });
-      return warped;
-    }
-    return warped.x === cursor.column && warped.y === cursor.row
-      ? warped
-      : { ...warped, x: cursor.column, y: cursor.row };
+    // EVERY event moves the drawn cursor and acts on the same cell, so the two
+    // agree by construction. An earlier version made button events act on the
+    // cursor's remembered cell instead, which held only while hover motion kept
+    // arriving: a touch screen sends no hover at all, so the cursor froze at the
+    // first tap and every later tap, drag and scroll was redirected there.
+    backgroundSetPointer({ column: warped.x, row: warped.y });
+    return warped;
   };
 
   // One answer for "what is at this cell", built from the frame the desktop

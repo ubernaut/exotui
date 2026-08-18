@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "./deps.ts";
 import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
-import { createTestMousePress } from "../../../src/testing/input.ts";
+import { createTestMousePress, createTestMouseScroll } from "../../../src/testing/input.ts";
 import { createExomuxController } from "../controller.ts";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef } from "../app.ts";
 import { FakeExomuxClient } from "./fakes.ts";
@@ -147,12 +147,13 @@ Deno.test("clicking a title bar and then dragging it moves the window", async ()
   }
 });
 
-// The block cursor is the pointer, not a picture of it: motion moves it, and a
-// button event acts on the cell it is showing. If the terminal's report for a
-// press disagrees with the last motion it sent, the cursor wins — the user
-// aimed at the block they can see.
+// The drawn cursor and the acted-on cell are the same cell because every event
+// moves both. An earlier version made button events act on the cursor's
+// REMEMBERED cell, which held only while hover motion kept arriving — a touch
+// screen sends none, so the cursor froze at the first tap and every later tap,
+// drag and scroll went there instead. These pin the fix.
 
-Deno.test("a click acts where the block cursor is, not where the press claims", async () => {
+Deno.test("taps act where they land, with no hover motion between them", async () => {
   const { controller, mounted, send, dispose } = await mountApp();
   try {
     controller.globalSettings.value = { ...controller.globalSettings.peek(), blockCursor: true };
@@ -161,42 +162,40 @@ Deno.test("a click acts where the block cursor is, not where the press claims", 
     const minimize = manager.controls.find((control) => control.kind === "minimize");
     assert(minimize?.command);
 
-    // Hover onto the minimize control: the cursor now sits there.
-    await send({ x: minimize.hitRect.column, y: minimize.hitRect.row, button: 3 as never, drag: true });
+    // Tap the start button first: this is what used to park the cursor.
+    await send({ x: 3, y: 0, button: 0 });
+    await send({ x: 3, y: 0, button: 0, release: true });
+    assertEquals(controller.startMenuVisible.peek(), true, "the start button opens the menu");
+    await send({ x: 3, y: 0, button: 0 });
+    await send({ x: 3, y: 0, button: 0, release: true });
+    assertEquals(controller.startMenuVisible.peek(), false);
 
-    // The press reports a different cell — bare desktop, far from any window.
-    await send({ x: 100, y: 30, button: 0 });
-    await send({ x: 100, y: 30, button: 0, release: true });
-
+    // Now a tap somewhere else entirely, still with no hover in between.
+    await send({ x: minimize.hitRect.column, y: minimize.hitRect.row, button: 0 });
+    await send({ x: minimize.hitRect.column, y: minimize.hitRect.row, button: 0, release: true });
     assertEquals(
       controller.windowHost.controller.inspect().windows.find((window) => window.id === manager.id)?.state,
       "minimized",
-      "the control under the block cursor is what got clicked",
+      "the second tap acts where it landed, not where the first one did",
     );
   } finally {
     await dispose();
   }
 });
 
-Deno.test("without the block cursor a press uses its own cell", async () => {
+Deno.test("a tap moves the drawn cursor to itself", async () => {
   const { controller, mounted, send, dispose } = await mountApp();
   try {
-    assertEquals(controller.globalSettings.peek().blockCursor, false, "off by default");
-    const manager = mounted.windowProjection.peek().floatingWindows.at(-1);
-    assert(manager);
-    const minimize = manager.controls.find((control) => control.kind === "minimize");
-    assert(minimize?.command);
-
-    // A stale hover elsewhere must not capture the click when nothing is drawn.
-    await send({ x: 100, y: 30, button: 3 as never, drag: true });
-    await send({ x: minimize.hitRect.column, y: minimize.hitRect.row, button: 0 });
-    await send({ x: minimize.hitRect.column, y: minimize.hitRect.row, button: 0, release: true });
-
-    assertEquals(
-      controller.windowHost.controller.inspect().windows.find((window) => window.id === manager.id)?.state,
-      "minimized",
-      "the press lands on its own cell",
-    );
+    controller.globalSettings.value = { ...controller.globalSettings.peek(), blockCursor: true };
+    await send({ x: 3, y: 0, button: 0 });
+    await send({ x: 3, y: 0, button: 0, release: true });
+    // The cursor follows button events too, so what is drawn matches what was
+    // acted on even when the terminal never reports motion.
+    const desktop = mounted.windowProjection.peek();
+    assert(desktop, "the desktop still projects");
+    await send({ x: 40, y: 12, button: 0 });
+    await send({ x: 40, y: 12, button: 0, release: true });
+    assertEquals(controller.startMenuVisible.peek(), false, "a tap far from the start button does not toggle it");
   } finally {
     await dispose();
   }
@@ -272,6 +271,53 @@ Deno.test("the background still answers clicks on bare desktop", async () => {
       }
     }
     throw new Error("no desktop cell reached the circuit board");
+  } finally {
+    await dispose();
+  }
+});
+
+Deno.test("the wheel scrolls what it is over, after a tap elsewhere", async () => {
+  const { controller, harness, mounted, send, dispose } = await mountApp();
+  try {
+    controller.globalSettings.value = { ...controller.globalSettings.peek(), blockCursor: true };
+    const client = new FakeExomuxClient([]);
+    void client;
+    const spawned = await controller.spawn({ bounds: mounted.bodyRect.peek() });
+    assert(spawned);
+    const runtime = controller.runtime(spawned.id);
+    assert(runtime);
+    for (let line = 0; line < 120; line += 1) {
+      runtime.screen.write(`line ${line}\r\n`);
+    }
+    controller.windowHost.execute({ kind: "minimize", id: "sessions" }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+    await harness.pilot.settle();
+
+    const window = [...mounted.windowProjection.peek().tiledWindows, ...mounted.windowProjection.peek().floatingWindows]
+      .find((candidate) => candidate.id === `terminal-${spawned.id}`);
+    assert(window);
+    const viewport = runtime.scrollback.inspectViewport();
+    if (viewport.totalRows <= viewport.viewportRows) return; // nothing to scroll in this layout
+
+    // Park the pointer with a tap, the way a touch user does — no hover motion
+    // follows, so a wheel that trusted the remembered cursor cell scrolled
+    // whatever was parked under it instead of what the wheel was over.
+    await send({ x: 3, y: 0, button: 0 });
+    await send({ x: 3, y: 0, button: 0, release: true });
+    if (controller.startMenuVisible.peek()) {
+      await send({ x: 3, y: 0, button: 0 });
+      await send({ x: 3, y: 0, button: 0, release: true });
+    }
+
+    const before = runtime.scrollback.inspectViewport().offset;
+    await harness.app.mouse.dispatch(
+      createTestMouseScroll(-1, { x: window.clientRect.column + 2, y: window.clientRect.row + 2 }),
+    );
+    await mounted.whenIdle();
+    assert(
+      runtime.scrollback.inspectViewport().offset !== before,
+      "the wheel scrolled the terminal it was over",
+    );
   } finally {
     await dispose();
   }
