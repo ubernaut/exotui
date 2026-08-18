@@ -334,6 +334,11 @@ async function runExomuxClientSession(
     diagnostics,
   });
   let requestedSwitch: string | undefined;
+  // Resolves with the session to attach next, or undefined to exit.
+  let endPass: ((target: string | undefined) => void) | undefined;
+  const passEnded = new Promise<string | undefined>((resolve) => {
+    endPass = resolve;
+  });
   let liveRuntime: ExomuxTerminalAppRuntime | undefined;
   const controller = await createExomuxController({
     client: connection.client,
@@ -350,8 +355,14 @@ async function runExomuxClientSession(
     onSwitchSession: (name) => {
       requestedSwitch = name;
       // Destroying the runtime detaches the client; the host and its PTYs
-      // live on, and the loop above reattaches to the chosen session.
-      void liveRuntime?.destroy().catch(() => undefined);
+      // live on, and the loop above reattaches to the chosen session. Ending
+      // the pass is driven from here rather than from a tui "destroy" event:
+      // that event means "the user interrupted us, exit the process" and is
+      // only emitted by the signal handler, so a programmatic teardown never
+      // fires it. Waiting on it left the loop parked on a promise that could
+      // not resolve, the event loop drained, and the client exited to a black
+      // screen instead of reattaching.
+      void liveRuntime?.destroy().catch(() => undefined).finally(() => endPass?.(name));
     },
     diagnostics,
     persistenceDebounceMs: storage.inspect().durable ? 120 : 0,
@@ -402,13 +413,14 @@ async function runExomuxClientSession(
     bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
     runtime.start();
     if (!bindingsAreLoopAware()) return undefined;
-    // Wait out this attachment: the tui's destroy fires on quit and on switch.
-    await new Promise<void>((resolve) => {
-      runtime.app.tui.on("destroy", () => resolve());
-    });
-    if (!requestedSwitch) return undefined;
+    // Wait out this attachment. A quit still arrives as the tui's destroy
+    // event (the signal path emits it); a switch resolves this from
+    // onSwitchSession once the old desktop is torn down.
+    runtime.app.tui.on("destroy", () => endPass?.(undefined));
+    const target = await passEnded;
+    if (!target) return undefined;
     await runtime.destroy().catch(() => undefined);
-    return requestedSwitch;
+    return target;
   } finally {
     shaderWatcher.close();
   }
