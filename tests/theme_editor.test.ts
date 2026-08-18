@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { assert, assertEquals } from "./deps.ts";
+import { assert, assertEquals, assertRejects } from "./deps.ts";
 import { MemoryThemeStorage, themeDocumentId, ThemeEditorController, ThemeLibrary } from "../src/app/theme_editor.ts";
 import { createThemeDocument, formatHexColor, themeEntry } from "../src/theme_editor_model.ts";
 import type { ThemeDocument } from "../src/theme_interchange.ts";
@@ -116,7 +116,7 @@ Deno.test("revert throws away every change since the last save", () => {
   }
 });
 
-Deno.test("saving writes to the library and clears the dirty flag", async () => {
+Deno.test("a preset is read-only, and saving under another name works", async () => {
   const storage = new MemoryThemeStorage();
   const library = new ThemeLibrary({ storage, builtIns: [MIAMI()] });
   const editor = new ThemeEditorController({ document: MIAMI(), library });
@@ -125,20 +125,35 @@ Deno.test("saving writes to the library and clears the dirty flag", async () => 
     editor.picker.setColor(PINK);
     assertEquals(editor.dirty.peek(), true);
 
-    const id = await editor.save();
-    assertEquals(id, "miami-neon");
-    assertEquals(editor.dirty.peek(), false);
+    // Presets are the floor everyone can get back to (user direction, Aug 18):
+    // saving over one is refused rather than shadowing it.
+    assertEquals(editor.editingPreset(), true);
+    assertEquals(await editor.save(), undefined);
+    assertEquals(editor.dirty.peek(), true, "and it stays unsaved, so nothing is lost quietly");
+    assertEquals((await library.load("miami-neon"))!.tokens["chrome:accent"], undefined);
+    await assertRejects(() => library.save(editor.document.peek()), TypeError, "preset");
 
-    // Reloading gets the edit back, and the saved copy shadows the built-in
-    // rather than appearing beside it.
-    const reloaded = await library.load("miami-neon");
-    assertEquals(reloaded!.tokens["chrome:accent"], PINK);
+    // Under any other name it saves, and reloading gets the edit back.
+    editor.setName("Miami Mine");
+    assertEquals(editor.editingPreset(), false);
+    assertEquals(await editor.save(), "miami-mine");
+    assertEquals(editor.dirty.peek(), false);
+    assertEquals((await library.load("miami-mine"))!.tokens["chrome:accent"], PINK);
     const entries = await library.list();
-    assertEquals(entries.filter((entry) => entry.id === "miami-neon").length, 1);
-    assertEquals(entries.find((entry) => entry.id === "miami-neon")!.editable, true);
+    assertEquals(entries.find((entry) => entry.id === "miami-neon")!.editable, false, "the preset stays read-only");
+    assertEquals(entries.find((entry) => entry.id === "miami-mine")!.editable, true);
   } finally {
     editor.dispose();
   }
+});
+
+Deno.test("a free name is found rather than colliding", async () => {
+  const storage = new MemoryThemeStorage();
+  const library = new ThemeLibrary({ storage, builtIns: [MIAMI()] });
+  assertEquals(await library.uniqueName("Miami Neon"), "Miami Neon 2", "a preset's name is taken");
+  assertEquals(await library.uniqueName("Something Else"), "Something Else");
+  await library.save({ ...MIAMI(), name: "Miami Neon 2" });
+  assertEquals(await library.uniqueName("Miami Neon"), "Miami Neon 3");
 });
 
 Deno.test("duplicating edits the copy and leaves the original saved theme alone", async () => {

@@ -18,7 +18,8 @@ import {
   type WorkbenchWindowHostProjection,
   type WorkbenchWindowHostResult,
 } from "@ubernaut/deno-tui";
-import { ThemeEditorController, type ThemeLibrary } from "@ubernaut/deno-tui";
+import { themeDocumentId, ThemeEditorController, type ThemeLibrary } from "@ubernaut/deno-tui";
+import { renameThemeDocument } from "@ubernaut/deno-tui/theme";
 import type { ThemeDocument } from "@ubernaut/deno-tui/theme";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import {
@@ -80,6 +81,7 @@ import {
   type ExomuxSessionSummary,
   type ExomuxSpawnOptions,
   exomuxTheme,
+  exomuxThemeCatalog,
   type ExomuxThemeId,
   type ExomuxThemeSpec,
   exomuxWindowId,
@@ -93,6 +95,7 @@ import {
   normalizeExomuxGlobalSettings,
   normalizeExomuxWorkspaceState,
   registerExomuxTheme,
+  unregisterExomuxTheme,
   withExomuxBackgroundString,
 } from "./model.ts";
 
@@ -752,6 +755,12 @@ export class ExomuxController {
   /** First visible row of the editor's token list. */
   readonly themeEditorScroll = new Signal(0);
   /**
+   * The name being typed, or undefined when not renaming. Without this every
+   * theme would be called "Midnight Ops custom", then "Midnight Ops custom
+   * copy", which is a naming scheme nobody chose.
+   */
+  readonly themeNameDraft = new Signal<string | undefined>(undefined);
+  /**
    * First visible line of the key reference. The reference does not fit on a
    * phone at any font size, so on a narrow screen it reflows to one column and
    * scrolls rather than silently hiding half of itself.
@@ -951,7 +960,14 @@ export class ExomuxController {
     const windowHost = this.kernel.windowHost;
     if (!windowHost) throw new Error("Exomux requires the advanced window host.");
     this.windowHost = windowHost;
-    this.theme = new Computed(() => exomuxTheme(this.themeId.value));
+    this.theme = new Computed(() => {
+      // themeRevision is a real dependency, not decoration: a theme being
+      // edited keeps the same id while its colours change underneath, so a
+      // Computed keyed only on the id hands back the spec from before the
+      // edit and the desktop repaints itself exactly as it was.
+      this.themeRevision.value;
+      return exomuxTheme(this.themeId.value);
+    });
     this.#tailnetSource = options.tailnetSource ?? createTailscaleStatusSource();
     this.#networkProbeRunner = options.networkProbeRunner ?? runBoundedTailnetCommand;
     this.#tailnetPollIntervalMs = options.tailnetPollIntervalMs;
@@ -1497,22 +1513,121 @@ export class ExomuxController {
    * straight through to the desktop — the preview IS the desktop, because a
    * preview pane in a terminal is a lie you have to maintain.
    */
-  openThemeEditor(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): void {
+  openThemeEditor(bounds: Rectangle = SETTINGS_FALLBACK_BOUNDS): Promise<void> {
     this.#assertActive();
     this.prefixPending.value = false;
     this.helpVisible.value = false;
-    if (!this.themeEditor.peek()) {
-      const active = exomuxTheme(this.themeId.peek());
-      const editor = new ThemeEditorController({
-        document: exomuxThemeDocument(active),
-        ...(this.#themeLibrary ? { library: this.#themeLibrary } : {}),
-        onApply: (document) => this.#applyThemeDocument(document),
-      });
-      this.themeEditor.value = editor;
-    }
     this.themeEditorVisible.value = true;
     this.presentWindow(EXOMUX_THEME_EDITOR_WINDOW_ID, bounds);
     this.status.value = "Theme editor · ↑↓ token · ←→ adjust · Tab axis · s save · Escape close";
+    // Opening reads the saved themes, to name the new one something free.
+    // Returned rather than fired and forgotten so a caller — a test, or a
+    // command that wants to act on the editor — can wait for it.
+    return this.themeEditor.peek() ? Promise.resolve() : this.#createThemeEditor();
+  }
+
+  /**
+   * Starts a new theme from the one on screen. A preset is never edited in
+   * place: the shipped themes are the floor everyone can get back to, so
+   * opening the editor on one gives you a copy of it, named so it does not
+   * collide, and leaves the original exactly where it was. Opening it on a
+   * theme you already saved edits that one.
+   */
+  async #createThemeEditor(): Promise<void> {
+    const active = exomuxTheme(this.themeId.peek());
+    let document = exomuxThemeDocument(active);
+    if (this.#themeLibrary && this.#themeLibrary.isBuiltIn(themeDocumentId(document.name))) {
+      document = renameThemeDocument(document, await this.#themeLibrary.uniqueName(`${document.name} custom`));
+    }
+    if (this.#disposed || this.themeEditor.peek()) return;
+    const editor = new ThemeEditorController({
+      document,
+      ...(this.#themeLibrary ? { library: this.#themeLibrary } : {}),
+      onApply: (next) => this.#applyThemeDocument(next),
+    });
+    this.themeEditor.value = editor;
+    // A copy differs from what is saved the moment it exists, so it opens
+    // dirty: there is something to save, and the button says so.
+    editor.dirty.value = document.name !== active.label;
+    this.#applyThemeDocument(editor.document.peek());
+  }
+
+  /** Starts renaming the edited theme, seeded with its current name. */
+  beginThemeRename(): boolean {
+    const editor = this.themeEditor.peek();
+    if (!editor || this.#disposed) return false;
+    this.themeNameDraft.value = editor.document.peek().name;
+    this.status.value = "Rename this theme · Enter saves the name · Escape cancels";
+    return true;
+  }
+
+  /** Appends to the name being typed; names are bounded like session names. */
+  appendThemeName(text: string): void {
+    const draft = this.themeNameDraft.peek();
+    if (draft === undefined || this.#disposed) return;
+    this.themeNameDraft.value = `${draft}${text}`.slice(0, 48);
+  }
+
+  /** Removes the last character of the name being typed. */
+  backspaceThemeName(): void {
+    const draft = this.themeNameDraft.peek();
+    if (draft === undefined || this.#disposed) return;
+    this.themeNameDraft.value = draft.slice(0, -1);
+  }
+
+  /** Takes the typed name. Refuses one that collides with a preset. */
+  commitThemeRename(): boolean {
+    const editor = this.themeEditor.peek();
+    const draft = this.themeNameDraft.peek();
+    if (!editor || draft === undefined) return false;
+    const name = draft.trim();
+    if (name.length === 0) {
+      this.cancelThemeRename();
+      return false;
+    }
+    if (this.#themeLibrary?.isBuiltIn(themeDocumentId(name))) {
+      this.status.value = `"${name}" is a preset · choose another name.`;
+      return false;
+    }
+    editor.setName(name);
+    this.themeNameDraft.value = undefined;
+    this.status.value = `Renamed to "${name}".`;
+    return true;
+  }
+
+  /** Abandons the typed name. */
+  cancelThemeRename(): void {
+    if (this.#disposed) return;
+    this.themeNameDraft.value = undefined;
+    this.status.value = this.#statusSummary();
+  }
+
+  /** Starts a fresh copy of whatever is being edited, under a free name. */
+  async duplicateEditedTheme(): Promise<boolean> {
+    const editor = this.themeEditor.peek();
+    if (!editor || !this.#themeLibrary) return false;
+    const name = await this.#themeLibrary.uniqueName(`${editor.document.peek().name} copy`);
+    editor.duplicate(name);
+    this.status.value = `Editing a copy: "${name}".`;
+    return true;
+  }
+
+  /** Deletes the saved theme being edited and falls back to a preset. */
+  async deleteEditedTheme(): Promise<boolean> {
+    const editor = this.themeEditor.peek();
+    if (!editor || !this.#themeLibrary) return false;
+    const id = themeDocumentId(editor.document.peek().name);
+    if (this.#themeLibrary.isBuiltIn(id) || !await this.#themeLibrary.remove(id)) {
+      this.status.value = "Nothing to delete: this theme has never been saved.";
+      return false;
+    }
+    unregisterExomuxTheme(id);
+    this.setTheme(EXOMUX_THEMES[0]!.id);
+    this.closeThemeEditor(this.#lastBounds);
+    this.themeEditor.peek()?.dispose();
+    this.themeEditor.value = undefined;
+    this.status.value = "Theme deleted.";
+    return true;
   }
 
   /** Closes the theme editor, keeping whatever was applied to the desktop. */
@@ -1534,7 +1649,9 @@ export class ExomuxController {
     if (!editor || this.#disposed) return false;
     const id = await editor.save();
     if (!id) {
-      this.status.value = "Theme not saved: it is missing one of the core colours.";
+      this.status.value = editor.editingPreset()
+        ? `"${editor.document.peek().name}" is a preset · rename it to save your changes.`
+        : "Theme not saved: it is missing one of the core colours.";
       return false;
     }
     const document = editor.document.peek();
@@ -2971,14 +3088,18 @@ export class ExomuxController {
   /** Cycles all Exomux chrome/default colors while preserving child ANSI colors. */
   cycleTheme(direction: -1 | 1 = 1): ExomuxThemeSpec {
     this.#assertActive();
-    const current = EXOMUX_THEMES.findIndex((candidate) => candidate.id === this.themeId.peek());
-    const next = (Math.max(0, current) + direction + EXOMUX_THEMES.length) % EXOMUX_THEMES.length;
-    this.themeId.value = EXOMUX_THEMES[next]!.id;
+    // The catalog, not the shipped list: a theme the user saved is a theme,
+    // and cycling past it would make it unreachable from the keyboard.
+    const catalog = exomuxThemeCatalog();
+    const current = catalog.findIndex((candidate) => candidate.id === this.themeId.peek());
+    const next = (Math.max(0, current) + direction + catalog.length) % catalog.length;
+    const theme = catalog[next]!;
+    this.themeId.value = theme.id;
     this.themeRevision.value += 1;
     for (const runtime of this.#runtimes.values()) runtime.renderRevision.value += 1;
     this.#persistMetadata();
-    this.status.value = `Theme: ${EXOMUX_THEMES[next]!.label}`;
-    return EXOMUX_THEMES[next]!;
+    this.status.value = `Theme: ${theme.label}`;
+    return theme;
   }
 
   /** Cycles the animated desktop background and persists the selection. */
@@ -3496,6 +3617,7 @@ export class ExomuxController {
     this.themeEditor.peek()?.dispose();
     this.themeEditor.dispose();
     this.themeEditorScroll.dispose();
+    this.themeNameDraft.dispose();
     this.themeEditorVisible.dispose();
     this.pendingKillSessionId.dispose();
     this.quitModalVisible.dispose();

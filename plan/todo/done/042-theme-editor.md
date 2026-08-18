@@ -134,3 +134,24 @@ Each is independently testable and lands on its own; the vocabulary is the only 
   and underline stay with the component definitions.
 - Sharing user themes between machines. The shared-state channel from plan 041 carries the ACTIVE theme id; a document
   that only exists on one machine is a later slice if it is wanted.
+
+## Follow-up (Aug 18 2026, user direction)
+
+"the theme editor should be launched under the settings not the main menu. you should be able to copy a theme and create
+a new one based on it but not edit the presets. default should be a new theme based on current selected theme."
+
+- The entry point moved from the start menu to a `[ new ]` button in the settings window's Theme header, beside the
+  picker whose selection it acts on. The start menu is back to its six commands.
+- **Presets are read-only.** `ThemeLibrary.save` refuses an id that belongs to a built-in, and the editor reports why
+  rather than failing silently. The shipped themes are the floor everyone can get back to; the previous design let a
+  saved theme shadow one, which is the opposite of that.
+- **Opening always starts a new theme based on the selected one.** A preset opens as a copy named `<theme> custom`
+  (`custom 2`, `custom 3`, … if taken), unsaved from the moment it exists; a theme you already saved opens for editing.
+  Because naming needs to know what is already saved, `openThemeEditor` returns a promise.
+- Copy, delete and rename finish the CRUD. Renaming is inline in the editor's header and refuses a preset's name.
+- The theme catalog replaced the shipped list everywhere selection happens — the settings picker, its scroll window, and
+  `cycleTheme` — so a saved theme is selectable rather than only loadable.
+- One real bug surfaced: `theme` was a Computed over `themeId` alone, so a theme edited under an unchanging id handed
+  back the spec from before the edit. It now depends on `themeRevision` too.
+- Painting reaches further: list selection, scrollbars and modal buttons join the window chrome and menus in reading
+  their control tokens.

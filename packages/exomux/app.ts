@@ -80,6 +80,7 @@ import {
   type ExomuxRgb,
   exomuxSessionIdFromWindow,
   type ExomuxSessionSummary,
+  exomuxThemeCatalog,
   type ExomuxThemeSpec,
   exomuxWindowId,
   type ExomuxWindowSettings,
@@ -247,7 +248,6 @@ const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: st
     { id: "network", label: "Network" },
     { id: "sessions", label: "Sessions" },
     { id: "config", label: "Settings" },
-    { id: "theme", label: "Theme editor" },
     { id: "help", label: "Help" },
     { id: "quit", label: "Quit", danger: true },
   ]);
@@ -282,7 +282,7 @@ export function exomuxMetaballsMayAdvance(
   return !hasPendingBarrier;
 }
 
-type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "theme" | "help" | "quit" | "favorite";
+type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "favorite";
 
 /** One entry in the start menu, before layout assigns it a rect. */
 interface ExomuxStartMenuItem {
@@ -1062,9 +1062,9 @@ export function mountExomuxDesktop(
     }),
   );
   settingsPickers.bind({
-    themeIndex: () => Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek())),
+    themeIndex: () => Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek())),
     setThemeIndex: (index) => {
-      const entry = EXOMUX_THEMES[index];
+      const entry = exomuxThemeCatalog()[index];
       if (entry) controller.setTheme(entry.id);
     },
     onThemeIndexChanged: (listener) => {
@@ -1863,9 +1863,6 @@ export function mountExomuxDesktop(
       case "config":
         controller.openGlobalConfig(bodyRect.peek());
         break;
-      case "theme":
-        controller.openThemeEditor(bodyRect.peek());
-        break;
       case "help":
         controller.openHelp();
         break;
@@ -2034,6 +2031,10 @@ export function mountExomuxDesktop(
     );
     const layout = exomuxThemeEditorLayout(clientRect, rows, swatches.length, scrollTop);
 
+    if (row === clientRect.row && column >= clientRect.column && column < clientRect.column + clientRect.width) {
+      controller.beginThemeRename();
+      return true;
+    }
     if (contains(layout.closeRect, column, row)) {
       controller.closeThemeEditor(bodyRect.peek());
       return true;
@@ -2042,8 +2043,12 @@ export function mountExomuxDesktop(
       void controller.saveThemeEditor();
       return true;
     }
-    if (contains(layout.revertRect, column, row)) {
-      editor.revert();
+    if (contains(layout.copyRect, column, row)) {
+      void controller.duplicateEditedTheme();
+      return true;
+    }
+    if (contains(layout.deleteRect, column, row)) {
+      void controller.deleteEditedTheme();
       return true;
     }
     if (contains(layout.resetRect, column, row)) {
@@ -2083,11 +2088,15 @@ export function mountExomuxDesktop(
       (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
     )?.clientRect;
     if (!clientRect || !controller.globalConfigVisible.peek()) return false;
-    const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
+    const themeIndex = Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
     const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.sessionNameRect, column, row)) {
       controller.beginSessionRename();
+      return true;
+    }
+    if (layout.themeEditorRect.width >= 6 && contains(layout.themeEditorRect, column, row)) {
+      void controller.openThemeEditor(bodyRect.peek());
       return true;
     }
     if (controller.ghosttyDetected.peek() && contains(layout.shadersRect, column, row)) {
@@ -2221,7 +2230,7 @@ export function mountExomuxDesktop(
       (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
     )?.clientRect;
     if (!clientRect || !controller.globalConfigVisible.peek()) return true;
-    const themeIndex = Math.max(0, EXOMUX_THEMES.findIndex((entry) => entry.id === controller.themeId.peek()));
+    const themeIndex = Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek()));
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
     const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.themeListRect, column, row)) settingsPickers.handleScroll("theme", delta);
@@ -3431,6 +3440,16 @@ export function mountExomuxDesktop(
       controller.windowHost.controller.inspect().activeWindowId === EXOMUX_THEME_EDITOR_WINDOW_ID
     ) {
       const editor = controller.themeEditor.peek();
+      if (editor && controller.themeNameDraft.peek() !== undefined) {
+        if (event.key === "escape") controller.cancelThemeRename();
+        else if (event.key === "return") controller.commitThemeRename();
+        else if (event.key === "backspace") controller.backspaceThemeName();
+        else if (event.key === "space") controller.appendThemeName(" ");
+        else if (!event.ctrl && !event.meta && event.key.length === 1) {
+          controller.appendThemeName(event.shift ? event.key.toUpperCase() : event.key);
+        }
+        return;
+      }
       if (editor) {
         const rows = exomuxThemeEditorRows(editor);
         const tokens = rows.filter((row) => row.kind === "token").map((row) => row.token);
@@ -3444,7 +3463,10 @@ export function mountExomuxDesktop(
         else if (event.key === "tab") editor.picker.cycleAxis(event.shift ? -1 : 1);
         else if (key === "s") void controller.saveThemeEditor();
         else if (key === "r") editor.revert();
+        else if (key === "c") void controller.duplicateEditedTheme();
+        else if (key === "d") void controller.deleteEditedTheme();
         else if (key === "x") editor.clearToken();
+        else if (key === "n") controller.beginThemeRename();
         else return;
         return;
       }
@@ -5085,9 +5107,9 @@ function paintNetworkPanel(
     headingForeground: theme.accent,
     background: theme.surface,
     selectedForeground: theme.background,
-    selectedBackground: theme.accent,
-    scrollbarTrack: theme.surfaceStrong,
-    scrollbarThumb: theme.muted,
+    selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
+    scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
+    scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
   });
   if (networkTreeView?.ready()) {
     // Blit the real Tree's cells, re-grounding cells that kept the base
@@ -5203,9 +5225,9 @@ function paintSessionManager(
     mutedForeground: theme.muted,
     background: theme.surface,
     selectedForeground: theme.background,
-    selectedBackground: theme.accent,
-    scrollbarTrack: theme.surfaceStrong,
-    scrollbarThumb: theme.muted,
+    selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
+    scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
+    scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
   });
   if (sessionList?.ready()) {
     // Blit the real List's cells, re-grounding each cell that kept the base
@@ -5251,8 +5273,9 @@ function paintSessionManager(
     // The selected row is a deliberate block of colour and stays opaque; the
     // rest take the window ground, so the desktop shows through them.
     if (isSelected) {
-      painter.fill(rowRect, " ", { foreground, background: theme.accent, bold: true });
-      painter.write(rect.column + 1, row, label, { foreground, background: theme.accent, bold: true });
+      const selected = exomuxControlColor(theme, "control:background-selected", theme.accent);
+      painter.fill(rowRect, " ", { foreground, background: selected, bold: true });
+      painter.write(rect.column + 1, row, label, { foreground, background: selected, bold: true });
     } else {
       fillWithGround(painter, rowRect, theme, ground);
       writeOnGround(painter, rect.column + 1, row, label, { foreground }, ground);
@@ -5574,13 +5597,13 @@ function paintKillConfirmation(
   });
   paintModalProse(painter, rect, prose, theme, killActionRows(cancelRect, confirmRect));
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
-    foreground: theme.text,
-    background: theme.surface,
+    foreground: exomuxControlColor(theme, "button:foreground", theme.text),
+    background: exomuxControlColor(theme, "button:background", theme.surface),
     bold: true,
   });
   painter.write(confirmRect.column, confirmRect.row, "[ Kill ]", {
-    foreground: theme.background,
-    background: theme.danger,
+    foreground: exomuxControlColor(theme, "button:foreground-active", theme.background),
+    background: exomuxControlColor(theme, "status:danger", theme.danger),
     bold: true,
   });
   paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
@@ -5603,13 +5626,13 @@ function paintQuitModal(
   });
   paintModalProse(painter, rect, prose, theme, quitActionRows(cancelRect, detachRect, terminateRect));
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
-    foreground: theme.text,
-    background: theme.surface,
+    foreground: exomuxControlColor(theme, "button:foreground", theme.text),
+    background: exomuxControlColor(theme, "button:background", theme.surface),
     bold: true,
   });
   painter.write(detachRect.column, detachRect.row, "[ Detach ]", {
-    foreground: theme.background,
-    background: theme.accent,
+    foreground: exomuxControlColor(theme, "button:foreground-active", theme.background),
+    background: exomuxControlColor(theme, "button:background-active", theme.accent),
     bold: true,
   });
   painter.write(terminateRect.column, terminateRect.row, "[ Terminate ]", {
@@ -5767,6 +5790,8 @@ export interface ExomuxGlobalConfigLayout {
   readonly sessionNameRect: Rectangle;
   /** "Theme" column header. */
   readonly themeHeaderRect: Rectangle;
+  /** The "new theme" button, right-aligned in the theme header. */
+  readonly themeEditorRect: Rectangle;
   /** "Background" column header. */
   readonly backgroundHeaderRect: Rectangle;
   /** True when the window is too narrow for side-by-side pickers (UX-002). */
@@ -5825,13 +5850,13 @@ export function exomuxGlobalConfigLayout(
   const listTop = rect.row + 2;
   const visibleRows = Math.max(1, rect.height - optionCount - 4);
   const columnWidth = Math.max(8, Math.floor((rect.width - 3) / 2));
-  const themeStart = selectListStart(themeIndex, EXOMUX_THEMES.length, visibleRows);
+  const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, visibleRows);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, visibleRows);
   const themeRows: { rect: Rectangle; index: number }[] = [];
   const backgroundRows: { rect: Rectangle; index: number }[] = [];
   for (let offset = 0; offset < visibleRows; offset += 1) {
     const row = listTop + offset;
-    if (themeStart + offset < EXOMUX_THEMES.length) {
+    if (themeStart + offset < exomuxThemeCatalog().length) {
       themeRows.push({
         rect: { column: rect.column + 1, row, width: columnWidth, height: 1 },
         index: themeStart + offset,
@@ -5883,6 +5908,7 @@ export function exomuxGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: rect.column + 1, row: rect.row + 1, width: columnWidth, height: 1 },
+    themeEditorRect: themeEditorButtonRect({ column: rect.column + 1, row: rect.row + 1, width: columnWidth }),
     backgroundHeaderRect: { column: rect.column + 2 + columnWidth, row: rect.row + 1, width: columnWidth, height: 1 },
     stacked: false,
   };
@@ -5909,12 +5935,12 @@ function stackedGlobalConfigLayout(
   const themeTop = rect.row + 2;
   const backgroundHeaderRow = themeTop + themeVisible;
   const backgroundTop = backgroundHeaderRow + 1;
-  const themeStart = selectListStart(themeIndex, EXOMUX_THEMES.length, themeVisible);
+  const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, themeVisible);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, backgroundVisible);
   const themeRows: { rect: Rectangle; index: number }[] = [];
   const backgroundRows: { rect: Rectangle; index: number }[] = [];
   for (let offset = 0; offset < themeVisible; offset += 1) {
-    if (themeStart + offset >= EXOMUX_THEMES.length) break;
+    if (themeStart + offset >= exomuxThemeCatalog().length) break;
     themeRows.push({
       rect: { column: innerColumn, row: themeTop + offset, width: innerWidth, height: 1 },
       index: themeStart + offset,
@@ -5961,6 +5987,7 @@ function stackedGlobalConfigLayout(
       height: 1,
     },
     themeHeaderRect: { column: innerColumn, row: rect.row + 1, width: innerWidth, height: 1 },
+    themeEditorRect: themeEditorButtonRect({ column: innerColumn, row: rect.row + 1, width: innerWidth }),
     backgroundHeaderRect: { column: innerColumn, row: backgroundHeaderRow, width: innerWidth, height: 1 },
     stacked: true,
   };
@@ -6385,6 +6412,18 @@ function paintGlobalSettingsWindow(
     }, g(theme.surfaceStrong));
   };
   header(layout.themeHeaderRect, "Theme", pane === "theme");
+  // Editing a theme starts from the theme list, because what you are about to
+  // edit is whichever one is selected there.
+  if (layout.themeEditorRect.width >= 6) {
+    writeOnGround(
+      painter,
+      layout.themeEditorRect.column,
+      layout.themeEditorRect.row,
+      fitText("[ new ]", layout.themeEditorRect.width),
+      { foreground: theme.background, bold: true },
+      g(theme.accent),
+    );
+  }
   header(layout.backgroundHeaderRect, "Background", pane === "background");
 
   const paintRow = (rowRect: Rectangle, label: string, selected: boolean, focused: boolean) => {
@@ -6396,7 +6435,7 @@ function paintGlobalSettingsWindow(
     }, g(rowBase));
   };
   for (const row of themeRows) {
-    paintRow(row.rect, EXOMUX_THEMES[row.index]!.label, row.index === themeIndex, pane === "theme");
+    paintRow(row.rect, exomuxThemeCatalog()[row.index]!.label, row.index === themeIndex, pane === "theme");
   }
   for (const row of backgroundRows) {
     const id = EXOMUX_BACKGROUND_IDS[row.index]!;
@@ -6413,7 +6452,7 @@ function paintGlobalSettingsWindow(
         row: layout.themeListRect.row - rect.row,
         width: layout.themeListRect.width,
         height: layout.themeListRect.height,
-        items: EXOMUX_THEMES.map((entry) => entry.label),
+        items: exomuxThemeCatalog().map((entry) => entry.label),
         foreground: theme.text,
         background: theme.surfaceStrong,
         selectedForeground: theme.background,
@@ -7011,8 +7050,8 @@ function paintScpModal(
     });
   }
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
-    foreground: theme.text,
-    background: theme.surface,
+    foreground: exomuxControlColor(theme, "button:foreground", theme.text),
+    background: exomuxControlColor(theme, "button:background", theme.surface),
     bold: true,
   });
   painter.write(pasteRect.column, pasteRect.row, "[ Paste path ]", {
@@ -7735,7 +7774,8 @@ export interface ExomuxThemeEditorLayout {
   /** Swatch cells, each three columns wide. */
   readonly swatchCells: readonly { readonly rect: Rectangle; readonly index: number }[];
   readonly saveRect: Rectangle;
-  readonly revertRect: Rectangle;
+  readonly copyRect: Rectangle;
+  readonly deleteRect: Rectangle;
   readonly resetRect: Rectangle;
   readonly closeRect: Rectangle;
   /** True when the window is too narrow to sit the picker beside the list. */
@@ -7794,7 +7834,7 @@ export function exomuxThemeEditorLayout(
       },
     });
   }
-  const [saveRect, revertRect, resetRect, closeRect] = layoutThemeEditorButtons(rect, buttonRow);
+  const [saveRect, copyRect, deleteRect, resetRect, closeRect] = layoutThemeEditorButtons(rect, buttonRow);
   return {
     rect,
     tokenRows,
@@ -7802,7 +7842,8 @@ export function exomuxThemeEditorLayout(
     axisRows,
     swatchCells,
     saveRect: saveRect!,
-    revertRect: revertRect!,
+    copyRect: copyRect!,
+    deleteRect: deleteRect!,
     resetRect: resetRect!,
     closeRect: closeRect!,
     stacked,
@@ -7810,7 +7851,7 @@ export function exomuxThemeEditorLayout(
 }
 
 function layoutThemeEditorButtons(rect: Rectangle, row: number): Rectangle[] {
-  const labels = [8, 10, 9, 9];
+  const labels = [8, 8, 10, 9, 9];
   const total = labels.reduce((sum, width) => sum + width, 0) + labels.length - 1;
   if (total <= rect.width - 2) {
     let column = rect.column + 1;
@@ -7911,12 +7952,16 @@ function paintThemeEditorWindow(
   const layout = exomuxThemeEditorLayout(rect, rows, picker.swatches.length, scrollTop);
 
   // Header: the theme's name and whether it has unsaved changes.
-  painter.write(
-    rect.column + 1,
-    rect.row,
-    fitText(`${inspection.name}${inspection.dirty ? " *" : ""}`, Math.max(0, rect.width - 2)),
-    { foreground: theme.text, background: ground, bold: true },
-  );
+  const preset = editor.editingPreset();
+  const draft = controller.themeNameDraft.peek();
+  const header = draft !== undefined
+    ? `${draft}_`
+    : `${inspection.name}${inspection.dirty ? " *" : ""}${preset ? " · preset, rename to save" : ""}`;
+  painter.write(rect.column + 1, rect.row, fitText(header, Math.max(0, rect.width - 2)), {
+    foreground: draft !== undefined ? theme.background : preset ? theme.warning : theme.text,
+    background: draft !== undefined ? exomuxControlColor(theme, "control:background-selected", theme.accent) : ground,
+    bold: true,
+  });
 
   for (const row of layout.tokenRows) {
     const entry = rows[scrollTop + layout.tokenRows.indexOf(row)];
@@ -7978,9 +8023,11 @@ function paintThemeEditorWindow(
     }
   }
 
+  const saved = !inspection.dirty;
   const buttons: readonly [Rectangle, string, boolean][] = [
     [layout.saveRect, "[ Save ]", inspection.dirty],
-    [layout.revertRect, "[ Revert ]", inspection.dirty],
+    [layout.copyRect, "[ Copy ]", true],
+    [layout.deleteRect, "[ Delete ]", saved],
     [layout.resetRect, "[ Reset ]", true],
     [layout.closeRect, "[ Close ]", true],
   ];
@@ -8021,4 +8068,14 @@ function paintThemeEditorRow(
     background: selected ? theme.accent : ground,
     bold: selected,
   });
+}
+
+/**
+ * The "new theme" button inside the theme header. Right-aligned and dropped
+ * entirely when the header is too narrow to hold both the word and the button,
+ * because a button overlapping its own heading is worse than no button.
+ */
+function themeEditorButtonRect(header: { column: number; row: number; width: number }): Rectangle {
+  const width = Math.min(7, Math.max(0, header.width - 7));
+  return { column: header.column + Math.max(0, header.width - width), row: header.row, width, height: 1 };
 }

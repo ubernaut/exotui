@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5312839,
+    "bytes": 5314224,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -113,7 +113,7 @@
       "src/app/terminal_commands.ts": 47814,
       "src/app/terminal_input.ts": 12222,
       "src/app/theme_commands.ts": 16968,
-      "src/app/theme_editor.ts": 10926,
+      "src/app/theme_editor.ts": 12311,
       "src/app/theme_plugin.ts": 14624,
       "src/app/time_picker.ts": 6897,
       "src/app/toast_commands.ts": 2941,
@@ -870,7 +870,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4528164,
+    "bytes": 4529549,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -982,7 +982,7 @@
       "src/app/terminal_commands.ts": 47814,
       "src/app/terminal_input.ts": 12222,
       "src/app/theme_commands.ts": 16968,
-      "src/app/theme_editor.ts": 10926,
+      "src/app/theme_editor.ts": 12311,
       "src/app/theme_plugin.ts": 14624,
       "src/app/time_picker.ts": 6897,
       "src/app/toast_commands.ts": 2941,

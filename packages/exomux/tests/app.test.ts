@@ -3935,7 +3935,6 @@ Deno.test("Exomux start menu holds every command and frees the bottom rows", asy
       "network",
       "sessions",
       "config",
-      "theme",
       "help",
       "quit",
     ]);

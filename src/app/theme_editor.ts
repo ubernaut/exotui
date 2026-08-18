@@ -121,11 +121,37 @@ export class ThemeLibrary {
     return await this.#read(id) ?? this.#builtIns.get(id);
   }
 
-  /** Writes a theme and returns the id it was written under. */
+  /** Whether an id belongs to a theme the host ships. */
+  isBuiltIn(id: string): boolean {
+    return this.#builtIns.has(id);
+  }
+
+  /**
+   * Writes a theme and returns the id it was written under. A built-in is
+   * READ-ONLY: presets are the floor everyone can get back to, so saving over
+   * one is refused rather than shadowing it. Copy it and edit the copy.
+   */
   async save(document: ThemeDocument): Promise<string> {
     const id = themeDocumentId(document.name);
+    if (this.isBuiltIn(id)) {
+      throw new TypeError(`"${document.name}" is a preset; copy it under another name to save changes`);
+    }
     await this.#storage.write(id, exportThemeDocument(document));
     return id;
+  }
+
+  /**
+   * A name like `base`, `base 2`, `base 3` — whichever is free. Used when a
+   * preset is opened for editing, which always produces a new theme.
+   */
+  async uniqueName(base: string): Promise<string> {
+    const taken = new Set((await this.list()).map((entry) => themeDocumentId(entry.name)));
+    if (!taken.has(themeDocumentId(base))) return base;
+    for (let suffix = 2; suffix < 1_000; suffix += 1) {
+      const candidate = `${base} ${suffix}`;
+      if (!taken.has(themeDocumentId(candidate))) return candidate;
+    }
+    return `${base} ${Date.now()}`;
   }
 
   /** Deletes a saved theme. Built-ins cannot be deleted, only shadowed. */
@@ -251,10 +277,17 @@ export class ThemeEditorController {
     if (!this.library) return undefined;
     const document = this.document.peek();
     if (missingCoreTokens(document).length > 0) return undefined;
+    // A preset cannot be written over; the caller renames and tries again.
+    if (this.library.isBuiltIn(themeDocumentId(document.name))) return undefined;
     const id = await this.library.save(document);
     this.#saved = exportThemeDocument(document);
     this.dirty.value = false;
     return id;
+  }
+
+  /** Whether this document would overwrite a preset if saved as it stands. */
+  editingPreset(): boolean {
+    return this.library?.isBuiltIn(themeDocumentId(this.document.peek().name)) ?? false;
   }
 
   /** Throws away every change since the last save or open. */
