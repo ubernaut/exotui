@@ -293,6 +293,26 @@ const CONTROL_SURFACE_TOKENS: readonly ControlTokenSpec[] = [
     against: "control:background-selected",
   },
   {
+    name: "control:background-selected-unfocused",
+    group: "control",
+    label: "Selected row, unfocused",
+    // A muted surface, not the accent: the row is still the collection's current
+    // item, but the collection is not where typing goes. Falling back to
+    // chrome:muted means a theme that has never heard of this token paints the
+    // same as it always did until it chooses otherwise.
+    fallback: "chrome:muted",
+    role: "background",
+    description: "The current row of a list that does not hold the keyboard.",
+  },
+  {
+    name: "control:foreground-selected-unfocused",
+    group: "control",
+    label: "Selected row text, unfocused",
+    fallback: "chrome:foreground",
+    role: "foreground",
+    against: "control:background-selected-unfocused",
+  },
+  {
     name: "control:border-focused",
     group: "control",
     label: "Focus ring",

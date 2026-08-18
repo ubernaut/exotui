@@ -4,10 +4,14 @@
 // that — a focus authority that respects `disabled`, and the resolver that
 // tells "this is the current item" apart from "this is where your typing goes".
 
-import { assertEquals } from "./deps.ts";
+import { assert, assertEquals } from "./deps.ts";
 import { type Focusable, FocusManager, isFocusDisabled, resolveSelectionPaint } from "../src/focus.ts";
 import { Signal } from "../src/signals/mod.ts";
 import type { ComponentState } from "../src/component.ts";
+import { resolveControlToken, resolveControlTokens } from "../src/theme_controls.ts";
+import { themeEditorGroups } from "../src/theme_editor_model.ts";
+import type { Rgb } from "../src/theme_expressions.ts";
+import { THEME_INTERCHANGE_VERSION } from "../src/theme_interchange.ts";
 
 function target(state: ComponentState = "base"): Focusable {
   return { state: new Signal<ComponentState>(state) };
@@ -96,4 +100,44 @@ Deno.test("a selected row paints differently depending on who holds the keyboard
   );
   assertEquals(resolveSelectionPaint({ selected: false, collectionFocused: true }), "unselected");
   assertEquals(resolveSelectionPaint({ selected: false, collectionFocused: false }), "unselected");
+});
+
+// Slice B: the paint state above needs a colour, and naming one must cost an
+// existing theme nothing.
+
+/** A theme that knows only the original compatibility profile. */
+const SEVEN: Readonly<Record<string, Rgb>> = Object.freeze({
+  foreground: [230, 230, 230],
+  muted: [140, 140, 140],
+  accent: [80, 160, 255],
+  success: [90, 200, 120],
+  warning: [230, 180, 70],
+  danger: [230, 90, 90],
+  surface: [20, 20, 28],
+});
+
+Deno.test("the unfocused selection resolves for a theme that never heard of it", () => {
+  const resolved = resolveControlTokens(SEVEN);
+  assertEquals(
+    resolved["control:background-selected-unfocused"],
+    SEVEN.muted,
+    "a muted surface, not the accent the focused selection uses",
+  );
+  assertEquals(resolved["control:background-selected"], SEVEN.accent, "which is left where it was");
+  assertEquals(resolved["control:foreground-selected-unfocused"], SEVEN.foreground);
+});
+
+Deno.test("overriding the unfocused selection moves only itself", () => {
+  const olive: Rgb = [88, 96, 60];
+  const resolved = resolveControlTokens({ ...SEVEN, "control:background-selected-unfocused": olive });
+  assertEquals(resolved["control:background-selected-unfocused"], olive);
+  assertEquals(resolved["control:background-selected"], SEVEN.accent, "the focused selection is untouched");
+  assertEquals(resolveControlToken("chrome:muted", { ...SEVEN }), SEVEN.muted, "and so is what it fell back to");
+});
+
+Deno.test("both unfocused-selection tokens are offered by the theme editor", () => {
+  const entries = themeEditorGroups({ version: THEME_INTERCHANGE_VERSION, name: "seven", tokens: SEVEN })
+    .flatMap((group) => group.entries.map((entry) => entry.token.name));
+  assert(entries.includes("control:background-selected-unfocused"), "the editor lists the background");
+  assert(entries.includes("control:foreground-selected-unfocused"), "and the text read against it");
 });
