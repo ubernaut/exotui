@@ -14,6 +14,9 @@ one substitutes what this project actually has.
   already says what.
 - Sync with `origin/main` before integrating; rebase the branch onto it, resolve conflicts on the branch, and rerun the
   affected checks.
+- **No pull requests.** This is a one-maintainer repository; a review thread with one participant is ceremony, not
+  review. Branches merge straight into `main` once the gate passes. What the PR was there to force is kept: a branch
+  that can be thrown away, and evidence attached to the revision that was actually tested — see steps 4 and 5.
 - Never force-push `main`, and do not rewrite commits already shared.
 - Preserve unrelated local changes. Do not sweep someone else's work into a commit.
 - Keep credentials, runtime state, and large disposable artifacts out of version control. exomux's session state,
@@ -24,18 +27,21 @@ one substitutes what this project actually has.
 1. **Branch from `main`.** Confirm a clean worktree, fetch, and branch from current `main`.
 2. **Develop locally.** Work until the change is complete and the focused tests pass. Keep commits focused.
 3. **Reconcile with upstream.** If `origin/main` has advanced, rebase and re-run the affected checks.
-4. **Open or update a pull request.** Push the branch and open a PR to `main`. Put the verification evidence in the
-   body: which suites ran, what `deno task health` said, and what a human still needs to look at.
-5. **Test the revision.** See below — there is no deploy target, so this step is the gate list plus, where relevant, a
-   human at a real terminal.
-6. **Merge and clean up.** When the checks pass, merge into `main`, confirm the trunk is still green, and delete the
-   branch. If they fail, fix on the branch and repeat from step 2.
+4. **Test the revision.** See below — there is no deploy target, so this step is the gate list plus, where relevant, a
+   human at a real terminal. `deno task health` on the exact revision, its exit code checked rather than its output
+   skimmed.
+5. **Record the evidence in the commit.** Which suites ran, what `deno task health` said, what a human still needs to
+   look at, and any tradeoff taken. There is no review thread to carry this, so the commit message and
+   `../log/log-detail.md` are where it lives.
+6. **Merge and clean up.** When the gate passes, merge into `main` with `--no-ff`, confirm the trunk is still green, and
+   delete the branch. If it fails, fix on the branch and repeat from step 2.
 
-Any change to the tested revision invalidates its evidence: rerun rather than assume.
+Any change to the tested revision invalidates its evidence: rerun rather than assume. Merge the revision you tested — if
+`main` moved underneath you, rebase and rerun before merging, so the tree that lands is the tree that passed.
 
 ## What "integrated testing" means here
 
-There is no staging environment to deploy a PR to — this is a library plus a terminal application that runs on the
+There is no staging environment to deploy to — this is a library plus a terminal application that runs on the
 maintainer's machine. The equivalents, in order of what a change touches:
 
 - **Always:** `deno task health` on the exact revision. It runs formatting, type checks on every entrypoint and example,
@@ -59,14 +65,9 @@ through the same `bug/` branch loop and are prioritised into `main` so a later r
 
 For work that has to reach `main` incomplete, keep it behind a flag or an inactive path and still run the full loop.
 
-## Current state vs target
+## History
 
-**Current:** every commit up to `ab98acbc` went straight to `main` and was pushed, which is why `main`'s history is a
-sequence of single large commits rather than merges. The loop starts with this document: it and the plan corrections
-beside it are being developed on `feature/trunk-based-workflow` and reach `main` as a branch, not as a direct commit.
-The releasable-trunk rule at the top of this file is still aspirational — `main` fails six `deno task health` gates (see
-`../todo/priority.md`) and does not hold until `bug/health-gates` lands.
-
-**Target:** the loop above, starting with the change that adds this document. The rule that matters most in a
-one-maintainer repository is not the pull request itself but what the pull request forces: a branch that can be thrown
-away, and evidence attached to the revision that was actually tested.
+Every commit up to `ab98acbc` went straight to `main` and was pushed, which is why the early history is a sequence of
+single large commits rather than merges. The loop above starts at `96366c21`, which merged the branch carrying this
+document. `main` had been failing seven `deno task health` gates by then; `c5e34163` merged the branch that fixed them,
+and the trunk has been releasable since.
