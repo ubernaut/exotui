@@ -1,11 +1,10 @@
 # Butterchurn GPU render fidelity — closing the GPU-vs-CPU gap
 
-Status: **COMPLETE, August 16 2026.** Final fleet (steady-state, real-audio, 360-frame warmup): **regression 1 of
-472, truly black 0, auto-cycle rotation 468 of 472** — from 69/54/306 when this plan opened. The single remaining
-entry (`martin - unholy amulet 2`, GPU 2.19% vs the 3% threshold, CPU 7.1%) renders visibly dim, and real
-butterchurn's own reference for it is dim (mean 0.061, no dominant term in the ablation) — a sub-threshold
-brightness delta, not a broken preset. Driven by
-user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
+Status: **COMPLETE, August 16 2026.** Final fleet (steady-state, real-audio, 360-frame warmup): **regression 1 of 472,
+truly black 0, auto-cycle rotation 468 of 472** — from 69/54/306 when this plan opened. The single remaining entry
+(`martin - unholy amulet 2`, GPU 2.19% vs the 3% threshold, CPU 7.1%) renders visibly dim, and real butterchurn's own
+reference for it is dim (mean 0.061, no dominant term in the ablation) — a sub-threshold brightness delta, not a broken
+preset. Driven by user direction: "GPU curation isn't really ideal. it'd be better to fix the broken presets."
 
 ## The real numbers (measured, not guessed)
 
@@ -139,100 +138,102 @@ A source-level audit of jberg/butterchurn (`renderer.js`, `warp.js`) settled the
 browser: real butterchurn computes the blur chain from the WARP OUTPUT — before motion vectors, custom shapes, waves,
 and the basic waveform are drawn — so a high-pass warp's `blur1` lacks last frame's shapes while `sampler_main` has
 them, and the shapes are subtracted at full weight into the loop. Our chain blurred the finished frame (post-shapes),
-which made shape energy self-cancel in `blur1 - main` warps. The GPU frame now matches the real order
-(warp → blur → mv/shapes/waves → basic wave → comp). Also verified against source: warp `vColor` is 1 outside
-preset-blending (not an amplifier), and textured shapes sample the PREVIOUS frame (ours already did).
+which made shape energy self-cancel in `blur1 - main` warps. The GPU frame now matches the real order (warp → blur →
+mv/shapes/waves → basic wave → comp). Also verified against source: warp `vColor` is 1 outside preset-blending (not an
+amplifier), and textured shapes sample the PREVIOUS frame (ours already did).
 
-Outcome: Goody's loop is UNCHANGED (equilibrium mean 0.034, 4.7% of texels above 0.1 — the echo amplifier tail is not
-a blur-order artifact; that hypothesis is now eliminated alongside comp-side loss and authored blur bounds). Fleet
-proxy: regression 30 → 31, truly-black 21 → 23, both-render 239 → 238, rotation 383 → 380 of 472 — a small drift on a
-proxy that compares GPU output against our own blur-less CPU approximation, so it cannot arbitrate real-butterchurn
-fidelity; the real order is kept. Remaining tail candidates are unchanged (warp gamma/decay interplay, bilinear
-boundary gain, echo `tex_zoom` footprint) and the browser A/B remains the decisive instrument.
+Outcome: Goody's loop is UNCHANGED (equilibrium mean 0.034, 4.7% of texels above 0.1 — the echo amplifier tail is not a
+blur-order artifact; that hypothesis is now eliminated alongside comp-side loss and authored blur bounds). Fleet proxy:
+regression 30 → 31, truly-black 21 → 23, both-render 239 → 238, rotation 383 → 380 of 472 — a small drift on a proxy
+that compares GPU output against our own blur-less CPU approximation, so it cannot arbitrate real-butterchurn fidelity;
+the real order is kept. Remaining tail candidates are unchanged (warp gamma/decay interplay, bilinear boundary gain,
+echo `tex_zoom` footprint) and the browser A/B remains the decisive instrument.
 
 ### Aug 16 2026: the browser A/B ran — echo-amplifier root cause found and fixed
 
 A headless-Chromium harness (`scripts/ab_butterchurn_real.ts`) ran REAL butterchurn 2.6.7 on `Goody - The Wild Vort`
 with a synthetic oscillator. Baseline: mean luminance **0.68–0.81**, 87–99% of pixels above 0.1 — saturation, as
 predicted. The ablation matrix was decisive: **shapesOff collapsed real butterchurn to 0.0398** — statistically
-identical to our pre-fix equilibrium (0.043) — while wavesOff (0.81), basicWaveOff (0.75), mvOff (0.44),
-echoAlphaOff (0.68), and gammaOne (0.75) all left saturation intact. Every remaining candidate except the textured
-shape was eliminated in one run: NOT warp gamma/decay, NOT bilinear boundary gain, NOT comp echo dynamics.
+identical to our pre-fix equilibrium (0.043) — while wavesOff (0.81), basicWaveOff (0.75), mvOff (0.44), echoAlphaOff
+(0.68), and gammaOne (0.75) all left saturation intact. Every remaining candidate except the textured shape was
+eliminated in one run: NOT warp gamma/decay, NOT bilinear boundary gain, NOT comp echo dynamics.
 
 The source diff then found the divergence: real butterchurn's textured-shape UVs are a **fixed ring** —
-`0.5 + 0.5·cos(θ+tex_ang+π/4)/tex_zoom` — independent of the shape's world radius, so a full-screen shape
-(rad≈2, tex_zoom≈0.495) re-samples the whole previous frame ~1:1 at edge alpha 1. Our builder scaled UVs by the
-world-space vertex offset (`(px−x)/(2·tex_zoom)`), which for rad≈2 pushed UVs to ±2 — clamped border texels,
-injecting nothing. Fixed in `butterchurn_preset.ts`: the UV ring now matches real butterchurn exactly (angle-driven,
-rad-independent, V flipped for our texture convention, aspect on U).
+`0.5 + 0.5·cos(θ+tex_ang+π/4)/tex_zoom` — independent of the shape's world radius, so a full-screen shape (rad≈2,
+tex_zoom≈0.495) re-samples the whole previous frame ~1:1 at edge alpha 1. Our builder scaled UVs by the world-space
+vertex offset (`(px−x)/(2·tex_zoom)`), which for rad≈2 pushed UVs to ±2 — clamped border texels, injecting nothing.
+Fixed in `butterchurn_preset.ts`: the UV ring now matches real butterchurn exactly (angle-driven, rad-independent, V
+flipped for our texture convention, aspect on U).
 
-Measured after the fix: Goody's loop equilibrium **0.043 → 0.193** (72.5% of texels above 0.1), comp output mean
-0.304 — the preset escapes the black regime and enters the GPU rotation (380 → 381 drawable). The fleet CPU-proxy
-buckets are unchanged (31/23), as the plan predicted they would be — the proxy compares against our blur-less CPU
-approximation and cannot see real-fidelity fixes; the readback probe and the browser A/B are the instruments of
-record. The remaining truly-black tail is now investigable preset-by-preset with the same ablation harness
-(`Goody - Ego Decontructor` is the next candidate, still 0.00% on GPU).
+Measured after the fix: Goody's loop equilibrium **0.043 → 0.193** (72.5% of texels above 0.1), comp output mean 0.304 —
+the preset escapes the black regime and enters the GPU rotation (380 → 381 drawable). The fleet CPU-proxy buckets are
+unchanged (31/23), as the plan predicted they would be — the proxy compares against our blur-less CPU approximation and
+cannot see real-fidelity fixes; the readback probe and the browser A/B are the instruments of record. The remaining
+truly-black tail is now investigable preset-by-preset with the same ablation harness (`Goody - Ego Decontructor` is the
+next candidate, still 0.00% on GPU).
 
-Second lead from the widened harness (the tarball ships 1,754 individually converted preset JSONs, now searched
-before the 100-preset pack): `Rovastar + Geiss - Hurricane Nightmare (Posterize Mix)` — the converted-dir relative
-of our truly-black Hurricane variants — baselines at 0.316 in real butterchurn, and the dominant single ablation is
+Second lead from the widened harness (the tarball ships 1,754 individually converted preset JSONs, now searched before
+the 100-preset pack): `Rovastar + Geiss - Hurricane Nightmare (Posterize Mix)` — the converted-dir relative of our
+truly-black Hurricane variants — baselines at 0.316 in real butterchurn, and the dominant single ablation is
 **basicWaveOff → 0.039**: the BASIC WAVEFORM carries this class's energy (shapes 0.159 and waves 0.196 contribute;
-echo/gamma do not). Next investigation: our basic-waveform injection path (mode, alpha, additive blend, sample
-count) against real butterchurn's drawBasicWaveform for the Hurricane class.
+echo/gamma do not). Next investigation: our basic-waveform injection path (mode, alpha, additive blend, sample count)
+against real butterchurn's drawBasicWaveform for the Hurricane class.
 
 Harness scope, learned attempting Ego Decontructor: the published pack carries 100 presets with equations already
 converted to JS; our catalog stores RAW Milkdrop equations, and injecting them raises a `new Function` syntax error
 inside real butterchurn. A/B for non-pack presets therefore needs the EEL→JS preset converter
-(milkdrop-preset-converter) wired into the page first — that is the harness's one open extension. The instrument
-remains decisive for every fleet preset that also ships in the pack.
+(milkdrop-preset-converter) wired into the page first — that is the harness's one open extension. The instrument remains
+decisive for every fleet preset that also ships in the pack.
 
 ### Aug 16 2026: the instruments were driving both renderers with SILENCE
 
 Chasing the Hurricane lead found a bug in the instruments, not the renderer: `diag_butterchurn_gap.ts`,
-`probe_butterchurn_readback.ts`, and `audit_butterchurn_gpu.ts` all constructed their fields without an audio
-source, so in a sandbox (no mic) every preset ran on silence. Under silence a mode-1 waveform degenerates — angle is
+`probe_butterchurn_readback.ts`, and `audit_butterchurn_gpu.ts` all constructed their fields without an audio source, so
+in a sandbox (no mic) every preset ran on silence. Under silence a mode-1 waveform degenerates — angle is
 `left(i)·π/2 + t`, constant when the waveform is all zeros, so all 256 points collapse to ONE location and the GPU
-ribbon rasterizes nothing — while the CPU's fixed `WAVE_INK` budget still deposits. The whole
-"CPU renders, GPU can't" bucket was contaminated with audio degeneracy that had nothing to do with fidelity:
-driven with the shared scripted source (`audio_scripted.ts`, now wired into all three instruments), Hurricane
-Nightmare reaches loop 0.29 / 91% above MIN_INK on our GPU — matching real butterchurn's 0.316 baseline.
+ribbon rasterizes nothing — while the CPU's fixed `WAVE_INK` budget still deposits. The whole "CPU renders, GPU can't"
+bucket was contaminated with audio degeneracy that had nothing to do with fidelity: driven with the shared scripted
+source (`audio_scripted.ts`, now wired into all three instruments), Hurricane Nightmare reaches loop 0.29 / 91% above
+MIN_INK on our GPU — matching real butterchurn's 0.316 baseline.
 
-Fleet re-measurement with real audio (and the shape-UV fix in place): both-render **238 → 396** of 472, both-blank
-74 → 5, regression **31 → 14**, truly black **23 → 5**. The regenerated auto-cycle rotation grew **381 → 458 of
-472** (14 skipped). The tail is now five presets.
+Fleet re-measurement with real audio (and the shape-UV fix in place): both-render **238 → 396** of 472, both-blank 74 →
+5, regression **31 → 14**, truly black **23 → 5**. The regenerated auto-cycle rotation grew **381 → 458 of 472** (14
+skipped). The tail is now five presets.
 
 ### Aug 16 2026: harness converts catalog EEL; Ego class localized to custom shaders
 
 The harness's open extension landed: `milkdrop-preset-converter-aws`'s LOCAL equation path (`convertPresetEquations`,
-plain JS, no AWS) now converts our catalog's raw EEL to executable JS in a spawned node, so any of the 472 fleet
-presets can be A/B'd — with the documented boundary that catalog-injected runs use MilkDrop's DEFAULT warp/comp
-(our catalog stores WGSL, which real butterchurn cannot execute). `BC_AB_TMP` points the harness at a shared temp
-root for sandboxes whose /tmp is namespaced per process.
+plain JS, no AWS) now converts our catalog's raw EEL to executable JS in a spawned node, so any of the 472 fleet presets
+can be A/B'd — with the documented boundary that catalog-injected runs use MilkDrop's DEFAULT warp/comp (our catalog
+stores WGSL, which real butterchurn cannot execute). `BC_AB_TMP` points the harness at a shared temp root for sandboxes
+whose /tmp is namespaced per process.
 
 First use localized the Ego class: `Goody - Ego Decontructor` under default shaders is dim EVEN IN REAL BUTTERCHURN
-(baseline 0.055; no single geometry ablation dominates), so its energy lives in its custom warp/comp — which our
-GPU runs as translated WGSL and yields 0.00% while the CPU approximation shows 15.1%. The next probe for this class
-is stage-by-stage readback of the translated warp/comp for Ego specifically; a true reference A/B would need the
-original GLSL from jberg's full collections (only 1,754 of the fleet ship converted in the npm pack).
+(baseline 0.055; no single geometry ablation dominates), so its energy lives in its custom warp/comp — which our GPU
+runs as translated WGSL and yields 0.00% while the CPU approximation shows 15.1%. The next probe for this class is
+stage-by-stage readback of the translated warp/comp for Ego specifically; a true reference A/B would need the original
+GLSL from jberg's full collections (only 1,754 of the fleet ship converted in the npm pack).
 
-Current gap list (real-audio diag, run of record): `beta106at shape - mash0000` 0.00%, `EVET + Flexi - Rainbox
-Splash Poolz` 0.60%, `pogo cubes vs. tokamak` 1.23%, `flexi - infused with the spiral` 0.30%, `Flexi - truly soft
+Current gap list (real-audio diag, run of record): `beta106at shape - mash0000` 0.00%,
+`EVET + Flexi - Rainbox
+Splash Poolz` 0.60%, `pogo cubes vs. tokamak` 1.23%, `flexi - infused with the spiral` 0.30%,
+`Flexi - truly soft
 piece of software` 0.45% — plus ~9 more dim entries; five truly black in total.
 
 ### Aug 16 2026: range-compressed blur stores (real butterchurn's storage contract)
 
 Stage-by-stage readback for Ego Decontructor showed a healthy LOOP (mean up to 0.55, 88% lit) with a comp output
 decaying to 0.01 — a difference-of-blurs comp (`2·(blur1 − blur3)·main`). That prompted finishing the blur storage
-contract: the blur passes now store `(value − b_n)/(b_x − b_n)` — full 8-bit precision across the authored window
-and >1 energies survive — with each pass decompressing its source (the previous level's window, or identity for the
-raw warp output), and preset shaders reconstruct with `scale_i = b_x − b_n`, `bias_i = b_n` instead of the old
-identity 1/0 over a raw clamped store.
+contract: the blur passes now store `(value − b_n)/(b_x − b_n)` — full 8-bit precision across the authored window and >1
+energies survive — with each pass decompressing its source (the previous level's window, or identity for the raw warp
+output), and preset shaders reconstruct with `scale_i = b_x − b_n`, `bias_i = b_n` instead of the old identity 1/0 over
+a raw clamped store.
 
-Measured: Wild Vort's comp rose 0.30 → 0.35–0.38 (70–75% lit, stable); cope - digital sea's loop reaches 0.41 /
-comp 0.35 (was oscillating 0.13–0.15); fleet buckets unchanged (396/5/14/5 — no regressions). **Ego is unchanged**
-— its comp still decays against a bright loop, so the raw-clamp hypothesis is eliminated for that class. Next lead
-for Ego: its comp warps sampling coordinates through `sampler_noise_hq` — verify our generated noise textures match
-real butterchurn's (amplitude, distribution, smoothing, and the hq/lq variants' statistics).
+Measured: Wild Vort's comp rose 0.30 → 0.35–0.38 (70–75% lit, stable); cope - digital sea's loop reaches 0.41 / comp
+0.35 (was oscillating 0.13–0.15); fleet buckets unchanged (396/5/14/5 — no regressions). **Ego is unchanged** — its comp
+still decays against a bright loop, so the raw-clamp hypothesis is eliminated for that class. Next lead for Ego: its
+comp warps sampling coordinates through `sampler_noise_hq` — verify our generated noise textures match real
+butterchurn's (amplitude, distribution, smoothing, and the hq/lq variants' statistics).
 
 ### Aug 16 2026: noise generation audited — matches; Ego needs the equation-diff instrument
 
@@ -241,124 +242,123 @@ wrap idiosyncrasy presets were tuned against (zoom>1 variants land on [108,255]�
 lattice along both axes. The noise-texture hypothesis for Ego's comp decay is eliminated at the generation level.
 
 Next discriminator for the Ego class, buildable from parts that now exist: **equation-divergence diffing** — run the
-preset's converted-JS frame equations (the A/B harness already produces them via `convertPresetEquations`) in node
-for N frames and diff every variable per frame against our EEL interpreter's scope for the same audio script. Any
-drift in the variables feeding comp uniforms (gamma, echo, q-vars) localizes the decay without touching shaders.
+preset's converted-JS frame equations (the A/B harness already produces them via `convertPresetEquations`) in node for N
+frames and diff every variable per frame against our EEL interpreter's scope for the same audio script. Any drift in the
+variables feeding comp uniforms (gamma, echo, q-vars) localizes the decay without touching shaders.
 
 ### Aug 16 2026: the equation-diff instrument, built and validated
 
-`scripts/diff_butterchurn_equations.ts` runs a preset's frame equations in REAL butterchurn (headless Chromium, the
-real presetEquationRunner) and in our EEL interpreter under identical silence at 30 fps, and diffs every watched
-variable at checkpoints. Two probe bugs were flushed while building it (our `time` is seconds like the field passes;
-per-pixel programs legitimately overwrite `rot` per vertex, so our side now snapshots the frame scope PRE-pixel via
-the new `preset.debugWatch()/debugFrameValues()` hook, matching real's mdVSFrame semantics).
+`scripts/diff_butterchurn_equations.ts` runs a preset's frame equations in REAL butterchurn (headless Chromium, the real
+presetEquationRunner) and in our EEL interpreter under identical silence at 30 fps, and diffs every watched variable at
+checkpoints. Two probe bugs were flushed while building it (our `time` is seconds like the field passes; per-pixel
+programs legitimately overwrite `rot` per vertex, so our side now snapshots the frame scope PRE-pixel via the new
+`preset.debugWatch()/debugFrameValues()` hook, matching real's mdVSFrame semantics).
 
-**Validated on the pack path: our EEL engine matches real butterchurn on every watched variable for
-Goody - The Wild Vort** (largest drift `time` 0.132 — a constant phase offset from render pacing). The earlier Ego
-wave_r discrepancy was the INJECTED path: real butterchurn silently no-ops a converted preset whose equations fail
-to load and sits on blank-preset defaults (wave_r 1.0), so injected-preset diffs need load-error surfacing in the
-page before they can be trusted. Ego's comp-decay investigation continues with that fix as the next step; the
-equation engine itself is now positively vindicated for the pack-covered fleet.
+**Validated on the pack path: our EEL engine matches real butterchurn on every watched variable for Goody - The Wild
+Vort** (largest drift `time` 0.132 — a constant phase offset from render pacing). The earlier Ego wave_r discrepancy was
+the INJECTED path: real butterchurn silently no-ops a converted preset whose equations fail to load and sits on
+blank-preset defaults (wave_r 1.0), so injected-preset diffs need load-error surfacing in the page before they can be
+trusted. Ego's comp-decay investigation continues with that fix as the next step; the equation engine itself is now
+positively vindicated for the pack-covered fleet.
 
 ### Aug 16 2026: the whole tail classified with the instruments; 30 fps cadence fix
 
 Two more instrument corrections landed while sweeping the tail. The converter's real signature is
-`convertPresetEquations(versionSlot, init, frame, pixel)` — our calls had every equation shifted one stage (found
-when Ego's "frame" turned out to be its pixel program); with the fix, the injected path runs the true equations and
-Ego's q4/q5 "divergence" resolved to integrator phase-sensitivity (`pulse` accumulates thresholds; both engines
-produce equivalent dynamics modulo phase — the equation engine is vindicated for Ego too). And the probes/diag/audit
-drove frames at 125 ms (8 fps): decay is wall-clock rebased but geometry injects once per ADVANCE, so loop-driven
-presets equilibrated ~4x low. All instruments now step at 30 fps.
+`convertPresetEquations(versionSlot, init, frame, pixel)` — our calls had every equation shifted one stage (found when
+Ego's "frame" turned out to be its pixel program); with the fix, the injected path runs the true equations and Ego's
+q4/q5 "divergence" resolved to integrator phase-sensitivity (`pulse` accumulates thresholds; both engines produce
+equivalent dynamics modulo phase — the equation engine is vindicated for Ego too). And the probes/diag/audit drove
+frames at 125 ms (8 fps): decay is wall-clock rebased but geometry injects once per ADVANCE, so loop-driven presets
+equilibrated ~4x low. All instruments now step at 30 fps.
 
 Fleet at real cadence: both-render 396 → 380*, regression **14 → 11**, truly black **5 → 3** (*a handful of
-near-threshold presets moved across the 3% line in both directions; hulk spirit left the black set exactly as the
-30 fps readback predicted, reaching 0.083 vs real's 0.131). The regenerated auto-cycle rotation is **461 of 472**
-(11 skipped — exactly the remaining regression set).
+near-threshold presets moved across the 3% line in both directions; hulk spirit left the black set exactly as the 30 fps
+readback predicted, reaching 0.083 vs real's 0.131). The regenerated auto-cycle rotation is **461 of 472** (11 skipped —
+exactly the remaining regression set).
 
 Per-preset classification of the remaining gap, every entry instrument-verified:
 
 - `hulk spirit cum` — WAS a cadence artifact; healthy at 30 fps. Off the list.
-- `truly soft piece of software` — real butterchurn is ALSO dim (0.033 mean, 1.7% lit); our comp crush parallels
-  the real one and the CPU approximation (4.1%) is the outlier. Not a GPU fidelity bug.
+- `truly soft piece of software` — real butterchurn is ALSO dim (0.033 mean, 1.7% lit); our comp crush parallels the
+  real one and the CPU approximation (4.1%) is the outlier. Not a GPU fidelity bug.
 - `infused with the spiral` — our comp reaches 16–20% lit at 30 fps internally but rasterizes 0.97%; borderline
   resolve/threshold case, loop healthy. Real is bright (0.61) on shader energy alone: comp-shader gain differs.
-- `Rainbox Splash Poolz` — loop healthy (0.46, 100% lit), comp crushes to 0.5% lit while real saturates FULL WHITE
-  on shader dynamics alone. Comp-shader divergence class.
+- `Rainbox Splash Poolz` — loop healthy (0.46, 100% lit), comp crushes to 0.5% lit while real saturates FULL WHITE on
+  shader dynamics alone. Comp-shader divergence class.
 - `pogo cubes vs. tokamak` — loop under-establishes even at 30 fps (0.02); shapes+waves+mv all contribute in real.
   Loop-gain class.
-- `Ego Decontructor` — equations vindicated; comp is a difference-of-blurs that dies as OUR loop saturates flat.
-  Class: comp-shader dynamics. Full-shader A/B impossible for now: its GLSL is not in any published pack (checked
-  base, weekly; the converted dir's 1,754 carry GLSL and the harness already uses it — Ego is not among them).
+- `Ego Decontructor` — equations vindicated; comp is a difference-of-blurs that dies as OUR loop saturates flat. Class:
+  comp-shader dynamics. Full-shader A/B impossible for now: its GLSL is not in any published pack (checked base, weekly;
+  the converted dir's 1,754 carry GLSL and the harness already uses it — Ego is not among them).
 - `Mandelverse`, `Hyperkaleidoscope Glow 2` — the two remaining 0.00% presets, not yet probed individually.
 
-The comp-shader class (Ego, Rainbox, infused) is the systematic remainder — and the Rainbox stage-diff REFRAMED
-it: our comp translation is exact (`ret = main³`, byte-for-byte against the converted GLSL), and the cube explains
-the whole gap arithmetically — our loop equilibrates at 0.46 (0.46³ ≈ 0.10, dim cells) where real butterchurn's
-loop must sit near 1.0 (1.0³ = full white, as measured). The class is really a LOOP-EQUILIBRIUM-LEVEL divergence:
-our feedback loops run systematically dimmer than real butterchurn's for warp shaders built on blur DIFFERENCES
-(Rainbox warps on a blur2 edge field; Ego's comp differences blur1−blur3). Candidate mechanisms, in probe order:
-(1) blur sharpness — our blur targets are render/2^(level+1) of a 512-wide target; a softer blur weakens every
-difference field and lowers loop gain; (2) the 8-bit loop store quantizing away small per-frame gains near
-equilibrium; (3) geometry injection alpha. Next probe: read real butterchurn's internal main texture level in-page
-(the unminified build exposes renderer internals; bind its prev-frame texture to an FBO and readPixels) to get the
-real loop level for Rainbox, then A/B our blur kernel sharpness against theirs at equal resolution.
+The comp-shader class (Ego, Rainbox, infused) is the systematic remainder — and the Rainbox stage-diff REFRAMED it: our
+comp translation is exact (`ret = main³`, byte-for-byte against the converted GLSL), and the cube explains the whole gap
+arithmetically — our loop equilibrates at 0.46 (0.46³ ≈ 0.10, dim cells) where real butterchurn's loop must sit near 1.0
+(1.0³ = full white, as measured). The class is really a LOOP-EQUILIBRIUM-LEVEL divergence: our feedback loops run
+systematically dimmer than real butterchurn's for warp shaders built on blur DIFFERENCES (Rainbox warps on a blur2 edge
+field; Ego's comp differences blur1−blur3). Candidate mechanisms, in probe order: (1) blur sharpness — our blur targets
+are render/2^(level+1) of a 512-wide target; a softer blur weakens every difference field and lowers loop gain; (2) the
+8-bit loop store quantizing away small per-frame gains near equilibrium; (3) geometry injection alpha. Next probe: read
+real butterchurn's internal main texture level in-page (the unminified build exposes renderer internals; bind its
+prev-frame texture to an FBO and readPixels) to get the real loop level for Rainbox, then A/B our blur kernel sharpness
+against theirs at equal resolution.
 
 ### Aug 16 2026: steady-state fleet run; the last two 0.00% presets classified
 
-The 120-frame warmup was cutting slow accumulators short of equilibrium (Rainbox reaches full white at frame ~280 —
-its loop trajectory matches real butterchurn to three decimals along the way), so the diag/audit warmup is now 360
-frames. Steady-state fleet: regression **11 → 9**, truly black **3** (`Mandelverse`, `Hyperkaleidoscope Glow 2`,
-`truly soft piece` — the last already shown to be dim in real butterchurn as well). The steady-state rotation is
-**457 of 472**: Rainbox-class slow accumulators entered, while a handful of early-flash presets that decay below
-the keep threshold by steady state honestly left — the rotation now reflects what a preset HOLDS, not what it
-flashes.
+The 120-frame warmup was cutting slow accumulators short of equilibrium (Rainbox reaches full white at frame ~280 — its
+loop trajectory matches real butterchurn to three decimals along the way), so the diag/audit warmup is now 360 frames.
+Steady-state fleet: regression **11 → 9**, truly black **3** (`Mandelverse`, `Hyperkaleidoscope Glow 2`,
+`truly soft piece` — the last already shown to be dim in real butterchurn as well). The steady-state rotation is **457
+of 472**: Rainbox-class slow accumulators entered, while a handful of early-flash presets that decay below the keep
+threshold by steady state honestly left — the rotation now reflects what a preset HOLDS, not what it flashes.
 
-- `Hyperkaleidoscope Glow 2 motion blur (Jelly)` — real baseline 0.092/35% lit; ablations: wavesOff → 0.022 and
-  mvOff → 0.024 collapse it, echoAlphaOff → 0.032. Energy = custom waves + motion vectors, sustained by comp echo.
-  All three are systems we implement; the divergence is quantitative, not a missing term. Readback probe next.
-- `Mandelverse` — fully PROCEDURAL: 6.3 KB custom warp + 5.2 KB comp; under default shaders even real butterchurn
-  is black (0.004 baseline, every geometry ablation flat). Our translation compiles (no CPU fallback — the field
-  renders 0.00% rather than CPU-bright) but produces black: the first member of a shader-translation-fidelity
-  class. Next: WGSL compile diagnostics via the debug log sink, then stage readback.
+- `Hyperkaleidoscope Glow 2 motion blur (Jelly)` — real baseline 0.092/35% lit; ablations: wavesOff → 0.022 and mvOff →
+  0.024 collapse it, echoAlphaOff → 0.032. Energy = custom waves + motion vectors, sustained by comp echo. All three are
+  systems we implement; the divergence is quantitative, not a missing term. Readback probe next.
+- `Mandelverse` — fully PROCEDURAL: 6.3 KB custom warp + 5.2 KB comp; under default shaders even real butterchurn is
+  black (0.004 baseline, every geometry ablation flat). Our translation compiles (no CPU fallback — the field renders
+  0.00% rather than CPU-bright) but produces black: the first member of a shader-translation-fidelity class. Next: WGSL
+  compile diagnostics via the debug log sink, then stage readback.
 
 ### Aug 16 2026: the sqrt NaN guard — Mandelverse's whole class rescued
 
 The WGSL compile diagnostics came back clean for Mandelverse and stage readback isolated it precisely: the loop was
-BRIGHT (0.676, 94% lit) and the 5.2 KB procedural comp crushed it to 0.0002. The comp is packed with upstream's
-inline asin/acos expansions — `sqrt(1 − abs(x))` — and the moment |x| crosses 1, WGSL yields NaN, and one NaN
-propagates through the whole frame. D3D, the runtime these presets were authored against, never blacks a frame over
-a slightly-negative root.
+BRIGHT (0.676, 94% lit) and the 5.2 KB procedural comp crushed it to 0.0002. The comp is packed with upstream's inline
+asin/acos expansions — `sqrt(1 − abs(x))` — and the moment |x| crosses 1, WGSL yields NaN, and one NaN propagates
+through the whole frame. D3D, the runtime these presets were authored against, never blacks a frame over a
+slightly-negative root.
 
-**Fix, two layers:** the GLSL→WGSL translator now emits `sqrt(max(x, 0))`/`inverseSqrt(max(x, 0))` with typed
-zeros (for future catalog builds), and `guardWgslSqrt` applies the same clamp textually at compile time — paren-
-matched, idempotent, `(E)·0.0` as the type-agnostic zero — so the pre-translated vendored catalog gets it today.
-Measured: Mandelverse's comp went **0.0002 → 0.873 mean, 97% lit**. The guard applies to every preset's shaders;
-the fleet re-measure with it is the next run of record.
+**Fix, two layers:** the GLSL→WGSL translator now emits `sqrt(max(x, 0))`/`inverseSqrt(max(x, 0))` with typed zeros (for
+future catalog builds), and `guardWgslSqrt` applies the same clamp textually at compile time — paren- matched,
+idempotent, `(E)·0.0` as the type-agnostic zero — so the pre-translated vendored catalog gets it today. Measured:
+Mandelverse's comp went **0.0002 → 0.873 mean, 97% lit**. The guard applies to every preset's shaders; the fleet
+re-measure with it is the next run of record.
 
 ### Aug 16 2026: prim ribbons + real hue_shader — the fleet closes
 
 Working the final gap list produced the last two class fixes. Custom waves, wave dots, and shape borders drew as
-one-pixel line-strips/point-lists that the 6×6 box resolve averages away — the basic waveform's old disease, now
-cured the same way: line prims expand to triangle-strip ribbons ~1.5 cells tall (pixel-space normals, isotropic
-thickness) and dots to one-cell quads, sized in CELLS so deposited ink matches intent at any resolution. And
-`hue_shader` was a hardcoded (1,1,1) — which `pow(hue_shader, x)` collapses to 1, forcing degenerate branches —
-now replaced with real butterchurn's generateHueBase verbatim: four slowly-cycling normalized corner colours
-interpolated bilinearly across the comp quad.
+one-pixel line-strips/point-lists that the 6×6 box resolve averages away — the basic waveform's old disease, now cured
+the same way: line prims expand to triangle-strip ribbons ~1.5 cells tall (pixel-space normals, isotropic thickness) and
+dots to one-cell quads, sized in CELLS so deposited ink matches intent at any resolution. And `hue_shader` was a
+hardcoded (1,1,1) — which `pow(hue_shader, x)` collapses to 1, forcing degenerate branches — now replaced with real
+butterchurn's generateHueBase verbatim: four slowly-cycling normalized corner colours interpolated bilinearly across the
+comp quad.
 
-Measured on the way in: suksma's troll (100% custom-wave energy in real) 2% → 13–17% lit; Hyperkaleidoscope's comp
-0.003 → 0.083 / 26% lit (real: 0.092 / 35%); Trippy Sperm 17.5% lit; pogo cubes emits all its geometry and closed
-with the combined fixes.
+Measured on the way in: suksma's troll (100% custom-wave energy in real) 2% → 13–17% lit; Hyperkaleidoscope's comp 0.003
+→ 0.083 / 26% lit (real: 0.092 / 35%); Trippy Sperm 17.5% lit; pogo cubes emits all its geometry and closed with the
+combined fixes.
 
-**Definitive fleet run (all fixes: UV ring, scripted-audio instruments, blur range compression, 30 fps cadence,
-sqrt NaN guard, prim ribbons, hue_shader):** both-render 405, both-blank 5, regression **1**, truly black **0**,
-rotation **468 of 472**. The session's seven systematic fixes each came from an instrument built to find it, and
-every instrument ships in scripts/ for whatever the fleet does next.
+**Definitive fleet run (all fixes: UV ring, scripted-audio instruments, blur range compression, 30 fps cadence, sqrt NaN
+guard, prim ribbons, hue_shader):** both-render 405, both-blank 5, regression **1**, truly black **0**, rotation **468
+of 472**. The session's seven systematic fixes each came from an instrument built to find it, and every instrument ships
+in scripts/ for whatever the fleet does next.
 
 ## Verification
 
 - `scripts/diff_butterchurn_equations.ts` — per-variable frame-equation diff, real engine vs ours, under silence.
-- `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the
-  per-term ablation matrix; the decisive instrument (needs network + a Chromium).
+- `scripts/ab_butterchurn_real.ts` — REAL butterchurn in headless Chromium: equilibrium trajectory plus the per-term
+  ablation matrix; the decisive instrument (needs network + a Chromium).
 - `scripts/diag_butterchurn_gap.ts` — the CPU-vs-GPU bucketing above; rerun to measure any further fix.
 - `scripts/audit_butterchurn_gpu.ts` — regenerates `butterchurn_gpu_rotation.ts` (the auto-cycle subset).
 - `floorWaveColor` has unit tests in `tests/backgrounds_butterchurn.test.ts`; the ribbon is verified by the audit (GPU

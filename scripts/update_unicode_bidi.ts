@@ -29,7 +29,7 @@ const SOURCES = Object.freeze({
 
 // A regeneration is deliberately incomplete until this digest is updated in
 // the same patch.
-const REVIEWED_MODULE_SHA256 = "987630fc5a86bcd818a770100c48ff517b5c9481e2ae4f00c6f186093b0e0ea5";
+const REVIEWED_MODULE_SHA256 = "f27ac060ccc417674d80218537282451f03e31f120c74f111b68d6f4b6d11ccd";
 
 const LONG_TO_SHORT: Readonly<Record<string, string>> = {
   Left_To_Right: "L",
@@ -62,6 +62,7 @@ const MODULE_PREFIX = `// Copyright 2023 Im-Beast. MIT license.
 // Do not edit by hand; run the network-free --check mode in CI.
 
 /** Checked-in Unicode ${UNICODE_VERSION} UAX #9 bidi data. */
+// deno-fmt-ignore
 export const GENERATED_UNICODE_17_0_0_BIDI_DATA: unknown = JSON.parse(String.raw\``;
 const MODULE_SUFFIX = "`);\n";
 

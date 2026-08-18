@@ -656,7 +656,12 @@ export function parseGridTrackList(
  * source order deterministically — dense never reorders children, it
  * only chooses which grid cell each auto-placed child renders into.
  */
-export const GRID_DENSE_PLACEMENT_SEMANTICS = Object.freeze({
+export const GRID_DENSE_PLACEMENT_SEMANTICS: Readonly<{
+  visualOnly: boolean;
+  documentOrder: string;
+  focusOrder: string;
+  guidance: string;
+}> = Object.freeze({
   visualOnly: true,
   documentOrder: "source order, always",
   focusOrder: "source order, always",
@@ -672,7 +677,13 @@ export const GRID_DENSE_PLACEMENT_SEMANTICS = Object.freeze({
  * and hit testing is untouched because computed rects are physical.
  * Bidi text reordering is explicitly out of scope for cell ordering.
  */
-export const LOGICAL_EDGE_MODEL = Object.freeze({
+export const LOGICAL_EDGE_MODEL: Readonly<{
+  cells: string;
+  resolution: string;
+  ordering: string;
+  hitTesting: string;
+  bidiText: string;
+}> = Object.freeze({
   cells: "visual, always",
   resolution: "logical names map to physical edges at computed-value time from the final direction",
   ordering: "document and focus order are source order; RTL flips flex row axes only",

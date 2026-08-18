@@ -8,12 +8,7 @@
 // contaminated the fleet "CPU renders, GPU can't" bucket with audio
 // artifacts that had nothing to do with renderer fidelity (033).
 
-import {
-  EXOMUX_AUDIO_BANDS,
-  EXOMUX_AUDIO_WAVEFORM,
-  type ExomuxAudioFrame,
-  type ExomuxAudioSource,
-} from "./audio.ts";
+import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioFrame, type ExomuxAudioSource } from "./audio.ts";
 
 /** Creates the deterministic scripted source (level 0.7, beat each 8). */
 export function createScriptedExomuxAudio(options: { readonly level?: number } = {}): ExomuxAudioSource {

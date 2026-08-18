@@ -11,27 +11,28 @@
 import { observabilityMeter } from "./observability.ts";
 import type { ObservabilityAttributes } from "./observability.ts";
 
-/** The frozen metric catalog: name, unit, kind, allowed attributes. */
-export const CORE_METRICS = Object.freeze(
-  {
-    "tui.frames": { unit: "1", kind: "counter", attributes: { renderer: ["terminal", "browser", "gpu"] } },
-    "tui.frame_duration": { unit: "ms", kind: "histogram", attributes: { renderer: ["terminal", "browser", "gpu"] } },
-    "tui.cell_diffs": { unit: "1", kind: "counter", attributes: {} },
-    "tui.queue_depth": { unit: "1", kind: "gauge", attributes: { queue: ["input", "render", "worker"] } },
-    "tui.cache_events": {
-      unit: "1",
-      kind: "counter",
-      attributes: { cache: ["layout", "style", "measurement"], result: ["hit", "miss", "evict"] },
-    },
-    "tui.errors": { unit: "1", kind: "counter", attributes: { area: ["render", "input", "command", "worker", "io"] } },
-    "tui.lifecycle": {
-      unit: "1",
-      kind: "counter",
-      attributes: { event: ["start", "resume", "suspend", "stop"] },
-    },
-  } as const,
-);
+const CORE_METRIC_CATALOG = {
+  "tui.frames": { unit: "1", kind: "counter", attributes: { renderer: ["terminal", "browser", "gpu"] } },
+  "tui.frame_duration": { unit: "ms", kind: "histogram", attributes: { renderer: ["terminal", "browser", "gpu"] } },
+  "tui.cell_diffs": { unit: "1", kind: "counter", attributes: {} },
+  "tui.queue_depth": { unit: "1", kind: "gauge", attributes: { queue: ["input", "render", "worker"] } },
+  "tui.cache_events": {
+    unit: "1",
+    kind: "counter",
+    attributes: { cache: ["layout", "style", "measurement"], result: ["hit", "miss", "evict"] },
+  },
+  "tui.errors": { unit: "1", kind: "counter", attributes: { area: ["render", "input", "command", "worker", "io"] } },
+  "tui.lifecycle": {
+    unit: "1",
+    kind: "counter",
+    attributes: { event: ["start", "resume", "suspend", "stop"] },
+  },
+} as const;
 
+/** The frozen metric catalog: name, unit, kind, allowed attributes. */
+export const CORE_METRICS: typeof CORE_METRIC_CATALOG = Object.freeze(CORE_METRIC_CATALOG);
+
+/** Every metric name the catalog declares; a rename here is a breaking change. */
 export type CoreMetricName = keyof typeof CORE_METRICS;
 
 /** Thrown (strict mode) when an attribute violates the catalog. */

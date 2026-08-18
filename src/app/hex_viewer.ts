@@ -114,7 +114,7 @@ export class HexViewerController {
   wordAt(
     offset: number,
     group: 2 | 4 = this.#group === 1 ? 2 : this.#group,
-    endian = this.#endian,
+    endian: "little" | "big" = this.#endian,
   ): number | undefined {
     const bytes: number[] = [];
     for (let index = 0; index < group; index += 1) {

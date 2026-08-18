@@ -91,11 +91,141 @@ export interface ApiInventoryBaseline {
 
 export const apiStabilityTiers: readonly ApiStabilityTier[] = ["stable", "beta", "experimental", "internal"];
 
+/**
+ * Blanks the *contents* of literals, leaving every other character — and
+ * therefore every offset — where it was.
+ *
+ * The patterns below are regexes over raw source, so a module that
+ * carries source code as data was reporting that data as its own API.
+ * `src/tooling/init_templates.ts` embeds four whole scaffolded projects
+ * as template literals, which is why the inventory saw a second
+ * `createApp` and a re-export target of `src/tooling/${name.replaceAll(.ts`.
+ *
+ * `templateLiteralsOnly` exists because the two scanners need different
+ * things: the symbol scanner never reads a literal, but the re-export
+ * scanner reads the quoted specifier, and blanking those leaves the
+ * crawl with no modules at all. Every literal kind is still *tracked*
+ * either way, so a backtick inside an ordinary string cannot open a
+ * phantom template. Comments are tracked but left intact, because
+ * `hasLeadingJSDoc` reads the original source at the offsets this
+ * function preserves.
+ */
+export function maskLiteralText(
+  source: string,
+  options: { readonly templateLiteralsOnly?: boolean } = {},
+): string {
+  const templateLiteralsOnly = options.templateLiteralsOnly ?? false;
+  const masked = source.split("");
+  const suspendedDepths: number[] = [];
+  let state: "code" | "line-comment" | "block-comment" | "'" | '"' | "`" | "/" = "code";
+  let braceDepth = 0;
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index]!;
+    const next = source[index + 1];
+
+    if (state === "code") {
+      if (char === "/" && next === "/") {
+        state = "line-comment";
+        index += 2;
+      } else if (char === "/" && next === "*") {
+        state = "block-comment";
+        index += 2;
+      } else if (char === "/" && startsRegexLiteral(source, index)) {
+        state = "/";
+        index += 1;
+      } else if (char === '"' || char === "'" || char === "`") {
+        state = char;
+        index += 1;
+      } else {
+        if (char === "{") braceDepth += 1;
+        else if (char === "}") {
+          if (braceDepth === 0 && suspendedDepths.length > 0) {
+            braceDepth = suspendedDepths.pop()!;
+            state = "`";
+            index += 1;
+            continue;
+          }
+          braceDepth = Math.max(0, braceDepth - 1);
+        }
+        index += 1;
+      }
+      continue;
+    }
+
+    if (state === "line-comment") {
+      if (char === "\n") state = "code";
+      index += 1;
+      continue;
+    }
+
+    if (state === "block-comment") {
+      if (char === "*" && next === "/") {
+        state = "code";
+        index += 2;
+      } else {
+        index += 1;
+      }
+      continue;
+    }
+
+    // Inside a literal: mask everything but the delimiters and newlines.
+    if (char === "\\") {
+      if (blanking(state)) {
+        masked[index] = " ";
+        if (index + 1 < source.length && source[index + 1] !== "\n") masked[index + 1] = " ";
+      }
+      index += 2;
+      continue;
+    }
+    if (char === state) {
+      state = "code";
+      index += 1;
+      continue;
+    }
+    if (state === "`" && char === "$" && next === "{") {
+      suspendedDepths.push(braceDepth);
+      braceDepth = 0;
+      state = "code";
+      index += 2;
+      continue;
+    }
+    if (state === "/" && char === "\n") {
+      // An unterminated regex means the `/` was division; recover rather than
+      // swallowing the rest of the file.
+      state = "code";
+      index += 1;
+      continue;
+    }
+    if (char !== "\n" && blanking(state)) masked[index] = " ";
+    index += 1;
+  }
+
+  return masked.join("");
+
+  function blanking(current: typeof state): boolean {
+    return !templateLiteralsOnly || current === "`";
+  }
+}
+
+/** True when a `/` at `index` opens a regex literal rather than dividing. */
+function startsRegexLiteral(source: string, index: number): boolean {
+  for (let scan = index - 1; scan >= 0; scan -= 1) {
+    const char = source[scan]!;
+    if (char === " " || char === "\t" || char === "\r" || char === "\n") continue;
+    // Division follows a value; a regex follows an operator, keyword, or nothing.
+    return !/[\w$)\]]/.test(char);
+  }
+  return true;
+}
+
 export function parseApiExports(source: string, module: string): ApiExportDeclaration[] {
   const exports: ApiExportDeclaration[] = [];
+  const scanned = maskLiteralText(source, { templateLiteralsOnly: true });
   const declarationPattern = /export\s+(?:(type)\s+)?(?:(\*)|\{([\s\S]*?)\})\s+from\s+["']([^"']+)["'];?/g;
 
-  for (const match of source.matchAll(declarationPattern)) {
+  for (const match of scanned.matchAll(declarationPattern)) {
     const [, typeOnly, star, namesSource, target] = match;
     if (!target) continue;
     exports.push({
@@ -111,11 +241,12 @@ export function parseApiExports(source: string, module: string): ApiExportDeclar
 
 export function parseApiSymbols(source: string, module: string): ApiSymbolDeclaration[] {
   const symbols: ApiSymbolDeclaration[] = [];
+  const scanned = maskLiteralText(source);
   const declarationPattern =
     /export\s+(?:(declare)\s+)?(?:(async)\s+)?(class|function|interface|type|enum|const|let|var)\s+([A-Za-z_$][\w$]*)/g;
   const namedExportPattern = /export\s+\{([\s\S]*?)\}(?!\s+from\s+["'])/g;
 
-  for (const match of source.matchAll(declarationPattern)) {
+  for (const match of scanned.matchAll(declarationPattern)) {
     const [, , , rawKind, name] = match;
     const kind = normalizeSymbolKind(rawKind);
     symbols.push({
@@ -127,7 +258,7 @@ export function parseApiSymbols(source: string, module: string): ApiSymbolDeclar
     });
   }
 
-  for (const match of source.matchAll(namedExportPattern)) {
+  for (const match of scanned.matchAll(namedExportPattern)) {
     for (const part of (match[1] ?? "").split(",")) {
       const parsed = parseNamedSymbol(part);
       if (!parsed) continue;

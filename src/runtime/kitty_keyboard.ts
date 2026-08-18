@@ -14,7 +14,13 @@
 // entire point of the metadata.
 
 /** Kitty progressive-enhancement flag bits. */
-export const KITTY_KEYBOARD_FLAGS = Object.freeze({
+export const KITTY_KEYBOARD_FLAGS: Readonly<{
+  disambiguateEscapeCodes: number;
+  reportEventTypes: number;
+  reportAlternateKeys: number;
+  reportAllKeysAsEscapeCodes: number;
+  reportAssociatedText: number;
+}> = Object.freeze({
   disambiguateEscapeCodes: 1,
   reportEventTypes: 2,
   reportAlternateKeys: 4,

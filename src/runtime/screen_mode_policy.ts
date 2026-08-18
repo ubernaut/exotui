@@ -21,7 +21,7 @@ const ESC = "\x1b";
 export type ScreenMode = "alternate" | "buffered-main" | "split-footer";
 
 /** The documented limit: buffered main-screen is NOT inline mode. */
-export const SCREEN_MODE_LIMITS = Object.freeze({
+export const SCREEN_MODE_LIMITS: Readonly<{ bufferedMain: string; inline: string }> = Object.freeze({
   bufferedMain: "repaints a fixed region of the primary buffer under a saved cursor; " +
     "it does not interleave with shell output flow and must not be called inline mode",
   inline: "a true embedded/inline contract is unspecified; specify it separately " +

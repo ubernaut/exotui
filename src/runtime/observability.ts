@@ -28,9 +28,11 @@ export interface ObservabilityTracer {
 export interface ObservabilityCounter {
   add(value: number, attributes?: ObservabilityAttributes): void;
 }
+/** Records a distribution of values under one metric name. */
 export interface ObservabilityHistogram {
   record(value: number, attributes?: ObservabilityAttributes): void;
 }
+/** Reports the current value of something that goes up and down. */
 export interface ObservabilityGauge {
   set(value: number, attributes?: ObservabilityAttributes): void;
 }

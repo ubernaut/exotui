@@ -32,6 +32,7 @@ export interface CellRect {
   readonly right: number;
 }
 
+/** The attribute set every cell starts from: no bold, underline, reverse, or protection. */
 export const DEFAULT_ATTRIBUTES: CellAttributes = Object.freeze({
   bold: false,
   underline: false,

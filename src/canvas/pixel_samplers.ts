@@ -47,7 +47,7 @@ export interface SampledFrame {
 export type SamplerMode = "density-ramp" | "quadrant";
 
 /** The documented limit statement. */
-export const PIXEL_SAMPLER_LIMITS = Object.freeze({
+export const PIXEL_SAMPLER_LIMITS: Readonly<{ cpu: string }> = Object.freeze({
   cpu: "The CPU sampler converts already-rendered pixels to cells deterministically; " +
     "it is not software 3D rendering — scene rendering still requires the selected Three/WebGPU path.",
 });
@@ -332,7 +332,11 @@ export function captureSampledFrame(frame: SampledFrame): string {
 }
 
 /** Deterministic pixel fixtures for ramps, quadrants, and full blocks. */
-export const SAMPLER_FIXTURES = Object.freeze({
+export const SAMPLER_FIXTURES: Readonly<{
+  gradient(width?: number, height?: number): SamplerPixels;
+  checker(width?: number, height?: number): SamplerPixels;
+  solid(value: number, width?: number, height?: number): SamplerPixels;
+}> = Object.freeze({
   /** A left-to-right brightness gradient (exercises every ramp glyph). */
   gradient(width = 16, height = 4): SamplerPixels {
     const pixels = new Uint8Array(width * height * 4);

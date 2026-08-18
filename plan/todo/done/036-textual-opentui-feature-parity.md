@@ -275,12 +275,11 @@ Acceptance:
 - [x] Add `aspect-ratio`, `box-sizing`, auto margins, percentage padding/margins/gaps, and correct relative-position
       offsets.
 - [x] Add logical start/end edges and direction/RTL only if terminal ordering and hit testing can share one clear model.
-      Condition evaluated and met August 16, 2026 — the shared model is frozen data (LOGICAL_EDGE_MODEL): cells
-      stay VISUAL, logical edge names (`margin/padding/inset-inline-start/end`) resolve to physical edges at
-      computed-value time from the element's FINAL inherited `direction` (declaration order never matters),
-      document/focus order stays source order, hit testing is untouched because computed rects are physical, and
-      RTL flips only the flex row main axis. Bidi text reordering remains explicitly out of scope for cell
-      ordering.
+      Condition evaluated and met August 16, 2026 — the shared model is frozen data (LOGICAL_EDGE_MODEL): cells stay
+      VISUAL, logical edge names (`margin/padding/inset-inline-start/end`) resolve to physical edges at computed-value
+      time from the element's FINAL inherited `direction` (declaration order never matters), document/focus order stays
+      source order, hit testing is untouched because computed rects are physical, and RTL flips only the flex row main
+      axis. Bidi text reordering remains explicitly out of scope for cell ordering.
 - [x] Add parent-axis and viewport-axis units, plus a bounded `calc()` expression model.
 - [x] Implement content-derived minimums and `min-content`, `max-content`, and `fit-content` sizing for text and custom
       measured widgets.
@@ -343,29 +342,28 @@ Acceptance:
 
 ### L2 - Evaluate A Taffy WASM Backend (P0, Medium Spike)
 
-- [x] Identify a maintained WASM distribution or build a minimal pinned bridge from Taffy 0.12.x. Identified
-      August 16, 2026: `npm:taffy-layout@2.0.3` (maintained wasm-bindgen bindings with measurement callbacks and
-      TS types), pinned in deno.jsonc and adapted in `src/layout/solvers/taffy_wasm.ts` — exported as
-      `./layout/taffy-wasm`, trees freed per solve so no Taffy handle survives into public API.
+- [x] Identify a maintained WASM distribution or build a minimal pinned bridge from Taffy 0.12.x. Identified August 16,
+      2026: `npm:taffy-layout@2.0.3` (maintained wasm-bindgen bindings with measurement callbacks and TS types), pinned
+      in deno.jsonc and adapted in `src/layout/solvers/taffy_wasm.ts` — exported as `./layout/taffy-wasm`, trees freed
+      per solve so no Taffy handle survives into public API.
 - [x] Implement an experimental `LayoutSolver` adapter without exposing Taffy handles in public APIs.
 - [x] Prove Deno terminal import, browser import, GitHub Pages bundling, worker execution, disposal, and cache behavior.
-      Proven August 16, 2026: Deno import/worker/disposal/cache are hermetic tests (layout_taffy_wasm.test.ts);
-      browser import via a Pages-style static bundle (deno bundle + wasm asset alongside, served and executed in
-      headless Chromium with correct layout output) is recorded by scripts/probe_taffy_wasm.ts in
-      budgets/taffy_spike.json.
-- [x] Compare simple, Yoga, and Taffy output over the L0 corpus and large nested trees. Compared August 16, 2026:
-      flex grow/basis geometry agrees across all three within one cell; grid fr/cell tracks and spans agree with
-      the simple solver; seeded 341-node benchmark trees produce an identical box census and root geometry; text
-      leaves measure through the shared terminal metrics.
-- [x] Measure cold-load size/time, steady layout time, memory, and cross-boundary overhead. Measured August 16,
-      2026 (budgets/taffy_spike.json): 500 KiB wasm, ~74 ms import+init; steady 341-node solve ~30 ms vs simple's
-      ~13 ms (the JS↔WASM style/handle churn dominates at cell granularity); ~16.7 MiB heap churn over 10 solves
-      (GC-able style objects); flat 200-leaf solve ~8 ms ≈ 40 µs per node round trip.
-- [x] Write an adoption decision: replace Yoga, complement Yoga for Grid/Block, or reject/defer Taffy. Decision
-      updated August 16, 2026 with the real candidate: COMPLEMENT, caller-loaded and optional. The simple solver
-      stays the default (2.3x faster at cell granularity, no wasm cold load, full repo feature set); taffy-wasm is
-      the conformance cross-check and an option for grid-heavy browser hosts; Yoga remains flex-only. Not a
-      replacement while cross-boundary overhead dominates terminal-scale trees.
+      Proven August 16, 2026: Deno import/worker/disposal/cache are hermetic tests (layout_taffy_wasm.test.ts); browser
+      import via a Pages-style static bundle (deno bundle + wasm asset alongside, served and executed in headless
+      Chromium with correct layout output) is recorded by scripts/probe_taffy_wasm.ts in budgets/taffy_spike.json.
+- [x] Compare simple, Yoga, and Taffy output over the L0 corpus and large nested trees. Compared August 16, 2026: flex
+      grow/basis geometry agrees across all three within one cell; grid fr/cell tracks and spans agree with the simple
+      solver; seeded 341-node benchmark trees produce an identical box census and root geometry; text leaves measure
+      through the shared terminal metrics.
+- [x] Measure cold-load size/time, steady layout time, memory, and cross-boundary overhead. Measured August 16, 2026
+      (budgets/taffy_spike.json): 500 KiB wasm, ~74 ms import+init; steady 341-node solve ~30 ms vs simple's ~13 ms (the
+      JS↔WASM style/handle churn dominates at cell granularity); ~16.7 MiB heap churn over 10 solves (GC-able style
+      objects); flat 200-leaf solve ~8 ms ≈ 40 µs per node round trip.
+- [x] Write an adoption decision: replace Yoga, complement Yoga for Grid/Block, or reject/defer Taffy. Decision updated
+      August 16, 2026 with the real candidate: COMPLEMENT, caller-loaded and optional. The simple solver stays the
+      default (2.3x faster at cell granularity, no wasm cold load, full repo feature set); taffy-wasm is the conformance
+      cross-check and an option for grid-heavy browser hosts; Yoga remains flex-only. Not a replacement while
+      cross-boundary overhead dominates terminal-scale trees.
 
 Completed spike July 16, 2026: `./layout/taffy` is an explicitly experimental, caller-loaded 0.12.x bridge protocol with
 strict manifest/result validation, intrinsic-measurement callbacks, deterministic cell projection, lifecycle isolation,
@@ -382,40 +380,40 @@ Acceptance:
 ### L3 - Complete Grid, Block, And Intrinsic Layout (P1, Large)
 
 - [x] Add Grid `minmax()`, `fit-content()`, auto-fill/auto-fit repetition, richer implicit-track sizing, and
-      content-based tracks. Completed August 16, 2026: LayoutLengthValue gained `minmax` (fr minimum refused, as in
-      CSS) and `fit-content(limit)`; `parseGridTemplateTrackList` expands numeric repeats inline and records at most
-      one `repeat(auto-fill|auto-fit, …)` for the solver, which expands it against the real axis size (auto-fit
-      collapses the repeat tracks nothing occupies); `resolveGridTracks` runs deterministic floor → capped-waterfill →
-      fr → auto passes with per-track content bounds measured from span-1 items (columns via width intrinsics, rows
-      via measured height at the resolved column width, computed only when a track needs them); implicit tracks accept
-      every new form through gridAutoColumns/gridAutoRows.
-- [x] Add named Grid lines and make template-area behavior backend-neutral; keep Yoga explicitly Flex-only.
-      Completed August 16, 2026: `[name]` groups collect per line (bracket-aware tokenizer), placements accept
-      named lines plus implicit `<area>-start/-end` and bare-area names; `resolveGridTemplateArea` and
-      `resolveNamedGridPlacement` are exported style-level helpers shared by every solver adapter (the simple
-      solver's private copy was deleted); line names shift correctly past an expanded auto repeat; Yoga's
-      capability matrix keeps grid and both new fields explicitly unsupported.
-- [x] Add dense placement only with deterministic document/focus order and clear accessibility semantics.
-      Completed August 16, 2026: `grid-auto-flow` parses `row|column dense` (bare `dense` implies row); the
-      auto-placement scan now keeps a forward-only sparse cursor by default, and dense searches from zero to
-      backfill holes; placement never reorders children — the layout result stays in source order, which IS the
-      focus order — and the frozen GRID_DENSE_PLACEMENT_SEMANTICS statement declares the contract for hosts.
-- [x] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts.
-      Evaluated August 16, 2026, after L2 landed the real candidate with corpus-level parity evidence:
-      `taffy-layout@2.0.3` does not expose subgrid in its API, so subgrid stays unavailable through the only real
-      backend; it remains deferred until a Taffy distribution ships it, and the no-emulation rule stands — nothing
-      fakes subgrid with parent-coordinate shortcuts.
-- [x] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow.
-      Completed August 16, 2026: adjacent block-sibling vertical margins collapse to the larger of the two (only
-      in gap-less flow — a gap is explicit spacing; no collapse-through or parent-child collapse); replaced/custom
-      widgets declaring one intrinsic axis plus an aspect ratio get the other derived in intrinsic measurement, so
-      max-content widths and grid content tracks see it; explicit cell heights may exceed their container in BLOCK
-      flow only (flex/grid shrink-stretch semantics untouched), and container children with visible overflow spill
-      into the ancestor's scroll extent while clipping children and local text overflow stay contained. Block auto
-      height and auto-margin centering verified under test.
-- [x] Keep floats and full browser table layout out unless a concrete TUI use case justifies them. Decision
-      recorded August 16, 2026 as a tested capability note: evaluated, no concrete TUI use case justifies either,
-      and no emulation path will be added without one.
+      content-based tracks. Completed August 16, 2026: LayoutLengthValue gained `minmax` (fr minimum refused, as in CSS)
+      and `fit-content(limit)`; `parseGridTemplateTrackList` expands numeric repeats inline and records at most one
+      `repeat(auto-fill|auto-fit, …)` for the solver, which expands it against the real axis size (auto-fit collapses
+      the repeat tracks nothing occupies); `resolveGridTracks` runs deterministic floor → capped-waterfill → fr → auto
+      passes with per-track content bounds measured from span-1 items (columns via width intrinsics, rows via measured
+      height at the resolved column width, computed only when a track needs them); implicit tracks accept every new form
+      through gridAutoColumns/gridAutoRows.
+- [x] Add named Grid lines and make template-area behavior backend-neutral; keep Yoga explicitly Flex-only. Completed
+      August 16, 2026: `[name]` groups collect per line (bracket-aware tokenizer), placements accept named lines plus
+      implicit `<area>-start/-end` and bare-area names; `resolveGridTemplateArea` and `resolveNamedGridPlacement` are
+      exported style-level helpers shared by every solver adapter (the simple solver's private copy was deleted); line
+      names shift correctly past an expanded auto repeat; Yoga's capability matrix keeps grid and both new fields
+      explicitly unsupported.
+- [x] Add dense placement only with deterministic document/focus order and clear accessibility semantics. Completed
+      August 16, 2026: `grid-auto-flow` parses `row|column dense` (bare `dense` implies row); the auto-placement scan
+      now keeps a forward-only sparse cursor by default, and dense searches from zero to backfill holes; placement never
+      reorders children — the layout result stays in source order, which IS the focus order — and the frozen
+      GRID_DENSE_PLACEMENT_SEMANTICS statement declares the contract for hosts.
+- [x] Evaluate subgrid after core Taffy parity; do not emulate it with fragile parent-coordinate shortcuts. Evaluated
+      August 16, 2026, after L2 landed the real candidate with corpus-level parity evidence: `taffy-layout@2.0.3` does
+      not expose subgrid in its API, so subgrid stays unavailable through the only real backend; it remains deferred
+      until a Taffy distribution ships it, and the no-emulation rule stands — nothing fakes subgrid with
+      parent-coordinate shortcuts.
+- [x] Improve Block auto sizing, margin behavior, replaced/custom widget measurement, and nested overflow. Completed
+      August 16, 2026: adjacent block-sibling vertical margins collapse to the larger of the two (only in gap-less flow
+      — a gap is explicit spacing; no collapse-through or parent-child collapse); replaced/custom widgets declaring one
+      intrinsic axis plus an aspect ratio get the other derived in intrinsic measurement, so max-content widths and grid
+      content tracks see it; explicit cell heights may exceed their container in BLOCK flow only (flex/grid
+      shrink-stretch semantics untouched), and container children with visible overflow spill into the ancestor's scroll
+      extent while clipping children and local text overflow stay contained. Block auto height and auto-margin centering
+      verified under test.
+- [x] Keep floats and full browser table layout out unless a concrete TUI use case justifies them. Decision recorded
+      August 16, 2026 as a tested capability note: evaluated, no concrete TUI use case justifies either, and no
+      emulation path will be added without one.
 
 Acceptance:
 
@@ -601,41 +599,41 @@ Acceptance:
       call OpenTUI-style main-screen rendering true inline mode; specify a separate embedded/inline contract only if a
       concrete host use case requires it. Completed August 16, 2026: `screen_mode_policy.ts` — every mode answers the
       same three questions (enter, exit, paintRect); buffered-main opens a primary-buffer region under a saved cursor
-      without 1049 and wipes it on exit; split-footer restricts the scroll region so shell output scrolls above a
-      stable footer; the frozen SCREEN_MODE_LIMITS statement says buffered-main must not be called inline mode and an
-      inline contract stays unspecified until a host needs one.
+      without 1049 and wipes it on exit; split-footer restricts the scroll region so shell output scrolls above a stable
+      footer; the frozen SCREEN_MODE_LIMITS statement says buffered-main must not be called inline mode and an inline
+      contract stays unspecified until a host needs one.
 - [x] Add styled scrollback snapshots and reusable streaming off-screen surfaces for Markdown, code, and process output.
-      Completed August 16, 2026: `offscreen_surface.ts` — bounded styled-line surface whose snapshots freeze the
-      history WITH the count of lines the bound already dropped (never silently complete); streaming writers for
-      Markdown (headings/bullets/inline code/emphasis), code (pluggable Highlighter scopes), and process output
-      (SGR color/bold tracked, other escapes dropped), all chunk-boundary safe; live screens already expose
-      color-preserving styled scrollback via scrollbackCellRows, now under test.
+      Completed August 16, 2026: `offscreen_surface.ts` — bounded styled-line surface whose snapshots freeze the history
+      WITH the count of lines the bound already dropped (never silently complete); streaming writers for Markdown
+      (headings/bullets/inline code/emphasis), code (pluggable Highlighter scopes), and process output (SGR color/bold
+      tracked, other escapes dropped), all chunk-boundary safe; live screens already expose color-preserving styled
+      scrollback via scrollbackCellRows, now under test.
 - [x] Complete structured Kitty keyboard press/repeat/release and base-layout metadata while keeping legacy input paths.
-      Completed August 16, 2026: `kitty_keyboard.ts` — explicit flag bits with push/pop enter/exit (nested apps
-      restore the outer set), full CSI-u parse (key:shifted:base-layout, modifier bits, press/repeat/release event
-      types, associated text), kittyShortcutKey matching on the PHYSICAL base-layout key, and a stream decoder that
-      passes every non-kitty byte through unchanged — the legacy input path is untouched by construction.
+      Completed August 16, 2026: `kitty_keyboard.ts` — explicit flag bits with push/pop enter/exit (nested apps restore
+      the outer set), full CSI-u parse (key:shifted:base-layout, modifier bits, press/repeat/release event types,
+      associated text), kittyShortcutKey matching on the PHYSICAL base-layout key, and a stream decoder that passes
+      every non-kitty byte through unchanged — the legacy input path is untouched by construction.
 - [x] Add terminal theme/palette detection, title/background control, OSC 52 clipboard, desktop notifications, raw OSC
       subscriptions, and capability diagnostics with conservative fallbacks.
 - [x] Audit Unicode-width mode, truecolor/ANSI-256 depth, synchronized updates, hyperlinks, focus and bracketed-paste
       support, Kitty/Sixel protocol support, and terminal/multiplexer identity. Keep capability detection distinct from
-      actually shipping a renderer for a detected graphics protocol. Audited August 16, 2026: depth, hyperlinks,
-      focus, and bracketed paste were already detected; the gaps — mode-2027 width, DEC 2026 synchronized updates,
-      Kitty graphics, Sixel, and zellij identity — are now conservative allow-list detections that fail closed, and
-      the graphics entries carry "detection only — no renderer is implied or shipped" in their labeled metadata,
-      asserted under test.
+      actually shipping a renderer for a detected graphics protocol. Audited August 16, 2026: depth, hyperlinks, focus,
+      and bracketed paste were already detected; the gaps — mode-2027 width, DEC 2026 synchronized updates, Kitty
+      graphics, Sixel, and zellij identity — are now conservative allow-list detections that fail closed, and the
+      graphics entries carry "detection only — no renderer is implied or shipped" in their labeled metadata, asserted
+      under test.
 - [x] Add renderer idle/live-request accounting, frame statistics, scheduler diagnostics, and a reusable debug/console
-      overlay rather than demo-local instrumentation. Completed August 16, 2026: `render_accounting.ts` — live
-      requests name their reason and stay pending until a painted frame consumes them, idle wakes that paint
-      nothing count as skipped, frame timings roll on the caller's clock; SchedulerDiagnostics pulls queue
-      depth/running from registered providers; renderDebugOverlay assembles accounting, queues, DiagnosticsHub
-      data, and a console tail into width-clipped text rows any host paints.
-- [x] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions. Audited
-      August 16, 2026 and recorded as enforceable data in `stream_ownership.ts`: per transport, who creates,
-      reads, writes, and closes the stream, whether it is merely borrowed, and the teardown order —
-      isStreamActionAllowed is deny-by-default (an unlisted actor/action refuses), the borrowed transports (ssh,
-      xterm.js) are closed only by their real owners, and the PTY contract is asserted against
-      ProcessSessionController's actual stop/dispose/writeInput surface.
+      overlay rather than demo-local instrumentation. Completed August 16, 2026: `render_accounting.ts` — live requests
+      name their reason and stay pending until a painted frame consumes them, idle wakes that paint nothing count as
+      skipped, frame timings roll on the caller's clock; SchedulerDiagnostics pulls queue depth/running from registered
+      providers; renderDebugOverlay assembles accounting, queues, DiagnosticsHub data, and a console tail into
+      width-clipped text rows any host paints.
+- [x] Audit custom stream ownership for PTY, SSH, WebSocket, xterm.js, and browser remote sessions. Audited August 16,
+      2026 and recorded as enforceable data in `stream_ownership.ts`: per transport, who creates, reads, writes, and
+      closes the stream, whether it is merely borrowed, and the teardown order — isStreamActionAllowed is
+      deny-by-default (an unlisted actor/action refuses), the borrowed transports (ssh, xterm.js) are closed only by
+      their real owners, and the PTY contract is asserted against ProcessSessionController's actual
+      stop/dispose/writeInput surface.
 
 Completed slice July 16, 2026: renderer-neutral OSC services now sanitize control injection, default every side effect
 to disabled, bound clipboard/text/pending input, parse chunked color replies, isolate subscriber failures, expose
@@ -652,27 +650,27 @@ Acceptance:
 - [x] Add a dual-foreground/background 2x2 quadrant sampler as a separate mode from the repaired density-ramp glyph
       renderer. Completed August 16, 2026: `pixel_samplers.ts` — the quadrant mode partitions each cell's block by
       luminance, picks the corner glyph from the sixteen quadrant chars, and carries BOTH colors (lit partition
-      foreground, rest background); the density ramp is a peer mode under the same grid contract, unchanged and
-      still selectable.
+      foreground, rest background); the density ramp is a peer mode under the same grid contract, unchanged and still
+      selectable.
 - [x] Compare the standard sampler with OpenTUI's GPU-only horizontally pre-squeezed technique for terminal cell aspect
-      ratios; treat a matching CPU pre-squeezed path as a repo extension. Completed August 16, 2026:
-      `preSqueezePixels` is the CPU counterpart shipped as an extension the standard path never applies;
-      `compareSqueezeSamplers` runs both under the shared contract and reports the mean color error between them.
+      ratios; treat a matching CPU pre-squeezed path as a repo extension. Completed August 16, 2026: `preSqueezePixels`
+      is the CPU counterpart shipped as an extension the standard path never applies; `compareSqueezeSamplers` runs both
+      under the shared contract and reports the mean color error between them.
 - [x] Preserve and centralize perspective-camera cell-aspect correction; evaluate orthographic-camera correction as a
-      separate repo extension with explicit projection tests. Completed August 16, 2026: `perspectiveCellAspect` is
-      THE shared correction (cells ~2x taller than wide; square cells opt out via the ratio argument);
-      `orthographicCellFrustum` is the separate extension whose projection tests assert a unit square stays square
-      on the cell grid.
+      separate repo extension with explicit projection tests. Completed August 16, 2026: `perspectiveCellAspect` is THE
+      shared correction (cells ~2x taller than wide; square cells opt out via the ratio argument);
+      `orthographicCellFrustum` is the separate extension whose projection tests assert a unit square stays square on
+      the cell grid.
 - [x] Provide GPU and deterministic CPU pixel-to-cell sampling with the same grid contract and explicit fallback reason.
       Do not describe the CPU sampler as software 3D rendering: scene rendering still requires the selected Three/WebGPU
       path. Completed August 16, 2026: the SamplerBackend seam pairs the deterministic CPU implementation with an
       optional GPU one under the identical contract; choosing CPU always names the explicit fallback reason, and the
-      frozen PIXEL_SAMPLER_LIMITS statement says the CPU sampler converts already-rendered pixels — it is not
-      software 3D rendering.
+      frozen PIXEL_SAMPLER_LIMITS statement says the CPU sampler converts already-rendered pixels — it is not software
+      3D rendering.
 - [x] Add frame/image capture, sampler statistics, color-error metrics, and fixtures for ramps, quadrant glyphs, and
       full blocks. Completed August 16, 2026: captureSampledFrame round-trips frames, samplerStatistics reports
-      lit/distinct tallies, samplerColorError is the mean per-channel metric, and SAMPLER_FIXTURES (gradient,
-      checker, solid) deterministically exercise ramps, quadrant corners, and full blocks under test. G1 complete.
+      lit/distinct tallies, samplerColorError is the mean per-channel metric, and SAMPLER_FIXTURES (gradient, checker,
+      solid) deterministically exercise ramps, quadrant corners, and full blocks under test. G1 complete.
 
 Acceptance:
 
@@ -686,27 +684,27 @@ Acceptance:
       new abstraction; close only concrete gaps in bidirectional scrolling, sticky-edge behavior, viewport culling,
       configurable acceleration, `scrollChildIntoView`, scrollbar integration, nested input routing, and large-content
       behavior. Audited August 16, 2026: bidirectional scrolling, clamping, and scrollbar thumb/glyph/pointer
-      integration already existed; `scroll_box_parity.ts` closes exactly the gaps — StickyEdgeScroll (pinned-edge
-      follow that a user scroll unpins), cullToViewport, WheelAcceleration (caller clock), scrollChildIntoView with
-      margins, and routeNestedScroll (inner consumes to its edge, leftover chains unless contained).
+      integration already existed; `scroll_box_parity.ts` closes exactly the gaps — StickyEdgeScroll (pinned-edge follow
+      that a user scroll unpins), cullToViewport, WheelAcceleration (caller clock), scrollChildIntoView with margins,
+      and routeNestedScroll (inner consumes to its edge, leftover chains unless contained).
 - [x] Add a worker-backed Tree-sitter service and reusable code view with streaming highlighting, selection,
-      concealment, diagnostics, and horizontal/vertical scrolling. Completed August 16, 2026: `syntax_service.ts` is
-      the worker seam — open/edit/highlight-range requests over any postMessage-style port, responses streamed in
-      bounded batches tagged with the source version so clients drop stale batches; the worker host runs a pluggable
-      highlighter (Tree-sitter grammar in production, deterministic pattern highlighter in tests). `code_view.ts`
-      consumes the stream incrementally, owns anchor/focus selection, applies concealment through an explicit
-      source→display column map (spans and selection land on the right display cells), ranks diagnostics into gutter
-      signs, and culls rendering to the scrolled window on both axes.
+      concealment, diagnostics, and horizontal/vertical scrolling. Completed August 16, 2026: `syntax_service.ts` is the
+      worker seam — open/edit/highlight-range requests over any postMessage-style port, responses streamed in bounded
+      batches tagged with the source version so clients drop stale batches; the worker host runs a pluggable highlighter
+      (Tree-sitter grammar in production, deterministic pattern highlighter in tests). `code_view.ts` consumes the
+      stream incrementally, owns anchor/focus selection, applies concealment through an explicit source→display column
+      map (spans and selection land on the right display cells), ranks diagnostics into gutter signs, and culls
+      rendering to the scrolled window on both axes.
 - [x] Build line-number/sign gutters and unified/split diff views with synchronized scrolling on that code-view core.
-      Completed August 16, 2026: `diff_view.ts` — LCS line diff, right-aligned number gutters with +/-/space markers
-      and ranked sign glyphs, UnifiedDiffController (one code view plus an aligned gutter), SplitDiffController
-      (aligned sides with filler rows; one offset drives both panes; code-view highlighting flows through).
+      Completed August 16, 2026: `diff_view.ts` — LCS line diff, right-aligned number gutters with +/-/space markers and
+      ranked sign glyphs, UnifiedDiffController (one code view plus an aligned gutter), SplitDiffController (aligned
+      sides with filler rows; one offset drives both panes; code-view highlighting flows through).
 - [x] Extend `TextBox` into a full text-area surface with selection-edge auto-scroll, soft/character/no-wrap modes,
-      configurable editing aliases, and optional syntax highlighting. Completed August 16, 2026: `text_area.ts`
-      composes TextBoxController with a viewport — soft wrap reuses the grapheme-safe word wrapper, character wrap
-      breaks at width, no-wrap scrolls horizontally; extendSelectionTo auto-scrolls the minimal distance on both
-      axes to keep the selection edge visible; hosts bind alias verbs onto canonical editing actions (unknown verbs
-      refuse); versioned HighlightSpans segment visual rows, and edits invalidate them until re-streamed.
+      configurable editing aliases, and optional syntax highlighting. Completed August 16, 2026: `text_area.ts` composes
+      TextBoxController with a viewport — soft wrap reuses the grapheme-safe word wrapper, character wrap breaks at
+      width, no-wrap scrolls horizontally; extendSelectionTo auto-scrolls the minimal distance on both axes to keep the
+      selection edge visible; hosts bind alias verbs onto canonical editing actions (unknown verbs refuse); versioned
+      HighlightSpans segment visual rows, and edits invalidate them until re-streamed.
 - [x] Deliver the bounded editor v2 foundation: visible grapheme-safe directional ranges, Shift/Ctrl-A selection,
       selection-aware atomic edits/paste, cell-width-aware Unicode projection, and failure-atomic bounded literal
       current-document find/replace with focused terminal tests.
@@ -750,9 +748,9 @@ isolates conversion/render/disposal failures, preserves unrelated registrations 
 layout controllers or ownership to plugins.
 
 Completed the JSX evaluation Aug 16, 2026 — K1 is fully complete. Verdict: a Deno-native JSX layer is viable and small,
-and no external framework is needed. Evidence: `src/markup/jsx.ts` (~190 lines) supplies the automatic-runtime
-factories (`jsx`/`jsxs`/`Fragment` — the exact shape Deno's built-in `react-jsx` transform targets, so a TSX file needs
-only a per-file `@jsxImportSource` pragma) plus a classic `h` factory for plain TypeScript, producing frozen data-only
+and no external framework is needed. Evidence: `src/markup/jsx.ts` (~190 lines) supplies the automatic-runtime factories
+(`jsx`/`jsxs`/`Fragment` — the exact shape Deno's built-in `react-jsx` transform targets, so a TSX file needs only a
+per-file `@jsxImportSource` pragma) plus a classic `h` factory for plain TypeScript, producing frozen data-only
 elements; `JsxReconciler` maps element trees onto the stable `LiveMarkupTree` with minimal mutations — keyed matching
 moves existing nodes instead of remounting, attribute/class/text diffs go through the D1 mutation journal, and
 departures are removed. Re-render of an unchanged structure produces zero mount mutations (`tests/markup_jsx.test.ts`).
@@ -790,8 +788,8 @@ Completed the pilot-extension checkbox Aug 16, 2026: `TerminalAppPilot` gained `
 (inspection-backed ID and selector lookup with a known-targets error), `clickTarget`/`hoverTarget` center clicks,
 `hover` (motion-without-press reaching drag handlers), `drag` (press-move-release with interpolated steps and capture
 routing verified outside target bounds), `capturedTarget()`, `doubleClick`/`tripleClick`, `waitFrames`, and
-`waitForText`/`waitForTextGone` tooltip/notification helpers. Modifiers pass through every pointer helper.
-Covered in `tests/testing_app_pilot.test.ts`.
+`waitForText`/`waitForTextGone` tooltip/notification helpers. Modifiers pass through every pointer helper. Covered in
+`tests/testing_app_pilot.test.ts`.
 
 Completed the scene-capture checkbox Aug 16, 2026: `src/testing/scene.ts` adds `captureStyledSpans` (frame-buffer runs
 of identically SGR-styled cells with plain text and the shared style prefix), `captureLayoutTree` (the parent-edge
@@ -803,8 +801,8 @@ Completed the diff-report/matrix checkbox Aug 16, 2026 — T1 is fully complete:
 captures as styled HTML panes and standalone SVG frames (`sgrToCss` covers the 16-color palette, bright variants,
 truecolor, 256-color, bold/italic/underline/strike/invert; unknown codes are retained in `data-sgr`), and
 `renderSceneDiffReport` emits a complete reviewable HTML document with before/after panes, changed-line outlines, and a
-mismatch table — never only a checksum. `src/testing/matrix.ts` `runPilotMatrix` drives fresh apps across terminal
-sizes × labeled key sequences (modifiers preserved) and returns reproducible labeled captures per cell
+mismatch table — never only a checksum. `src/testing/matrix.ts` `runPilotMatrix` drives fresh apps across terminal sizes
+× labeled key sequences (modifiers preserved) and returns reproducible labeled captures per cell
 (`tests/testing_visual_report.test.ts`).
 
 ### T2 - Devtools And Performance (P2, Medium)
@@ -816,22 +814,22 @@ sizes × labeled key sequences (modifiers preserved) and returns reproducible la
       KeyDiagnosticsController pairing raw sequences with their decoding and flagging unhandled ones, and
       HotReloadErrorSurface that holds the latest failure until a successful reload clears it.
 - [x] Surface dirty/invalidation reasons, selected solver capabilities, frame timing, cell-diff size, cache behavior,
-      task ownership, and leaked-resource warnings without requiring demo-local instrumentation. Completed
-      August 16, 2026: `diagnostics_hub.ts` — bounded invalidation journal with reasons, caller-clock frame and
-      cell-diff rolling stats, pull-based cache and task-ownership providers, solver capability tallies, and
-      threshold-based leak warnings naming the owner; snapshot() assembles the typed report any host renders.
+      task ownership, and leaked-resource warnings without requiring demo-local instrumentation. Completed August 16,
+      2026: `diagnostics_hub.ts` — bounded invalidation journal with reasons, caller-clock frame and cell-diff rolling
+      stats, pull-based cache and task-ownership providers, solver capability tallies, and threshold-based leak warnings
+      naming the owner; snapshot() assembles the typed report any host renders.
 - [x] Add repeatable large-tree/layout/render benchmarks with cold/warm separation and checked-in comparison reports.
-      Completed August 16, 2026: seed-deterministic trees (mulberry32), cold solve on a fresh intrinsic cache vs
-      warm re-solves on the primed one, caller-owned clock (tests drive a fake clock exactly);
-      `budgets/layout_benchmarks.json` is the checked-in comparison report — deterministic node/box/cache fields
-      are CI-gated against a live run, indicative timings are environment-labeled and never asserted;
+      Completed August 16, 2026: seed-deterministic trees (mulberry32), cold solve on a fresh intrinsic cache vs warm
+      re-solves on the primed one, caller-owned clock (tests drive a fake clock exactly);
+      `budgets/layout_benchmarks.json` is the checked-in comparison report — deterministic node/box/cache fields are
+      CI-gated against a live run, indicative timings are environment-labeled and never asserted;
       `scripts/run_layout_benchmarks.ts` regenerates it.
-- [x] Define performance budgets only after collecting representative terminal, browser, and worker baselines.
-      Completed August 16, 2026: `scripts/collect_perf_baselines.ts` runs the suite on all three hosts — this
-      process (terminal), a Deno Worker, and headless Chromium via a bundled page — asserts the deterministic
-      fields agree across hosts, records `budgets/perf_baselines.json`, and derives `budgets/perf_budgets.json`
-      (slowest host's warm timing with 3x headroom per case). The CI gate checks structure, cross-host
-      determinism, and budget consistency; live timings never gate.
+- [x] Define performance budgets only after collecting representative terminal, browser, and worker baselines. Completed
+      August 16, 2026: `scripts/collect_perf_baselines.ts` runs the suite on all three hosts — this process (terminal),
+      a Deno Worker, and headless Chromium via a bundled page — asserts the deterministic fields agree across hosts,
+      records `budgets/perf_baselines.json`, and derives `budgets/perf_budgets.json` (slowest host's warm timing with 3x
+      headroom per case). The CI gate checks structure, cross-host determinism, and budget consistency; live timings
+      never gate.
 
 Acceptance:
 
@@ -849,8 +847,8 @@ Acceptance:
       transitions.
 - [x] Treat this as an explicit repo extension: Textual supplies useful keyboard/focus patterns but does not establish
       screen-reader, high-contrast, or color-blind feature parity for this project. (Affirmed Aug 16, 2026: T3 is repo
-      accessibility work in its own right — `TERMINAL_EXPOSABLE_SEMANTICS` states the terminal limits canonically and
-      no doc may claim screen-reader parity beyond it.)
+      accessibility work in its own right — `TERMINAL_EXPOSABLE_SEMANTICS` states the terminal limits canonically and no
+      doc may claim screen-reader parity beyond it.)
 
 Acceptance:
 
@@ -860,8 +858,8 @@ Acceptance:
 
 Completed T3 Aug 16, 2026: `AccessibilityNode` + ARIA serialization with the honest terminal projection and the
 canonical `TERMINAL_EXPOSABLE_SEMANTICS` limits statement; contrast-gated high-contrast (7:1) and Okabe-Ito
-color-blind-safe (4.5:1) palettes; roles/labels for ten workbench control surfaces; the workbench reduced-motion set;
-a pointer-free keyboard acceptance run; and `FOCUS_TRANSITION_SPEC` covering all eleven transitions with machine-usable
+color-blind-safe (4.5:1) palettes; roles/labels for ten workbench control surfaces; the workbench reduced-motion set; a
+pointer-free keyboard acceptance run; and `FOCUS_TRANSITION_SPEC` covering all eleven transitions with machine-usable
 focus rules and fail-closed announcement templates. T3 milestone complete — unblocks 037 WID-006 and QAL-004.
 
 ## Recommended Sequence
