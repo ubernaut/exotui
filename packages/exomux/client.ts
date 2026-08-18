@@ -27,7 +27,14 @@ const DESCRIPTOR_SCHEMA_VERSION = 1 as const;
 const DEFAULT_CONNECT_TIMEOUT_MS = 6_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 const STARTUP_POLL_MS = 40;
-const STARTUP_LOCK_STALE_MS = 30_000;
+/**
+ * How long a `host.json.lock` is honoured before it is treated as abandoned.
+ * A launching client holds one while it starts a daemon, so anything that
+ * reasons about "this session has no descriptor" must respect the same window
+ * or it will judge a session that is coming up as one that has gone away.
+ */
+export const EXOMUX_STARTUP_LOCK_STALE_MS = 30_000;
+const STARTUP_LOCK_STALE_MS = EXOMUX_STARTUP_LOCK_STALE_MS;
 // One maximum-sized output frame is about 87.5 KiB after base64/JSON encoding.
 // Sixteen frames leave useful headroom beneath legacy hosts' 2 MiB outbound cap.
 const MAX_ATTACH_REPLAY_FRAMES = 16;

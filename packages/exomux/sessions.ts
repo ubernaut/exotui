@@ -4,6 +4,7 @@ import {
   connectExomuxWebSocket,
   defaultExomuxStateDirectory,
   ensurePrivateExomuxStateDirectory,
+  EXOMUX_STARTUP_LOCK_STALE_MS,
   ExomuxClientError,
   type ExomuxLocalHostDescriptor,
   type ExomuxProcessProbe,
@@ -138,18 +139,71 @@ export async function discoverExomuxSessions(stateRoot: string): Promise<readonl
 }
 
 /**
- * Discovers sessions and asks each recorded host for its terminal inventory.
- * A session whose host is gone — dead pid, or a recycled pid that is no longer
- * an Exomux daemon — has its descriptor pruned and reports as `stopped`, the
- * same judgement the launcher would make; a host that looks alive but never
- * answers reports as `unresponsive` without blocking the listing.
+ * Discovers sessions, asks each recorded host for its terminal inventory, and
+ * reconciles what it finds: a session whose host is gone — dead pid, or a
+ * recycled pid that is no longer an Exomux daemon — is terminated, so its
+ * leftovers are swept and it is NOT returned. A host that looks alive but
+ * never answers is `unresponsive` and stays listed, because its terminals may
+ * still be there; only a session that no longer exists disappears.
+ *
+ * Sweeping here rather than in a separate pass is what makes a terminated
+ * session actually go away: every listing, the launcher's name allocation, and
+ * the desktop's own sessions panel all read through this one function, so a
+ * dead session stops being shown and stops holding its number in the same
+ * moment it is noticed.
  */
 export async function probeExomuxSessions(
   options: ProbeExomuxSessionsOptions = {},
 ): Promise<readonly ExomuxSessionProbe[]> {
   const stateRoot = options.stateRoot ?? defaultExomuxStateDirectory();
   const discovered = await discoverExomuxSessions(stateRoot);
-  return await Promise.all(discovered.map((paths) => probeExomuxSession(paths, options)));
+  const probes = await Promise.all(discovered.map((paths) => probeExomuxSession(paths, options)));
+  const live: ExomuxSessionProbe[] = [];
+  for (const probe of probes) {
+    if (probe.state !== "stopped") {
+      live.push(probe);
+      continue;
+    }
+    await reclaimStoppedExomuxSession(probe, stateRoot, options.now ?? Date.now);
+  }
+  return live;
+}
+
+/**
+ * Frees a terminated session's name by removing what it left behind, so the
+ * next `-n` launch can take the number back.
+ *
+ * Two sessions are deliberately spared. The default session's directory IS the
+ * state root — it holds every other session — and a bare launch resumes it, so
+ * its saved desktop survives a cold start exactly as it always has; only the
+ * dead descriptor is pruned, which {@linkcode probeExomuxSession} already did.
+ * A session with a fresh startup lock is not terminated at all: a client is
+ * starting its daemon right now and the descriptor simply does not exist yet.
+ */
+async function reclaimStoppedExomuxSession(
+  paths: ExomuxSessionPaths,
+  stateRoot: string,
+  now: () => number,
+): Promise<void> {
+  if (paths.stateDirectory === stateRoot) return;
+  if (await exomuxSessionIsLaunching(paths.descriptorPath, now)) return;
+  await Deno.remove(paths.stateDirectory, { recursive: true }).catch(() => undefined);
+}
+
+/** True while a client holds this session's startup lock and has not gone stale. */
+async function exomuxSessionIsLaunching(descriptorPath: string, now: () => number): Promise<boolean> {
+  try {
+    const info = await Deno.lstat(`${descriptorPath}.lock`);
+    if (!info.isFile || info.isSymlink) return false;
+    const modified = info.mtime?.getTime();
+    // An unreadable timestamp is treated as a live launch: refusing to sweep
+    // costs a stale directory, sweeping too eagerly costs someone's session.
+    if (modified === undefined) return true;
+    return now() - modified <= EXOMUX_STARTUP_LOCK_STALE_MS;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
 }
 
 async function probeExomuxSession(

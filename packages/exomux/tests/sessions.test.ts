@@ -66,7 +66,7 @@ Deno.test("Exomux launcher parses tmux-like session selection flags", () => {
   );
 });
 
-Deno.test("Exomux session discovery and probing classify live, pruned, and stopped sessions", async () => {
+Deno.test("Exomux probing keeps live sessions and sweeps the terminated ones", async () => {
   const stateRoot = await Deno.makeTempDir({ prefix: "exomux-sessions-" });
   await Deno.chmod(stateRoot, 0o700);
   const authToken = createExomuxAuthToken();
@@ -107,13 +107,21 @@ Deno.test("Exomux session discovery and probing classify live, pruned, and stopp
       processProbe: () => "foreign",
     });
     const byName = new Map(probes.map((probe) => [probe.name, probe]));
-    assertEquals(byName.get("main")?.state, "stopped");
+    // A terminated session is not a session: it is gone from the listing, so
+    // nothing shows it as "stopped" and nothing holds its name.
+    assertEquals(probes.map((probe) => probe.name), ["alpha"]);
     assertEquals(byName.get("alpha")?.state, "attachable");
     assertEquals(byName.get("alpha")?.terminals, []);
     assert((byName.get("alpha")?.upMs ?? 0) >= 5_000);
-    assertEquals(byName.get("beta")?.state, "stopped");
-    // Probing prunes the dead descriptor exactly as launching would.
-    assertEquals(await readExomuxHostDescriptor(beta.descriptorPath), undefined);
+    assertEquals(byName.get("beta")?.state, undefined);
+    // Probing prunes the dead descriptor exactly as launching would, and takes
+    // the rest of the dead session's directory with it so the name is free.
+    assertEquals(await readExomuxHostDescriptor(beta.descriptorPath).catch(() => undefined), undefined);
+    assertEquals(await directoryExists(beta.stateDirectory), false);
+    // The default session is the exception: its directory is the state root,
+    // and a bare launch resumes the desktop it saved there.
+    assertEquals(await Deno.readTextFile(`${stateRoot}/layout.json`), "{}");
+    assertEquals(await directoryExists(alpha.stateDirectory), true);
   } finally {
     await server?.shutdown();
     await Deno.remove(stateRoot, { recursive: true }).catch(() => undefined);
@@ -243,8 +251,10 @@ Deno.test("Exomux probing a recycled-pid session reports stopped instead of fail
       timeoutMs: 500,
       ...(Deno.build.os === "linux" ? {} : { processProbe: () => "foreign" as const }),
     });
-    assertEquals(probes.map((probe) => [probe.name, probe.state]), [["crashed", "stopped"]]);
-    assertEquals(await readExomuxHostDescriptor(crashed.descriptorPath), undefined);
+    assertEquals(probes, [], "a recycled pid means the session is gone, not that it is listed as stopped");
+    assertEquals(await directoryExists(crashed.stateDirectory), false);
+    // And the name it held is available again.
+    assertEquals(generateExomuxSessionName(probes.map((probe) => probe.name)), "1");
   } finally {
     await Deno.remove(stateRoot, { recursive: true }).catch(() => undefined);
   }
@@ -267,3 +277,12 @@ Deno.test("Exomux descriptor relocation is confined to the same state root", () 
   assert(!isExomuxDescriptorRelocation(main, `${root}/../evil/host.json`));
   assert(!isExomuxDescriptorRelocation(main, `${root}/sessions/work/notdescriptor`));
 });
+
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.lstat(path)).isDirectory;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
