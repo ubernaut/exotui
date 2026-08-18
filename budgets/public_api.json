@@ -1645,6 +1645,7 @@
     "stackedRowHitRegions",
     "stackedRowIndexAt",
     "standardThemeComponentNames",
+    "stateHoldsInput",
     "stepForIndex",
     "stepTime",
     "stepperCommands",

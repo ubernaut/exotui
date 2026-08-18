@@ -66,6 +66,14 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**A checked-in artifact no gate can see is stale (Aug 18).** Slice A of `044` changed `src/focus.ts`, which is in the
+Pages bundle, and merged without regenerating `docs/assets/api-workbench.js`. Nothing failed. `deno task health` runs
+`web-pages-build` at step 11, which _rewrites_ the bundle, and `e2e` measures it at step 28 — so the gate always grades
+a copy it just built, and a stale committed one is invisible to it. The only trace is a dirty worktree after a health
+run, which is easy to miss because health legitimately touches generated files. Caught here only by reading `git status`
+after switching branches. _Rule: a gate that regenerates its input before measuring it is testing the build, not the
+repository. Regenerate and commit generated artifacts in the slice that changes their sources._
+
 **The focus authority 044 asked for already existed (Aug 18).** The task file's design sketch opened with "a focus
 authority — one owner per application", written before anyone looked. `src/focus.ts` has had `FocusManager`,
 `FocusScope`, `bindFocusNavigation` and `bindModalFocus` for a long time, with `src/app/focus_commands.ts` wiring it to

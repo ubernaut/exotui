@@ -1,6 +1,6 @@
 # Focus as a first-class concept
 
-Status: in progress August 18 2026 — slices A and B landed.
+Status: in progress August 18 2026 — slices A, B and C (List) landed.
 
 User direction (Aug 18 2026): "I think we also need a exotui grounded feature for what element has the current focus.
 currently we conflate selected items with items that have focus."
@@ -63,6 +63,8 @@ are unchanged), the component call sites that still take a bare `selected: boole
       element. It lives at `src/focus.ts`, not `src/app` — see the design sketch.
 - [x] A resolved paint state that tells `selected` from `selected-unfocused`, and `FocusManager.isFocused` to decide it.
 - [ ] Components resolve `focused` / `selected` / `selected-unfocused` from it rather than from an ad-hoc boolean.
+      `List` does, with `selectedUnfocusedStyle` and a third argument on `rowStyle`/`markerFor`. `Tree`, `ContextMenu`
+      and `VirtualList` still take a bare boolean.
 - [x] A token for the unfocused selection, editable in the theme editor, falling back so existing themes are unchanged.
       Two of them: the background and the text read against it, because the vocabulary's rule is that every foreground
       names its ground.
@@ -76,5 +78,9 @@ are unchanged), the component call sites that still take a bare `selected: boole
 - **B — the token.** Done Aug 18. `control:background-selected-unfocused` falling back to `chrome:muted`, plus
   `control:foreground-selected-unfocused` read against it. Both reach the editor through `themeEditorGroups`, which
   enumerates the registry, so no editor change was needed.
-- **C — the call sites.** `ListRowStyle` and its siblings take the resolved state instead of `selected: boolean`.
+- **C — the List call site.** Done Aug 18. The paint state is an _additional_ argument rather than a replacement, and
+  `selectedUnfocusedStyle` is optional, so a caller that never asked for the distinction paints exactly as before — both
+  pinned. The pure `visibleListRowsInto` renders as though focused and says so, because it has no component and
+  therefore no focus to consult; a parameter for it can be added when something actually needs one.
+- **C2 — the remaining call sites.** `Tree`, `ContextMenu`, `VirtualList`. Same additive shape as `List`.
 - **D — exomux.** The first consumer, with the two-list mounted test.
