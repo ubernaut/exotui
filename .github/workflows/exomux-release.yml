@@ -1,0 +1,73 @@
+name: exomux binaries
+
+# Tagging a release builds exomux for each platform and attaches the binaries to
+# that release, so someone can run the multiplexer without installing Deno.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and attach binaries to
+        required: true
+
+jobs:
+  # One job creates the release before three build jobs upload into it;
+  # otherwise the matrix races to create the same release three times.
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Ensure a release exists for the tag
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" --notes "See CHANGELOG.md for what is in this release."
+          fi
+
+  build:
+    needs: release
+    strategy:
+      # One platform failing should not withhold the others: a macOS toolchain
+      # problem must not cost Linux users their binary.
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            asset: exomux-linux-x86_64
+          - runner: macos-latest
+            asset: exomux-macos-aarch64
+          - runner: macos-13
+            asset: exomux-macos-x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # Built natively on each runner rather than cross-compiled: exomux loads a
+      # PTY backend over FFI (@sigma/pty-ffi), and a binary built for a platform
+      # the builder is not running cannot be smoke-tested here.
+      - name: Compile
+        working-directory: packages/exomux
+        run: deno compile -A --unstable-webgpu --output ${{ matrix.asset }} ./main.ts
+      # A binary that does not start is worse than no binary, and --help exercises
+      # startup without needing a terminal, a PTY or a daemon.
+      - name: Smoke-test the binary
+        working-directory: packages/exomux
+        run: ./${{ matrix.asset }} --help
+      - name: Attach to the release
+        working-directory: packages/exomux
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" "${{ matrix.asset }}" --clobber --repo "$GITHUB_REPOSITORY"
+    permissions:
+      contents: write
