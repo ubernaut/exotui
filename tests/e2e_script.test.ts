@@ -160,6 +160,7 @@ Deno.test("health script exposes the expected contributor gates", () => {
     "public-api",
     "focused-app-api",
     "api-inventory",
+    "reachability",
     "package-check",
     "release-check",
     "api-reference",
@@ -205,7 +206,11 @@ Deno.test("health script exposes the expected contributor gates", () => {
     "web-tests",
     "worker-tests",
   ]);
-  assertEquals(defaultHealthSteps[3].command, [
+  // By name, not by index: what matters is that a gate runs the flags that make
+  // it actually verify something, not where it sits in the list. Indexed
+  // assertions broke the moment a gate was inserted ahead of them.
+  const commandOf = (name: string) => defaultHealthSteps.find((step) => step.name === name)?.command;
+  assertEquals(commandOf("api-inventory"), [
     "deno",
     "task",
     "api-inventory",
@@ -216,8 +221,10 @@ Deno.test("health script exposes the expected contributor gates", () => {
     "--min-doc-coverage=1",
     "--baseline=docs/api-stable-baseline.json",
   ]);
-  assertEquals(defaultHealthSteps[4].command, ["deno", "task", "package-check", "--", "--quiet"]);
-  assertEquals(defaultHealthSteps[5].command, ["deno", "task", "release-check", "--", "--quiet"]);
+  assertEquals(commandOf("package-check"), ["deno", "task", "package-check", "--", "--quiet"]);
+  assertEquals(commandOf("release-check"), ["deno", "task", "release-check", "--", "--quiet"]);
+  // --check is what makes reachability a gate rather than a report.
+  assertEquals(commandOf("reachability"), ["deno", "run", "-A", "scripts/orphan_modules.ts", "--check", "--quiet"]);
 });
 
 Deno.test("health results format optional failures without failing the gate", () => {

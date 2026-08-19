@@ -49,9 +49,9 @@ of silent.
 
 ## Gates
 
-`deno task health` runs formatting, type checks on every entrypoint and example, the API reference check, package and
-release checks, and the web build. CI runs `health` plus a clean release-candidate verification. A green suite with a
-red gate is not done.
+`deno task health` runs formatting, type checks on every entrypoint and example, a reachability check that no source
+module is imported by nothing, the API reference check, package and release checks, and the web build. CI runs `health`
+plus a clean release-candidate verification. A green suite with a red gate is not done.
 
 ## What is not covered automatically
 

@@ -31,6 +31,10 @@ These run in `deno task health` and in CI, so they are not optional:
 - **Public API baseline** (`scripts/update_public_api_baseline.ts`) — the stable surface is recorded; a change to it
   shows up in review.
 - **`deno check` on every entrypoint and example**, so a broken example is a failed build rather than a surprise.
+- **Reachability** (`scripts/orphan_modules.ts`, `budgets/reachable_modules.json`) — every module under `src/` and
+  `packages/exomux/` must be imported by an entrypoint, test, example or script. A type check only walks what an
+  entrypoint imports, so before this a module nothing imported was checked by nothing: `040` deleted `HitTargetStack`
+  with both suites green, and `audio_scripted.ts` sat unreferenced beside a duplicate of itself.
 - **API reference generation** checked against `docs/api-reference.md`.
 - **Package and release checks** — the published artifact is built and verified, not assumed.
 
