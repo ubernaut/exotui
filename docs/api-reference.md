@@ -5,15 +5,15 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 12
-- Unique modules: 496
-- Module visits: 954
-- Unique re-export declarations: 626
-- Re-export declaration visits: 955
-- Unique symbol declarations: 4666
-- Symbol declaration visits: 9312
-- Documented symbol declarations: 4662
-- Documentation coverage: 99.91%
+- Entrypoints: 13
+- Unique modules: 502
+- Module visits: 960
+- Unique re-export declarations: 631
+- Re-export declaration visits: 960
+- Unique symbol declarations: 4719
+- Symbol declaration visits: 9365
+- Documented symbol declarations: 4714
+- Documentation coverage: 99.89%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -26,6 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
+| `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
 | `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      19 |     202 |  99.50% |
@@ -106,6 +107,21 @@ Focused Three.js/WebGPU ASCII renderer package for glyph, block, mixed, and Kitt
 - Exported symbols: 83
 - Documented symbols: 83
 - Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./showcase
+
+The showcase kernel: manifests, providers, sessions, and a terminal store for applications.
+
+- Path: `./src/showcase/mod.ts`
+- Runtime: shared
+- Stability: beta
+- Modules: 6
+- Re-export declarations: 5
+- Exported symbols: 53
+- Documented symbols: 52
+- Documentation coverage: 98.11%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -605,6 +621,12 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/worker_protocol.ts`](#src-runtime-worker-protocol-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
 | [`src/secrets.ts`](#src-secrets-ts)                                                             | `.`                                     |          0 |      22 |         22 |
 | [`src/selection.ts`](#src-selection-ts)                                                         | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/showcase/kernel.ts`](#src-showcase-kernel-ts)                                             | `./showcase`                            |          0 |       4 |          3 |
+| [`src/showcase/manifest.ts`](#src-showcase-manifest-ts)                                         | `./showcase`                            |          0 |       9 |          9 |
+| [`src/showcase/mod.ts`](#src-showcase-mod-ts)                                                   | `./showcase`                            |          5 |       0 |          0 |
+| [`src/showcase/provider.ts`](#src-showcase-provider-ts)                                         | `./showcase`                            |          0 |      10 |         10 |
+| [`src/showcase/session.ts`](#src-showcase-session-ts)                                           | `./showcase`                            |          0 |      15 |         15 |
+| [`src/showcase/terminal_store.ts`](#src-showcase-terminal-store-ts)                             | `./showcase`                            |          0 |      15 |         15 |
 | [`src/signals/computed.ts`](#src-signals-computed-ts)                                           | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
 | [`src/signals/dependency_tracking.ts`](#src-signals-dependency-tracking-ts)                     | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
 | [`src/signals/effect.ts`](#src-signals-effect-ts)                                               | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
@@ -7801,6 +7823,108 @@ _Entrypoints: `.`, `./web`_
 | `selectionWindow`            | function  | no        | yes   |
 | `selectRange`                | function  | no        | yes   |
 | `toggleSelection`            | function  | no        | yes   |
+
+### src/showcase/kernel.ts
+
+_Entrypoints: `./showcase`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `ShowcaseKernel`            | class     | no        | no    |
+| `ShowcaseKernelInspection`  | interface | yes       | yes   |
+| `ShowcaseKernelOptions`     | interface | yes       | yes   |
+| `ShowcasePersistenceStatus` | type      | yes       | yes   |
+
+### src/showcase/manifest.ts
+
+_Entrypoints: `./showcase`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `defineShowcaseManifest`    | function  | no        | yes   |
+| `normalizeShowcaseManifest` | function  | no        | yes   |
+| `SHOWCASE_MANIFEST_SCHEMA`  | const     | no        | yes   |
+| `SHOWCASE_MANIFEST_VERSION` | const     | no        | yes   |
+| `ShowcaseManifest`          | interface | yes       | yes   |
+| `ShowcaseManifestError`     | class     | no        | yes   |
+| `ShowcaseManifestHosts`     | interface | yes       | yes   |
+| `ShowcaseManifestInput`     | interface | yes       | yes   |
+| `ShowcaseRouteManifest`     | interface | yes       | yes   |
+
+### src/showcase/mod.ts
+
+_Entrypoints: `./showcase`_
+
+| Re-export Target                 | Kind | Names |
+| -------------------------------- | ---- | ----- |
+| `src/showcase/kernel.ts`         | star | -     |
+| `src/showcase/manifest.ts`       | star | -     |
+| `src/showcase/provider.ts`       | star | -     |
+| `src/showcase/session.ts`        | star | -     |
+| `src/showcase/terminal_store.ts` | star | -     |
+
+_No direct exported symbols._
+
+### src/showcase/provider.ts
+
+_Entrypoints: `./showcase`_
+
+| Symbol                              | Kind      | Type Only | JSDoc |
+| ----------------------------------- | --------- | --------- | ----- |
+| `preflightShowcaseProvider`         | function  | no        | yes   |
+| `ShowcaseCapabilityStatus`          | type      | yes       | yes   |
+| `ShowcaseDiagnosticReporter`        | interface | yes       | yes   |
+| `ShowcaseProvider`                  | interface | yes       | yes   |
+| `ShowcaseProviderActivationContext` | interface | yes       | yes   |
+| `ShowcaseProviderActivationResult`  | interface | yes       | yes   |
+| `ShowcaseProviderCapability`        | interface | yes       | yes   |
+| `ShowcaseProviderDiagnosticInput`   | interface | yes       | yes   |
+| `ShowcaseProviderPreflight`         | interface | yes       | yes   |
+| `ShowcaseProviderStatus`            | type      | yes       | yes   |
+
+### src/showcase/session.ts
+
+_Entrypoints: `./showcase`_
+
+| Symbol                                | Kind      | Type Only | JSDoc |
+| ------------------------------------- | --------- | --------- | ----- |
+| `cloneShowcaseJsonValue`              | function  | no        | yes   |
+| `createShowcaseSession`               | function  | no        | yes   |
+| `CreateShowcaseSessionInput`          | interface | yes       | yes   |
+| `createShowcaseWindowingSnapshot`     | function  | no        | yes   |
+| `normalizeShowcaseSession`            | function  | no        | yes   |
+| `parseShowcaseSession`                | function  | no        | yes   |
+| `SHOWCASE_SESSION_SCHEMA`             | const     | no        | yes   |
+| `SHOWCASE_SESSION_V1_VERSION`         | const     | no        | yes   |
+| `SHOWCASE_SESSION_VERSION`            | const     | no        | yes   |
+| `ShowcaseJsonValue`                   | type      | yes       | yes   |
+| `ShowcaseSession`                     | interface | yes       | yes   |
+| `ShowcaseSessionError`                | class     | no        | yes   |
+| `ShowcaseSessionNormalizationOptions` | interface | yes       | yes   |
+| `ShowcaseWindowingSnapshot`           | type      | yes       | yes   |
+| `stringifyShowcaseSession`            | function  | no        | yes   |
+
+### src/showcase/terminal_store.ts
+
+_Entrypoints: `./showcase`_
+
+| Symbol                                          | Kind      | Type Only | JSDoc |
+| ----------------------------------------------- | --------- | --------- | ----- |
+| `createShowcaseTerminalStore`                   | function  | no        | yes   |
+| `CreateShowcaseTerminalStoreOptions`            | interface | yes       | yes   |
+| `createShowcaseTerminalStorePermissionManifest` | function  | no        | yes   |
+| `SHOWCASE_TERMINAL_STORE_ADAPTER_ID`            | const     | no        | yes   |
+| `SHOWCASE_TERMINAL_STORE_MAX_BYTES`             | const     | no        | yes   |
+| `ShowcaseTerminalFileAdapter`                   | interface | yes       | yes   |
+| `ShowcaseTerminalJsonStore`                     | class     | no        | yes   |
+| `ShowcaseTerminalJsonStoreOptions`              | interface | yes       | yes   |
+| `ShowcaseTerminalPermissionGateway`             | interface | yes       | yes   |
+| `ShowcaseTerminalPermissionQuery`               | interface | yes       | yes   |
+| `ShowcaseTerminalPermissionState`               | type      | yes       | yes   |
+| `ShowcaseTerminalStoreError`                    | class     | no        | yes   |
+| `ShowcaseTerminalStoreInspection`               | interface | yes       | yes   |
+| `ShowcaseTerminalStoreMode`                     | type      | yes       | yes   |
+| `ShowcaseTerminalStoreSelection`                | interface | yes       | yes   |
 
 ### src/signals/computed.ts
 

@@ -28,7 +28,7 @@ import {
   type ShowcaseProviderActivationContext,
   type ShowcaseProviderActivationResult,
   type ShowcaseProviderCapability,
-} from "@showcase/kit";
+} from "@ubernaut/exotui/showcase";
 import {
   createTailscaleStatusSource,
   runBoundedTailnetCommand,

@@ -38,7 +38,15 @@ export const REACHABILITY_SCOPES: readonly ReachabilityScope[] = Object.freeze([
   {
     id: "library",
     config: "deno.jsonc",
-    entrypoints: ["mod.ts", "mod.app.ts", "mod.web.ts", "mod.remote.ts", "mod.theme.ts", "mod.testing.ts"],
+    entrypoints: [
+      "mod.ts",
+      "mod.app.ts",
+      "mod.web.ts",
+      "mod.remote.ts",
+      "mod.theme.ts",
+      "mod.testing.ts",
+      "src/showcase/mod.ts",
+    ],
     // Examples and scripts are entrypoints in their own right, and tests are
     // the other thing that legitimately keeps a module alive.
     rootDirectories: ["tests", "examples", "scripts", "app"],

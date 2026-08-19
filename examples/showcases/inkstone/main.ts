@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { DiagnosticsCollector } from "../../../mod.ts";
-import { createShowcaseTerminalStore } from "../shared/mod.ts";
+import { createShowcaseTerminalStore } from "../../../src/showcase/mod.ts";
 import { createInkstoneTerminalApp, type InkstoneTerminalRuntime } from "./app.ts";
 import { createInkstoneController } from "./controller.ts";
 

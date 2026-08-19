@@ -15,7 +15,7 @@ import {
   type InkstoneVaultProviderInspection,
   type InkstoneVaultSnapshot,
 } from "./model.ts";
-import type { ShowcaseProvider } from "../shared/mod.ts";
+import type { ShowcaseProvider } from "../../../src/showcase/mod.ts";
 
 const MAX_NOTE_ID_LENGTH = 128;
 const MAX_NOTE_PATH_LENGTH = 1_024;

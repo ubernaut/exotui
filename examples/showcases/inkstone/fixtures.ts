@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { defineShowcaseManifest } from "../shared/mod.ts";
+import { defineShowcaseManifest } from "../../../src/showcase/mod.ts";
 import type { InkstoneNoteFixture } from "./model.ts";
 
 /** Versioned showcase metadata consumed by the shared launcher and test kit. */

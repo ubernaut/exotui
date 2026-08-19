@@ -6,7 +6,7 @@
 // palette/layer/frame selection, and gesture previews.
 
 import { type AsyncStore, DiagnosticsCollector, Signal } from "../../../mod.ts";
-import { defineShowcaseManifest, ShowcaseKernel, type ShowcaseProvider } from "../shared/mod.ts";
+import { defineShowcaseManifest, ShowcaseKernel, type ShowcaseProvider } from "../../../src/showcase/mod.ts";
 import {
   applyGlyphEdits,
   compositeGlyphFrame,

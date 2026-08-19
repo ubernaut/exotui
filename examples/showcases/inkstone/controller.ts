@@ -19,7 +19,7 @@ import {
   TILED_WORKSPACE_SNAPSHOT_VERSION,
 } from "../../../mod.ts";
 import { MarkdownController, parseMarkdown } from "../../../mod.app.ts";
-import { ShowcaseKernel } from "../shared/mod.ts";
+import { ShowcaseKernel } from "../../../src/showcase/mod.ts";
 import { createInkstoneFixtures, INKSTONE_MANIFEST } from "./fixtures.ts";
 import { InMemoryInkstoneVaultProvider } from "./fixture_provider.ts";
 import {

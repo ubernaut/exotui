@@ -17,6 +17,7 @@ export interface PackageEntrypointManifest {
     | "./theme"
     | "./runtime"
     | "./terminal"
+    | "./showcase"
     | "./testing"
     | "./layout/yoga"
     | "./layout/taffy"
@@ -30,6 +31,7 @@ export interface PackageEntrypointManifest {
     | "./mod.theme.ts"
     | "./mod.runtime.ts"
     | "./mod.terminal.ts"
+    | "./src/showcase/mod.ts"
     | "./mod.testing.ts"
     | "./src/layout/solvers/yoga.ts"
     | "./src/layout/taffy.ts"
@@ -155,6 +157,23 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "WebGPU compatibility helpers",
     ],
     excludes: ["terminal Tui runtime", "browser Canvas2D host", "workbench demo shell"],
+  },
+  {
+    specifier: "./showcase",
+    path: "./src/showcase/mod.ts",
+    runtime: "shared",
+    stability: "beta",
+    // Kept under 120 characters: api_reference.ts emits descriptions verbatim
+    // and cannot wrap them, so a longer one fails `deno fmt --check`.
+    description: "The showcase kernel: manifests, providers, sessions, and a terminal store for applications.",
+    includes: [
+      "showcase manifest definition and validation",
+      "the showcase kernel and its routes",
+      "fixture and live providers",
+      "session lifecycle",
+      "the terminal store",
+    ],
+    excludes: ["the Tui runtime itself", "components", "theming"],
   },
   {
     specifier: "./theme",

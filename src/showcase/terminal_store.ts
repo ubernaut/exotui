@@ -1,12 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { type AsyncStore, MemoryStore } from "../../../src/runtime/storage.ts";
-import type { DiagnosticsCollector } from "../../../src/runtime/diagnostics.ts";
+import { type AsyncStore, MemoryStore } from "../runtime/storage.ts";
+import type { DiagnosticsCollector } from "../runtime/diagnostics.ts";
 import {
   createRuntimePermissionManifest,
   type RuntimePermissionManifest,
   type RuntimePermissionRequirement,
-} from "../../../src/permissions.ts";
+} from "../permissions.ts";
 
 /** Stable adapter id used by terminal showcase persistence permission reports. */
 export const SHOWCASE_TERMINAL_STORE_ADAPTER_ID = "showcase.terminal-json-store" as const;

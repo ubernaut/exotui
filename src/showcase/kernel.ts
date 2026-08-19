@@ -12,7 +12,7 @@ import {
   type TiledWorkspaceInspection,
   WorkbenchWindowHostController,
   type WorkbenchWindowHostControllerOptions,
-} from "../../../mod.ts";
+} from "../../mod.ts";
 import { normalizeShowcaseManifest, type ShowcaseManifest } from "./manifest.ts";
 import {
   preflightShowcaseProvider,
@@ -70,6 +70,9 @@ export interface ShowcaseKernelInspection {
  * Manifest host/capability declarations are descriptive; only provider preflight
  * controls activation, and neither mechanism is a security or permission boundary.
  */
+/** How far the kernel has got with writing its state to storage. */
+export type ShowcasePersistenceStatus = "idle" | "writing" | "ready" | "error" | "disposed";
+
 export class ShowcaseKernel<TState, TProvider extends ShowcaseProvider = ShowcaseProvider> {
   readonly manifest: ShowcaseManifest;
   readonly provider: TProvider;
@@ -78,8 +81,8 @@ export class ShowcaseKernel<TState, TProvider extends ShowcaseProvider = Showcas
   readonly routeId: Signal<string>;
   readonly appState: Signal<TState>;
   readonly diagnostics: DiagnosticsCollector;
-  readonly providerStatus = new Signal<ShowcaseProviderStatus>("inactive");
-  readonly persistenceStatus = new Signal<"idle" | "writing" | "ready" | "error" | "disposed">("idle");
+  readonly providerStatus: Signal<ShowcaseProviderStatus> = new Signal<ShowcaseProviderStatus>("inactive");
+  readonly persistenceStatus: Signal<ShowcasePersistenceStatus> = new Signal<ShowcasePersistenceStatus>("idle");
   readonly preflight: ShowcaseProviderPreflight;
   readonly ready: Promise<void>;
   readonly signal: AbortSignal;

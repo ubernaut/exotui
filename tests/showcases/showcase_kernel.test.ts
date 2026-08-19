@@ -26,7 +26,7 @@ import {
   type ShowcaseProviderActivationContext,
   type ShowcaseProviderActivationResult,
   type ShowcaseProviderCapability,
-} from "../../examples/showcases/shared/mod.ts";
+} from "../../src/showcase/mod.ts";
 
 interface TestState {
   readonly count: number;

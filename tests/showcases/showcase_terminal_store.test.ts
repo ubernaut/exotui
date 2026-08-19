@@ -9,7 +9,7 @@ import {
   type ShowcaseTerminalFileAdapter,
   ShowcaseTerminalJsonStore,
   type ShowcaseTerminalPermissionGateway,
-} from "../../examples/showcases/shared/terminal_store.ts";
+} from "../../src/showcase/terminal_store.ts";
 
 const STATE_PATH = "/state/inkstone-session.json";
 

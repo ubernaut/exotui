@@ -52,7 +52,7 @@ import type {
   InkstoneSaveResult,
   InkstoneSearchRow,
 } from "./model.ts";
-import type { ShowcaseRouteManifest } from "../shared/mod.ts";
+import type { ShowcaseRouteManifest } from "../../../src/showcase/mod.ts";
 
 /** Responsive modes used by the terminal workbench projection. */
 export type InkstoneTerminalBreakpoint = "wide" | "medium" | "narrow";

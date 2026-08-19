@@ -4,7 +4,7 @@
 // Live ephemeris/network providers are separate adapters with their own
 // preflight capabilities; this fixture needs no permissions at all.
 
-import type { ShowcaseProvider } from "../shared/mod.ts";
+import type { ShowcaseProvider } from "../../../src/showcase/mod.ts";
 import { type OrbitalCatalog, orbitalCommandFixtureCatalog } from "./model.ts";
 
 /** The fixture provider: the seeded Earth-system catalog, always available. */

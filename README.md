@@ -125,6 +125,15 @@ library export.
 
 ## Exomux quick start
 
+Download a binary for your platform from [Releases](https://github.com/ubernaut/exotui/releases) and run it — nothing
+else to install:
+
+```sh
+chmod +x exomux-linux-x86_64 && ./exomux-linux-x86_64
+```
+
+From a checkout, or to build it yourself:
+
 ```sh
 deno task exomux            # or: ./visualization exomux
 ./install-exomux.sh         # compile + install ~/.local/bin/exomux for use from anywhere
@@ -140,7 +149,8 @@ deno task exomux:test       # the package suite
 deno task exomux:compile    # a self-contained binary
 ```
 
-Exomux's detached host currently requires Linux or Windows; see [OS Support](#os-support).
+Exomux's detached host currently requires Linux or Windows; see [OS Support](#os-support). It runs on macOS, but the
+daemon cannot detach there, so a session ends with the client.
 
 ### Nix flake
 
@@ -156,6 +166,23 @@ nix develop                                       # dev shell with deno and tmux
 ```
 
 From a checkout the same commands take `.` instead of the GitHub reference (`nix run .#glyph-forge`).
+
+## Install
+
+The library is published on JSR as [`@ubernaut/exotui`](https://jsr.io/@ubernaut/exotui):
+
+```sh
+deno add jsr:@ubernaut/exotui          # the root entrypoint
+deno add jsr:@ubernaut/exotui/app      # what new applications want
+```
+
+Or import it directly, without adding it to an import map:
+
+```ts
+import { createTerminalApp } from "jsr:@ubernaut/exotui/app";
+```
+
+Every entrypoint in the table below is importable the same way.
 
 ## Library quick start
 
@@ -241,6 +268,7 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | `./web`               | `mod.web.ts`                       | browser  | beta         |
 | `./remote`            | `mod.remote.ts`                    | remote   | experimental |
 | `./three-ascii`       | `mod.three_ascii.ts`               | shared   | experimental |
+| `./showcase`          | `src/showcase/mod.ts`              | shared   | beta         |
 | `./theme`             | `mod.theme.ts`                     | shared   | beta         |
 | `./runtime`           | `mod.runtime.ts`                   | shared   | beta         |
 | `./terminal`          | `mod.terminal.ts`                  | terminal | beta         |
@@ -248,6 +276,10 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | `./layout/yoga`       | `src/layout/solvers/yoga.ts`       | shared   | experimental |
 | `./layout/taffy`      | `src/layout/taffy.ts`              | shared   | experimental |
 | `./layout/taffy-wasm` | `src/layout/solvers/taffy_wasm.ts` | shared   | experimental |
+
+Use `./showcase` when you are building an application _on_ this library the way exomux and the demo showcases are: it
+carries the kernel, manifests, providers, sessions and terminal store they share, so an application does not have to
+reinvent its own shell.
 
 Use `./app` for new terminal applications and the root entrypoint for compatibility or low-level composition. Focused
 entrypoints let application and tooling authors avoid taking a dependency on the broad terminal surface. Package

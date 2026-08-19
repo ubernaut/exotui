@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { defineShowcaseManifest } from "@showcase/kit";
+import { defineShowcaseManifest } from "@ubernaut/exotui/showcase";
 import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
 import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/exotui";
 
