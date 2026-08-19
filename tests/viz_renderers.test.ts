@@ -8,7 +8,7 @@ import { area, meter, psychograph, readout, sparkline } from "../src/viz/rendere
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
 import { bestVisualization, drawStream, fitVisualizations, visualizationsFor } from "../src/viz/registry.ts";
 import { scoreFit, type VizFit } from "../src/viz/fit.ts";
-import { scalarStream, vectorStream } from "../src/viz/stream.ts";
+import { scalarStream, vectorStream, volumeStream } from "../src/viz/stream.ts";
 import { defaultVisualizationTheme } from "../src/viz/theme.ts";
 
 const theme = defaultVisualizationTheme();
@@ -289,10 +289,13 @@ Deno.test("a caller's domain still wins over the baseline", () => {
 });
 
 Deno.test("a field renderer given too little data loses to one that suits it", () => {
-  // Two entries is not a spectrogram, however comfortably it fits.
+  // Two entries is not a spectrogram, however comfortably it fits — so the
+  // field renderers rank below everything that suits two of anything.
   const pair = fitVisualizations({ kind: "1dt", extent: [2] }, { width: 40, height: 10 });
-  assertEquals(pair[0]!.id, "bars");
-  assert(pair.find((fit) => fit.id === "waterfall")!.reason.includes("wants"));
+  const waterfall = pair.find((fit) => fit.id === "waterfall")!;
+  assert(waterfall.reason.includes("wants"), waterfall.reason);
+  assert(pair.indexOf(waterfall) > 2, `a spectrogram of two should not be near the top: ${pair.map((f) => f.id)}`);
+  assert(pair[0]!.score > waterfall.score * 2);
   // Twenty-eight is, and it wins the same box back.
   assertEquals(fitVisualizations({ kind: "1dt", extent: [28] }, { width: 40, height: 10 })[0]!.id, "waterfall");
 });
@@ -323,4 +326,55 @@ Deno.test("a trace resamples rather than demanding a column per point", () => {
   // It still wants enough points to have a shape.
   const pair = fitVisualizations({ kind: "1d", extent: [2] }, { width: 40, height: 10 });
   assert(pair.find((fit) => fit.id === "scope")!.score < pair.find((fit) => fit.id === "bars")!.score);
+});
+
+Deno.test("a psychograph draws one series or several, from whichever shape carries them", () => {
+  const theme = defaultVisualizationTheme();
+  const size = { width: 30, height: 7 };
+  const rising = Array.from({ length: 30 }, (_, index) => ({ value: index / 29, at: index }));
+
+  // One series: the value ramp and one pip, exactly as before.
+  const single = psychograph.render(rising, { size, theme, domain: { min: 0, max: 1 } });
+  const singleGlyphs = new Set(single.flat().map((cell) => cell.char).filter((char) => char !== " "));
+  assertEquals(singleGlyphs, new Set(["■"]));
+
+  // Several series over time, transposed out of a history of vectors — which is
+  // the shape a sampler produces and the opposite of the shape a chart wants.
+  const overTime = Array.from({ length: 30 }, (_, index) => ({ value: [index / 29, 1 - index / 29], at: index }));
+  const pair = psychograph.render(overTime, { size, theme, domain: { min: 0, max: 1 } });
+  const pairGlyphs = new Set(pair.flat().map((cell) => cell.char).filter((char) => char !== " "));
+  assert(pairGlyphs.has("■") && pairGlyphs.has("●"), `two series, two pips: ${[...pairGlyphs].join("")}`);
+
+  // Several series at one instant, as a matrix — left and right spectra.
+  const spectra = psychograph.render([[0.2, 0.8, 0.4], [0.3, 0.7, 0.5]], { size, theme, domain: { min: 0, max: 1 } });
+  const spectraGlyphs = new Set(spectra.flat().map((cell) => cell.char).filter((char) => char !== " "));
+  assert(spectraGlyphs.has("■") && spectraGlyphs.has("●"));
+});
+
+Deno.test("two series meeting draw the crossing rather than hiding one of them", () => {
+  const theme = defaultVisualizationTheme();
+  // Identical series: every point collides. Two audio channels agree most of the
+  // time, and a chart that silently drops one for it says they differ.
+  const same = [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]];
+  const frame = psychograph.render(same, { size: { width: 12, height: 6 }, theme, domain: { min: 0, max: 1 } });
+  const glyphs = frame.flat().map((cell) => cell.char).filter((char) => char !== " ");
+  assert(glyphs.every((glyph) => glyph === "╋"), `every point should be a crossing: ${[...new Set(glyphs)].join("")}`);
+});
+
+Deno.test("a psychograph is not offered for more lines than anyone can read", () => {
+  const size = { width: 60, height: 16 };
+  assert(fitVisualizations({ kind: "1dt", extent: [4] }, size).some((fit) => fit.id === "psychograph"));
+  assert(!fitVisualizations({ kind: "1dt", extent: [40] }, size).some((fit) => fit.id === "psychograph"));
+  // A scalar history is one line whatever its extent says.
+  assert(fitVisualizations({ kind: "0dt", extent: [1] }, size).some((fit) => fit.id === "psychograph"));
+});
+
+Deno.test("pairing a stream with a visualisation that cannot draw it still throws", () => {
+  const volume = volumeStream({ capacity: 2 });
+  assertThrows(
+    () =>
+      drawStream(psychograph as never, volume, { size: { width: 10, height: 5 }, theme: defaultVisualizationTheme() }),
+    TypeError,
+    "psychograph draws 0dt or 1dt or 2d",
+  );
 });

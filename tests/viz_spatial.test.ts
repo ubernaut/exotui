@@ -9,7 +9,8 @@ import { blankFrame } from "../src/viz/render.ts";
 import { camera, depthFade, toUnit } from "../src/viz/project.ts";
 import { pointCloud, ringVolume, surface, vectorField } from "../src/viz/renderers_spatial.ts";
 import { scatter } from "../src/viz/renderers_matrix.ts";
-import { drawLegend, drawTimeAxis, drawValueAxis, niceTicks, valueAxisWidth } from "../src/viz/axes.ts";
+import { drawLegend, drawTimeAxis, drawValueAxis, valueAxisWidth } from "../src/viz/axes.ts";
+import { linearScale } from "../src/visual/scales.ts";
 import { defaultVisualizationTheme } from "../src/viz/theme.ts";
 import { fitVisualizations } from "../src/viz/registry.ts";
 
@@ -102,20 +103,22 @@ Deno.test("a scatter plots at quadrant resolution, so near points stay apart", (
   assert(distinct.size > 0, "something was plotted");
 });
 
-Deno.test("ticks are round numbers that fit inside the domain", () => {
-  assertEquals(niceTicks({ min: 0, max: 1 }, 4), [0, 0.25, 0.5, 0.75, 1]);
-  assertEquals(niceTicks({ min: 20, max: 97 }, 4), [25, 50, 75]);
-  for (const tick of niceTicks({ min: -40, max: 40 }, 4)) {
+Deno.test("ticks are round numbers, free of floating-point residue", () => {
+  // Three times 0.2 is 0.6000000000000001 in IEEE 754, and it used to reach the
+  // tick list — saved from view only by Intl formatting downstream.
+  assertEquals(linearScale([0, 1], [9, 0]).ticks(4), [0, 0.2, 0.4, 0.6, 0.8, 1]);
+  assertEquals(linearScale([0, 0.03], [9, 0]).ticks(4), [0, 0.01, 0.02, 0.03]);
+  for (const tick of linearScale([-40, 40], [9, 0]).ticks(4)) {
     assert(tick >= -40 && tick <= 40, `${tick} is outside the domain`);
   }
-  assertEquals(niceTicks({ min: 5, max: 5 }, 4), [5], "a domain with no span has one tick");
+  assertEquals(linearScale([5, 5], [9, 0]).ticks(4), [5], "a domain with no span has one tick");
 });
 
 Deno.test("an axis reports the room it needs and stays inside it", () => {
   const theme = THEME;
   const domain = { min: 0, max: 1 };
   const format = (value: number) => `${Math.round(value * 100)}%`;
-  const width = valueAxisWidth({ theme, domain, format });
+  const width = valueAxisWidth({ theme, domain, format }, 9);
   assertEquals(width, 5, "'100%' plus a tick mark");
   const frame = blankFrame({ width: 20, height: 9 }, { char: " " });
   drawValueAxis(frame, { column: 0, row: 0, width, height: 9 }, { theme, domain, format });

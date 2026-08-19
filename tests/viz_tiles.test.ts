@@ -84,8 +84,8 @@ Deno.test("the same source picks a different chart on differently shaped data", 
   const narrow = { column: 0, row: 0, width: 16, height: 8 };
   const squeeze = (entries: number) =>
     planTiles(narrow, [{ id: "cores", shape: { kind: "1dt", extent: [entries] } }]).tiles[0]!.visualization;
-  assertEquals(squeeze(4), "bars");
-  assertEquals(squeeze(88), "scope");
+  assertEquals(squeeze(4), "psychograph", "four series overlay on one set of axes");
+  assertEquals(squeeze(88), "scope", "eighty-eight cannot, and the one that resamples takes over");
 });
 
 Deno.test("a pin wins over a preference, and a preference over the ranking", () => {

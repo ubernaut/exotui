@@ -2,7 +2,7 @@
 
 // Choosing a visualisation for a stream, and refusing the ones that cannot draw it.
 
-import { type DataKind, satisfies } from "./data.ts";
+import { acceptedKind, type DataKind, isTemporal } from "./data.ts";
 import type { DataStream } from "./stream.ts";
 import type { Visualization, VizContext, VizFrame, VizSize } from "./render.ts";
 import { fits } from "./render.ts";
@@ -27,7 +27,7 @@ export function visualizationById(id: string): Visualization<never> | undefined 
 /** Visualisations that can draw a stream of this kind, at this size. */
 export function visualizationsFor(kind: DataKind, size?: VizSize): readonly Visualization<never>[] {
   return VISUALIZATIONS.filter((visualization) =>
-    satisfies(kind, visualization.accepts) && (size === undefined || fits(size, visualization.minimum))
+    acceptedKind(kind, visualization.accepts) !== undefined && (size === undefined || fits(size, visualization.minimum))
   );
 }
 
@@ -44,14 +44,17 @@ export function drawStream(
   stream: DataStream,
   context: VizContext,
 ): VizFrame {
-  if (!satisfies(stream.kind, visualization.accepts)) {
+  const drawn = acceptedKind(stream.kind, visualization.accepts);
+  if (drawn === undefined) {
     throw new TypeError(
-      `${visualization.id} draws ${visualization.accepts}, and was given a ${stream.kind} stream`,
+      `${visualization.id} draws ${
+        typeof visualization.accepts === "string" ? visualization.accepts : visualization.accepts.join(" or ")
+      }, and was given a ${stream.kind} stream`,
     );
   }
   const domain = context.domain ?? stream.domain;
   const resolved: VizContext = domain ? { ...context, domain } : context;
-  if (visualization.accepts.endsWith("t")) {
+  if (isTemporal(drawn)) {
     return visualization.render(stream.history() as never, resolved);
   }
   const latest = stream.latest();
@@ -70,7 +73,9 @@ export function drawStream(
 export function fitVisualizations(shape: VizDataShape, size: VizSize): VizFit[] {
   return rankFits(
     VISUALIZATIONS
-      .filter((visualization) => satisfies(shape.kind, visualization.accepts) && (visualization.suits?.(shape) ?? true))
+      .filter((visualization) =>
+        acceptedKind(shape.kind, visualization.accepts) !== undefined && (visualization.suits?.(shape) ?? true)
+      )
       .map((visualization) =>
         scoreFit(
           {

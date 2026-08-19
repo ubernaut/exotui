@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5329736,
+    "bytes": 5330121,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 16953,
@@ -461,7 +461,7 @@
       "src/visual/linked_charts.ts": 2476,
       "src/visual/marks.ts": 5499,
       "src/visual/mod.ts": 357,
-      "src/visual/scales.ts": 8445,
+      "src/visual/scales.ts": 8830,
       "src/visual/series.ts": 5720,
       "src/web/remote_terminal.ts": 49112
     }

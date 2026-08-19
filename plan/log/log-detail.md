@@ -24,6 +24,12 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**Building a charting layer next to one that already existed (Aug 19).** `src/viz/` grew axes, sub-cell plotting and a
+resampler without anyone noticing `src/visual/` had all three, better, exported from `mod.ts` and covered by eleven test
+files. Nothing imports `src/visual/`, which is why it never surfaced in a search for callers, a grep of the examples, or
+the reachability gate — that gate checks a module is imported by _something_, and `mod.ts` re-exporting it counts.
+_Rule: before adding a capability to a library, grep the library for the capability, not for its callers._
+
 **A pitch that looked up instead of down (Aug 19).** `camera` rotated by pitch with the sign inverted, so a positive
 pitch put far points _below_ near ones. The symptom was not an upside-down picture — it was a surface whose front edge
 was missing, because the floating horizon then hid the front behind the back. Worth remembering as a shape: a projection

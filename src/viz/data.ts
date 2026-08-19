@@ -76,6 +76,20 @@ export function satisfies(have: DataKind, want: DataKind): boolean {
   return isTemporal(have) || !isTemporal(want);
 }
 
+/**
+ * The kind a visualisation should be handed, given what a stream carries.
+ *
+ * A visualisation may accept more than one — a psychograph draws one line or
+ * several, and "several lines over time" and "several lines right now" are
+ * different kinds of the same picture. An exact match wins, so a temporal
+ * stream is given its history rather than having it dropped when both are on
+ * offer.
+ */
+export function acceptedKind(have: DataKind, accepts: DataKind | readonly DataKind[]): DataKind | undefined {
+  const options = typeof accepts === "string" ? [accepts] : accepts;
+  return options.find((want) => want === have) ?? options.find((want) => satisfies(have, want));
+}
+
 /** The extent of a reading along each of its axes, outermost first. */
 export function shapeOf(value: unknown): readonly number[] {
   if (typeof value === "number") return [];

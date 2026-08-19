@@ -61,7 +61,15 @@ export interface VizContext {
 export interface Visualization<Input> {
   readonly id: string;
   readonly label: string;
-  readonly accepts: DataKind;
+  /**
+   * The kind, or kinds, this draws.
+   *
+   * More than one where the same picture answers more than one shape of
+   * question: a psychograph of one series over time and of several series at
+   * once are the same chart, and splitting them into two visualisations would
+   * make a caller choose between them by name rather than by data.
+   */
+  readonly accepts: DataKind | readonly DataKind[];
   /** Smallest size that draws something readable, whatever the data. */
   readonly minimum: VizSize;
   /**

@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 978
 - Unique re-export declarations: 648
 - Re-export declaration visits: 977
-- Unique symbol declarations: 4855
-- Symbol declaration visits: 9501
-- Documented symbol declarations: 4824
+- Unique symbol declarations: 4857
+- Symbol declaration visits: 9503
+- Documented symbol declarations: 4826
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -26,7 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      18 |     136 |  80.88% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      18 |     138 |  81.16% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -120,9 +120,9 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Stability: beta
 - Modules: 18
 - Re-export declarations: 17
-- Exported symbols: 136
-- Documented symbols: 110
-- Documentation coverage: 80.88%
+- Exported symbols: 138
+- Documented symbols: 112
+- Documentation coverage: 81.16%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -748,7 +748,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
 | [`src/viz/axes.ts`](#src-viz-axes-ts)                                                           | `./viz`                                 |          0 |       8 |          5 |
 | [`src/viz/dashboard.ts`](#src-viz-dashboard-ts)                                                 | `./viz`                                 |          0 |       6 |          4 |
-| [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      16 |         15 |
+| [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      17 |         16 |
 | [`src/viz/draw.ts`](#src-viz-draw-ts)                                                           | `./viz`                                 |          0 |      13 |         11 |
 | [`src/viz/fit.ts`](#src-viz-fit-ts)                                                             | `./viz`                                 |          0 |       5 |          5 |
 | [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         17 |       0 |          0 |
@@ -756,7 +756,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       6 |          5 |
 | [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |      10 |          8 |
 | [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       6 |          5 |
-| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       9 |          9 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |      10 |         10 |
 | [`src/viz/renderers_spatial.ts`](#src-viz-renderers-spatial-ts)                                 | `./viz`                                 |          0 |       5 |          5 |
 | [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       8 |          7 |
@@ -9596,16 +9596,16 @@ _Entrypoints: `.`_
 
 _Entrypoints: `./viz`_
 
-| Symbol             | Kind      | Type Only | JSDoc |
-| ------------------ | --------- | --------- | ----- |
-| `drawLegend`       | function  | no        | yes   |
-| `drawTimeAxis`     | function  | no        | yes   |
-| `drawValueAxis`    | function  | no        | yes   |
-| `LegendEntry`      | interface | yes       | no    |
-| `niceTicks`        | function  | no        | yes   |
-| `TimeAxisOptions`  | interface | yes       | no    |
-| `ValueAxisOptions` | interface | yes       | no    |
-| `valueAxisWidth`   | function  | no        | yes   |
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `drawLegend`        | function  | no        | yes   |
+| `drawTimeAxis`      | function  | no        | yes   |
+| `drawValueAxis`     | function  | no        | yes   |
+| `LegendEntry`       | interface | yes       | no    |
+| `TimeAxisOptions`   | interface | yes       | no    |
+| `valueAxisGridRows` | function  | no        | yes   |
+| `ValueAxisOptions`  | interface | yes       | no    |
+| `valueAxisWidth`    | function  | no        | yes   |
 
 ### src/viz/dashboard.ts
 
@@ -9624,24 +9624,25 @@ _Entrypoints: `./viz`_
 
 _Entrypoints: `./viz`_
 
-| Symbol        | Kind      | Type Only | JSDoc |
-| ------------- | --------- | --------- | ----- |
-| `DATA_KINDS`  | const     | no        | no    |
-| `DataKind`    | type      | yes       | yes   |
-| `DataRank`    | type      | yes       | yes   |
-| `extentOf`    | function  | no        | yes   |
-| `isTemporal`  | function  | no        | yes   |
-| `kindFor`     | function  | no        | yes   |
-| `Matrix`      | type      | yes       | yes   |
-| `rankOf`      | function  | no        | yes   |
-| `rankOfValue` | function  | no        | yes   |
-| `Reading`     | type      | yes       | yes   |
-| `Sample`      | interface | yes       | yes   |
-| `satisfies`   | function  | no        | yes   |
-| `Scalar`      | type      | yes       | yes   |
-| `shapeOf`     | function  | no        | yes   |
-| `Vector`      | type      | yes       | yes   |
-| `Volume`      | type      | yes       | yes   |
+| Symbol         | Kind      | Type Only | JSDoc |
+| -------------- | --------- | --------- | ----- |
+| `acceptedKind` | function  | no        | yes   |
+| `DATA_KINDS`   | const     | no        | no    |
+| `DataKind`     | type      | yes       | yes   |
+| `DataRank`     | type      | yes       | yes   |
+| `extentOf`     | function  | no        | yes   |
+| `isTemporal`   | function  | no        | yes   |
+| `kindFor`      | function  | no        | yes   |
+| `Matrix`       | type      | yes       | yes   |
+| `rankOf`       | function  | no        | yes   |
+| `rankOfValue`  | function  | no        | yes   |
+| `Reading`      | type      | yes       | yes   |
+| `Sample`       | interface | yes       | yes   |
+| `satisfies`    | function  | no        | yes   |
+| `Scalar`       | type      | yes       | yes   |
+| `shapeOf`      | function  | no        | yes   |
+| `Vector`       | type      | yes       | yes   |
+| `Volume`       | type      | yes       | yes   |
 
 ### src/viz/draw.ts
 
@@ -9769,6 +9770,7 @@ _Entrypoints: `./viz`_
 | `meter`                 | const | no        | yes   |
 | `odometer`              | const | no        | yes   |
 | `psychograph`           | const | no        | yes   |
+| `PsychographInput`      | type  | yes       | yes   |
 | `readout`               | const | no        | yes   |
 | `SCALAR_VISUALIZATIONS` | const | no        | yes   |
 | `sparkline`             | const | no        | yes   |

@@ -6,7 +6,8 @@ import { blankFrame, type Visualization, type VizCell, type VizContext, type Viz
 import { drawArc, drawLine, plot } from "./draw.ts";
 import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
 import { mixColor, rampGradient } from "./theme.ts";
-import type { Sample } from "./data.ts";
+import type { Matrix, Sample } from "./data.ts";
+import { rankOf } from "./data.ts";
 
 const METER_GLYPHS = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"] as const;
 
@@ -131,35 +132,106 @@ export const area: Visualization<readonly Sample<0>[]> = {
   },
 };
 
+/** One per series, so a line is told apart by shape as well as by colour. */
+const PIPS = ["■", "●", "▲", "◆", "▼", "★"] as const;
+
+/** Where two series land on the same cell. Neither is hidden; the crossing is drawn. */
+const CROSSING = "╋";
+
 /**
- * 0dt — a psychograph: the same history plotted as points across the full box.
+ * Input a psychograph can draw: one series' history, several series' history,
+ * or several series read at one instant.
+ */
+export type PsychographInput = readonly Sample<0>[] | readonly Sample<1>[] | Matrix;
+
+/**
+ * Turns any of the accepted shapes into rows of values, one row per line.
+ *
+ * A history of vectors is transposed: the stream carries "all series at each
+ * instant" because that is how a sampler produces them, and a chart wants "one
+ * series across all instants".
+ */
+function toSeries(input: PsychographInput): number[][] {
+  const first = input[0];
+  if (first === undefined) return [];
+  if (Array.isArray(first)) return (input as Matrix).map((row) => [...row]);
+  const samples = input as readonly Sample<0 | 1>[];
+  const value = samples[0]!.value;
+  if (typeof value === "number") return [(samples as readonly Sample<0>[]).map((sample) => sample.value)];
+  const width = Math.max(...(samples as readonly Sample<1>[]).map((sample) => sample.value.length));
+  return Array.from(
+    { length: width },
+    (_, entry) => (samples as readonly Sample<1>[]).map((sample) => sample.value[entry] ?? 0),
+  );
+}
+
+/**
+ * A psychograph: values plotted as points across the whole box, one line or many.
  *
  * Where a sparkline compresses history into one row of glyph heights, this
  * gives it the whole rectangle, so the shape of a signal is legible rather than
  * implied. It is the display an equaliser wants: a wave you can see the form of.
+ *
+ * Several series overlay on one set of axes, which is the point of it for
+ * comparison — a left and a right channel spectrum on the same graph, or three
+ * histories against each other. Each gets its own pip and its own colour,
+ * because colour alone fails a monochrome terminal and a reader who cannot
+ * separate two hues. A single series keeps the value ramp instead: with nothing
+ * to distinguish it from, colouring by height says more than colouring by
+ * identity.
+ *
+ * Where two series meet, the crossing is drawn rather than one of them being
+ * quietly overwritten. Two audio channels agree most of the time, and a chart
+ * that hides one of them for it is a chart that says the channels differ.
  */
-export const psychograph: Visualization<readonly Sample<0>[]> = {
+export const psychograph: Visualization<PsychographInput> = {
   id: "psychograph",
   label: "Psychograph",
-  accepts: "0dt",
+  accepts: ["0dt", "1dt", "2d"],
   minimum: { width: 8, height: 4 },
   // The richest scalar view, so it wins wherever it has room.
   weight: 1,
-  render(samples, context) {
+  // Vertical room to tell the lines apart.
+  perEntry: { rows: 1 },
+  // Overlaid lines stop being readable long before a heatmap's rows do.
+  suits: (shape) => rankOf(shape.kind) === 0 || (shape.extent?.[0] ?? 1) <= 8,
+  render(input, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
     if (width <= 0 || height <= 0) return frame;
-    const values = resample(samples.map((sample) => sample.value), width);
-    const domain = safeDomain(context.domain ?? domainOfAll(values));
-    for (let column = 0; column < width; column += 1) {
-      const fraction = normalize(values[column] ?? 0, domain);
-      // Row 0 is the top, so a high value has to plot near it.
-      const row = Math.min(height - 1, Math.max(0, Math.round((1 - fraction) * (height - 1))));
-      frame[row]![column] = {
-        char: "■",
-        foreground: rampGradient(context.theme, fraction),
-        background: context.theme.background,
-      };
+    const series = toSeries(input);
+    if (series.length === 0) return frame;
+    const domain = safeDomain(context.domain ?? domainOfAll(series));
+    const palette = [context.theme.series, context.theme.seriesAlt, ...context.theme.ramp];
+    const single = series.length === 1;
+    // Which series owns each cell, so a crossing can be told from a repeat.
+    const owner = new Int8Array(width * height).fill(-1);
+
+    for (let index = 0; index < series.length; index += 1) {
+      const values = resample(series[index]!, width);
+      const pip = single ? "■" : PIPS[index % PIPS.length]!;
+      const colour = palette[index % palette.length]!;
+      for (let column = 0; column < width; column += 1) {
+        const fraction = normalize(values[column] ?? 0, domain);
+        // Row 0 is the top, so a high value has to plot near it.
+        const row = Math.min(height - 1, Math.max(0, Math.round((1 - fraction) * (height - 1))));
+        const at = row * width + column;
+        const taken = owner[at]!;
+        if (taken >= 0 && taken !== index) {
+          frame[row]![column] = {
+            char: CROSSING,
+            foreground: mixColor(palette[taken % palette.length]!, colour, 0.5),
+            background: context.theme.background,
+          };
+          continue;
+        }
+        owner[at] = index;
+        frame[row]![column] = {
+          char: pip,
+          foreground: single ? rampGradient(context.theme, fraction) : colour,
+          background: context.theme.background,
+        };
+      }
     }
     return frame;
   },

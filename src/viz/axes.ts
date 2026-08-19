@@ -1,67 +1,52 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-// Axes, ticks and legends: the labels that turn a shape into a reading.
+// Painting axes and legends in colour.
 //
-// Every renderer here draws a chart and none of them draws a scale, so until
-// now a reader could see that a signal rose without seeing what it rose to.
-// This is deliberately a separate layer rather than something each renderer
-// grew: a tile two rows tall cannot afford an axis and must not be given one,
-// so who pays for it is the caller's decision, and the caller is the only one
-// who knows how much room is left.
+// The measuring is not done here. `src/visual/axes.ts` already builds a
+// collision-free axis layout from a scale — ticks from the scale, labels
+// formatted through Intl and measured with the emoji-aware width machinery, and
+// deterministic thinning that keeps the first and last tick and grows the
+// stride until nothing overlaps. Reimplementing that produced a worse version
+// of it, which is what this file used to be.
 //
-// Nothing here shrinks anything. A caller measures the gutter, subtracts it,
-// and draws the chart in what remains — an axis that silently took two columns
-// from the chart it labels would be the one bug this layer must not have.
+// What is left is what `visual` deliberately does not do: colour. It renders
+// into a grid of characters, and a visualisation needs a colour per cell, so
+// this takes the layout and paints it.
+//
+// Deliberately a layer rather than something each renderer grew: a tile two
+// rows tall cannot afford an axis and must not be given one, so who pays for it
+// is the caller's decision. Nothing here shrinks the chart it labels — a caller
+// measures the gutter, subtracts it, and draws in what remains.
 
 import type { Rectangle } from "../types.ts";
 import type { Rgb } from "../theme_expressions.ts";
 import { type VizCell, writeText } from "./render.ts";
 import type { VisualizationTheme } from "./theme.ts";
 import type { Domain } from "./scale.ts";
-
-/**
- * Round values spanning a domain, for tick labels a person can read.
- *
- * `0, 25, 50, 75, 100` rather than `0, 23.7, 47.4, …`: an axis exists to be
- * read off, and arbitrary numbers on it are harder to read than none at all.
- */
-export function niceTicks(domain: Domain, count = 4): number[] {
-  const span = domain.max - domain.min;
-  if (!Number.isFinite(span) || span === 0 || count < 2) return [domain.min];
-  const rough = span / (count - 1);
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const normalized = rough / magnitude;
-  // Rounded to the nearest nice step rather than up to the next one. Rounding
-  // up turns a request for four ticks over 20..97 into a single tick at 50,
-  // because the step overshoots the span.
-  const nice = [1, 2, 2.5, 5, 10];
-  const step =
-    nice.reduce((best, candidate) =>
-      Math.abs(candidate - normalized) < Math.abs(best - normalized) ? candidate : best
-    ) * magnitude;
-  const first = Math.ceil(domain.min / step) * step;
-  const ticks: number[] = [];
-  for (let value = first; value <= domain.max + step * 1e-9; value += step) {
-    // Rounded because repeated addition of a step like 0.1 accumulates error
-    // and prints 0.30000000000000004 on an axis.
-    ticks.push(Number(value.toFixed(10)));
-  }
-  return ticks.length > 0 ? ticks : [domain.min, domain.max];
-}
+import { type AxisLayout, buildAxis } from "../visual/axes.ts";
+import { linearScale } from "../visual/scales.ts";
 
 export interface ValueAxisOptions {
   readonly theme: VisualizationTheme;
   readonly domain: Domain;
+  /** Ticks to aim for before thinning; the layout may keep fewer. */
   readonly ticks?: number;
   readonly format?: (value: number) => string;
 }
 
-/** How many columns a value axis for this domain will want. */
-export function valueAxisWidth(options: ValueAxisOptions): number {
-  const format = options.format ?? ((value: number) => String(value));
-  const widest = Math.max(...niceTicks(options.domain, options.ticks ?? 4).map((tick) => format(tick).length));
-  // One column for the tick marks themselves.
-  return Math.min(12, widest + 1);
+function layoutFor(options: ValueAxisOptions, rows: number): AxisLayout {
+  // The range runs high row to low row because a chart's row 0 is its top.
+  const scale = linearScale([options.domain.min, options.domain.max], [Math.max(0, rows - 1), 0]);
+  return buildAxis(scale, {
+    orientation: "y",
+    ...(options.format ? { format: options.format } : {}),
+    ...(options.ticks === undefined ? {} : { tickCount: options.ticks }),
+  });
+}
+
+/** How many columns a value axis for this domain will want, tick mark included. */
+export function valueAxisWidth(options: ValueAxisOptions, rows = 8): number {
+  return Math.min(12, layoutFor(options, rows).gutterCells + 1);
 }
 
 /**
@@ -71,17 +56,13 @@ export function valueAxisWidth(options: ValueAxisOptions): number {
  * because a tick is placed by where its value falls in that height.
  */
 export function drawValueAxis(frame: VizCell[][], rect: Rectangle, options: ValueAxisOptions): void {
-  const { theme, domain } = options;
-  const format = options.format ?? ((value: number) => String(value));
-  const span = domain.max - domain.min;
   if (rect.height <= 0 || rect.width <= 0) return;
-  for (const tick of niceTicks(domain, options.ticks ?? 4)) {
-    const fraction = span === 0 ? 0 : (tick - domain.min) / span;
-    const row = rect.row + Math.round((1 - fraction) * (rect.height - 1));
-    const text = format(tick);
+  const { theme } = options;
+  for (const tick of layoutFor(options, rect.height).ticks) {
+    const row = rect.row + tick.cell;
     // Right-aligned against the tick mark, so the digits line up down the axis
     // however many of them each label has.
-    writeText(frame, rect.column + rect.width - 1 - text.length, row, text, {
+    writeText(frame, rect.column + rect.width - 1 - tick.labelCells, row, tick.label, {
       foreground: theme.axis,
       background: theme.background,
     });
@@ -90,6 +71,11 @@ export function drawValueAxis(frame: VizCell[][], rect: Rectangle, options: Valu
       background: theme.background,
     });
   }
+}
+
+/** The rows a value axis marks, for a caller drawing grid lines behind its chart. */
+export function valueAxisGridRows(options: ValueAxisOptions, rows: number): number[] {
+  return [...layoutFor(options, rows).gridCells];
 }
 
 export interface TimeAxisOptions {
@@ -101,9 +87,10 @@ export interface TimeAxisOptions {
 /**
  * A labelled axis along one row.
  *
- * Labels are dropped rather than truncated when they will not all fit: half a
- * timestamp is worse than no timestamp, and evenly spaced survivors still say
- * which way time runs.
+ * Labels rather than a scale, because the thing along the bottom of a live
+ * chart is usually not a number — "-2m", "now", a hostname. Dropped rather than
+ * truncated when they will not all fit: half a timestamp is worse than no
+ * timestamp, and evenly spaced survivors still say which way time runs.
  */
 export function drawTimeAxis(frame: VizCell[][], rect: Rectangle, options: TimeAxisOptions): void {
   const { theme, labels } = options;
@@ -129,9 +116,8 @@ export interface LegendEntry {
 /**
  * A swatch and a name per entry, wrapped to fit.
  *
- * The companion to the overlay and the status grid: a chart that distinguishes
- * its series by colour is unreadable without one, and that was true of every
- * multi-series view here until this existed.
+ * The companion to the psychograph and the overlay: a chart that distinguishes
+ * its series by colour is unreadable without one.
  */
 export function drawLegend(
   frame: VizCell[][],
@@ -139,7 +125,7 @@ export function drawLegend(
   entries: readonly LegendEntry[],
   theme: VisualizationTheme,
 ): void {
-  if (rect.width <= 0 || rect.height <= 0) return;
+  if (rect.width <= 0 || rect.height <= 0 || entries.length === 0) return;
   const widest = Math.max(...entries.map((entry) => entry.label.length)) + 3;
   const perRow = Math.max(1, Math.floor(rect.width / widest));
   for (let index = 0; index < entries.length; index += 1) {

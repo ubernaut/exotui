@@ -65,6 +65,36 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
   immediate-mode demos genuinely want a per-frame LIFO stack and the library genuinely wants one pointer authority.
   _Lesson recorded in the log: `deno task health` covers files that neither suite reaches._
 
+## Two charting stacks, one of them unused
+
+Found August 19 2026, and the reason the visualisation work kept reinventing things.
+
+`src/visual/` is a complete charting subsystem — 1,442 lines across eleven modules, exported from `mod.ts`, covered by
+eleven test files — and **nothing imports it**. Not a component, not an example, not exomux, not `src/viz/`. It holds:
+
+- `series.ts` — line, stepped-line, area, scatter and stacked-area, with a `grid` option that overlays passes, which is
+  multi-series charting that already worked.
+- `marks.ts` — a mark canvas over one logical dot space with braille (2x4), sextant (2x3), quadrant (2x2) and full-cell
+  backends, and capability-checked degradation that names both the requested and the used backend.
+- `scales.ts` — linear, log, symlog, time, ordinal and band scales.
+- `axes.ts` — tick layout with Intl formatting, emoji-aware label widths and deterministic collision thinning.
+- `downsample.ts` — min-max, LTTB and a streaming downsampler.
+- `heatmap.ts`, `annotations.ts`, `interactions.ts` (crosshair, brush), `linked_charts.ts`, `chart_export.ts` (data,
+  cells, SVG, description).
+
+`src/viz/` was built without knowing it existed, and duplicated parts of it: tick generation, sub-cell plotting, and
+`resample` against `downsample`. The tick duplicate is gone — `viz/axes.ts` now paints over `visual`'s `buildAxis`,
+which is strictly better than what it replaced. The rest is open:
+
+1. **`viz`'s sub-cell plotting should be `visual`'s `MarkCanvas`.** Braille is four times the resolution of the
+   quadrants `viz/draw.ts` has, and the capability degradation is already written.
+2. **`resample` should be `lttbDownsample`.** LTTB preserves shape by area rather than by picking extremes.
+3. **The unresolved question is colour.** `visual` renders into `string[][]` and has no notion of a cell's colour, which
+   is exactly why `viz` exists. Either `visual` grows a colour-aware target, or it stays the measuring layer and `viz`
+   stays the painting one. That is a design call for the maintainer, not a refactor to start blind.
+4. **`visual`'s other half has no consumer at all** — annotations, crosshair and brush interactions, linked charts, and
+   chart export. Either something should use them or they should be understood as an unreleased surface.
+
 ## Follow-ups carried from completed work
 
 Small, real, and worth doing when adjacent code is next touched:

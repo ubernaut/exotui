@@ -3,6 +3,36 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — a psychograph of several lines, and a charting stack nobody had used
+
+The psychograph draws one line or many. Several series overlay on one set of axes — a left and a right channel spectrum
+on the same graph, three histories against each other — each with its own pip and its own colour, because colour alone
+fails a monochrome terminal and a reader who cannot separate two hues. A single series keeps the value ramp: with
+nothing to compare against, height says more than identity. Where two series meet the crossing is drawn rather than one
+of them being quietly overwritten, which matters precisely because two audio channels agree most of the time and a chart
+that hides one for it is a chart claiming they differ.
+
+That needed a model change worth its own line: `accepts` takes a list. One series over time, several over time, and
+several read at one instant are the same picture of differently shaped data, and splitting them into three
+visualisations would make a caller choose by name rather than by data. `drawStream` picks the accepted kind that best
+matches the stream, preferring an exact match so history is not dropped when both are on offer.
+
+exomonitor grew the stereo capture to go with it: `parec` records two channels, the spectra are computed per channel and
+the mono mix kept for the existing feed, and `audio:channels` is a `2dt` matrix of one row per channel. Measured at 61
+Hz on the maintainer's machine.
+
+Then the maintainer said there was already a version of this somewhere. There was. `src/visual/` is a complete charting
+subsystem — eleven modules, eleven test files, exported from `mod.ts` — and nothing imports it. Multi-series overlay, a
+mark canvas with braille through full-cell backends and capability degradation, six kinds of scale, axis tick layout
+with collision thinning, LTTB downsampling, heatmaps with colour-target degradation, annotations, crosshair and brush
+interactions, linked charts, and SVG export. `src/viz/` was built without knowing, and duplicated some of it.
+
+The tick duplicate is gone: `viz/axes.ts` paints over `visual`'s `buildAxis` now, which brought Intl formatting,
+emoji-aware label widths and deterministic thinning for free, and turned up a floating-point bug in the shared tick
+generator on the way — three times 0.2 is 0.6000000000000001, and it was reaching the tick list. What remains is
+recorded in the priority queue: the two stacks meet at colour, and which way that goes is a design call rather than a
+refactor to start blind.
+
 ## August 19 2026 — the demos, combed for what was actually a visualisation
 
 Thirty-six visualisations across the neon, monitor and neon3d families, and the finding that mattered came before any of
