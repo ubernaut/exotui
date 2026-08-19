@@ -3,11 +3,11 @@
 import { assert, assertEquals, assertThrows } from "./deps.ts";
 import { frameToText, type VizFrame } from "../src/viz/render.ts";
 import { framesToRuns } from "../src/viz/view.ts";
-import { bars, rack, waterfall } from "../src/viz/renderers_vector.ts";
+import { bars, rack, scope, waterfall } from "../src/viz/renderers_vector.ts";
 import { area, meter, psychograph, readout, sparkline } from "../src/viz/renderers_scalar.ts";
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
 import { bestVisualization, drawStream, fitVisualizations, visualizationsFor } from "../src/viz/registry.ts";
-import { scoreFit } from "../src/viz/fit.ts";
+import { scoreFit, type VizFit } from "../src/viz/fit.ts";
 import { scalarStream, vectorStream } from "../src/viz/stream.ts";
 import { defaultVisualizationTheme } from "../src/viz/theme.ts";
 
@@ -189,12 +189,22 @@ Deno.test("what suits the data depends on how much of it there is", () => {
   const fourCores = fitVisualizations({ kind: "1dt", extent: [4] }, tile);
   const manyCores = fitVisualizations({ kind: "1dt", extent: [88] }, tile);
 
-  assertEquals(fourCores[0]!.reason, "fits comfortably");
+  // Renderer for renderer: a bar chart wanting a column each is crowded by 88
+  // entries and not by 4. Comparing the two winners would not say this — the
+  // winner changes identity, because a renderer that resamples is unbothered by
+  // the count and takes the lead once there is a lot of data.
+  const scoreOf = (fits: readonly VizFit[], id: string) => fits.find((fit) => fit.id === id)!.score;
   assert(
-    manyCores[0]!.score < fourCores[0]!.score,
-    `88 entries should score worse than 4 in the same tile: ${manyCores[0]!.score} vs ${fourCores[0]!.score}`,
+    scoreOf(manyCores, "bars") < scoreOf(fourCores, "bars"),
+    `88 bars should score worse than 4 in the same tile: ${scoreOf(manyCores, "bars")} vs ${
+      scoreOf(fourCores, "bars")
+    }`,
   );
-  assert(manyCores[0]!.reason.includes("88"), `the reason should name the crowding: ${manyCores[0]!.reason}`);
+  assertEquals(fourCores.find((fit) => fit.id === "bars")!.reason, "fits comfortably");
+  assert(
+    manyCores.some((fit) => fit.reason.includes("88")),
+    `some candidate should name the crowding: ${manyCores.map((fit) => fit.reason).join(", ")}`,
+  );
 });
 
 Deno.test("a rack suits a handful of entries and a waterfall suits many", () => {
@@ -285,4 +295,32 @@ Deno.test("a field renderer given too little data loses to one that suits it", (
   assert(pair.find((fit) => fit.id === "waterfall")!.reason.includes("wants"));
   // Twenty-eight is, and it wins the same box back.
   assertEquals(fitVisualizations({ kind: "1dt", extent: [28] }, { width: 40, height: 10 })[0]!.id, "waterfall");
+});
+
+Deno.test("a trace is continuous: no gap between two samples a long way apart", () => {
+  const theme = defaultVisualizationTheme();
+  // A square wave: alternating extremes, which is the case a scatter of points
+  // draws as two dotted rows with nothing joining them.
+  const values = Array.from({ length: 12 }, (_, index) => (index % 2 === 0 ? 0 : 1));
+  const frame = scope.render(values, { size: { width: 12, height: 7 }, theme, domain: { min: 0, max: 1 } });
+  for (let column = 1; column < 12; column += 1) {
+    const inked = frame.map((row) => row[column]!.char !== " ");
+    const first = inked.indexOf(true);
+    const last = inked.lastIndexOf(true);
+    assert(first >= 0, `column ${column} drew nothing`);
+    for (let row = first; row <= last; row += 1) {
+      assert(inked[row], `column ${column} has a hole at row ${row}`);
+    }
+  }
+});
+
+Deno.test("a trace resamples rather than demanding a column per point", () => {
+  // 256 waveform points in 40 columns is a coarse curve, not an unusable one —
+  // so unlike bars it takes no crowding penalty for carrying a lot of data.
+  const many = fitVisualizations({ kind: "1d", extent: [256] }, { width: 40, height: 10 });
+  assertEquals(many.find((fit) => fit.id === "scope")!.crowding, 1);
+  assert(many.find((fit) => fit.id === "bars")!.crowding < 0.2);
+  // It still wants enough points to have a shape.
+  const pair = fitVisualizations({ kind: "1d", extent: [2] }, { width: 40, height: 10 });
+  assert(pair.find((fit) => fit.id === "scope")!.score < pair.find((fit) => fit.id === "bars")!.score);
 });

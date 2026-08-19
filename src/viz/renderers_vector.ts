@@ -9,7 +9,7 @@
 
 import { blankFrame, type Visualization, type VizContext, type VizFrame, writeText } from "./render.ts";
 import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
-import { rampGradient } from "./theme.ts";
+import { mixColor, rampGradient } from "./theme.ts";
 import type { Sample, Vector } from "./data.ts";
 
 const COLUMN_GLYPHS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
@@ -156,8 +156,58 @@ export const waterfall: Visualization<readonly Sample<1>[]> = {
   },
 };
 
+/**
+ * 1d — a trace: the vector as a continuous line across the box.
+ *
+ * Bars answer "how much of each"; a trace answers "what shape is this", which
+ * is a different question and the one an equaliser or an oscilloscope is
+ * asking. Consecutive points are joined rather than plotted as dots, because a
+ * scatter of points is something the eye has to assemble and a line is not —
+ * and at sixty frames a second an assembled shape is the whole effect.
+ */
+export const scope: Visualization<Vector> = {
+  id: "scope",
+  label: "Scope",
+  accepts: "1d",
+  minimum: { width: 8, height: 3 },
+  // No per-entry appetite: a trace resamples across the box, so two hundred
+  // points in forty columns is a coarse curve rather than an unreadable one.
+  // It does want enough points to have a shape — a line between two of them is
+  // not a trace of anything.
+  minimumEntries: 8,
+  weight: 0.85,
+  render(values, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0 || values.length === 0) return frame;
+    // Resampled across the width, so twenty-eight bands are a curve over sixty
+    // columns rather than twenty-eight dots with gaps between them.
+    const points = resample(values, width);
+    const domain = safeDomain(context.domain ?? domainOfAll([values]));
+    let previous: number | undefined;
+    for (let column = 0; column < width; column += 1) {
+      const fraction = normalize(points[column] ?? 0, domain);
+      const row = Math.min(height - 1, Math.max(0, Math.round((1 - fraction) * (height - 1))));
+      const colour = rampGradient(context.theme, fraction);
+      if (previous !== undefined && Math.abs(previous - row) > 1) {
+        // The riser between two samples a long way apart. Dimmer than the trace
+        // itself so a steep edge reads as one line rather than a solid column.
+        const step = previous < row ? 1 : -1;
+        const trail = mixColor(colour, context.theme.background, 0.45);
+        for (let between = previous + step; between !== row; between += step) {
+          frame[between]![column] = { char: "│", foreground: trail, background: context.theme.background };
+        }
+      }
+      frame[row]![column] = { char: "─", foreground: colour, background: context.theme.background };
+      previous = row;
+    }
+    return frame;
+  },
+};
+
 export const VECTOR_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   bars as unknown as Visualization<never>,
+  scope as unknown as Visualization<never>,
   rack as unknown as Visualization<never>,
   waterfall as unknown as Visualization<never>,
 ]);

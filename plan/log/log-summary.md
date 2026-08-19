@@ -25,6 +25,17 @@ without a terminal to resize.
 slots that predate the frame — dependency tracking is asynchronous, so a slot positioned in the frame it was created in
 would not move — which costs one clipped frame after a resize and buys a screen-sized composition that cannot run out.
 
+A trace renderer joined them — the vector as a continuous line rather than bars from a baseline. Bars answer "how much
+of each" and a trace answers "what shape is this", which is what an equaliser and an oscilloscope are asking. It
+resamples across the box, so it declares no per-entry appetite and takes no crowding penalty for two hundred and fifty
+six points in forty columns; what it does declare is a floor on entries, because a line between two of them is not a
+trace of anything.
+
+That broke a test worth recording rather than just fixing. "Eighty-eight entries score worse than four in the same tile"
+had been asserted on the top-ranked fit, and stopped being true once a renderer existed that resamples — the winner
+changes identity, and two renderers' scores are not on the same scale. Compared renderer for renderer the claim holds
+exactly as before. The general lesson: a ranking test should name the thing it is ranking.
+
 Two renderer bugs surfaced from looking at real feeds. A bar chart scaled to its own data range puts the smaller of any
 pair at zero, so `↓1019K/s ↑698K/s` drew one full bar and one empty one — a ranking drawn as a chart. Bars, racks and
 areas now take their floor from zero unless the data goes below it, and a caller's domain still wins. And crowding could

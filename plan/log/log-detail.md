@@ -24,6 +24,14 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**Reading a permission failure as an absent device (Aug 19).** exomonitor's `/proc` reader caught every error and
+returned undefined, commented "a source that cannot be read is a source this machine does not have". Deno gates `/proc`
+behind `--allow-all` specifically — `--allow-read=/proc` is refused too — so a monitor started with narrower permissions
+concluded the machine had no CPU, no memory and no network. Worse, `reconcile` then filtered the stored configuration by
+what was available that run, and the next save wrote the loss to disk: one run without permission permanently deleted
+the user's selection. Two rules, both now pinned by tests: a read failure and an absent device are different facts, and
+configuration is filtered for drawing, never for saving.
+
 **A density table instead of a measurement (Aug 19).** exomonitor's first layout carried a table of which panels each
 terminal size was allowed to show, and a per-panel list of preferred visualisations. Every new machine shape needed a
 new row: a 4-core laptop and an 88-core workstation want different charts at the same size, and no table indexed by
@@ -218,6 +226,15 @@ command's, so `deno task health | tail` reports grep's success, not health's. Ca
 breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._
 
 ---
+
+**A terminal cell with an explicit background is opaque, always (Aug 19).** exomonitor ignored exomux's window opacity,
+and the cause is one line in `src/runtime/terminal_palette.ts`:
+`explicit ?? (transparent ? undefined :
+defaultBackground)`, and only an undefined background is later blended against
+the desktop. exomonitor painted the theme's ground on every cell — `blankFrame` fills with it, every renderer sets it,
+`Tui.style` paints a box of it under everything, and the view substituted it for any run that lacked one. Four layers,
+each individually reasonable. An application that wants to be composited behind must leave ground cells unset; a
+full-screen object still has to exist under them, or nothing repaints a cell a chart has moved off.
 
 **A component hidden over a bare canvas is not erased (Aug 19).** `DrawObject.erase()` repaints the objects _under_ the
 one being erased. A real `Tui` with a `style` paints a background box at zIndex -1, so there is always something under
