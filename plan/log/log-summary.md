@@ -3,6 +3,11 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 18 2026 — animations confirmed (039)
+
+The maintainer ran exomux and confirmed the window and menu animations on a real terminal — the one check headless
+mounts cannot perform, and the only thing 039 had been waiting on since Aug 17. Closed.
+
 ## August 18 2026 — focus stops meaning selection (044)
 
 Four slices. The task asked for a focus authority; `src/focus.ts` already had one, so the work was extending it rather
