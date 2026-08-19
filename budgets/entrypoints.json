@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5326358,
+    "bytes": 5327195,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 16268,
@@ -155,7 +155,7 @@
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 11303,
-      "src/component.ts": 8181,
+      "src/component.ts": 9018,
       "src/components/active_item.ts": 5353,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/box.ts": 775,
@@ -468,7 +468,7 @@
   },
   "mod.app.ts": {
     "modules": 134,
-    "bytes": 1893564,
+    "bytes": 1894401,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -503,7 +503,7 @@
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 11303,
-      "src/component.ts": 8181,
+      "src/component.ts": 9018,
       "src/components/active_item.ts": 5353,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/box.ts": 775,
@@ -649,7 +649,7 @@
   },
   "mod.testing.ts": {
     "modules": 87,
-    "bytes": 720549,
+    "bytes": 721386,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4349,
@@ -679,7 +679,7 @@
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 11303,
-      "src/component.ts": 8181,
+      "src/component.ts": 9018,
       "src/components/catalog.ts": 17590,
       "src/event_emitter.ts": 4163,
       "src/focus.ts": 8860,
@@ -795,7 +795,7 @@
   },
   "mod.theme.ts": {
     "modules": 71,
-    "bytes": 626903,
+    "bytes": 627740,
     "paths": {
       "mod.theme.ts": 671,
       "src/app/disposables.ts": 2297,
@@ -809,7 +809,7 @@
       "src/canvas/sink.ts": 16479,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 11303,
-      "src/component.ts": 8181,
+      "src/component.ts": 9018,
       "src/components/catalog.ts": 17590,
       "src/components/command_palette.ts": 10360,
       "src/components/list.ts": 24110,
@@ -872,7 +872,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4540740,
+    "bytes": 4541577,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 16268,
@@ -1027,7 +1027,7 @@
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 11303,
       "src/canvas/three_ascii.ts": 34453,
-      "src/component.ts": 8181,
+      "src/component.ts": 9018,
       "src/components/active_item.ts": 5353,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/box.ts": 775,
