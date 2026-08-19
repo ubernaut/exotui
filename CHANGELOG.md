@@ -6,6 +6,16 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.2.1 — 2026-08-19
+
+### Fixed
+
+- **A widget revealed after its first frame now draws.** `Gauge`, `Sparkline` and `Chart` build their children inside
+  `draw()`, which for a component that starts invisible runs from its own visibility subscriber — while the sibling
+  Computeds of the same change are still stale. A panel that became visible and sized in one update built its child
+  against a zero-width rectangle and stayed blank. The first draw is now deferred by a microtask so the batch settles.
+  `Text` was never affected, which is why this went unnoticed.
+
 ## 0.2.0 — 2026-08-19
 
 ### Added
