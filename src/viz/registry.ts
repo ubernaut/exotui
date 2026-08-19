@@ -1,0 +1,57 @@
+// Copyright 2023 Im-Beast. MIT license.
+
+// Choosing a visualisation for a stream, and refusing the ones that cannot draw it.
+
+import { type DataKind, satisfies } from "./data.ts";
+import type { DataStream } from "./stream.ts";
+import type { Visualization, VizContext, VizFrame, VizSize } from "./render.ts";
+import { fits } from "./render.ts";
+import { SCALAR_VISUALIZATIONS } from "./renderers_scalar.ts";
+import { VECTOR_VISUALIZATIONS } from "./renderers_vector.ts";
+import { MATRIX_VISUALIZATIONS } from "./renderers_matrix.ts";
+
+/** Every visualisation this package ships. */
+export const VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
+  ...SCALAR_VISUALIZATIONS,
+  ...VECTOR_VISUALIZATIONS,
+  ...MATRIX_VISUALIZATIONS,
+]);
+
+export function visualizationById(id: string): Visualization<never> | undefined {
+  return VISUALIZATIONS.find((visualization) => visualization.id === id);
+}
+
+/** Visualisations that can draw a stream of this kind, at this size. */
+export function visualizationsFor(kind: DataKind, size?: VizSize): readonly Visualization<never>[] {
+  return VISUALIZATIONS.filter((visualization) =>
+    satisfies(kind, visualization.accepts) && (size === undefined || fits(size, visualization.minimum))
+  );
+}
+
+/**
+ * Draws a stream with a visualisation, handing it the shape it declared.
+ *
+ * This is where the kind contract is paid off: a momentary renderer is given
+ * the latest reading and a temporal one the history, so neither has to know
+ * which kind of stream it was pointed at. A mismatch throws rather than drawing
+ * something misleading — a chart that is quietly wrong is worse than an error.
+ */
+export function drawStream(
+  visualization: Visualization<never>,
+  stream: DataStream,
+  context: VizContext,
+): VizFrame {
+  if (!satisfies(stream.kind, visualization.accepts)) {
+    throw new TypeError(
+      `${visualization.id} draws ${visualization.accepts}, and was given a ${stream.kind} stream`,
+    );
+  }
+  const domain = context.domain ?? stream.domain;
+  const resolved: VizContext = domain ? { ...context, domain } : context;
+  if (visualization.accepts.endsWith("t")) {
+    return visualization.render(stream.history() as never, resolved);
+  }
+  const latest = stream.latest();
+  if (latest === undefined) return visualization.render([] as never, resolved);
+  return visualization.render(latest as never, resolved);
+}

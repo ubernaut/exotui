@@ -46,6 +46,7 @@ export const REACHABILITY_SCOPES: readonly ReachabilityScope[] = Object.freeze([
       "mod.theme.ts",
       "mod.testing.ts",
       "src/showcase/mod.ts",
+      "src/viz/mod.ts",
     ],
     // Examples and scripts are entrypoints in their own right, and tests are
     // the other thing that legitimately keeps a module alive.

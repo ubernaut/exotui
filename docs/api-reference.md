@@ -5,15 +5,15 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 13
-- Unique modules: 502
-- Module visits: 960
-- Unique re-export declarations: 631
-- Re-export declaration visits: 960
-- Unique symbol declarations: 4719
-- Symbol declaration visits: 9365
-- Documented symbol declarations: 4714
-- Documentation coverage: 99.89%
+- Entrypoints: 14
+- Unique modules: 513
+- Module visits: 971
+- Unique re-export declarations: 641
+- Re-export declaration visits: 970
+- Unique symbol declarations: 4785
+- Symbol declaration visits: 9431
+- Documented symbol declarations: 4771
+- Documentation coverage: 99.71%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -26,6 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      11 |      66 |  86.36% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -107,6 +108,21 @@ Focused Three.js/WebGPU ASCII renderer package for glyph, block, mixed, and Kitt
 - Exported symbols: 83
 - Documented symbols: 83
 - Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./viz
+
+Dimensional visualisations: data by rank and time, with streams, scaling and renderers.
+
+- Path: `./src/viz/mod.ts`
+- Runtime: shared
+- Stability: beta
+- Modules: 11
+- Re-export declarations: 10
+- Exported symbols: 66
+- Documented symbols: 57
+- Documentation coverage: 86.36%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -730,6 +746,17 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         10 |       0 |          0 |
 | [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
+| [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      16 |         15 |
+| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         10 |       0 |          0 |
+| [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       4 |          3 |
+| [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |       9 |          7 |
+| [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       4 |          4 |
+| [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
+| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       7 |          6 |
+| [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
+| [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
+| [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       5 |          4 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                           | `./web`                                 |          0 |       5 |          5 |
@@ -9557,6 +9584,161 @@ _Entrypoints: `.`_
 | `SeriesKind`          | type      | yes       | yes   |
 | `SeriesPoint`         | interface | yes       | yes   |
 | `SeriesRenderOptions` | interface | yes       | yes   |
+
+### src/viz/data.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol        | Kind      | Type Only | JSDoc |
+| ------------- | --------- | --------- | ----- |
+| `DATA_KINDS`  | const     | no        | no    |
+| `DataKind`    | type      | yes       | yes   |
+| `DataRank`    | type      | yes       | yes   |
+| `extentOf`    | function  | no        | yes   |
+| `isTemporal`  | function  | no        | yes   |
+| `kindFor`     | function  | no        | yes   |
+| `Matrix`      | type      | yes       | yes   |
+| `rankOf`      | function  | no        | yes   |
+| `rankOfValue` | function  | no        | yes   |
+| `Reading`     | type      | yes       | yes   |
+| `Sample`      | interface | yes       | yes   |
+| `satisfies`   | function  | no        | yes   |
+| `Scalar`      | type      | yes       | yes   |
+| `shapeOf`     | function  | no        | yes   |
+| `Vector`      | type      | yes       | yes   |
+| `Volume`      | type      | yes       | yes   |
+
+### src/viz/mod.ts
+
+_Entrypoints: `./viz`_
+
+| Re-export Target              | Kind | Names |
+| ----------------------------- | ---- | ----- |
+| `src/viz/data.ts`             | star | -     |
+| `src/viz/stream.ts`           | star | -     |
+| `src/viz/scale.ts`            | star | -     |
+| `src/viz/theme.ts`            | star | -     |
+| `src/viz/render.ts`           | star | -     |
+| `src/viz/renderers_scalar.ts` | star | -     |
+| `src/viz/renderers_vector.ts` | star | -     |
+| `src/viz/renderers_matrix.ts` | star | -     |
+| `src/viz/registry.ts`         | star | -     |
+| `src/viz/view.ts`             | star | -     |
+
+_No direct exported symbols._
+
+### src/viz/registry.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol              | Kind     | Type Only | JSDoc |
+| ------------------- | -------- | --------- | ----- |
+| `drawStream`        | function | no        | yes   |
+| `visualizationById` | function | no        | no    |
+| `VISUALIZATIONS`    | const    | no        | yes   |
+| `visualizationsFor` | function | no        | yes   |
+
+### src/viz/render.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol          | Kind      | Type Only | JSDoc |
+| --------------- | --------- | --------- | ----- |
+| `blankFrame`    | function  | no        | yes   |
+| `fits`          | function  | no        | yes   |
+| `frameToText`   | function  | no        | yes   |
+| `Visualization` | interface | yes       | yes   |
+| `VizCell`       | interface | yes       | no    |
+| `VizContext`    | interface | yes       | yes   |
+| `VizFrame`      | type      | yes       | yes   |
+| `VizSize`       | interface | yes       | no    |
+| `writeText`     | function  | no        | yes   |
+
+### src/viz/renderers_matrix.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                  | Kind  | Type Only | JSDoc |
+| ----------------------- | ----- | --------- | ----- |
+| `heatmap`               | const | no        | yes   |
+| `lattice`               | const | no        | yes   |
+| `MATRIX_VISUALIZATIONS` | const | no        | no    |
+| `volumeProjection`      | const | no        | yes   |
+
+### src/viz/renderers_scalar.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                  | Kind  | Type Only | JSDoc |
+| ----------------------- | ----- | --------- | ----- |
+| `meter`                 | const | no        | yes   |
+| `psychograph`           | const | no        | yes   |
+| `SCALAR_VISUALIZATIONS` | const | no        | yes   |
+| `sparkline`             | const | no        | yes   |
+
+### src/viz/renderers_vector.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                  | Kind  | Type Only | JSDoc |
+| ----------------------- | ----- | --------- | ----- |
+| `bars`                  | const | no        | yes   |
+| `rack`                  | const | no        | yes   |
+| `VECTOR_VISUALIZATIONS` | const | no        | no    |
+| `waterfall`             | const | no        | yes   |
+
+### src/viz/scale.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol           | Kind      | Type Only | JSDoc |
+| ---------------- | --------- | --------- | ----- |
+| `Domain`         | interface | yes       | no    |
+| `domainOf`       | function  | no        | yes   |
+| `domainOfAll`    | function  | no        | yes   |
+| `normalize`      | function  | no        | yes   |
+| `resample`       | function  | no        | yes   |
+| `safeDomain`     | function  | no        | yes   |
+| `TrackingDomain` | class     | no        | yes   |
+
+### src/viz/stream.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `DataStream`        | class     | no        | yes   |
+| `DataStreamOptions` | interface | yes       | no    |
+| `DEFAULT_CAPACITY`  | const     | no        | yes   |
+| `matrixStream`      | function  | no        | yes   |
+| `scalarStream`      | function  | no        | yes   |
+| `vectorStream`      | function  | no        | yes   |
+| `volumeStream`      | function  | no        | yes   |
+
+### src/viz/theme.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `defaultVisualizationTheme` | function  | no        | yes   |
+| `mixColor`                  | function  | no        | yes   |
+| `rampColor`                 | function  | no        | yes   |
+| `rampGradient`              | function  | no        | yes   |
+| `resolveVisualizationTheme` | function  | no        | yes   |
+| `VisualizationTheme`        | interface | yes       | yes   |
+
+### src/viz/view.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `dominantRun`              | function  | no        | yes   |
+| `framesToRuns`             | function  | no        | yes   |
+| `VisualizationView`        | class     | no        | yes   |
+| `VisualizationViewOptions` | interface | yes       | no    |
+| `VizRun`                   | interface | yes       | yes   |
 
 ### src/web/cell_canvas_sink.ts
 

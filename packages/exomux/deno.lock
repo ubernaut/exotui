@@ -116,12 +116,12 @@
   "workspace": {
     "dependencies": [
       "jsr:@sigma/pty-ffi@0.42.0",
-      "jsr:@ubernaut/exotui@0.2",
+      "jsr:@ubernaut/exotui@0.3",
       "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0"
     ],
     "links": {
-      "jsr:@ubernaut/exotui@0.2.0": {
+      "jsr:@ubernaut/exotui@0.3.0": {
         "dependencies": [
           "jsr:@sigma/pty-ffi@0.42.0",
           "jsr:@std/jsonc@1.0.2",

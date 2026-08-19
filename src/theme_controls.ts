@@ -48,6 +48,7 @@ export const CONTROL_TOKEN_GROUP_IDS = [
   "scrollbar",
   "desktop",
   "status",
+  "viz",
 ] as const;
 
 /** Public type alias for a control token group id. */
@@ -63,6 +64,7 @@ export const CONTROL_TOKEN_GROUP_LABELS: Readonly<Record<ControlTokenGroupId, st
   scrollbar: "Scrollbars",
   desktop: "Desktop",
   status: "Status",
+  viz: "Visualisations",
 });
 
 /**
@@ -430,6 +432,84 @@ const CONTROL_SURFACE_TOKENS: readonly ControlTokenSpec[] = [
   },
 ];
 
+const VIZ_TOKENS: readonly ControlTokenSpec[] = [
+  // Visualisations: charts, meters and heatmaps. Each falls back into the
+  // chrome or status tier, so a theme that has never heard of them paints every
+  // chart exactly as it painted everything else.
+  {
+    name: "viz:background",
+    group: "viz",
+    label: "Chart ground",
+    fallback: "chrome:background",
+    role: "background",
+  },
+  {
+    name: "viz:foreground",
+    group: "viz",
+    label: "Chart text",
+    fallback: "chrome:foreground",
+    role: "foreground",
+    against: "viz:background",
+  },
+  {
+    name: "viz:grid",
+    group: "viz",
+    label: "Grid lines",
+    fallback: "chrome:line",
+    role: "line",
+  },
+  {
+    name: "viz:axis",
+    group: "viz",
+    label: "Axis and ticks",
+    fallback: "chrome:muted",
+    role: "foreground",
+    against: "viz:background",
+  },
+  {
+    name: "viz:series",
+    group: "viz",
+    label: "Series",
+    fallback: "chrome:accent",
+    role: "foreground",
+    against: "viz:background",
+  },
+  {
+    name: "viz:series-alt",
+    group: "viz",
+    label: "Second series",
+    fallback: "status:info",
+    role: "foreground",
+    against: "viz:background",
+  },
+  // The severity ramp a value is coloured by. Named for what they mean rather
+  // than what colour they are, so a theme can be monochrome and still rank.
+  {
+    name: "viz:calm",
+    group: "viz",
+    label: "Calm",
+    fallback: "status:success",
+    role: "foreground",
+    against: "viz:background",
+  },
+  {
+    name: "viz:warn",
+    group: "viz",
+    label: "Warning",
+    fallback: "status:warning",
+    role: "foreground",
+    against: "viz:background",
+  },
+  {
+    name: "viz:alarm",
+    group: "viz",
+    label: "Alarm",
+    fallback: "status:danger",
+    role: "foreground",
+    against: "viz:background",
+  },
+];
+
 /**
  * Every control token, chrome tier first. Declaration order is also fallback
  * order: a token may only fall back to one already declared, which is what
@@ -438,6 +518,7 @@ const CONTROL_SURFACE_TOKENS: readonly ControlTokenSpec[] = [
 export const CONTROL_TOKENS: readonly ControlTokenSpec[] = Object.freeze([
   ...CHROME_TOKENS,
   ...CONTROL_SURFACE_TOKENS,
+  ...VIZ_TOKENS,
 ]);
 
 const CONTROL_TOKENS_BY_NAME: ReadonlyMap<string, ControlTokenSpec> = new Map(

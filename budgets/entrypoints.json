@@ -1,10 +1,10 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5327195,
+    "bytes": 5329736,
     "paths": {
       "mod.ts": 2821,
-      "src/api_stability.ts": 16268,
+      "src/api_stability.ts": 16953,
       "src/app/accessibility_tree.ts": 4349,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -388,7 +388,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 15725,
+      "src/theme_controls.ts": 17581,
       "src/theme_density.ts": 3770,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
@@ -795,7 +795,7 @@
   },
   "mod.theme.ts": {
     "modules": 71,
-    "bytes": 627740,
+    "bytes": 629596,
     "paths": {
       "mod.theme.ts": 671,
       "src/app/disposables.ts": 2297,
@@ -839,7 +839,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 15725,
+      "src/theme_controls.ts": 17581,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
       "src/theme_engine_factory.ts": 15576,
@@ -872,10 +872,10 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4541577,
+    "bytes": 4544118,
     "paths": {
       "mod.web.ts": 3293,
-      "src/api_stability.ts": 16268,
+      "src/api_stability.ts": 16953,
       "src/app/accessibility_tree.ts": 4349,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -1185,7 +1185,7 @@
       "src/theme.ts": 79876,
       "src/theme_binding.ts": 5580,
       "src/theme_contrast.ts": 5349,
-      "src/theme_controls.ts": 15725,
+      "src/theme_controls.ts": 17581,
       "src/theme_editor_model.ts": 9970,
       "src/theme_engine_cache.ts": 8148,
       "src/theme_engine_factory.ts": 15576,
