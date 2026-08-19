@@ -56,6 +56,9 @@ export const lattice: Visualization<readonly Sample<1>[]> = {
   accepts: "1dt",
   minimum: { width: 8, height: 4 },
   perEntry: { columns: 1 },
+  // A field of two values is two slabs; a waterfall wants enough entries to
+  // have a shape across as well as down.
+  minimumEntries: 6,
   weight: 0.9,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });

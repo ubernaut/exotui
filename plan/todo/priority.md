@@ -1,10 +1,18 @@
 # Priority queue
 
-Ordered list of open work. A task not in this list is not expected of anyone. Updated August 18 2026.
+Ordered list of open work. A task not in this list is not expected of anyone. Updated August 19 2026.
 
 ## Active
 
-1. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+1. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
+   fitness ranking are in and green; these are the gaps building a real application found and did not close:
+   - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
+     natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
+   - **No axis, tick or legend layer.** Every chart is unlabelled, so a reader can see the shape of a signal but not
+     read a value off it. Tiles work around this by putting the current reading in the title bar.
+   - **exomonitor is unpublished**, deliberately: it runs against the working tree through `links` so bugs surface here
+     first. Publishing it is a decision for the maintainer, not a task.
+2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
 ## `deno task health` — seven red gates, fixed August 18 2026

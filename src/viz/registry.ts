@@ -75,6 +75,7 @@ export function fitVisualizations(shape: VizDataShape, size: VizSize): VizFit[] 
             id: visualization.id,
             minimum: visualization.minimum,
             ...(visualization.perEntry ? { perEntry: visualization.perEntry } : {}),
+            ...(visualization.minimumEntries === undefined ? {} : { minimumEntries: visualization.minimumEntries }),
             ...(visualization.weight === undefined ? {} : { weight: visualization.weight }),
           },
           shape,

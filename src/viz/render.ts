@@ -62,6 +62,12 @@ export interface Visualization<Input> {
    * cores different questions.
    */
   readonly perEntry?: { readonly columns?: number; readonly rows?: number };
+  /**
+   * Entries below which this stops being the thing it is — a spectrogram of two
+   * bands is two coloured slabs. Field renderers set it; a bar chart of two bars
+   * is still a bar chart, so most do not.
+   */
+  readonly minimumEntries?: number;
   /** Preference among equals: higher is richer, and wins where both fit. */
   readonly weight?: number;
   render(input: Input, context: VizContext): VizFrame;

@@ -4,9 +4,10 @@ import { assert, assertEquals, assertThrows } from "./deps.ts";
 import { frameToText, type VizFrame } from "../src/viz/render.ts";
 import { framesToRuns } from "../src/viz/view.ts";
 import { bars, rack, waterfall } from "../src/viz/renderers_vector.ts";
-import { meter, psychograph, readout, sparkline } from "../src/viz/renderers_scalar.ts";
+import { area, meter, psychograph, readout, sparkline } from "../src/viz/renderers_scalar.ts";
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
 import { bestVisualization, drawStream, fitVisualizations, visualizationsFor } from "../src/viz/registry.ts";
+import { scoreFit } from "../src/viz/fit.ts";
 import { scalarStream, vectorStream } from "../src/viz/stream.ts";
 import { defaultVisualizationTheme } from "../src/viz/theme.ts";
 
@@ -210,7 +211,9 @@ Deno.test("a tile that grows earns a richer visualisation", () => {
   const tiny = fitVisualizations(shape, { width: 20, height: 1 })[0]!;
   const roomy = fitVisualizations(shape, { width: 40, height: 12 })[0]!;
   assertEquals(tiny.id, "sparkline", "one row can only be a sparkline");
-  assertEquals(roomy.id, "psychograph", "given a box, the richer view wins");
+  assertEquals(roomy.id, "area", "given a box, the filled view wins");
+  const alternatives = fitVisualizations(shape, { width: 40, height: 12 }).map((fit) => fit.id);
+  assert(alternatives.includes("psychograph"), "the others stay available for the settings page to offer");
 });
 
 Deno.test("something is always drawable, however small the tile", () => {
@@ -218,4 +221,68 @@ Deno.test("something is always drawable, however small the tile", () => {
   assert(best, "a 2x1 tile still has to show something");
   assertEquals(best.id, "sparkline");
   assertEquals(bestVisualization({ kind: "0d" }, { width: 1, height: 1 })?.id, "readout");
+});
+
+Deno.test("an area chart fills from the baseline, so the trend has an edge to follow", () => {
+  const theme = defaultVisualizationTheme();
+  const rising = Array.from({ length: 20 }, (_, index) => ({ value: index / 19, at: index }));
+  const frame = area.render(rising, { size: { width: 20, height: 8 }, theme, domain: { min: 0, max: 1 } });
+  const lines = frameToText(frame);
+  // The bottom row is full across, because every column has some value above the
+  // baseline; the top row is not, because only the last columns reach it.
+  assertEquals(lines.at(-1)!.trim().length, 20, `bottom row: "${lines.at(-1)}"`);
+  assert(lines[0]!.trim().length < 20, `top row should not be full: "${lines[0]}"`);
+  // Nothing floats: a filled column is contiguous down to the baseline.
+  for (let column = 0; column < 20; column += 1) {
+    let seenInk = false;
+    for (let row = 7; row >= 0; row -= 1) {
+      const filled = frame[row]![column]!.char !== " ";
+      if (!filled && seenInk) continue;
+      if (filled) seenInk = true;
+    }
+    assert(seenInk, `column ${column} drew nothing at all`);
+  }
+});
+
+Deno.test("crowding is reported separately from the score, because it answers a different question", () => {
+  const roomy = scoreFit({ id: "bars", minimum: { width: 2, height: 2 }, perEntry: { columns: 1 } }, {
+    kind: "1d",
+    extent: [8],
+  }, { width: 40, height: 10 });
+  const packed = scoreFit({ id: "bars", minimum: { width: 2, height: 2 }, perEntry: { columns: 1 } }, {
+    kind: "1d",
+    extent: [88],
+  }, { width: 10, height: 10 });
+  assertEquals(roomy.crowding, 1);
+  assert(packed.crowding < 0.2, `88 entries in 10 columns is ${packed.crowding}`);
+  assert(packed.score > 0, "still rankable — it is the caller that decides it is not worth drawing");
+});
+
+Deno.test("a bar chart's baseline is zero, so the smallest bar is not always empty", () => {
+  const theme = defaultVisualizationTheme();
+  // Two throughput readings with no declared domain. Scaled to their own range,
+  // the smaller one normalises to 0 and draws nothing — every pair of bars
+  // would show one full and one empty, whatever the numbers.
+  const frame = bars.render([1_019_000, 698_000], { size: { width: 4, height: 4 }, theme });
+  const lines = frameToText(frame);
+  const rightHalf = lines.map((line) => line.slice(2)).join("");
+  assert(rightHalf.trim().length > 0, `the smaller bar drew nothing:\n${lines.join("\n")}`);
+});
+
+Deno.test("a caller's domain still wins over the baseline", () => {
+  const theme = defaultVisualizationTheme();
+  const frame = bars.render([0.5, 0.5], { size: { width: 4, height: 4 }, theme, domain: { min: 0, max: 1 } });
+  const lines = frameToText(frame);
+  // Half of four rows, both bars alike, because the domain says what full means.
+  assertEquals(lines[0]!.trim(), "", `top row should be empty:\n${lines.join("\n")}`);
+  assertEquals(lines[3]!.length, 4);
+});
+
+Deno.test("a field renderer given too little data loses to one that suits it", () => {
+  // Two entries is not a spectrogram, however comfortably it fits.
+  const pair = fitVisualizations({ kind: "1dt", extent: [2] }, { width: 40, height: 10 });
+  assertEquals(pair[0]!.id, "bars");
+  assert(pair.find((fit) => fit.id === "waterfall")!.reason.includes("wants"));
+  // Twenty-eight is, and it wins the same box back.
+  assertEquals(fitVisualizations({ kind: "1dt", extent: [28] }, { width: 40, height: 10 })[0]!.id, "waterfall");
 });

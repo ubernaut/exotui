@@ -42,6 +42,22 @@ export function domainOfAll(values: Iterable<unknown>): Domain {
   return safeDomain({ min, max });
 }
 
+/**
+ * The domain for anything drawn from a baseline: bars, racks, filled areas.
+ *
+ * Auto-scaling to the data's own range is right for a trend line, where the
+ * question is "what shape is this", and wrong for a bar, where the question is
+ * "how much". Two values of 1019K and 698K auto-scaled put the second bar at
+ * zero — the smaller of any pair is always empty, which is not a chart, it is
+ * a ranking drawn as one. So the floor is zero unless the data goes below it,
+ * and a caller with a real domain still wins.
+ */
+export function baselineDomain(values: Iterable<unknown>, given?: Domain): Domain {
+  if (given) return safeDomain(given);
+  const measured = domainOfAll(values);
+  return safeDomain({ min: Math.min(0, measured.min), max: Math.max(0, measured.max) });
+}
+
 /** Where a value sits in a domain, clamped to 0-1. */
 export function normalize(value: number, domain: Domain): number {
   const safe = safeDomain(domain);

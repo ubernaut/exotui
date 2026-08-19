@@ -85,9 +85,21 @@ export function mixColor(from: Rgb, to: Rgb, amount: number): Rgb {
   ];
 }
 
-/** A smooth ramp colour: interpolated between stops rather than stepped. */
+/**
+ * How many distinct colours the gradient can produce.
+ *
+ * A truly continuous gradient gives almost every cell of a heatmap its own
+ * colour, and the view layer draws one component per run of identically styled
+ * cells — so continuity costs a component per cell, which is the difference
+ * between a chart that draws and one that runs out of pool. Thirty-two steps is
+ * indistinguishable at a terminal's colour resolution and merges neighbours
+ * that differ by a rounding error.
+ */
+const RAMP_STEPS = 32;
+
+/** A smooth ramp colour: interpolated between stops, quantised to `RAMP_STEPS`. */
 export function rampGradient(theme: VisualizationTheme, fraction: number): Rgb {
-  const clamped = Math.min(1, Math.max(0, fraction));
+  const clamped = Math.round(Math.min(1, Math.max(0, fraction)) * RAMP_STEPS) / RAMP_STEPS;
   const span = theme.ramp.length - 1;
   const position = clamped * span;
   const index = Math.min(span - 1, Math.floor(position));

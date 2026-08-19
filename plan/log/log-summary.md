@@ -3,6 +3,48 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — what fits depends on the data (0.3.1)
+
+A visualisation used to declare one minimum size, which cannot answer the question a tile actually asks. Eighty-eight
+cores drawn as bars want eighty-eight columns; four cores want four. Same renderer, same box, right answer in one case
+and unreadable in the other.
+
+Each visualisation now declares what one entry costs it — a column for bars and waterfall, a row for rack, nothing for
+the scalar views, which draw history rather than entries — plus a weight ranking it among equals. `scoreFit` combines
+the absolute floor with that crowding and returns both a score and a reason in words: "fits comfortably", "88 entries
+are tight here". `fitVisualizations` ranks every candidate for a shape at a size. Crowding is reported separately from
+the score because it answers a different question: the score ranks candidates against each other, crowding says whether
+the winner is worth drawing at all.
+
+An `area` renderer joined them, and immediately became the default for anything `0dt`. The psychograph plots one point
+per column, which is honest and reads as scatter; a filled body gives the eye an edge to follow. Seeing the two side by
+side is what settled it, which is why exomonitor grew a `scripts/preview.ts` that prints a composed screen at any size
+without a terminal to resize.
+
+`VisualizationView`'s run pool now grows on demand instead of being fixed at construction. It still draws only into
+slots that predate the frame — dependency tracking is asynchronous, so a slot positioned in the frame it was created in
+would not move — which costs one clipped frame after a resize and buys a screen-sized composition that cannot run out.
+
+Two renderer bugs surfaced from looking at real feeds. A bar chart scaled to its own data range puts the smaller of any
+pair at zero, so `↓1019K/s ↑698K/s` drew one full bar and one empty one — a ranking drawn as a chart. Bars, racks and
+areas now take their floor from zero unless the data goes below it, and a caller's domain still wins. And crowding could
+not catch the opposite mistake: two entries in thirty-five columns fit perfectly and a spectrogram of them is two
+coloured slabs, so a field renderer declares the entries it wants before it earns its weight.
+
+Audio then had to run at sixty. It had been analysing one non-overlapping window per four buffered — 5.9 spectra a
+second, three quarters of the audio discarded — and the screen was reading it once a second on the sample tick. Windows
+now overlap with a hop of `sampleRate / 60`, sliced at hop boundaries rather than at whatever boundary the recorder
+happens to hand over, which is the difference between 50 Hz and 60.0 Hz measured. A feed can declare itself live: its
+tile is drawn by its own listener at its own rate, on a second view above the screen, so sixty frames a second costs one
+chart rather than the whole terminal — 8.3 ms of a 16.7 ms budget for a 77x18 spectrogram.
+
+exomonitor was rebuilt on it: sources became feeds (overall CPU and per-core load are different questions, not one
+panel), the density table became equal tiles, and the panel-to-visualisation mapping became a ranking against live
+cardinality. An 18x4 terminal reads `cpu 42%  mem 70%  gpu 10%  net 20K/s` with no special case for it — that is what
+falls out when no candidate clears the crowding floor and the tile keeps its number. The settings modal is Box, Frame,
+Tabs and List rather than hand-drawn text, with a Display page that shows the registry's own reason for each choice and
+lets one be pinned; a pin that stops fitting is ignored rather than obeyed.
+
 ## August 18 2026 — animations confirmed (039)
 
 The maintainer ran exomux and confirmed the window and menu animations on a real terminal — the one check headless

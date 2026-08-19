@@ -24,6 +24,23 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**A density table instead of a measurement (Aug 19).** exomonitor's first layout carried a table of which panels each
+terminal size was allowed to show, and a per-panel list of preferred visualisations. Every new machine shape needed a
+new row: a 4-core laptop and an 88-core workstation want different charts at the same size, and no table indexed by
+terminal size can say so. Replaced by scoring candidates against live cardinality. _Rule: when a table needs a column
+for every machine, the thing being tabulated is a measurement._
+
+**The psychograph as the default scalar chart (Aug 19).** It was chosen because it uses the whole box, which is true,
+and read as scattered dots, which is also true. A filled area chart of the same data at the same size is immediately
+legible. Neither renderer changed; what changed was looking at them side by side, which needed
+`exomonitor/scripts/preview.ts` to exist. _Rule: for anything visual, build the way to look at it before arguing about
+it._
+
+**Quantising the ramp to save components (Aug 19).** `rampGradient` was made to snap to 32 steps so neighbouring cells
+of a heatmap would merge into runs. Measured: 2,564 runs became 2,514 on random data. Kept — it is free and helps real
+data, where neighbours are genuinely similar — but it did not solve the problem, and the pool growing on demand did.
+_Rule: measure the saving before designing around it._
+
 **Shadowing a preset (Aug 18).** The theme editor originally let a saved theme shadow a built-in of the same name, on
 the theory that "fixing a shipped theme" was the common case. The user's direction was the opposite: presets are the
 floor everyone can get back to. Saving over one is now refused, and opening the editor starts a copy. Two test files had
@@ -199,6 +216,14 @@ command's, so `deno task health | tail` reports grep's success, not health's. Ca
 **A gate nobody ran (Aug 18).** Plan 040 deleted `HitTargetStack` from the library and both suites stayed green, because
 `app/api_workbench.ts` and `examples/web/api_workbench_page.ts` are only type-checked by `deno task health`. The
 breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._
+
+---
+
+**A component hidden over a bare canvas is not erased (Aug 19).** `DrawObject.erase()` repaints the objects _under_ the
+one being erased. A real `Tui` with a `style` paints a background box at zIndex -1, so there is always something under
+it; `createTestTerminalApp` does not, so a modal closed in a headless test stays on screen and the test fails for a
+reason the application does not have. Mount the thing the modal covers, as the application does. Confirmed both ways
+with a two-component probe.
 
 ---
 

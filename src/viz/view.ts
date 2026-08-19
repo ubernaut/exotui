@@ -78,7 +78,12 @@ export interface VisualizationViewOptions {
   readonly zIndex?: number;
   /** Builds the style for one run of identically coloured cells. */
   readonly styleFor: (run: VizRun) => Style;
-  /** Runs to allocate. A frame with more is clipped rather than allowed to grow unbounded. */
+  /**
+   * Runs allocated before the first frame. A frame needing more grows the pool
+   * up to `maxRuns`; this only sets how much is ready immediately.
+   */
+  readonly initialRuns?: number;
+  /** The ceiling the pool may grow to. A frame with more runs is clipped. */
   readonly maxRuns?: number;
 }
 
@@ -107,16 +112,29 @@ export class VisualizationView {
   }[] = [];
   readonly #options: VisualizationViewOptions;
 
+  readonly #maximum: number;
+
   constructor(options: VisualizationViewOptions) {
     this.#options = options;
-    const slots = Math.max(1, options.maxRuns ?? 400);
+    this.#maximum = Math.max(1, options.maxRuns ?? 4096);
+    const slots = Math.max(1, Math.min(this.#maximum, options.initialRuns ?? 512));
     for (let index = 0; index < slots; index += 1) this.#addSlot();
   }
 
   /** Replaces what is on screen with this frame. */
   present(frame: VizFrame): void {
     const runs = framesToRuns(frame);
-    for (let index = 0; index < this.#slots.length; index += 1) {
+    // Grow toward what this frame wanted, but draw with the slots that already
+    // existed. A Computed wires itself to its dependencies a turn of the event
+    // loop after it is created, so a slot positioned in the frame it was made
+    // in would not move; the next frame has it. One clipped frame after a
+    // resize is invisible, a permanently misplaced run is not.
+    const usable = this.#slots.length;
+    if (runs.length > usable && usable < this.#maximum) {
+      const target = Math.min(this.#maximum, runs.length);
+      while (this.#slots.length < target) this.#addSlot();
+    }
+    for (let index = 0; index < usable; index += 1) {
       const slot = this.#slots[index]!;
       const run = runs[index];
       if (!run) {

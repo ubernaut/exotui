@@ -8,7 +8,7 @@
 // waterfall answers "which core has been busy", which no single frame can.
 
 import { blankFrame, type Visualization, type VizContext, type VizFrame, writeText } from "./render.ts";
-import { domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
+import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
 import { rampGradient } from "./theme.ts";
 import type { Sample, Vector } from "./data.ts";
 
@@ -34,7 +34,7 @@ export const bars: Visualization<Vector> = {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
     if (width <= 0 || height <= 0 || values.length === 0) return frame;
-    const domain = safeDomain(context.domain ?? domainOfAll([values]));
+    const domain = baselineDomain([values], context.domain);
     for (let column = 0; column < width; column += 1) {
       // Map the column back to an entry, so a narrow box shows all of them
       // compressed rather than the first few at full width.
@@ -84,7 +84,7 @@ export const rack: Visualization<Vector> = {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
     if (width <= 0 || height <= 0 || values.length === 0) return frame;
-    const domain = safeDomain(context.domain ?? domainOfAll([values]));
+    const domain = baselineDomain([values], context.domain);
     const labelWidth = Math.min(8, Math.max(0, width - 6));
     const barWidth = Math.max(1, width - labelWidth - 5);
     const rows = Math.min(height, values.length);
@@ -128,6 +128,7 @@ export const waterfall: Visualization<readonly Sample<1>[]> = {
   accepts: "1dt",
   minimum: { width: 4, height: 3 },
   perEntry: { columns: 1 },
+  minimumEntries: 6,
   weight: 1,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });

@@ -63,6 +63,17 @@ attach and detach. Any protocol addition is therefore a version-skew question fi
 daemon's descriptor and gated on by the client, and an unknown message from an authenticated client is refused, not
 fatal. Plan `041` is why.
 
+**Data declares its shape; visualisations declare what they draw** (`src/viz`, shipped as `./viz`). A stream carries a
+kind — `0d` a number, `0dt` its history, `1d` an array read now, `1dt` that array over time, up to `3dt` — and a
+visualisation declares the kind it accepts. Pairing them wrongly throws rather than drawing something quietly false;
+history can be dropped but never invented, and rank never converts.
+
+Which of the fitting visualisations to use is a **measurement, not a table**. Each declares what one entry of data costs
+it — a column for bars, a row for rack, nothing for the scalar views — so eighty-eight cores and four cores get
+different answers in the same box, and a tile that grows swaps to a richer chart on its own. `scoreFit` returns the
+crowding alongside the score, because ranking candidates against each other and deciding whether the winner is worth
+drawing are different questions.
+
 **Themes resolve, they do not spread** ([diagram](diagrams/theme-resolution.md)). A theme is a sparse map of named
 colours. Control tokens (`button:background`, `window:titlebar-background-active`, …) each fall back through a small
 chrome tier to one of seven core colours, so a theme that sets seven values paints everything and a theme that sets

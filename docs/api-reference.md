@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 14
-- Unique modules: 513
-- Module visits: 971
-- Unique re-export declarations: 641
-- Re-export declaration visits: 970
-- Unique symbol declarations: 4786
-- Symbol declaration visits: 9432
-- Documented symbol declarations: 4772
-- Documentation coverage: 99.71%
+- Unique modules: 514
+- Module visits: 972
+- Unique re-export declarations: 642
+- Re-export declaration visits: 971
+- Unique symbol declarations: 4794
+- Symbol declaration visits: 9440
+- Documented symbol declarations: 4779
+- Documentation coverage: 99.69%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -26,7 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      11 |      67 |  86.57% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      12 |      75 |  86.67% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -118,11 +118,11 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Path: `./src/viz/mod.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 11
-- Re-export declarations: 10
-- Exported symbols: 67
-- Documented symbols: 58
-- Documentation coverage: 86.57%
+- Modules: 12
+- Re-export declarations: 11
+- Exported symbols: 75
+- Documented symbols: 65
+- Documentation coverage: 86.67%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -747,16 +747,17 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
 | [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      16 |         15 |
-| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         10 |       0 |          0 |
-| [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       4 |          3 |
+| [`src/viz/fit.ts`](#src-viz-fit-ts)                                                             | `./viz`                                 |          0 |       5 |          5 |
+| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         11 |       0 |          0 |
+| [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       6 |          5 |
 | [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |       9 |          7 |
 | [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
-| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       5 |          5 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       6 |          6 |
 | [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
-| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       7 |          6 |
+| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       8 |          7 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
-| [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       5 |          4 |
+| [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       4 |          2 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                           | `./web`                                 |          0 |       5 |          5 |
@@ -9608,6 +9609,18 @@ _Entrypoints: `./viz`_
 | `Vector`      | type      | yes       | yes   |
 | `Volume`      | type      | yes       | yes   |
 
+### src/viz/fit.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol         | Kind      | Type Only | JSDoc |
+| -------------- | --------- | --------- | ----- |
+| `entriesOf`    | function  | no        | yes   |
+| `rankFits`     | function  | no        | yes   |
+| `scoreFit`     | function  | no        | yes   |
+| `VizDataShape` | interface | yes       | yes   |
+| `VizFit`       | interface | yes       | yes   |
+
 ### src/viz/mod.ts
 
 _Entrypoints: `./viz`_
@@ -9622,6 +9635,7 @@ _Entrypoints: `./viz`_
 | `src/viz/renderers_scalar.ts` | star | -     |
 | `src/viz/renderers_vector.ts` | star | -     |
 | `src/viz/renderers_matrix.ts` | star | -     |
+| `src/viz/fit.ts`              | star | -     |
 | `src/viz/registry.ts`         | star | -     |
 | `src/viz/view.ts`             | star | -     |
 
@@ -9633,7 +9647,9 @@ _Entrypoints: `./viz`_
 
 | Symbol              | Kind     | Type Only | JSDoc |
 | ------------------- | -------- | --------- | ----- |
+| `bestVisualization` | function | no        | yes   |
 | `drawStream`        | function | no        | yes   |
+| `fitVisualizations` | function | no        | yes   |
 | `visualizationById` | function | no        | no    |
 | `VISUALIZATIONS`    | const    | no        | yes   |
 | `visualizationsFor` | function | no        | yes   |
@@ -9671,6 +9687,7 @@ _Entrypoints: `./viz`_
 
 | Symbol                  | Kind  | Type Only | JSDoc |
 | ----------------------- | ----- | --------- | ----- |
+| `area`                  | const | no        | yes   |
 | `meter`                 | const | no        | yes   |
 | `psychograph`           | const | no        | yes   |
 | `readout`               | const | no        | yes   |
@@ -9694,6 +9711,7 @@ _Entrypoints: `./viz`_
 
 | Symbol           | Kind      | Type Only | JSDoc |
 | ---------------- | --------- | --------- | ----- |
+| `baselineDomain` | function  | no        | yes   |
 | `Domain`         | interface | yes       | no    |
 | `domainOf`       | function  | no        | yes   |
 | `domainOfAll`    | function  | no        | yes   |
@@ -9735,9 +9753,8 @@ _Entrypoints: `./viz`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
-| `dominantRun`              | function  | no        | yes   |
 | `framesToRuns`             | function  | no        | yes   |
-| `VisualizationView`        | class     | no        | yes   |
+| `VisualizationView`        | class     | no        | no    |
 | `VisualizationViewOptions` | interface | yes       | no    |
 | `VizRun`                   | interface | yes       | yes   |
 

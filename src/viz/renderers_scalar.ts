@@ -3,8 +3,8 @@
 // Rank-0 visualisations: one number, and one number over time.
 
 import { blankFrame, type Visualization, type VizCell, type VizContext, type VizFrame, writeText } from "./render.ts";
-import { domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
-import { rampGradient } from "./theme.ts";
+import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
+import { mixColor, rampGradient } from "./theme.ts";
 import type { Sample } from "./data.ts";
 
 const METER_GLYPHS = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"] as const;
@@ -70,6 +70,61 @@ export const sparkline: Visualization<readonly Sample<0>[]> = {
         foreground: rampGradient(context.theme, fraction),
         background: context.theme.background,
       };
+    }
+    return frame;
+  },
+};
+
+const AREA_GLYPHS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
+
+/**
+ * 0dt — an area chart: history filled from the baseline up.
+ *
+ * The shape every system monitor draws, and for a reason a scatter of points
+ * makes obvious once you see them side by side: a filled body gives the eye an
+ * edge to follow, so the trend reads at a glance instead of being reconstructed
+ * dot by dot. The crest carries the value's colour and the body a dimmer mix of
+ * it, which is what stops a full-height chart from becoming a solid slab.
+ */
+export const area: Visualization<readonly Sample<0>[]> = {
+  id: "area",
+  label: "Area",
+  accepts: "0dt",
+  minimum: { width: 4, height: 2 },
+  // Above the psychograph, so a box that fits both gets the filled one.
+  weight: 1.1,
+  render(samples, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0) return frame;
+    const values = resample(samples.map((sample) => sample.value), width);
+    // Filled from a baseline, so the baseline is zero rather than the smallest
+    // reading — an area chart that floats reads as busier than the machine is.
+    const domain = baselineDomain(values, context.domain);
+    for (let column = 0; column < width; column += 1) {
+      const fraction = normalize(values[column] ?? 0, domain);
+      const colour = rampGradient(context.theme, fraction);
+      const body = mixColor(colour, context.theme.background, 0.55);
+      const filled = fraction * height;
+      const whole = Math.min(height, Math.floor(filled));
+      for (let step = 0; step < whole; step += 1) {
+        frame[height - 1 - step]![column] = {
+          char: "█",
+          foreground: body,
+          background: context.theme.background,
+        };
+      }
+      if (whole < height) {
+        const remainder = filled - whole;
+        // A value that rounds to nothing still gets its baseline tick, or an
+        // idle series disappears rather than reading as idle.
+        const index = Math.max(0, Math.min(AREA_GLYPHS.length - 1, Math.floor(remainder * AREA_GLYPHS.length)));
+        frame[height - 1 - whole]![column] = {
+          char: AREA_GLYPHS[index]!,
+          foreground: colour,
+          background: context.theme.background,
+        };
+      }
     }
     return frame;
   },
@@ -148,6 +203,7 @@ export const SCALAR_VISUALIZATIONS: readonly Visualization<never>[] = Object.fre
   meter as unknown as Visualization<never>,
   readout as unknown as Visualization<never>,
   sparkline as unknown as Visualization<never>,
+  area as unknown as Visualization<never>,
   psychograph as unknown as Visualization<never>,
 ]);
 

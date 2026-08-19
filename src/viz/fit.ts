@@ -28,6 +28,15 @@ export interface VizDataShape {
 export interface VizFit {
   readonly id: string;
   readonly score: number;
+  /**
+   * How much of the room each entry wants it actually got, 0 to 1.
+   *
+   * Separate from the score because it answers a different question: the score
+   * ranks candidates against each other, this says whether the winner is worth
+   * drawing at all. Sixteen cores in one row can be ranked first and still be
+   * nonsense.
+   */
+  readonly crowding: number;
   /** Why, in a phrase, for a settings page that explains its choice. */
   readonly reason: string;
 }
@@ -51,6 +60,14 @@ export function scoreFit(
     readonly minimum: VizSize;
     /** Columns and rows one entry wants, when the data has entries. */
     readonly perEntry?: { readonly columns?: number; readonly rows?: number };
+    /**
+     * Entries below which this stops being the thing it is.
+     *
+     * A spectrogram of two bands is two coloured slabs. Crowding cannot catch
+     * that — two entries in thirty-five columns fit perfectly — so a field
+     * renderer says how much data it wants before it earns its weight.
+     */
+    readonly minimumEntries?: number;
     /** Score at its ideal size, before penalties. */
     readonly weight?: number;
   },
@@ -62,21 +79,25 @@ export function scoreFit(
   const neededRows = Math.max(candidate.minimum.height, (candidate.perEntry?.rows ?? 0) * entries);
 
   if (size.width < candidate.minimum.width || size.height < candidate.minimum.height) {
-    return { id: candidate.id, score: 0, reason: "too small" };
+    return { id: candidate.id, score: 0, crowding: 0, reason: "too small" };
   }
   // Room for every entry to be distinguishable is what separates "drawn" from
   // "drawn honestly": below it, entries share cells and the reading is a blur.
   const columnFit = Math.min(1, size.width / Math.max(1, neededColumns));
   const rowFit = Math.min(1, size.height / Math.max(1, neededRows));
   const crowding = Math.min(columnFit, rowFit);
+  const wanted = candidate.minimumEntries ?? 0;
+  const sparsity = wanted > 0 ? Math.min(1, entries / wanted) : 1;
   const base = candidate.weight ?? 1;
-  const score = base * (0.25 + 0.75 * crowding);
-  const reason = crowding >= 1
+  const score = base * (0.25 + 0.75 * crowding) * sparsity;
+  const reason = sparsity < 1
+    ? `only ${entries} to show — wants ${wanted}`
+    : crowding >= 1
     ? "fits comfortably"
     : crowding > 0.5
     ? `${entries} entries are tight here`
     : `${entries} entries would blur`;
-  return { id: candidate.id, score, reason };
+  return { id: candidate.id, score, crowding, reason };
 }
 
 /** Ranks candidates, best first, dropping the ones that cannot draw at all. */
