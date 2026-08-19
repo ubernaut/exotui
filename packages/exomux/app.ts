@@ -5166,6 +5166,12 @@ function paintNetworkPanel(
     background: theme.surface,
     selectedForeground: theme.background,
     selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
+    selectedUnfocusedForeground: exomuxControlColor(theme, "control:foreground-selected-unfocused", theme.text),
+    selectedUnfocusedBackground: exomuxControlColor(
+      theme,
+      "control:background-selected-unfocused",
+      theme.surfaceStrong,
+    ),
     scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
     scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
   });
@@ -5284,6 +5290,12 @@ function paintSessionManager(
     background: theme.surface,
     selectedForeground: theme.background,
     selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
+    selectedUnfocusedForeground: exomuxControlColor(theme, "control:foreground-selected-unfocused", theme.text),
+    selectedUnfocusedBackground: exomuxControlColor(
+      theme,
+      "control:background-selected-unfocused",
+      theme.surfaceStrong,
+    ),
     scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
     scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
   });

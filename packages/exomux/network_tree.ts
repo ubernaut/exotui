@@ -14,7 +14,14 @@
 // blits; until a matching snapshot exists the caller falls back to its
 // hand-drawn rows.
 
-import { createAnsiStyle, flattenTreeRows, Signal, Tree, type TreeNode } from "@ubernaut/deno-tui";
+import {
+  createAnsiStyle,
+  flattenTreeRows,
+  resolveSelectionPaint,
+  Signal,
+  Tree,
+  type TreeNode,
+} from "@ubernaut/deno-tui";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 
@@ -32,6 +39,8 @@ export interface ExomuxNetworkTreeSpec {
   readonly background: ExomuxRgb;
   readonly selectedForeground: ExomuxRgb;
   readonly selectedBackground: ExomuxRgb;
+  readonly selectedUnfocusedForeground: ExomuxRgb;
+  readonly selectedUnfocusedBackground: ExomuxRgb;
   readonly scrollbarTrack: ExomuxRgb;
   readonly scrollbarThumb: ExomuxRgb;
 }
@@ -51,6 +60,8 @@ function signatureOf(spec: ExomuxNetworkTreeSpec): string {
     spec.background.join(","),
     spec.selectedForeground.join(","),
     spec.selectedBackground.join(","),
+    spec.selectedUnfocusedForeground.join(","),
+    spec.selectedUnfocusedBackground.join(","),
     spec.scrollbarTrack.join(","),
     spec.scrollbarThumb.join(","),
   ].join("|");
@@ -121,6 +132,10 @@ export class ExomuxNetworkTree {
           background: spec.selectedBackground,
           bold: true,
         });
+        const selectedUnfocusedStyle = createAnsiStyle({
+          foreground: spec.selectedUnfocusedForeground,
+          background: spec.selectedUnfocusedBackground,
+        });
         const tree = new Tree({
           parent: tui,
           zIndex: 1,
@@ -130,15 +145,22 @@ export class ExomuxNetworkTree {
           // so remounts never accumulate subscriptions on the live tree.
           nodes: spec.nodes.map((node) => ({ ...node })),
           selectedIndex: new Signal(spec.selectedIndex),
-          rowStyle: (row, selected) =>
-            selected && spec.active
-              ? selectedStyle
-              : row.depth === 0
-              ? heading
-              : row.node.note || row.node.status === "offline"
-              ? muted
-              : base,
-          markerFor: (_row, selected) => selected && spec.active ? ">" : " ",
+          rowStyle: (row, selected) => {
+            switch (resolveSelectionPaint({ selected, collectionFocused: spec.active })) {
+              case "selected":
+                return selectedStyle;
+              case "selected-unfocused":
+                return selectedUnfocusedStyle;
+              default:
+                return row.depth === 0 ? heading : row.node.note || row.node.status === "offline" ? muted : base;
+            }
+          },
+          markerFor: (_row, selected) =>
+            resolveSelectionPaint({ selected, collectionFocused: spec.active }) === "selected"
+              ? ">"
+              : selected
+              ? "·"
+              : " ",
           scrollbar: {
             track: createAnsiStyle({ foreground: spec.scrollbarTrack, background: spec.scrollbarTrack }),
             thumb: createAnsiStyle({ foreground: spec.scrollbarThumb, background: spec.scrollbarThumb }),

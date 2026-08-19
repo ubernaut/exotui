@@ -14,7 +14,7 @@
 // Rendering is async, so a render captures a snapshot the painter blits; until
 // a matching snapshot exists the caller falls back to its hand-drawn rows.
 
-import { createAnsiStyle, List, Signal } from "@ubernaut/deno-tui";
+import { createAnsiStyle, List, resolveSelectionPaint, Signal } from "@ubernaut/deno-tui";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 
@@ -32,13 +32,21 @@ export interface ExomuxSessionListSpec {
   readonly selectedIndex: number;
   /** Explicit viewport top for wheel scrolling; -1 follows the selection. */
   readonly scrollTop: number;
-  /** Whether the panel window has focus; the highlight only shows when it does. */
+  /**
+   * Whether the panel window has focus. The selected row is drawn either way —
+   * it is still this list's current item — but an unfocused panel shows it
+   * muted rather than accented, so two lists on screen never look like two
+   * cursors. Before 044 an unfocused panel showed no highlight at all, which
+   * lost the user's place instead of de-emphasising it.
+   */
   readonly active: boolean;
   readonly foreground: ExomuxRgb;
   readonly mutedForeground: ExomuxRgb;
   readonly background: ExomuxRgb;
   readonly selectedForeground: ExomuxRgb;
   readonly selectedBackground: ExomuxRgb;
+  readonly selectedUnfocusedForeground: ExomuxRgb;
+  readonly selectedUnfocusedBackground: ExomuxRgb;
   readonly scrollbarTrack: ExomuxRgb;
   readonly scrollbarThumb: ExomuxRgb;
 }
@@ -57,6 +65,8 @@ function signatureOf(spec: ExomuxSessionListSpec): string {
     spec.background.join(","),
     spec.selectedForeground.join(","),
     spec.selectedBackground.join(","),
+    spec.selectedUnfocusedForeground.join(","),
+    spec.selectedUnfocusedBackground.join(","),
     spec.scrollbarTrack.join(","),
     spec.scrollbarThumb.join(","),
   ].join("|");
@@ -122,6 +132,10 @@ export class ExomuxSessionList {
           background: spec.selectedBackground,
           bold: true,
         });
+        const selectedUnfocusedStyle = createAnsiStyle({
+          foreground: spec.selectedUnfocusedForeground,
+          background: spec.selectedUnfocusedBackground,
+        });
         const list = new List({
           parent: tui,
           zIndex: 1,
@@ -130,10 +144,25 @@ export class ExomuxSessionList {
           items: spec.rows.map((row) => row.label),
           selectedIndex: new Signal(spec.selectedIndex),
           // The selection is a deliberate opaque block; a stopped session's row
-          // recedes. An inactive panel shows no highlight at all.
-          rowStyle: (index, selected) =>
-            selected && spec.active ? selectedStyle : spec.rows[index]?.running ? base : muted,
-          markerFor: (_index, selected) => selected && spec.active ? ">" : " ",
+          // recedes. An inactive panel keeps its place, muted.
+          rowStyle: (index, selected) => {
+            switch (resolveSelectionPaint({ selected, collectionFocused: spec.active })) {
+              case "selected":
+                return selectedStyle;
+              case "selected-unfocused":
+                return selectedUnfocusedStyle;
+              default:
+                return spec.rows[index]?.running ? base : muted;
+            }
+          },
+          // `·` for a current row the keyboard is not on is exomux's existing
+          // convention, used by the settings panes.
+          markerFor: (_index, selected) =>
+            resolveSelectionPaint({ selected, collectionFocused: spec.active }) === "selected"
+              ? ">"
+              : selected
+              ? "·"
+              : " ",
           scrollbar: {
             track: createAnsiStyle({ foreground: spec.scrollbarTrack, background: spec.scrollbarTrack }),
             thumb: createAnsiStyle({ foreground: spec.scrollbarThumb, background: spec.scrollbarThumb }),

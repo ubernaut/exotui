@@ -1,6 +1,6 @@
 # Focus as a first-class concept
 
-Status: in progress August 18 2026 — slices A, B, C and C2 landed; D (exomux) remains.
+Status: complete August 18 2026 — pending the maintainer's live look at the muted selection.
 
 User direction (Aug 18 2026): "I think we also need a exotui grounded feature for what element has the current focus.
 currently we conflate selected items with items that have focus."
@@ -68,9 +68,12 @@ are unchanged), the component call sites that still take a bare `selected: boole
 - [x] A token for the unfocused selection, editable in the theme editor, falling back so existing themes are unchanged.
       Two of them: the background and the text read against it, because the vocabulary's rule is that every foreground
       names its ground.
-- [ ] exomux: with two lists on screen, only the one receiving keys shows an active selection; the other shows a muted
-      one. Verified in a mounted test, not by eye.
-- [ ] `arch/overview.md`'s "focus and selection are conflated" note is removed because it is no longer true.
+- [x] exomux: with two lists on screen, only the one receiving keys shows an active selection; the other shows a muted
+      one. Verified in a mounted test, not by eye — `packages/exomux/tests/session_list_focus.test.ts`. The sessions
+      panel and the network panel are the two.
+- [x] `arch/overview.md`'s "focus and selection are conflated" note is replaced rather than deleted, because deleting it
+      would have overclaimed: exomux's start menu and settings panes still decide by hand. They are correct on screen —
+      they already compute a per-row `focused` boolean — so what is left is consistency debt, and the note now says so.
 
 ## Slices
 
@@ -82,6 +85,14 @@ are unchanged), the component call sites that still take a bare `selected: boole
   `selectedUnfocusedStyle` is optional, so a caller that never asked for the distinction paints exactly as before — both
   pinned. The pure `visibleListRowsInto` renders as though focused and says so, because it has no component and
   therefore no focus to consult; a parameter for it can be added when something actually needs one.
+- **D — exomux.** Done Aug 18. The sessions panel and the network panel resolve through `resolveSelectionPaint` and read
+  the new tokens. Both previously drew _no_ highlight when unfocused, which loses the user's place rather than
+  de-emphasising it; they now show a muted row with `·` instead of `>`, which is exomux's existing convention from the
+  settings panes. Both views memoise on a signature, so the new colours had to join it — a colour left out would freeze
+  an accented frame on a panel that had lost focus. There is a test for exactly that.
+
+  **Not verified by anyone yet:** whether the muted selection reads well on a real terminal in the maintainer's themes.
+  Headless mounts prove the colours differ, not that they look right.
 - **C2 — the remaining call sites.** Done Aug 18. `Tree` and `ContextMenu`, same additive shape.
 
   `Tree` draws through a `List` it owns, and that inner list is never what the user focuses — painting from its state
