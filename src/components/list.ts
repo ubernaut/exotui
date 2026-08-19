@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { Component, type ComponentOptions } from "../component.ts";
 import { clampSelectionIndex, selectionWindow } from "../selection.ts";
+import { resolveSelectionPaint, type SelectionPaintState, stateHoldsInput } from "../focus.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
 import { drawTextRows } from "./text_children.ts";
@@ -26,6 +27,13 @@ export interface ListOptions extends ComponentOptions, ListControllerOptions {
    */
   selectedStyle?: Style;
   /**
+   * Style for the selected row while this list does NOT hold the keyboard. Left
+   * unset, the list paints `selectedStyle` whether or not it is focused, which
+   * is the behaviour every caller had before 044 — three lists on screen, three
+   * accent rows, and no way to see which one the arrow keys move.
+   */
+  selectedUnfocusedStyle?: Style;
+  /**
    * When set, a one-column scrollbar is drawn down the List's right edge; the
    * thumb's size scales with the visible/total ratio and tracks the scroll window.
    */
@@ -49,7 +57,7 @@ export interface ListOptions extends ComponentOptions, ListControllerOptions {
 }
 
 /** Chooses the style for one row, given its item index and whether it is selected. */
-export type ListRowStyle = (index: number, selected: boolean) => Style | undefined;
+export type ListRowStyle = (index: number, selected: boolean, paint: SelectionPaintState) => Style | undefined;
 
 /** Public interface describing a virtual Row. */
 export interface VirtualRow<T> {
@@ -95,7 +103,7 @@ export function padListRow(row: string, width: number): string {
 }
 
 /** Resolves the one-character leading marker for a row. */
-export type ListRowMarker = (index: number, selected: boolean) => string;
+export type ListRowMarker = (index: number, selected: boolean, paint: SelectionPaintState) => string;
 
 const defaultRowMarker: ListRowMarker = (_index, selected) => selected ? ">" : " ";
 
@@ -138,7 +146,12 @@ export function visibleListRowsInto(
   target.length = count;
   for (let offset = 0; offset < count; offset += 1) {
     const index = window.start + offset;
-    const row = `${markerFor(index, index === selected)} ${items[index]!}`;
+    // A pure render has no component and therefore no focus to consult, so it
+    // marks rows as though the list held the keyboard — which is exactly what
+    // every caller got before 044. The distinction is made on the component
+    // path, where `state` is available.
+    const isSelected = index === selected;
+    const row = `${markerFor(index, isSelected, isSelected ? "selected" : "unselected")} ${items[index]!}`;
     target[offset] = width === undefined ? row : padListRow(row, width);
   }
   return target;
@@ -324,6 +337,7 @@ export class List extends Component {
   readonly #rows: Computed<string[]>;
   readonly #rowBuffer: string[] = [];
   readonly #selectedStyle?: Style;
+  readonly #selectedUnfocusedStyle?: Style;
   readonly #scrollbar?: ListScrollbar;
   readonly #markerFor: ListRowMarker;
   readonly #rowStyle?: ListRowStyle;
@@ -340,6 +354,7 @@ export class List extends Component {
         onSelect: options.onSelect,
       });
     this.#selectedStyle = options.selectedStyle;
+    this.#selectedUnfocusedStyle = options.selectedUnfocusedStyle;
     this.#scrollbar = options.scrollbar;
     this.#markerFor = options.markerFor ?? defaultRowMarker;
     this.#rowStyle = options.rowStyle;
@@ -391,7 +406,7 @@ export class List extends Component {
     // TextObjects; otherwise the uniform, cached drawTextRows path is kept.
     if (this.#rowStyle) this.#drawStyledRows();
     else drawTextRows(this, this.#rows);
-    if (this.#selectedStyle) this.#drawSelectionHighlight(this.#selectedStyle);
+    if (this.#selectedStyle) this.#drawSelectionHighlight(this.#selectedStyle, this.#selectedUnfocusedStyle);
     if (this.#scrollbar) this.#drawScrollbar(this.#scrollbar);
   }
 
@@ -425,7 +440,10 @@ export class List extends Component {
           const item = items[index];
           if (item === undefined) return "";
           const selected = index === clampSelectionIndex(items.length, this.selectedIndex.value);
-          return padListRow(`${this.#markerFor(index, selected)} ${item}`, Math.max(0, rect.width - reserve));
+          return padListRow(
+            `${this.#markerFor(index, selected, this.#paintFor(selected))} ${item}`,
+            Math.max(0, rect.width - reserve),
+          );
         }),
         style: new Computed(() => {
           const rect = this.rectangle.value;
@@ -433,7 +451,7 @@ export class List extends Component {
           const index = this.controller.windowStart(rect.height) + i;
           if (i >= rect.height || index >= items.length) return this.style.value;
           const selected = index === clampSelectionIndex(items.length, this.selectedIndex.value);
-          return rowStyle(index, selected) ?? this.style.value;
+          return rowStyle(index, selected, this.#paintFor(selected)) ?? this.style.value;
         }),
       });
       object.draw();
@@ -441,8 +459,16 @@ export class List extends Component {
     }
   }
 
+  /**
+   * This row's paint state. Reads `state.value` rather than peeking, so the
+   * Computed that calls it re-runs when focus arrives or leaves.
+   */
+  #paintFor(selected: boolean): SelectionPaintState {
+    return resolveSelectionPaint({ selected, collectionFocused: stateHoldsInput(this.state.value) });
+  }
+
   /** Full-width highlight drawn over the selected row, above the base rows. */
-  #drawSelectionHighlight(style: Style): void {
+  #drawSelectionHighlight(style: Style, unfocusedStyle?: Style): void {
     // draw() re-runs (a scroll, a visibility flip) must not orphan the
     // previous highlight: it is a live sub-component, not a tracked draw
     // object, so an overwrite would leave it painting its frozen state
@@ -455,7 +481,10 @@ export class List extends Component {
       const index = clampSelectionIndex(items.length, this.selectedIndex.value);
       const item = items[index];
       if (item === undefined) return "";
-      return padListRow(`${this.#markerFor(index, true)} ${item}`, Math.max(0, this.rectangle.value.width - reserve));
+      return padListRow(
+        `${this.#markerFor(index, true, this.#paintFor(true))} ${item}`,
+        Math.max(0, this.rectangle.value.width - reserve),
+      );
     });
     const rectangle = new Computed<TextRectangle>(() => {
       const rect = this.rectangle.value;
@@ -481,6 +510,13 @@ export class List extends Component {
         return index >= start && index < start + Math.max(0, Math.floor(rect.height));
       }),
     });
+    // The highlight's own theme is a fixed Style, so a list that distinguishes
+    // the two selections drives the style directly: a Computed reading this
+    // list's state, assigned before the sub-component is ever drawn, so its
+    // draw object binds to the reactive signal rather than the original.
+    if (unfocusedStyle) {
+      highlight.style = new Computed(() => this.#paintFor(true) === "selected-unfocused" ? unfocusedStyle : style);
+    }
     highlight.subComponentOf = this;
     this.subComponents.selection = highlight;
   }

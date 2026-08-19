@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 461,
-    "bytes": 5321122,
+    "bytes": 5323414,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 15560,
@@ -178,7 +178,7 @@
       "src/components/interaction.ts": 3259,
       "src/components/key_help.ts": 1597,
       "src/components/label.ts": 7647,
-      "src/components/list.ts": 21602,
+      "src/components/list.ts": 23537,
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
@@ -207,7 +207,7 @@
       "src/components/virtual_list.ts": 12133,
       "src/controls.ts": 4238,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 8503,
+      "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/i18n/formatters.ts": 5656,
@@ -468,7 +468,7 @@
   },
   "mod.app.ts": {
     "modules": 134,
-    "bytes": 1889325,
+    "bytes": 1891617,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/actions.ts": 3908,
@@ -517,7 +517,7 @@
       "src/components/input.ts": 14398,
       "src/components/interaction.ts": 3259,
       "src/components/label.ts": 7647,
-      "src/components/list.ts": 21602,
+      "src/components/list.ts": 23537,
       "src/components/markdown.ts": 9228,
       "src/components/modal.ts": 14435,
       "src/components/progressbar.ts": 13822,
@@ -537,7 +537,7 @@
       "src/components/virtual_list.ts": 12133,
       "src/content/markdown.ts": 24769,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 8503,
+      "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/input_envelope.ts": 33166,
       "src/input_reader/mod.ts": 17830,
@@ -649,7 +649,7 @@
   },
   "mod.testing.ts": {
     "modules": 87,
-    "bytes": 720192,
+    "bytes": 720549,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 4349,
@@ -682,7 +682,7 @@
       "src/component.ts": 8181,
       "src/components/catalog.ts": 17590,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 8503,
+      "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/input_reader/mod.ts": 17830,
       "src/input_reader/types.ts": 2563,
@@ -794,10 +794,11 @@
     }
   },
   "mod.theme.ts": {
-    "modules": 69,
-    "bytes": 612927,
+    "modules": 71,
+    "bytes": 626019,
     "paths": {
       "mod.theme.ts": 671,
+      "src/app/disposables.ts": 2297,
       "src/canvas/box.ts": 5452,
       "src/canvas/canvas.ts": 18126,
       "src/canvas/dirty_region.ts": 7260,
@@ -811,10 +812,11 @@
       "src/component.ts": 8181,
       "src/components/catalog.ts": 17590,
       "src/components/command_palette.ts": 10360,
-      "src/components/list.ts": 21602,
+      "src/components/list.ts": 23537,
       "src/components/text.ts": 2717,
       "src/components/text_children.ts": 3856,
       "src/event_emitter.ts": 4163,
+      "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/input_reader/mod.ts": 17830,
@@ -870,7 +872,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4535482,
+    "bytes": 4537774,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 15560,
@@ -1048,7 +1050,7 @@
       "src/components/interaction.ts": 3259,
       "src/components/key_help.ts": 1597,
       "src/components/label.ts": 7647,
-      "src/components/list.ts": 21602,
+      "src/components/list.ts": 23537,
       "src/components/log_viewer.ts": 2932,
       "src/components/menu_bar.ts": 5061,
       "src/components/metric_series.ts": 6579,
@@ -1076,7 +1078,7 @@
       "src/components/tree.ts": 14660,
       "src/components/virtual_list.ts": 12133,
       "src/event_emitter.ts": 4163,
-      "src/focus.ts": 8503,
+      "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
       "src/input_envelope.ts": 33166,

@@ -1,5 +1,5 @@
 // Copyright 2023 Im-Beast. MIT license.
-import type { Component } from "./component.ts";
+import type { Component, ComponentState } from "./component.ts";
 import { DisposableStack } from "./app/disposables.ts";
 import { markFocusNavigationEvent } from "./focus_navigation_events.ts";
 import type { KeyPressEvent } from "./input_reader/types.ts";
@@ -27,6 +27,15 @@ export function resolveSelectionPaint(
 ): SelectionPaintState {
   if (!options.selected) return "unselected";
   return options.collectionFocused ? "selected" : "selected-unfocused";
+}
+
+/**
+ * True when a component in this state is the one receiving input. `active`
+ * counts with `focused`: that is already the rule `Component` uses to decide
+ * whether a key press, mouse press or scroll reaches it.
+ */
+export function stateHoldsInput(state: ComponentState): boolean {
+  return state === "focused" || state === "active";
 }
 
 /** True when the focusable cannot take the keyboard. */

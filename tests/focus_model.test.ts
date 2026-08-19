@@ -12,6 +12,9 @@ import { resolveControlToken, resolveControlTokens } from "../src/theme_controls
 import { themeEditorGroups } from "../src/theme_editor_model.ts";
 import type { Rgb } from "../src/theme_expressions.ts";
 import { THEME_INTERCHANGE_VERSION } from "../src/theme_interchange.ts";
+import { crayon } from "crayon";
+import { List } from "../src/components/list.ts";
+import { createTestTerminalApp } from "../mod.testing.ts";
 
 function target(state: ComponentState = "base"): Focusable {
   return { state: new Signal<ComponentState>(state) };
@@ -140,4 +143,114 @@ Deno.test("both unfocused-selection tokens are offered by the theme editor", () 
     .flatMap((group) => group.entries.map((entry) => entry.token.name));
   assert(entries.includes("control:background-selected-unfocused"), "the editor lists the background");
   assert(entries.includes("control:foreground-selected-unfocused"), "and the text read against it");
+});
+
+// Slice C: the List call site. The point is not that a signal resolves — it is
+// that a different colour reaches the screen when the keyboard is elsewhere.
+
+const BG_BLUE = "\x1b[44m";
+const BG_BLACK = "\x1b[40m";
+
+Deno.test("a list's selected row goes muted when the list is not where typing goes", async () => {
+  let list: List | undefined;
+  const harness = await createTestTerminalApp({
+    size: { columns: 24, rows: 6 },
+    setup(app) {
+      list = new List({
+        parent: app.tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 20, height: 3 },
+        items: ["alpha", "beta", "gamma"],
+        theme: { base: crayon.white },
+        selectedStyle: crayon.bgBlue,
+        selectedUnfocusedStyle: crayon.bgBlack,
+      });
+    },
+  });
+
+  try {
+    assert(list);
+    await harness.pilot.settle();
+    const highlight = list.subComponents.selection;
+    assert(highlight, "the list draws a selection highlight");
+
+    list.state.value = "focused";
+    assert(highlight.style.peek()("x").includes(BG_BLUE), "focused: the selection is the accent");
+
+    list.state.value = "base";
+    assert(highlight.style.peek()("x").includes(BG_BLACK), "unfocused: the same row, muted");
+
+    // And it actually reaches the terminal, not just the signal.
+    harness.stdout.clear();
+    await harness.pilot.settle();
+    assert(harness.stdout.text.includes(BG_BLACK), "the muted selection is written to the screen");
+  } finally {
+    harness.destroy();
+  }
+});
+
+Deno.test("a list that never asked for the distinction paints exactly as before", async () => {
+  let list: List | undefined;
+  const harness = await createTestTerminalApp({
+    size: { columns: 24, rows: 6 },
+    setup(app) {
+      list = new List({
+        parent: app.tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 20, height: 3 },
+        items: ["alpha", "beta"],
+        theme: { base: crayon.white },
+        selectedStyle: crayon.bgBlue,
+      });
+    },
+  });
+
+  try {
+    assert(list);
+    await harness.pilot.settle();
+    const highlight = list.subComponents.selection;
+    assert(highlight);
+
+    list.state.value = "focused";
+    assert(highlight.style.peek()("x").includes(BG_BLUE));
+    list.state.value = "base";
+    assert(highlight.style.peek()("x").includes(BG_BLUE), "no unfocused style given, so nothing changes");
+  } finally {
+    harness.destroy();
+  }
+});
+
+Deno.test("a row callback is told which of the three states it is painting", async () => {
+  const seen: string[] = [];
+  let list: List | undefined;
+  const harness = await createTestTerminalApp({
+    size: { columns: 24, rows: 6 },
+    setup(app) {
+      list = new List({
+        parent: app.tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 20, height: 3 },
+        items: ["alpha", "beta"],
+        theme: { base: crayon.white },
+        rowStyle: (_index, _selected, paint) => {
+          seen.push(paint);
+          return undefined;
+        },
+      });
+    },
+  });
+
+  try {
+    assert(list);
+    list.state.value = "base";
+    await harness.pilot.settle();
+    assert(seen.includes("selected-unfocused"), `unfocused list reported ${seen.join(",")}`);
+
+    seen.length = 0;
+    list.state.value = "focused";
+    await harness.pilot.settle();
+    assert(seen.includes("selected"), `focused list reported ${seen.join(",")}`);
+  } finally {
+    harness.destroy();
+  }
 });
