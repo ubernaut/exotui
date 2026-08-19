@@ -32,6 +32,24 @@ Confirmed at a real terminal by the maintainer the same day. The lesson worth ke
 version's label was unreadable in all fifteen presets, and no test caught it, because every test asserted the two
 selections _differed_ rather than that either could be read. Measuring the vocabulary's own `against` pairs found it.
 
+## August 19 2026 — dimensional visualisations (0.3.0)
+
+`@ubernaut/exotui/viz` is published. Data is described by rank and by time — `0d` a number, `0dt` its history, `1d` an
+array read now, `1dt` that array over time, up through `3d` — and a visualisation declares the kind it draws while a
+stream declares the kind it carries. Pairing them wrongly throws rather than drawing something quietly false. History
+can be dropped but never invented, and rank never converts.
+
+Nine renderers: meter, sparkline and psychograph; bars, rack and waterfall; heatmap, the 2D lattice and a volume
+projection. The lattice is the flat half of the wireframe lattice, split from its Three.js twin so a flat chart does not
+drag a renderer dependency behind it. Colours come from a `viz:*` token group falling back through the chrome and status
+tiers, so every existing theme paints charts without knowing they exist.
+
+exomonitor is the exercise that kept it honest, and it earned its keep three times: per-cell colour cannot go through a
+Text at all; a component created after the first frame ignores later rectangle changes, which is why the view fixes its
+geometry at construction; and the audio equaliser proved the model generalises, because audio bands are `1dt` — the same
+kind as per-core CPU load — and are drawn by the same renderers with no audio-specific code. A spectrogram is a
+waterfall whose array happens to be frequencies.
+
 ## August 19 2026 — exomux published, and the showcase kernel promoted (0.2.0)
 
 `@ubernaut/exomux@0.1.0` is on JSR, and `@ubernaut/exotui@0.2.0` with it. Publishing exomux so someone can build on it
