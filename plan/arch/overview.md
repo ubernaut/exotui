@@ -75,8 +75,12 @@ forty is equally valid.
   chrome, menus, list selection, scrollbars, modal buttons. The rest resolve and are editable but still paint from the
   ten. Finishing that wiring is mechanical; unifying the two models is a separate question nobody has needed answered
   yet.
-- **Focus and selection are conflated in places.** The theme model has always had a `focused` state, but several
-  surfaces paint the selected row with the accent whether or not the widget holds input focus. Target: one focus
-  authority the components and the theme both resolve against — `todo/044-focus-model.md`.
+- **Focus and selection are separate facts, and mostly painted that way.** `src/focus.ts` is the authority:
+  `FocusManager` owns which component holds the keyboard, and `resolveSelectionPaint` turns that plus a row's selection
+  into `selected`, `selected-unfocused`, or `unselected`. `List`, `Tree` and `ContextMenu` resolve through it, the
+  `control:*-selected-unfocused` tokens colour it, and exomux's sessions and network panels keep their place muted
+  instead of dropping the highlight. What remains is exomux surfaces that still decide by hand rather than through the
+  vocabulary — the start menu and the settings panes, which compute a `focused` boolean per row. Both are correct on
+  screen today, so this is a consistency debt, not a bug — `todo/044-focus-model.md`.
 - **`src/markup` and `src/layout` overlap in intent.** Markup composes a cascade over layout nodes; layout also has its
   own solvers. They coexist deliberately, but a reader should not expect one to be built on the other.
