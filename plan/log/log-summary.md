@@ -28,7 +28,9 @@ instead.
 exomux turned out to have the opposite bug to the one the task was opened for — its panels drew _no_ highlight when
 unfocused, losing the user's place rather than de-emphasising it. They now keep it, muted.
 
-Not verified by anyone yet: whether the muted selection reads well on a real terminal.
+Confirmed at a real terminal by the maintainer the same day. The lesson worth keeping is from the follow-up: the first
+version's label was unreadable in all fifteen presets, and no test caught it, because every test asserted the two
+selections _differed_ rather than that either could be read. Measuring the vocabulary's own `against` pairs found it.
 
 ## August 18 2026 — seven red health gates, four causes
 

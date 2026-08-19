@@ -1,6 +1,7 @@
 # Focus as a first-class concept
 
-Status: complete August 18 2026 — pending the maintainer's live look at the muted selection.
+Status: complete August 18 2026. The maintainer confirmed the muted unfocused selection on a real terminal — the one
+check headless mounts cannot make.
 
 User direction (Aug 18 2026): "I think we also need a exotui grounded feature for what element has the current focus.
 currently we conflate selected items with items that have focus."
@@ -91,8 +92,10 @@ are unchanged), the component call sites that still take a bare `selected: boole
   settings panes. Both views memoise on a signature, so the new colours had to join it — a colour left out would freeze
   an accented frame on a panel that had lost focus. There is a test for exactly that.
 
-  **Not verified by anyone yet:** whether the muted selection reads well on a real terminal in the maintainer's themes.
-  Headless mounts prove the colours differ, not that they look right.
+  **Confirmed Aug 18** by the maintainer at a real terminal. Worth remembering that the first version of this was
+  unreadable — the label on the muted band measured 1.52–2.86:1 across all fifteen presets — and that no test caught it,
+  because every test asserted the two selections _differed_, not that either could be read. Measuring the vocabulary's
+  own `against` pairs is what found it.
 - **C2 — the remaining call sites.** Done Aug 18. `Tree` and `ContextMenu`, same additive shape.
 
   `Tree` draws through a `List` it owns, and that inner list is never what the user focuses — painting from its state
