@@ -61,7 +61,7 @@ export interface Visualization<Input> {
    * history rather than entries. This is what makes eighty-eight cores and four
    * cores different questions.
    */
-  readonly perEntry?: { readonly columns?: number; readonly rows?: number };
+  readonly perEntry?: { readonly columns?: number; readonly rows?: number; readonly cells?: number };
   /**
    * Entries below which this stops being the thing it is — a spectrogram of two
    * bands is two coloured slabs. Field renderers set it; a bar chart of two bars
@@ -78,6 +78,30 @@ export function blankFrame(size: VizSize, fill: VizCell = { char: " " }): VizCel
   const width = Math.max(0, Math.floor(size.width));
   const height = Math.max(0, Math.floor(size.height));
   return Array.from({ length: height }, () => Array.from({ length: width }, () => fill));
+}
+
+/**
+ * Drops the background from cells painted in one particular colour.
+ *
+ * Every renderer here fills its frame with the theme's ground, which is right
+ * when the application owns the screen and wrong when something is composited
+ * behind it: a terminal cell carrying an explicit background is opaque by
+ * definition, so a host blending a desktop through a window has nothing to work
+ * with. Removing the ground afterwards keeps the renderers simple, and costs
+ * one pass — which pays for itself, because a blank cell with no background
+ * produces no draw object at all.
+ */
+export function groundless(frame: VizCell[][], ground: Rgb): VizCell[][] {
+  for (const row of frame) {
+    for (let column = 0; column < row.length; column += 1) {
+      const cell = row[column]!;
+      const background = cell.background;
+      if (!background) continue;
+      if (background[0] !== ground[0] || background[1] !== ground[1] || background[2] !== ground[2]) continue;
+      row[column] = cell.foreground ? { char: cell.char, foreground: cell.foreground } : { char: cell.char };
+    }
+  }
+  return frame;
 }
 
 /** Writes text into a frame, clipped to its bounds. */

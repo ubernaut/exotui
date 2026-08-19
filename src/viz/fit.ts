@@ -58,8 +58,8 @@ export function scoreFit(
   candidate: {
     readonly id: string;
     readonly minimum: VizSize;
-    /** Columns and rows one entry wants, when the data has entries. */
-    readonly perEntry?: { readonly columns?: number; readonly rows?: number };
+    /** Columns, rows, or whole cells one entry wants, when the data has entries. */
+    readonly perEntry?: { readonly columns?: number; readonly rows?: number; readonly cells?: number };
     /**
      * Entries below which this stops being the thing it is.
      *
@@ -85,7 +85,12 @@ export function scoreFit(
   // "drawn honestly": below it, entries share cells and the reading is a blur.
   const columnFit = Math.min(1, size.width / Math.max(1, neededColumns));
   const rowFit = Math.min(1, size.height / Math.max(1, neededRows));
-  const crowding = Math.min(columnFit, rowFit);
+  // A renderer that lays entries out in a grid is not bounded by either axis
+  // alone — eighty-eight tiles fit a box that is neither eighty-eight columns
+  // nor eighty-eight rows. Area is the honest measure for those.
+  const neededCells = (candidate.perEntry?.cells ?? 0) * entries;
+  const areaFit = neededCells > 0 ? Math.min(1, (size.width * size.height) / neededCells) : 1;
+  const crowding = Math.min(columnFit, rowFit, areaFit);
   const wanted = candidate.minimumEntries ?? 0;
   const sparsity = wanted > 0 ? Math.min(1, entries / wanted) : 1;
   const base = candidate.weight ?? 1;

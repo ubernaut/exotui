@@ -3,6 +3,7 @@
 // Rank-0 visualisations: one number, and one number over time.
 
 import { blankFrame, type Visualization, type VizCell, type VizContext, type VizFrame, writeText } from "./render.ts";
+import { drawArc, drawLine, plot } from "./draw.ts";
 import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
 import { mixColor, rampGradient } from "./theme.ts";
 import type { Sample } from "./data.ts";
@@ -198,10 +199,166 @@ export const readout: Visualization<number> = {
   },
 };
 
+/**
+ * 0d — a dial: an arc that fills with the value, and the number in the middle.
+ *
+ * Promoted from the neon demos' field ring, where it was a decoration driven by
+ * a phase counter. What makes it a visualisation rather than an ornament is
+ * that the sweep is the value: a glance reads the angle without reading the
+ * digits, which is the whole argument for a round gauge over a bar.
+ *
+ * The radii differ because a character cell is about twice as tall as it is
+ * wide; equal radii draw an upright oval.
+ */
+export const dial: Visualization<number> = {
+  id: "dial",
+  label: "Dial",
+  accepts: "0d",
+  minimum: { width: 9, height: 5 },
+  weight: 0.65,
+  render(value, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0) return frame;
+    const fraction = normalize(value, safeDomain(context.domain ?? { min: 0, max: 1 }));
+    const centre = { column: (width - 1) / 2, row: (height - 1) / 2 };
+    const radius = { column: Math.max(2, (width - 1) / 2 - 1), row: Math.max(1, (height - 1) / 2) };
+    // A gauge sweep, open at the bottom: three quarters of a turn starting at
+    // the lower left, which is where every dial anyone has read starts.
+    const START = 0.375;
+    const SWEEP = 0.75;
+    drawArc(frame, centre, radius, "·", {
+      from: START,
+      to: START + SWEEP,
+      foreground: context.theme.grid,
+      background: context.theme.background,
+    });
+    if (fraction > 0) {
+      drawArc(frame, centre, radius, "●", {
+        from: START,
+        to: START + SWEEP * fraction,
+        styleAt: (along) => ({
+          foreground: rampGradient(context.theme, fraction * along),
+          background: context.theme.background,
+        }),
+      });
+    }
+    const text = context.format?.(value) ?? `${Math.round(fraction * 100)}%`;
+    if (text.length <= width - 2) {
+      writeText(frame, Math.round(centre.column - (text.length - 1) / 2), Math.round(centre.row), text, {
+        foreground: rampGradient(context.theme, fraction),
+        background: context.theme.background,
+      });
+    }
+    return frame;
+  },
+};
+
+const ODOMETER_DIGITS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  "0": ["┏━┓", "┃ ┃", "┗━┛"],
+  "1": [" ┓ ", " ┃ ", " ╹ "],
+  "2": ["┏━┓", "┏━┛", "┗━╸"],
+  "3": ["┏━┓", " ━┫", "┗━┛"],
+  "4": ["╻ ╻", "┗━┫", "  ╹"],
+  "5": ["┏━╸", "┗━┓", "┗━┛"],
+  "6": ["┏━╸", "┣━┓", "┗━┛"],
+  "7": ["┏━┓", "  ┃", "  ╹"],
+  "8": ["┏━┓", "┣━┫", "┗━┛"],
+  "9": ["┏━┓", "┗━┫", "┗━┛"],
+  "%": ["╻ ╱", " ╱ ", "╱ ╹"],
+  ".": ["   ", "   ", " ╺ "],
+  "-": ["   ", "╺━╸", "   "],
+  "°": ["┏┓ ", "┗┛ ", "   "],
+  " ": ["   ", "   ", "   "],
+});
+
+/**
+ * 0d — the value in large glyphs, three rows tall.
+ *
+ * The counter boards in the neon demos, made to carry a real number. A readout
+ * one cell tall is legible at a desk and invisible from across a room, and a
+ * wall display is a real use — so where a tile has the room, this spends it on
+ * size rather than on a chart nobody is close enough to read.
+ */
+export const odometer: Visualization<number> = {
+  id: "odometer",
+  label: "Odometer",
+  accepts: "0d",
+  minimum: { width: 12, height: 3 },
+  weight: 0.55,
+  render(value, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0) return frame;
+    const fraction = normalize(value, safeDomain(context.domain ?? { min: 0, max: 1 }));
+    const text = context.format?.(value) ?? `${Math.round(fraction * 100)}%`;
+    const glyphs = [...text].map((character) => ODOMETER_DIGITS[character] ?? ODOMETER_DIGITS[" "]!);
+    const drawn = glyphs.reduce((sum, digit) => sum + digit[0]!.length, 0);
+    const style = { foreground: rampGradient(context.theme, fraction), background: context.theme.background };
+    // Right-aligned and vertically centred: digits that stay put as the value
+    // changes width are the difference between a display and a flicker.
+    let column = width - drawn;
+    const top = Math.max(0, Math.floor((height - 3) / 2));
+    for (const digit of glyphs) {
+      for (let row = 0; row < digit.length; row += 1) writeText(frame, column, top + row, digit[row]!, style);
+      column += digit[0]!.length;
+    }
+    return frame;
+  },
+};
+
+/**
+ * 0dt — a strip chart: history as one joined line.
+ *
+ * The third answer to "a number over time", beside the filled area and the
+ * scattered psychograph. A line neither hides the space under it nor asks the
+ * eye to assemble points, which is what a trace on an instrument looks like and
+ * why the biosignal strips in the demos read the way they do.
+ */
+export const strip: Visualization<readonly Sample<0>[]> = {
+  id: "strip",
+  label: "Strip",
+  accepts: "0dt",
+  minimum: { width: 6, height: 3 },
+  weight: 0.9,
+  render(samples, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0) return frame;
+    const values = resample(samples.map((sample) => sample.value), width);
+    const domain = safeDomain(context.domain ?? domainOfAll(values));
+    const points = values.map((value, column) => ({
+      column,
+      row: Math.min(height - 1, Math.max(0, Math.round((1 - normalize(value, domain)) * (height - 1)))),
+      value,
+    }));
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index]!;
+      drawLine(frame, points[index - 1]!, point, "─", {
+        foreground: rampGradient(context.theme, normalize(point.value, domain)),
+        background: context.theme.background,
+      });
+    }
+    // The newest reading, marked: on a strip the right-hand end is the present,
+    // and an unmarked line does not say which end that is.
+    const last = points.at(-1);
+    if (last) {
+      plot(frame, last.column, last.row, "●", {
+        foreground: rampGradient(context.theme, normalize(last.value, domain)),
+        background: context.theme.background,
+      });
+    }
+    return frame;
+  },
+};
+
 /** Every rank-0 visualisation, for a registry to pick from. */
 export const SCALAR_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   meter as unknown as Visualization<never>,
   readout as unknown as Visualization<never>,
+  dial as unknown as Visualization<never>,
+  odometer as unknown as Visualization<never>,
+  strip as unknown as Visualization<never>,
   sparkline as unknown as Visualization<never>,
   area as unknown as Visualization<never>,
   psychograph as unknown as Visualization<never>,

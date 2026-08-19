@@ -3,7 +3,8 @@
 // Rank-2 and above: grids, and the 2D projection of volumetric data.
 
 import { blankFrame, type Visualization, type VizContext, type VizFrame } from "./render.ts";
-import { domainOfAll, normalize, safeDomain } from "./scale.ts";
+import { domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
+import { drawPath } from "./draw.ts";
 import { rampGradient } from "./theme.ts";
 import type { Matrix, Sample, Volume } from "./data.ts";
 
@@ -113,8 +114,56 @@ export const volumeProjection: Visualization<Volume> = {
   },
 };
 
+/**
+ * 2d — several series drawn over one another.
+ *
+ * The harmonic graph from the demos, with the phase counter replaced by data.
+ * Rows of the matrix are series and columns are samples, so this is the answer
+ * to "how do these compare" rather than "what is this one doing" — the question
+ * every other renderer here answers one series at a time.
+ *
+ * Each series is a joined path in its own colour. Overlaid rather than stacked
+ * because the comparison is the point: stacking makes every series after the
+ * first a reading of the sum.
+ */
+export const overlay: Visualization<Matrix> = {
+  id: "overlay",
+  label: "Overlay",
+  accepts: "2d",
+  minimum: { width: 8, height: 4 },
+  // Vertical room to tell them apart: six lines in four rows is one line.
+  perEntry: { rows: 2 },
+  weight: 1,
+  render(series, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0 || series.length === 0) return frame;
+    const domain = safeDomain(context.domain ?? domainOfAll(series));
+    const palette = [context.theme.series, context.theme.seriesAlt, ...context.theme.ramp];
+    for (let index = 0; index < series.length; index += 1) {
+      const values = resample(series[index] ?? [], width);
+      const colour = palette[index % palette.length]!;
+      const points = values.map((value, column) => ({
+        column,
+        row: Math.min(height - 1, Math.max(0, Math.round((1 - normalize(value, domain)) * (height - 1)))),
+      }));
+      // A glyph per series as well as a colour, so the chart survives a
+      // monochrome terminal and a reader who cannot separate two hues.
+      drawPath(frame, points, SERIES_GLYPHS[index % SERIES_GLYPHS.length]!, {
+        foreground: colour,
+        background: context.theme.background,
+      });
+    }
+    return frame;
+  },
+};
+
+/** One per series, so colour is not the only thing telling them apart. */
+const SERIES_GLYPHS = ["─", "═", "╌", "·", "▪"] as const;
+
 export const MATRIX_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   heatmap as unknown as Visualization<never>,
+  overlay as unknown as Visualization<never>,
   lattice as unknown as Visualization<never>,
   volumeProjection as unknown as Visualization<never>,
 ]);

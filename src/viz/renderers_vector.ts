@@ -9,6 +9,11 @@
 
 import { blankFrame, type Visualization, type VizContext, type VizFrame, writeText } from "./render.ts";
 import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
+import { fillRect } from "./draw.ts";
+
+/** One entry's tile in the honeycomb: wide enough to read, small enough to repeat. */
+const TILE_WIDTH = 3;
+const TILE_HEIGHT = 2;
 import { mixColor, rampGradient } from "./theme.ts";
 import type { Sample, Vector } from "./data.ts";
 
@@ -205,9 +210,54 @@ export const scope: Visualization<Vector> = {
   },
 };
 
+/**
+ * 1d — a honeycomb: one tile per entry, shaded by its value.
+ *
+ * Promoted from the per-core hex grid in the demos. Bars and racks lay entries
+ * out along one axis, which is why both run out at eighty-eight of them; a grid
+ * spends area instead, so the same eighty-eight fit a box that is neither
+ * eighty-eight columns nor eighty-eight rows. What it gives up is precision — a
+ * shaded tile is five states, not sixty-five — and what it buys is seeing all of
+ * them at once, which is the question "is anything hot" actually asks.
+ */
+export const hexgrid: Visualization<Vector> = {
+  id: "hexgrid",
+  label: "Honeycomb",
+  accepts: "1d",
+  minimum: { width: 6, height: 2 },
+  // Three columns and two rows each, so the fit is bounded by area rather than
+  // by either axis on its own.
+  perEntry: { cells: TILE_WIDTH * TILE_HEIGHT },
+  minimumEntries: 4,
+  weight: 0.75,
+  render(values, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0 || values.length === 0) return frame;
+    const domain = baselineDomain([values], context.domain);
+    const perRow = Math.max(1, Math.floor((width - 1) / TILE_WIDTH));
+    for (let index = 0; index < values.length; index += 1) {
+      const row = Math.floor(index / perRow);
+      const top = row * TILE_HEIGHT;
+      if (top >= height) break;
+      // Alternate rows step half a tile across, which is what makes a grid of
+      // squares read as a honeycomb.
+      const left = (index % perRow) * TILE_WIDTH + (row % 2 === 0 ? 0 : 1);
+      const fraction = normalize(values[index] ?? 0, domain);
+      const shade = WATERFALL_GLYPHS[
+        Math.min(WATERFALL_GLYPHS.length - 1, Math.round(fraction * (WATERFALL_GLYPHS.length - 1)))
+      ]!;
+      const style = { foreground: rampGradient(context.theme, fraction), background: context.theme.background };
+      fillRect(frame, { column: left, row: top, width: TILE_WIDTH - 1, height: TILE_HEIGHT }, shade, style);
+    }
+    return frame;
+  },
+};
+
 export const VECTOR_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   bars as unknown as Visualization<never>,
   scope as unknown as Visualization<never>,
+  hexgrid as unknown as Visualization<never>,
   rack as unknown as Visualization<never>,
   waterfall as unknown as Visualization<never>,
 ]);

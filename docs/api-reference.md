@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 14
-- Unique modules: 514
-- Module visits: 972
-- Unique re-export declarations: 642
-- Re-export declaration visits: 971
-- Unique symbol declarations: 4795
-- Symbol declaration visits: 9441
-- Documented symbol declarations: 4780
-- Documentation coverage: 99.69%
+- Unique modules: 517
+- Module visits: 975
+- Unique re-export declarations: 645
+- Re-export declaration visits: 974
+- Unique symbol declarations: 4831
+- Symbol declaration visits: 9477
+- Documented symbol declarations: 4807
+- Documentation coverage: 99.50%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -26,7 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      12 |      76 |  86.84% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      15 |     112 |  83.04% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -118,11 +118,11 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Path: `./src/viz/mod.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 12
-- Re-export declarations: 11
-- Exported symbols: 76
-- Documented symbols: 66
-- Documentation coverage: 86.84%
+- Modules: 15
+- Re-export declarations: 14
+- Exported symbols: 112
+- Documented symbols: 93
+- Documentation coverage: 83.04%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -746,17 +746,20 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         10 |       0 |          0 |
 | [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
+| [`src/viz/dashboard.ts`](#src-viz-dashboard-ts)                                                 | `./viz`                                 |          0 |       6 |          4 |
 | [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      16 |         15 |
+| [`src/viz/draw.ts`](#src-viz-draw-ts)                                                           | `./viz`                                 |          0 |      11 |          9 |
 | [`src/viz/fit.ts`](#src-viz-fit-ts)                                                             | `./viz`                                 |          0 |       5 |          5 |
-| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         11 |       0 |          0 |
+| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         14 |       0 |          0 |
 | [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       6 |          5 |
-| [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |       9 |          7 |
-| [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
-| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       6 |          6 |
-| [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       5 |          4 |
+| [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |      10 |          8 |
+| [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       5 |          4 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       9 |          9 |
+| [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       6 |          5 |
 | [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       8 |          7 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
+| [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                         | `./viz`                                 |          0 |      13 |          8 |
 | [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       4 |          2 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
@@ -9586,6 +9589,19 @@ _Entrypoints: `.`_
 | `SeriesPoint`         | interface | yes       | yes   |
 | `SeriesRenderOptions` | interface | yes       | yes   |
 
+### src/viz/dashboard.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `blitFrame`         | function  | no        | yes   |
+| `drawTileFrame`     | function  | no        | yes   |
+| `drawTileLabel`     | function  | no        | yes   |
+| `screenFrame`       | function  | no        | yes   |
+| `TileChromeOptions` | interface | yes       | no    |
+| `TileLabelOptions`  | interface | yes       | no    |
+
 ### src/viz/data.ts
 
 _Entrypoints: `./viz`_
@@ -9608,6 +9624,24 @@ _Entrypoints: `./viz`_
 | `shapeOf`     | function  | no        | yes   |
 | `Vector`      | type      | yes       | yes   |
 | `Volume`      | type      | yes       | yes   |
+
+### src/viz/draw.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol         | Kind      | Type Only | JSDoc |
+| -------------- | --------- | --------- | ----- |
+| `ArcOptions`   | interface | yes       | no    |
+| `drawArc`      | function  | no        | yes   |
+| `drawEllipse`  | function  | no        | yes   |
+| `drawLine`     | function  | no        | yes   |
+| `drawPath`     | function  | no        | yes   |
+| `drawRect`     | function  | no        | yes   |
+| `DrawStyle`    | interface | yes       | no    |
+| `fillRect`     | function  | no        | yes   |
+| `plot`         | function  | no        | yes   |
+| `plotQuadrant` | function  | no        | yes   |
+| `QUADRANTS`    | const     | no        | yes   |
 
 ### src/viz/fit.ts
 
@@ -9637,6 +9671,9 @@ _Entrypoints: `./viz`_
 | `src/viz/renderers_matrix.ts` | star | -     |
 | `src/viz/fit.ts`              | star | -     |
 | `src/viz/registry.ts`         | star | -     |
+| `src/viz/draw.ts`             | star | -     |
+| `src/viz/tiles.ts`            | star | -     |
+| `src/viz/dashboard.ts`        | star | -     |
 | `src/viz/view.ts`             | star | -     |
 
 _No direct exported symbols._
@@ -9663,6 +9700,7 @@ _Entrypoints: `./viz`_
 | `blankFrame`    | function  | no        | yes   |
 | `fits`          | function  | no        | yes   |
 | `frameToText`   | function  | no        | yes   |
+| `groundless`    | function  | no        | yes   |
 | `Visualization` | interface | yes       | yes   |
 | `VizCell`       | interface | yes       | no    |
 | `VizContext`    | interface | yes       | yes   |
@@ -9679,6 +9717,7 @@ _Entrypoints: `./viz`_
 | `heatmap`               | const | no        | yes   |
 | `lattice`               | const | no        | yes   |
 | `MATRIX_VISUALIZATIONS` | const | no        | no    |
+| `overlay`               | const | no        | yes   |
 | `volumeProjection`      | const | no        | yes   |
 
 ### src/viz/renderers_scalar.ts
@@ -9688,11 +9727,14 @@ _Entrypoints: `./viz`_
 | Symbol                  | Kind  | Type Only | JSDoc |
 | ----------------------- | ----- | --------- | ----- |
 | `area`                  | const | no        | yes   |
+| `dial`                  | const | no        | yes   |
 | `meter`                 | const | no        | yes   |
+| `odometer`              | const | no        | yes   |
 | `psychograph`           | const | no        | yes   |
 | `readout`               | const | no        | yes   |
 | `SCALAR_VISUALIZATIONS` | const | no        | yes   |
 | `sparkline`             | const | no        | yes   |
+| `strip`                 | const | no        | yes   |
 
 ### src/viz/renderers_vector.ts
 
@@ -9701,6 +9743,7 @@ _Entrypoints: `./viz`_
 | Symbol                  | Kind  | Type Only | JSDoc |
 | ----------------------- | ----- | --------- | ----- |
 | `bars`                  | const | no        | yes   |
+| `hexgrid`               | const | no        | yes   |
 | `rack`                  | const | no        | yes   |
 | `scope`                 | const | no        | yes   |
 | `VECTOR_VISUALIZATIONS` | const | no        | no    |
@@ -9747,6 +9790,26 @@ _Entrypoints: `./viz`_
 | `rampGradient`              | function  | no        | yes   |
 | `resolveVisualizationTheme` | function  | no        | yes   |
 | `VisualizationTheme`        | interface | yes       | yes   |
+
+### src/viz/tiles.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol             | Kind      | Type Only | JSDoc |
+| ------------------ | --------- | --------- | ----- |
+| `chartRectFor`     | function  | no        | yes   |
+| `gridFor`          | function  | no        | yes   |
+| `isFramed`         | function  | no        | yes   |
+| `MIN_TILE_HEIGHT`  | const     | no        | no    |
+| `MIN_TILE_WIDTH`   | const     | no        | yes   |
+| `MINIMUM_CROWDING` | const     | no        | yes   |
+| `placeTiles`       | function  | no        | yes   |
+| `planTiles`        | function  | no        | yes   |
+| `PlanTilesOptions` | interface | yes       | no    |
+| `TileGrid`         | interface | yes       | no    |
+| `TileLayout`       | interface | yes       | no    |
+| `TileSource`       | interface | yes       | yes   |
+| `VizTile`          | interface | yes       | no    |
 
 ### src/viz/view.ts
 

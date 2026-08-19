@@ -19,4 +19,7 @@ export * from "./renderers_vector.ts";
 export * from "./renderers_matrix.ts";
 export * from "./fit.ts";
 export * from "./registry.ts";
+export * from "./draw.ts";
+export * from "./tiles.ts";
+export * from "./dashboard.ts";
 export * from "./view.ts";
