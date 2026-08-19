@@ -5166,7 +5166,11 @@ function paintNetworkPanel(
     background: theme.surface,
     selectedForeground: theme.background,
     selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
-    selectedUnfocusedForeground: exomuxControlColor(theme, "control:foreground-selected-unfocused", theme.text),
+    selectedUnfocusedForeground: exomuxControlColor(
+      theme,
+      "control:foreground-selected-unfocused",
+      theme.background,
+    ),
     selectedUnfocusedBackground: exomuxControlColor(
       theme,
       "control:background-selected-unfocused",
@@ -5290,7 +5294,11 @@ function paintSessionManager(
     background: theme.surface,
     selectedForeground: theme.background,
     selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
-    selectedUnfocusedForeground: exomuxControlColor(theme, "control:foreground-selected-unfocused", theme.text),
+    selectedUnfocusedForeground: exomuxControlColor(
+      theme,
+      "control:foreground-selected-unfocused",
+      theme.background,
+    ),
     selectedUnfocusedBackground: exomuxControlColor(
       theme,
       "control:background-selected-unfocused",

@@ -128,7 +128,10 @@ Deno.test("the unfocused selection resolves for a theme that never heard of it",
     "a muted surface, not the accent the focused selection uses",
   );
   assertEquals(resolved["control:background-selected"], SEVEN.accent, "which is left where it was");
-  assertEquals(resolved["control:foreground-selected-unfocused"], SEVEN.foreground);
+  // The surface colour, by way of chrome:on-accent — not the ordinary
+  // foreground. Text on the muted band is text on a solid block, and shipping
+  // it as chrome:foreground made it unreadable in all fifteen exomux presets.
+  assertEquals(resolved["control:foreground-selected-unfocused"], SEVEN.surface);
 });
 
 Deno.test("overriding the unfocused selection moves only itself", () => {

@@ -308,7 +308,11 @@ const CONTROL_SURFACE_TOKENS: readonly ControlTokenSpec[] = [
     name: "control:foreground-selected-unfocused",
     group: "control",
     label: "Selected row text, unfocused",
-    fallback: "chrome:foreground",
+    // on-accent, not the ordinary foreground. The muted ground is a solid block,
+    // and on-accent is by definition the colour picked to be read on one.
+    // Ordinary foreground on chrome:muted measured 1.52-2.86:1 across all
+    // fifteen exomux presets — a visible band with an illegible label on it.
+    fallback: "chrome:on-accent",
     role: "foreground",
     against: "control:background-selected-unfocused",
   },

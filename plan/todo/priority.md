@@ -7,10 +7,7 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 1. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
-2. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
-   check**, because animations only play on a real terminal. Nothing else blocks on it.
-
-3. **`044` Focus as a first-class concept.** Implementation complete Aug 18 in four slices; **awaiting the maintainer's
+2. **`044` Focus as a first-class concept.** Implementation complete Aug 18 in four slices; **awaiting the maintainer's
    live visual check** of whether the muted unfocused selection reads well in a real terminal. Headless mounts prove the
    two selections differ, not that either looks right. Nothing else blocks on it.
 
@@ -66,6 +63,11 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
 
 Small, real, and worth doing when adjacent code is next touched:
 
+- **Two presets have a weak _focused_ selection.** Measuring 044's new tokens across all fifteen themes surfaced a
+  pre-existing one: `seaglass` (1.98:1) and `parchment` (2.37:1) paint their accent selection so close to the panel
+  background that the focused row barely reads as selected — `t2` also has its muted row (9.17) louder than its accent
+  (6.56). Nothing to do with 044, which only made it measurable; fixing it means adjusting those themes' accents, which
+  is a design call for the maintainer.
 - **`044` — exomux's start menu and settings panes still decide focus by hand.** Each computes a per-row `focused`
   boolean rather than resolving through `resolveSelectionPaint`. Correct on screen, so this is consistency debt; worth
   converting when that code is next touched.
