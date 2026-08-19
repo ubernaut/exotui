@@ -1,5 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { Component, type ComponentOptions } from "../component.ts";
+import { resolveSelectionPaint, type SelectionPaintState, stateHoldsInput } from "../focus.ts";
 import type { KeyPressEvent } from "../input_reader/types.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
@@ -20,10 +21,14 @@ export interface ContextMenuItem {
 }
 
 /** Chooses the style for one menu row; falls back to the component's base. */
-export type ContextMenuItemStyle = (item: ContextMenuItem, selected: boolean) => Style | undefined;
+export type ContextMenuItemStyle = (
+  item: ContextMenuItem,
+  selected: boolean,
+  paint: SelectionPaintState,
+) => Style | undefined;
 
 /** Resolves the one-character leading marker for a menu row. */
-export type ContextMenuRowMarker = (item: ContextMenuItem, selected: boolean) => string;
+export type ContextMenuRowMarker = (item: ContextMenuItem, selected: boolean, paint: SelectionPaintState) => string;
 
 /** Options for configuring context Menu. */
 export interface ContextMenuOptions extends ComponentOptions, ContextMenuControllerOptions {
@@ -230,6 +235,16 @@ export class ContextMenu extends Component {
   readonly controller: ContextMenuController;
   readonly #rows: Computed<string[]>;
   readonly #itemStyle?: ContextMenuItemStyle;
+
+  /**
+   * This row's paint state. An open context menu is normally where the keyboard
+   * is, so this is usually `selected` — but it is resolved rather than assumed,
+   * so a menu shown beside a focused editor reports what is actually true.
+   */
+  #paintFor(selected: boolean): SelectionPaintState {
+    return resolveSelectionPaint({ selected, collectionFocused: stateHoldsInput(this.state.value) });
+  }
+
   readonly #markerFor?: ContextMenuRowMarker;
   #styledRows: TextObject[] = [];
 
@@ -304,14 +319,18 @@ export class ContextMenu extends Component {
           if (row.item.separatorBefore) {
             return padListRow("─".repeat(Math.max(1, rect.width)), Math.max(0, rect.width));
           }
-          const marker = this.#markerFor ? this.#markerFor(row.item, row.selected) : row.selected ? ">" : " ";
+          const marker = this.#markerFor
+            ? this.#markerFor(row.item, row.selected, this.#paintFor(row.selected))
+            : row.selected
+            ? ">"
+            : " ";
           const label = row.item.disabled ? `(${row.label})` : row.label;
           return padListRow(`${marker} ${label}`, Math.max(0, rect.width));
         }),
         style: new Computed(() => {
           const row = rowAt(offset);
           if (!row) return this.style.value;
-          return this.#itemStyle?.(row.item, row.selected) ?? this.style.value;
+          return this.#itemStyle?.(row.item, row.selected, this.#paintFor(row.selected)) ?? this.style.value;
         }),
       });
       object.draw();

@@ -1,6 +1,6 @@
 # Focus as a first-class concept
 
-Status: in progress August 18 2026 — slices A, B and C (List) landed.
+Status: in progress August 18 2026 — slices A, B, C and C2 landed; D (exomux) remains.
 
 User direction (Aug 18 2026): "I think we also need a exotui grounded feature for what element has the current focus.
 currently we conflate selected items with items that have focus."
@@ -82,5 +82,11 @@ are unchanged), the component call sites that still take a bare `selected: boole
   `selectedUnfocusedStyle` is optional, so a caller that never asked for the distinction paints exactly as before — both
   pinned. The pure `visibleListRowsInto` renders as though focused and says so, because it has no component and
   therefore no focus to consult; a parameter for it can be added when something actually needs one.
-- **C2 — the remaining call sites.** `Tree`, `ContextMenu`, `VirtualList`. Same additive shape as `List`.
+- **C2 — the remaining call sites.** Done Aug 18. `Tree` and `ContextMenu`, same additive shape.
+
+  `Tree` draws through a `List` it owns, and that inner list is never what the user focuses — painting from its state
+  would have left every tree permanently muted. It could not simply share the tree's `state` signal either: `Component`
+  gates key, mouse and scroll delivery on `state`, so sharing would hand the inner list every event the tree receives.
+  `List` therefore takes an optional `focusState` naming whose focus decides its painting, defaulting to its own. The
+  test asserts the inner list stays `base` while the tree is focused and the selection still paints active.
 - **D — exomux.** The first consumer, with the two-list mounted test.

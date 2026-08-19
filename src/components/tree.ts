@@ -1,5 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { Component, type ComponentOptions } from "../component.ts";
+import type { SelectionPaintState } from "../focus.ts";
 import { clampSelectionIndex, selectionWindow } from "../selection.ts";
 import { Computed, Signal } from "../signals/mod.ts";
 import { signalify } from "../utils/signals.ts";
@@ -27,10 +28,10 @@ export interface TreeNode {
 }
 
 /** Chooses the style for one tree row, given the row and whether it is selected. */
-export type TreeRowStyle = (row: TreeRow, selected: boolean) => Style | undefined;
+export type TreeRowStyle = (row: TreeRow, selected: boolean, paint: SelectionPaintState) => Style | undefined;
 
 /** Resolves the one-character leading marker for a tree row. */
-export type TreeRowMarker = (row: TreeRow, selected: boolean) => string;
+export type TreeRowMarker = (row: TreeRow, selected: boolean, paint: SelectionPaintState) => string;
 
 /** Options for configuring tree. */
 export interface TreeOptions extends ComponentOptions, TreeControllerOptions {
@@ -41,6 +42,8 @@ export interface TreeOptions extends ComponentOptions, TreeControllerOptions {
   markerFor?: TreeRowMarker;
   /** Full-width highlight for the selected row, drawn over the base rows. */
   selectedStyle?: Style;
+  /** Style for the selected row while this tree does not hold the keyboard. */
+  selectedUnfocusedStyle?: Style;
   /** One-column scrollbar down the right edge. */
   scrollbar?: ListScrollbar;
 }
@@ -367,6 +370,7 @@ export class Tree extends Component {
   readonly #rowStyle?: TreeRowStyle;
   readonly #markerFor?: TreeRowMarker;
   readonly #selectedStyle?: Style;
+  readonly #selectedUnfocusedStyle?: Style;
   readonly #scrollbar?: ListScrollbar;
 
   constructor(options: TreeOptions) {
@@ -384,6 +388,7 @@ export class Tree extends Component {
     this.#rowStyle = options.rowStyle;
     this.#markerFor = options.markerFor;
     this.#selectedStyle = options.selectedStyle;
+    this.#selectedUnfocusedStyle = options.selectedUnfocusedStyle;
     this.#scrollbar = options.scrollbar;
     this.on("keyPress", (event) => {
       this.controller.handleKeyPress(event, this.rectangle.peek().height);
@@ -408,21 +413,25 @@ export class Tree extends Component {
       visible: this.visible,
       ...(rowStyle
         ? {
-          rowStyle: (index: number, selected: boolean) => {
+          rowStyle: (index: number, selected: boolean, paint: SelectionPaintState) => {
             const row = this.controller.visibleRows()[index];
-            return row ? rowStyle(row, selected) : undefined;
+            return row ? rowStyle(row, selected, paint) : undefined;
           },
         }
         : {}),
       ...(markerFor
         ? {
-          markerFor: (index: number, selected: boolean) => {
+          markerFor: (index: number, selected: boolean, paint: SelectionPaintState) => {
             const row = this.controller.visibleRows()[index];
-            return row ? markerFor(row, selected) : selected ? ">" : " ";
+            return row ? markerFor(row, selected, paint) : selected ? ">" : " ";
           },
         }
         : {}),
+      // The inner list is never focused itself; the tree is what the user
+      // focuses, so its state is what decides how a selected row paints.
+      focusState: this.state,
       ...(this.#selectedStyle ? { selectedStyle: this.#selectedStyle } : {}),
+      ...(this.#selectedUnfocusedStyle ? { selectedUnfocusedStyle: this.#selectedUnfocusedStyle } : {}),
       ...(this.#scrollbar ? { scrollbar: this.#scrollbar } : {}),
     });
     list.subComponentOf = this;
