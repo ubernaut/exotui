@@ -66,6 +66,25 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**A deleted theme that was not there (Aug 19).** Field report: "deleting a custom theme does not remove it from the
+list." It did remove it. The theme editor's live preview registers itself in the catalog under `theme-editor-preview` —
+it has to, or the desktop cannot paint what you are editing — and `exomuxThemeSpecFromDocument` gives every spec
+`label: document.name`. So while editing "Miami Neon custom" the catalog held two entries whose labels both read "Miami
+Neon custom", and the settings list painted every catalog entry without filtering. Delete the real one and its twin
+stayed, wearing its name.
+
+Two wrong turns while finding it, both from reading the nearest plausible code instead of the code that runs.
+`theme_storage.ts`'s `remove()` returns `Promise<void>` while `deleteTheme` does `!await remove(id)`, which looks
+exactly like an always-false success check — but that is the storage _port_; the library `ThemeLibrary.remove` returns a
+real boolean and is what `deleteTheme` calls. Then the preview id looked like the wrong argument to `deleteTheme`.
+Neither was it. A twenty-line reproduction printed the catalog before and after and showed the answer immediately:
+delete worked, `theme-editor-preview` remained.
+
+Fixed by naming the distinction the catalog was missing: `exomuxThemeCatalog()` resolves every theme including the
+preview, `exomuxSelectableThemes()` is what a person can choose, and every list and index in `app.ts` uses the second.
+_Rule: an id that exists to be painted but not chosen needs both lists to exist, or someone eventually paints the wrong
+one._
+
 **A module no gate could see, and its duplicate (Aug 19).** `packages/exomux/audio_scripted.ts` was imported by nothing.
 It type-checked, but only by luck: `deno check ./main.ts` does not reach it and neither did any test, so a break in it
 would have left every suite green — the same shape as `040` deleting `HitTargetStack` while both suites passed. Found by
