@@ -98,6 +98,7 @@
     "benchmark": "deno run -A ./scripts/benchmark.ts",
     "api-inventory": "deno run -A ./scripts/api_inventory.ts",
     "api-reference": "deno run -A ./scripts/api_reference.ts",
+    "orphan-modules": "deno run -A ./scripts/orphan_modules.ts",
     "package-check": "deno run -A ./scripts/package_check.ts",
     "release-check": "deno run -A ./scripts/release_check.ts",
     "screenshots": "deno run -A ./scripts/gpu_probe_lock.ts -- deno run -A ./scripts/generate_screenshots.ts",

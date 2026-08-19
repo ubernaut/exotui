@@ -1,0 +1,6 @@
+{
+  "description": "Source modules that are knowingly reachable from no entrypoint, test, example or script. Everything here is either a deliberate artifact or an accepted gap; adding an entry is a decision with a diff, not a side effect. Regenerate with `deno run -A scripts/orphan_modules.ts --update` and say in the commit why each addition is not simply dead code.",
+  "allowed": [
+    "src/unicode/generated/unicode_17_0_0_incb.ts"
+  ]
+}

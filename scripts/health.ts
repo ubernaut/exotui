@@ -28,6 +28,9 @@ export const defaultHealthSteps: readonly HealthStep[] = [
       "--baseline=docs/api-stable-baseline.json",
     ],
   },
+  // A type check walks what an entrypoint imports, so a module nothing imports
+  // is checked by nothing. 040 and audio_scripted.ts are both that story.
+  { name: "reachability", command: ["deno", "run", "-A", "scripts/orphan_modules.ts", "--check", "--quiet"] },
   { name: "package-check", command: ["deno", "task", "package-check", "--", "--quiet"] },
   { name: "release-check", command: ["deno", "task", "release-check", "--", "--quiet"] },
   {
