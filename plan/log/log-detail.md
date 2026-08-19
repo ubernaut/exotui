@@ -66,6 +66,24 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**A module no gate could see, and its duplicate (Aug 19).** `packages/exomux/audio_scripted.ts` was imported by nothing.
+It type-checked, but only by luck: `deno check ./main.ts` does not reach it and neither did any test, so a break in it
+would have left every suite green — the same shape as `040` deleting `HitTargetStack` while both suites passed. Found by
+asking, for each top-level module in the package, whether anything imports it; it was the only one.
+
+It was also not the only copy. `tests/backgrounds_butterchurn.test.ts` carried a byte-identical `scriptedAudio()`
+helper, used a dozen times, differing only in taking a `beatEvery` option where the module hardcoded a beat every 8. So
+the orphan was not dead code — it was the _unused half of a duplicated pair_, which is worse, because the live half kept
+working and nothing pointed at the copy going stale.
+
+Resolved on the maintainer's direction to keep it for deterministic testing: the option moved into the module
+(defaulting to 8, its documented behaviour), the test's local body became a three-line shim preserving that file's own
+"no beats unless asked" default, and the module gained direct tests for the properties it exists for — identical frames
+across runs, and never silent, including a waveform that actually moves rather than merely being non-zero.
+
+_Rule: "does anything import this?" is a question worth asking of a whole package occasionally. A type check of the
+entrypoint answers a narrower question than it appears to._
+
 **An unfocused selection nobody could read (Aug 18).** `044` slice B gave the muted selection two tokens and fell back
 to `chrome:foreground` on `chrome:muted` — ordinary text on mid-grey. Every test passed and the feature shipped. It was
 caught only when the maintainer asked _where_ to test it and the colours were resolved across all fifteen exomux presets
