@@ -3,13 +3,39 @@
 A terminal multiplexer built on `@ubernaut/exotui`: a detachable local host owning PTY-backed shells, and a floating
 workbench client that can exit and reattach without disturbing them.
 
+Published on JSR as [`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux).
+
 ## Running
+
+```sh
+deno run -A --unstable-webgpu jsr:@ubernaut/exomux/main   # from anywhere
+```
+
+Or take a binary for your platform from [Releases](https://github.com/ubernaut/exotui/releases) — Linux, macOS and
+Windows, nothing else to install.
+
+From a checkout:
 
 ```sh
 deno task start          # from this directory
 deno task --cwd packages/exomux start   # from the repository root
 ./install-exomux.sh      # from the repository root: compile + install ~/.local/bin/exomux
 ```
+
+## Building on it
+
+exomux is a package as well as an application. Its controller, protocol and widgets are importable, which is the
+supported way to use it as a foundation rather than forking it:
+
+```ts
+import { createExomuxController, EXOMUX_MANIFEST } from "jsr:@ubernaut/exomux";
+```
+
+It is built on [`@ubernaut/exotui`](https://jsr.io/@ubernaut/exotui) and its `./showcase` entrypoint, which carry the
+widget set and the application kernel respectively. An application built on exomux normally wants both.
+
+Note that exomux's detached host needs Linux or Windows; on macOS it runs, but the daemon cannot detach, so a session
+ends with its client.
 
 `deno task exomux` at the repository root delegates here, and `install-exomux.sh` compiles a self-contained binary so
 `exomux` works from any directory. `--memory` skips layout persistence, `--daemon` runs the host alone (it requires a

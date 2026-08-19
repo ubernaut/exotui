@@ -32,6 +32,21 @@ Confirmed at a real terminal by the maintainer the same day. The lesson worth ke
 version's label was unreadable in all fifteen presets, and no test caught it, because every test asserted the two
 selections _differed_ rather than that either could be read. Measuring the vocabulary's own `against` pairs found it.
 
+## August 19 2026 — exomux published, and the showcase kernel promoted (0.2.0)
+
+`@ubernaut/exomux@0.1.0` is on JSR, and `@ubernaut/exotui@0.2.0` with it. Publishing exomux so someone can build on it
+turned out to require answering a question the repository had avoided: exomux imported the showcase kernel from
+`examples/showcases/shared/`, and `examples/` is not published. A module the flagship application imports in three files
+is not an example, so it moved to `src/showcase/` and ships as `./showcase`.
+
+The other half was the proving ground itself. exomux develops against the working tree, which is the point of it, but a
+published package cannot ship `../../mod.ts`. Deno's `links` field resolves that: the manifest declares
+`jsr:@ubernaut/exotui@^0.2.0`, and `links` points local resolution at the tree. Confirmed by the sandbox's own refusal
+to fetch anything published today — a resolution that reached the network would have failed, and it did not.
+
+Forty-five publish blockers in exomux, thirty-eight of them the same inferred-Signal shape. The promotion also exposed
+two in the showcase kernel, which had never been public API and so had never been checked.
+
 ## August 19 2026 — published, as exotui (0.1.0)
 
 `@ubernaut/exotui@0.1.0` is on JSR. Nothing had ever been published, though it was easy to believe otherwise: the
