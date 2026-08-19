@@ -65,6 +65,7 @@ import {
   EXOMUX_MAX_COLUMNS,
   EXOMUX_MAX_ROWS,
   EXOMUX_MAX_SESSIONS,
+  EXOMUX_THEME_EDITOR_PREVIEW_ID,
   EXOMUX_THEMES,
   EXOMUX_WINDOW_SETTING_SPECS,
   type ExomuxBackgroundId,
@@ -569,7 +570,7 @@ export const EXOMUX_THEME_EDITOR_WINDOW_ID = "theme-editor" as const;
  * moment the theme is written, so an unsaved experiment never becomes the
  * durable choice.
  */
-export const EXOMUX_THEME_EDITOR_PREVIEW_ID = "theme-editor-preview" as const;
+export { EXOMUX_THEME_EDITOR_PREVIEW_ID } from "./model.ts";
 /** Bounds used for settings-window commands when the caller has no live desktop rect. */
 const SETTINGS_FALLBACK_BOUNDS: Rectangle = Object.freeze({ column: 0, row: 0, width: 120, height: 36 });
 const WINDOW_RECONCILE_ATTEMPTS = 8;

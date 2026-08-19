@@ -1157,6 +1157,23 @@ export function exomuxThemeCatalog(): readonly ExomuxThemeSpec[] {
   return catalog;
 }
 
+/**
+ * The id the theme editor's live preview registers under. It has to be in the
+ * catalog so the desktop can paint what you are editing, and it must never be
+ * in the list you pick from: it carries the edited document's *name* as its
+ * label, so a leftover preview is indistinguishable from the theme it was
+ * previewing — which is what made a deleted theme look like it was still there.
+ */
+export const EXOMUX_THEME_EDITOR_PREVIEW_ID = "theme-editor-preview";
+
+/** Every theme a user can choose: the catalog without the editor's preview. */
+export function exomuxSelectableThemes(): readonly ExomuxThemeSpec[] {
+  const catalog = exomuxThemeCatalog();
+  return catalog.some((theme) => theme.id === EXOMUX_THEME_EDITOR_PREVIEW_ID)
+    ? catalog.filter((theme) => theme.id !== EXOMUX_THEME_EDITOR_PREVIEW_ID)
+    : catalog;
+}
+
 /** Adds or replaces a user theme in the catalog. */
 export function registerExomuxTheme(theme: ExomuxThemeSpec): void {
   userThemes.set(theme.id, theme);

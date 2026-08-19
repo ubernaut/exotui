@@ -78,9 +78,9 @@ import {
   exomuxResolvedOpacity,
   exomuxResolvedScrollLines,
   type ExomuxRgb,
+  exomuxSelectableThemes,
   exomuxSessionIdFromWindow,
   type ExomuxSessionSummary,
-  exomuxThemeCatalog,
   type ExomuxThemeSpec,
   exomuxWindowId,
   type ExomuxWindowSettings,
@@ -1062,9 +1062,10 @@ export function mountExomuxDesktop(
     }),
   );
   settingsPickers.bind({
-    themeIndex: () => Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek())),
+    themeIndex: () =>
+      Math.max(0, exomuxSelectableThemes().findIndex((entry) => entry.id === controller.themeId.peek())),
     setThemeIndex: (index) => {
-      const entry = exomuxThemeCatalog()[index];
+      const entry = exomuxSelectableThemes()[index];
       if (entry) controller.setTheme(entry.id);
     },
     onThemeIndexChanged: (listener) => {
@@ -2087,7 +2088,10 @@ export function mountExomuxDesktop(
       (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
     )?.clientRect;
     if (!clientRect || !controller.globalConfigVisible.peek()) return false;
-    const themeIndex = Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek()));
+    const themeIndex = Math.max(
+      0,
+      exomuxSelectableThemes().findIndex((entry) => entry.id === controller.themeId.peek()),
+    );
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
     const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.sessionNameRect, column, row)) {
@@ -2239,7 +2243,10 @@ export function mountExomuxDesktop(
       (candidate) => candidate.id === EXOMUX_SETTINGS_WINDOW_ID,
     )?.clientRect;
     if (!clientRect || !controller.globalConfigVisible.peek()) return true;
-    const themeIndex = Math.max(0, exomuxThemeCatalog().findIndex((entry) => entry.id === controller.themeId.peek()));
+    const themeIndex = Math.max(
+      0,
+      exomuxSelectableThemes().findIndex((entry) => entry.id === controller.themeId.peek()),
+    );
     const backgroundIndex = Math.max(0, EXOMUX_BACKGROUND_IDS.indexOf(controller.backgroundId.peek()));
     const layout = exomuxGlobalConfigLayout(clientRect, themeIndex, backgroundIndex);
     if (contains(layout.themeListRect, column, row)) settingsPickers.handleScroll("theme", delta);
@@ -5937,13 +5944,13 @@ export function exomuxGlobalConfigLayout(
   // top of the list they act on.
   const listTop = rect.row + 2 + themeActions.themeToolbarRows;
   const visibleRows = Math.max(1, rect.height - optionCount - 4 - themeActions.themeToolbarRows);
-  const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, visibleRows);
+  const themeStart = selectListStart(themeIndex, exomuxSelectableThemes().length, visibleRows);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, visibleRows);
   const themeRows: { rect: Rectangle; index: number }[] = [];
   const backgroundRows: { rect: Rectangle; index: number }[] = [];
   for (let offset = 0; offset < visibleRows; offset += 1) {
     const row = listTop + offset;
-    if (themeStart + offset < exomuxThemeCatalog().length) {
+    if (themeStart + offset < exomuxSelectableThemes().length) {
       themeRows.push({
         rect: { column: rect.column + 1, row, width: columnWidth, height: 1 },
         index: themeStart + offset,
@@ -6024,12 +6031,12 @@ function stackedGlobalConfigLayout(
   const themeTop = rect.row + 2 + themeActions.themeToolbarRows;
   const backgroundHeaderRow = themeTop + themeVisible;
   const backgroundTop = backgroundHeaderRow + 1;
-  const themeStart = selectListStart(themeIndex, exomuxThemeCatalog().length, themeVisible);
+  const themeStart = selectListStart(themeIndex, exomuxSelectableThemes().length, themeVisible);
   const backgroundStart = selectListStart(backgroundIndex, EXOMUX_BACKGROUND_IDS.length, backgroundVisible);
   const themeRows: { rect: Rectangle; index: number }[] = [];
   const backgroundRows: { rect: Rectangle; index: number }[] = [];
   for (let offset = 0; offset < themeVisible; offset += 1) {
-    if (themeStart + offset >= exomuxThemeCatalog().length) break;
+    if (themeStart + offset >= exomuxSelectableThemes().length) break;
     themeRows.push({
       rect: { column: innerColumn, row: themeTop + offset, width: innerWidth, height: 1 },
       index: themeStart + offset,
@@ -6532,7 +6539,7 @@ function paintGlobalSettingsWindow(
     }, g(rowBase));
   };
   for (const row of themeRows) {
-    paintRow(row.rect, exomuxThemeCatalog()[row.index]!.label, row.index === themeIndex, pane === "theme");
+    paintRow(row.rect, exomuxSelectableThemes()[row.index]!.label, row.index === themeIndex, pane === "theme");
   }
   for (const row of backgroundRows) {
     const id = EXOMUX_BACKGROUND_IDS[row.index]!;
@@ -6549,7 +6556,7 @@ function paintGlobalSettingsWindow(
         row: layout.themeListRect.row - rect.row,
         width: layout.themeListRect.width,
         height: layout.themeListRect.height,
-        items: exomuxThemeCatalog().map((entry) => entry.label),
+        items: exomuxSelectableThemes().map((entry) => entry.label),
         foreground: theme.text,
         background: theme.surfaceStrong,
         selectedForeground: theme.background,
