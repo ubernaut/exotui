@@ -103,6 +103,25 @@ across runs, and never silent, including a waveform that actually moves rather t
 _Rule: "does anything import this?" is a question worth asking of a whole package occasionally. A type check of the
 entrypoint answers a narrower question than it appears to._
 
+**A component that ignores its rectangle after the first frame (Aug 19).** Building the visualisation view for `./viz`
+meant allocating components before knowing what they would hold — a pool of rows, filled each frame. Nothing drew. The
+minimal reproduction is in `tests/canvas_zero_width_draw.test.ts`: a `Text` created after the app has settled, whose
+rectangle is derived from its text, never appears however often the text changes. The same component with a _fixed_
+rectangle repaints fine.
+
+Three wrong theories on the way, each disproved by a smaller probe. That it was the visibility bug again — no, these
+components were visible throughout. That `addChild` drew too early — deferring it by a microtask changed nothing. That
+zero width specifically was fatal — no, starting at width 1 and growing to 4 fails too. What actually distinguishes
+working from broken is whether the _geometry_ changes after creation, not what it starts as.
+
+`src/viz/view.ts` is built around the constraint rather than fighting it: rows are allocated once at full panel width
+and only their text and style change. That costs one style per row instead of one per cell, which is affordable
+precisely because every renderer in the package encodes magnitude in glyphs as well as colour — the property that also
+makes them legible without colour at all.
+
+_Rule: a component whose rectangle is derived from its own content is only safe if it exists before the first frame. Fix
+the canvas and this workaround can go; the test says so._
+
 **An unfocused selection nobody could read (Aug 18).** `044` slice B gave the muted selection two tokens and fell back
 to `chrome:foreground` on `chrome:muted` — ordinary text on mid-grey. Every test passed and the feature shipped. It was
 caught only when the maintainer asked _where_ to test it and the colours were resolved across all fifteen exomux presets

@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertThrows } from "./deps.ts";
 import { frameToText, type VizFrame } from "../src/viz/render.ts";
+import { framesToRuns } from "../src/viz/view.ts";
 import { bars, rack, waterfall } from "../src/viz/renderers_vector.ts";
 import { meter, psychograph, sparkline } from "../src/viz/renderers_scalar.ts";
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
@@ -141,4 +142,22 @@ Deno.test("an empty stream draws an empty frame rather than throwing", () => {
   const frame = drawStream(sparkline as never, load, at(6, 1));
   assertEquals(frame.length, 1);
   assertEquals(frame[0]!.length, 6);
+});
+
+Deno.test("a frame becomes runs, not one component per cell", () => {
+  // A 40-wide bar of one colour must cost one component, not forty.
+  const theme = defaultVisualizationTheme();
+  const frame = meter.render(1, { size: { width: 40, height: 1 }, theme, domain: { min: 0, max: 1 } });
+  const runs = framesToRuns(frame);
+  assertEquals(runs.length, 1, `a solid bar split into ${runs.length} runs`);
+  assertEquals(runs[0]!.text.length, 40);
+});
+
+Deno.test("runs carry their own colour, and blank space costs nothing", () => {
+  const theme = defaultVisualizationTheme();
+  // A half meter is filled cells then dotted ones: two runs, two colours.
+  const frame = meter.render(0.5, { size: { width: 10, height: 1 }, theme, domain: { min: 0, max: 1 } });
+  const runs = framesToRuns(frame);
+  assert(runs.length >= 2, `expected filled and empty runs, got ${runs.length}`);
+  assert(runs.some((run) => run.foreground !== undefined));
 });
