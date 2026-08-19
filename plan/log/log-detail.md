@@ -66,6 +66,32 @@ window needs an entry in the key router, and a test that presses a key rather th
 painter finds it the ordinary way, which also made it satisfy "is a user theme" — so `[ edit ]` and `[ del ]` offered
 themselves for a theme that had never been written to disk, then declined. The preview id is excluded explicitly now.
 
+**An unfocused selection nobody could read (Aug 18).** `044` slice B gave the muted selection two tokens and fell back
+to `chrome:foreground` on `chrome:muted` — ordinary text on mid-grey. Every test passed and the feature shipped. It was
+caught only when the maintainer asked _where_ to test it and the colours were resolved across all fifteen exomux presets
+first: the label measured **1.52–2.86:1**, against 4.5:1 for readable text, in every single one. The band was visible;
+the word on it was not. The fallback is `chrome:on-accent` now — the colour the vocabulary already defines as legible on
+a solid block — which puts every preset between 4.89 and 11.09.
+
+The reason no test caught it is the part worth keeping. There were tests for the token resolving, for it falling back
+harmlessly, for it reaching the editor, for the paint state flipping with focus, and for two lists differing on screen.
+Every one asserted the two selections were **different**. Not one asserted either could be **read**. A vocabulary whose
+stated purpose is "each foreground declares the background it is read against, so the editor answers can this be read"
+had a pair nobody ever asked that question of. _Rule: when a token pair declares an `against`, something must assert the
+contrast, or the declaration is decoration._
+
+**Measuring colour difference with the wrong instrument (Aug 18).** The regression test for the above first asserted
+that the unfocused row must be "quieter" than the focused one, by WCAG contrast against the panel. `parchment` failed:
+muted 3.03 versus accent 2.37. The assertion was wrong, not the theme. WCAG contrast is a **luminance** ratio, and the
+two rows differ mostly in **hue** — a saturated accent against grey. By that instrument the two selections measured
+1.04–2.58:1 apart and looked identical; in OKLab they are 0.096–0.323 apart against a just-noticeable difference near
+0.02, which is to say obviously different. _Rule: contrast ratio answers "can this be read", not "can these be told
+apart". For the second question use a perceptual distance; `src/theme_oklch.ts` already has the conversion._
+
+The failed assertion did surface something real, which is now a follow-up in `todo/priority.md`: `seaglass` (1.98:1) and
+`parchment` (2.37:1) paint their accent so close to the panel that the _focused_ selection barely reads as selected, and
+`t2`'s muted row (9.17) is louder than its accent (6.56). Pre-existing, and a theme design call.
+
 **A checked-in artifact no gate can see is stale (Aug 18).** Slice A of `044` changed `src/focus.ts`, which is in the
 Pages bundle, and merged without regenerating `docs/assets/api-workbench.js`. Nothing failed. `deno task health` runs
 `web-pages-build` at step 11, which _rewrites_ the bundle, and `e2e` measures it at step 28 — so the gate always grades
