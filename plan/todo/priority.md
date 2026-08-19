@@ -19,9 +19,9 @@ out to be four distinct causes, and a seventh — `e2e` — was never listed at 
   script's code and an empty message, which is why it looked like its own problem. What remained once `package-check`
   passed was real: `deno publish --dry-run` rejected 13 JSR slow-type sites, each now annotated. `CORE_METRICS` keeps
   its literal catalog in a named const so `keyof typeof CORE_METRICS` is unchanged.
-- **`web-pages-build`** — `app/api_workbench_hit_targets.ts`, added by the `040` follow-up, imported
-  `@ubernaut/deno-tui`. `deno check` resolves that through the import map; the esbuild docs bundle cannot. Relative now,
-  like every one of its siblings.
+- **`web-pages-build`** — `app/api_workbench_hit_targets.ts`, added by the `040` follow-up, imported `@ubernaut/exotui`.
+  `deno check` resolves that through the import map; the esbuild docs bundle cannot. Relative now, like every one of its
+  siblings.
 - **`api-inventory`** — the scanner is a regex over raw source, so a module carrying source code as data reported that
   data as its own API. `src/tooling/init_templates.ts` embeds four scaffolded projects as template literals, which is
   where the phantom second `createApp` and the target `src/tooling/${name.replaceAll(.ts` came from. Literal text is

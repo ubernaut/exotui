@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals } from "./deps.ts";
-import { Signal } from "@ubernaut/deno-tui";
+import { Signal } from "@ubernaut/exotui";
 import { type ExomuxPickerBindings, type ExomuxPickerSpec, ExomuxSettingsSurface } from "../settings_surface.ts";
 
 function mockBindings() {

@@ -12,7 +12,7 @@
 // terminal bounds, which makes them testable on their own and usable by the
 // pointer resolver (plan/todo/040).
 
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 
 /** Rows the top bar occupies; the body starts below it. */
 export const EXOMUX_HEADER_ROWS = 1;

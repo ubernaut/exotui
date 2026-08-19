@@ -7,7 +7,7 @@
 // entry reading "Miami Neon custom" was still sitting there.
 
 import { assert, assertEquals } from "./deps.ts";
-import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/deno-tui";
+import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/exotui";
 import { createExomuxController, EXOMUX_THEME_EDITOR_PREVIEW_ID } from "../controller.ts";
 import { EXOMUX_THEMES, exomuxSelectableThemes, exomuxTheme, exomuxThemeCatalog } from "../model.ts";
 import { exomuxThemeDocument } from "../theme_documents.ts";

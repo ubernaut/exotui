@@ -5,11 +5,11 @@
 // resolution, WCAG contrast lift for theme-mapped ANSI text, and the shared
 // per-cell style resolver. Exomux consumes it under its existing names so the
 // terminal painter and tests are unchanged; any other app can render a PTY
-// screen with the same fidelity via `@ubernaut/deno-tui/terminal` or the
+// screen with the same fidelity via `@ubernaut/exotui/terminal` or the
 // `TerminalScreen` component.
 
 import type { ExomuxRgb } from "./model.ts";
-import { terminalPaletteRgb, terminalReadableForegroundRgb } from "@ubernaut/deno-tui/terminal";
+import { terminalPaletteRgb, terminalReadableForegroundRgb } from "@ubernaut/exotui/terminal";
 
 /** Resolves compact TerminalScreen SGR values through the xterm color palette. */
 export function exomuxTerminalRgb(code: number | undefined, background: boolean): ExomuxRgb | undefined {

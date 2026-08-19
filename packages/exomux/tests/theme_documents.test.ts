@@ -10,7 +10,7 @@ import {
   registerExomuxTheme,
   unregisterExomuxTheme,
 } from "../model.ts";
-import { setThemeToken, themeEntry } from "@ubernaut/deno-tui/theme";
+import { setThemeToken, themeEntry } from "@ubernaut/exotui/theme";
 
 // Plan 042 slice E. Two shapes for the same thing: ten fields for the painter,
 // named tokens for the person. The property that matters is that converting

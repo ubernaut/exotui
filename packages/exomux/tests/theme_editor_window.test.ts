@@ -1,9 +1,9 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertStringIncludes } from "./deps.ts";
-import type { Key } from "@ubernaut/deno-tui";
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
-import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/deno-tui";
+import type { Key } from "@ubernaut/exotui";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
+import { MemoryThemeStorage, ThemeLibrary } from "@ubernaut/exotui";
 import {
   createExomuxTerminalOptions,
   EXOMUX_THEME_ACTION_LABELS,

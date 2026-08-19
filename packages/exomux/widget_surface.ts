@@ -3,10 +3,10 @@
 // The off-screen component host is now a first-class exotui primitive
 // (`WidgetSurface`, promoted from this file — WS-001). Exomux consumes it under
 // its existing names so the settings/background surfaces and composited fields
-// are unchanged; any other app can use `WidgetSurface` from `@ubernaut/deno-tui/app`
+// are unchanged; any other app can use `WidgetSurface` from `@ubernaut/exotui/app`
 // to composite real components into its own hand-painted grid the same way.
 
-import { WidgetSurface, type WidgetSurfaceCell } from "@ubernaut/deno-tui/app";
+import { WidgetSurface, type WidgetSurfaceCell } from "@ubernaut/exotui/app";
 
 /** One styled cell from the surface, or undefined for an untouched cell. */
 export type ExomuxWidgetCell = WidgetSurfaceCell;
@@ -15,4 +15,4 @@ export type ExomuxWidgetCell = WidgetSurfaceCell;
 export { WidgetSurface as ExomuxWidgetSurface };
 
 /** Structured decode of one surface cell (glyph + truecolor attributes). */
-export { type WidgetSurfaceCellData, widgetSurfaceCellData } from "@ubernaut/deno-tui/app";
+export { type WidgetSurfaceCellData, widgetSurfaceCellData } from "@ubernaut/exotui/app";

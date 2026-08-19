@@ -1,8 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { defineShowcaseManifest } from "@showcase/kit";
-import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/deno-tui";
-import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/deno-tui";
+import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
+import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/exotui";
 
 /** Current Exomux workspace metadata schema. Live PTYs remain daemon-owned. */
 export const EXOMUX_SESSION_SCHEMA_VERSION = 1 as const;

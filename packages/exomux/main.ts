@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { type AsyncStore, DiagnosticsCollector } from "@ubernaut/deno-tui";
-import { ThemeLibrary } from "@ubernaut/deno-tui";
+import { type AsyncStore, DiagnosticsCollector } from "@ubernaut/exotui";
+import { ThemeLibrary } from "@ubernaut/exotui";
 import { createExomuxThemeStorage } from "./theme_storage.ts";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import { EXOMUX_THEMES, exomuxTheme, registerExomuxTheme } from "./model.ts";

@@ -9,7 +9,7 @@
 // through the vendored `jpeg-js`. The file is picked in the config browser.
 
 import { decode as decodeJpeg } from "jpeg-js";
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 import type { ExomuxBackgroundAdvanceOptions, ExomuxBackgroundCell, ExomuxBackgroundPoint } from "./background.ts";
 import type { ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
 

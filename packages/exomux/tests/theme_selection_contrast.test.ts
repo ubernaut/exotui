@@ -8,8 +8,8 @@
 import { assert } from "./deps.ts";
 import { EXOMUX_THEMES } from "../model.ts";
 import { exomuxThemeDocument } from "../theme_documents.ts";
-import { contrastRatio, resolveControlTokens, rgbToOklch } from "@ubernaut/deno-tui/theme";
-import type { Rgb } from "@ubernaut/deno-tui/theme";
+import { contrastRatio, resolveControlTokens, rgbToOklch } from "@ubernaut/exotui/theme";
+import type { Rgb } from "@ubernaut/exotui/theme";
 
 /** WCAG AA for normal text. */
 const READABLE = 4.5;

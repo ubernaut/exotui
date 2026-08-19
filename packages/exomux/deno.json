@@ -6,10 +6,10 @@
     "./main": "./main.ts"
   },
   "imports": {
-    "@ubernaut/deno-tui": "../../mod.ts",
-    "@ubernaut/deno-tui/app": "../../mod.app.ts",
-    "@ubernaut/deno-tui/terminal": "../../mod.terminal.ts",
-    "@ubernaut/deno-tui/testing": "../../mod.testing.ts",
+    "@ubernaut/exotui": "../../mod.ts",
+    "@ubernaut/exotui/app": "../../mod.app.ts",
+    "@ubernaut/exotui/terminal": "../../mod.terminal.ts",
+    "@ubernaut/exotui/testing": "../../mod.testing.ts",
     "@showcase/kit": "../../examples/showcases/shared/mod.ts",
     "@sigma/pty-ffi": "jsr:@sigma/pty-ffi@0.42.0",
     "jpeg-js": "npm:jpeg-js@0.4.4",

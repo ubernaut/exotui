@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 import type { ExomuxBackgroundId } from "./model.ts";
 
 /**

@@ -18,7 +18,7 @@ import {
   resolveControlTokens,
   setThemeToken,
   type ThemeDocument,
-} from "@ubernaut/deno-tui/theme";
+} from "@ubernaut/exotui/theme";
 import { exomuxRelativeLuminance, type ExomuxRgb, type ExomuxThemeSpec } from "./model.ts";
 
 /**

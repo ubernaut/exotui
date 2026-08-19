@@ -1,0 +1,34 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  # A tag is the deliberate way to cut a release; a push to main publishes only
+  # when the version in deno.jsonc has moved, because `jsr publish` refuses to
+  # replace a version that already exists.
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The OIDC token is how JSR authenticates this repository. No secret is
+      # stored anywhere; the trust comes from the package being linked to this
+      # repo in its JSR settings.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # Publishing an artifact that has not passed the gate is how a broken
+      # release happens. The same check CI runs on every push runs here first.
+      - name: Verify the release candidate
+        run: deno task release-check
+      - name: Publish to JSR
+        run: deno publish

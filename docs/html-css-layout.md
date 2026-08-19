@@ -43,7 +43,7 @@ Not implemented yet:
 ## Quick Start
 
 ```ts
-import { createMarkupLayout } from "jsr:@ubernaut/deno-tui";
+import { createMarkupLayout } from "jsr:@ubernaut/exotui";
 
 const result = createMarkupLayout({
   markup: `
@@ -169,8 +169,8 @@ The default solver is dependency-free and ships through the main entrypoint.
 Yoga is opt-in through a separate experimental subpath:
 
 ```ts
-import { createMarkupLayout } from "jsr:@ubernaut/deno-tui";
-import { yogaLayoutSolver } from "jsr:@ubernaut/deno-tui/layout/yoga";
+import { createMarkupLayout } from "jsr:@ubernaut/exotui";
+import { yogaLayoutSolver } from "jsr:@ubernaut/exotui/layout/yoga";
 
 const result = createMarkupLayout({
   markup,
@@ -225,7 +225,7 @@ every `ComputedLayoutStyle` field, and every solver profile classifies each fiel
 measurement, hidden nodes, absolute children, and min/max constraints.
 
 ```ts
-import { inspectLayoutSolverCapabilities } from "jsr:@ubernaut/deno-tui";
+import { inspectLayoutSolverCapabilities } from "jsr:@ubernaut/exotui";
 
 const report = inspectLayoutSolverCapabilities();
 const yoga = report.solvers.find((solver) => solver.solverId === "yoga");

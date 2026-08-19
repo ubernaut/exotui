@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { parseTerminalControlSequence } from "@ubernaut/deno-tui/terminal";
+import { parseTerminalControlSequence } from "@ubernaut/exotui/terminal";
 
 const MAX_PENDING_CONTROL_LENGTH = 4 * 1024;
 

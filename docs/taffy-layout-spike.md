@@ -35,7 +35,7 @@ layout engine.
 ## Implemented boundary
 
 The opt-in implementation is in `src/layout/solvers/taffy.ts`, published only through the experimental
-`@ubernaut/deno-tui/layout/taffy` subpath. Neither the stable main module nor the default solver imports a Taffy package
+`@ubernaut/exotui/layout/taffy` subpath. Neither the stable main module nor the default solver imports a Taffy package
 or WASM asset.
 
 The boundary provides:
@@ -64,7 +64,7 @@ handles and returns a source-tree-shaped plain result.
 A candidate wrapper module must export both a manifest and a factory:
 
 ```ts
-import type { TaffyBackend, TaffyBackendManifest } from "@ubernaut/deno-tui/layout/taffy";
+import type { TaffyBackend, TaffyBackendManifest } from "@ubernaut/exotui/layout/taffy";
 
 export const taffyBackendManifest: TaffyBackendManifest = {
   protocol: "deno-tui.taffy-layout",
@@ -92,7 +92,7 @@ export async function createTaffyBackend(): Promise<TaffyBackend> {
 Loading remains explicit:
 
 ```ts
-import { loadTaffyLayoutSolver } from "@ubernaut/deno-tui/layout/taffy";
+import { loadTaffyLayoutSolver } from "@ubernaut/exotui/layout/taffy";
 
 const solver = await loadTaffyLayoutSolver({
   loadModule: () => import("./my-pinned-taffy-wrapper.ts"),

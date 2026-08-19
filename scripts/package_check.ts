@@ -59,7 +59,7 @@ type PackageConfig = {
 };
 
 export const STABLE_APP_EXPORT_POLICY_PATH = "docs/api-stable-app-modules.json";
-export const PACKAGE_NAME = "@ubernaut/deno-tui";
+export const PACKAGE_NAME = "@ubernaut/exotui";
 export const PACKAGE_PUBLISH_INCLUDES = [
   "CHANGELOG.md",
   "LICENSE.md",

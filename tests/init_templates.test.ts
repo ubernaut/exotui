@@ -52,9 +52,9 @@ Deno.test("templates embed versioned assets and declared import maps", () => {
   const files = generateTemplate("terminal");
   const config = JSON.parse(files["deno.json"]!);
   assertEquals(config.templateVersion, TEMPLATE_VERSION);
-  assert(config.imports["@ubernaut/deno-tui"].startsWith("jsr:")); // default source
+  assert(config.imports["@ubernaut/exotui"].startsWith("jsr:")); // default source
   assertEquals(config.tasks.test, "deno test"); // no ambient permissions declared
 
   const local = generateTemplate("terminal", { importSource: "/checkout" });
-  assertEquals(JSON.parse(local["deno.json"]!).imports["@ubernaut/deno-tui"], "/checkout/mod.ts");
+  assertEquals(JSON.parse(local["deno.json"]!).imports["@ubernaut/exotui"], "/checkout/mod.ts");
 });

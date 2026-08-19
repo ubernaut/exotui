@@ -4,7 +4,7 @@
 // composited pickers) and wheel scrolls must never accumulate stale
 // selection bars — the user's screenshot showed three, one per past epoch.
 import { assert } from "./deps.ts";
-import { createTestMouseScroll, createTestTerminalApp, stripAnsi } from "@ubernaut/deno-tui/testing";
+import { createTestMouseScroll, createTestTerminalApp, stripAnsi } from "@ubernaut/exotui/testing";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef, exomuxGlobalConfigLayout } from "../app.ts";
 import { createExomuxController, EXOMUX_SESSIONS_WINDOW_ID, EXOMUX_SETTINGS_WINDOW_ID } from "../controller.ts";
 import { EXOMUX_THEMES } from "../model.ts";

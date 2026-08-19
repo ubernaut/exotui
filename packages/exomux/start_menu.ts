@@ -10,7 +10,7 @@
 // snapshot the painter blits; until a matching snapshot exists the caller
 // falls back to its hand-drawn rows.
 
-import { ContextMenu, createAnsiStyle, Signal } from "@ubernaut/deno-tui";
+import { ContextMenu, createAnsiStyle, Signal } from "@ubernaut/exotui";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

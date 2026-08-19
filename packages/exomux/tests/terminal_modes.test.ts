@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "./deps.ts";
 import { ExomuxTerminalModeTracker } from "../terminal_modes.ts";
-import { TerminalScreenController } from "@ubernaut/deno-tui/terminal";
-import { terminalMouseRoutingFromPrivateModes } from "@ubernaut/deno-tui";
+import { TerminalScreenController } from "@ubernaut/exotui/terminal";
+import { terminalMouseRoutingFromPrivateModes } from "@ubernaut/exotui";
 
 Deno.test("mode tracker records sticky private modes and drops the ones turned off", () => {
   const tracker = new ExomuxTerminalModeTracker();

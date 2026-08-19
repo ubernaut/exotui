@@ -14,14 +14,7 @@
 // blits; until a matching snapshot exists the caller falls back to its
 // hand-drawn rows.
 
-import {
-  createAnsiStyle,
-  flattenTreeRows,
-  resolveSelectionPaint,
-  Signal,
-  Tree,
-  type TreeNode,
-} from "@ubernaut/deno-tui";
+import { createAnsiStyle, flattenTreeRows, resolveSelectionPaint, Signal, Tree, type TreeNode } from "@ubernaut/exotui";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

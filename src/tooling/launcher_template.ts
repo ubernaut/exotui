@@ -16,13 +16,13 @@ export function generateLauncherTemplate(options: { readonly importSource: strin
   return {
     "deno.json": JSON.stringify(
       {
-        imports: { "@ubernaut/deno-tui": `${options.importSource}/mod.ts` },
+        imports: { "@ubernaut/exotui": `${options.importSource}/mod.ts` },
         tasks: { compile: "deno compile --allow-env -o launcher main.ts" },
       },
       null,
       2,
     ) + "\n",
-    "main.ts": `import { createRuntimePermissionManifest } from "@ubernaut/deno-tui";
+    "main.ts": `import { createRuntimePermissionManifest } from "@ubernaut/exotui";
 
 const MANIFEST = createRuntimePermissionManifest({
   adapterId: "launcher-app",

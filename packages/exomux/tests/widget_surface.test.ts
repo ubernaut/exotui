@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals } from "./deps.ts";
-import { Button, createAnsiStyle, Signal, Slider } from "@ubernaut/deno-tui";
+import { Button, createAnsiStyle, Signal, Slider } from "@ubernaut/exotui";
 import { ExomuxWidgetSurface } from "../widget_surface.ts";
 
 /** Counts the non-empty rendered cells across the surface. */
@@ -67,7 +67,7 @@ Deno.test("Exomux widget surface resizes and re-mounts without leaking component
   const surface = new ExomuxWidgetSurface(20, 4);
   try {
     const base = createAnsiStyle({ foreground: [255, 255, 255], background: [0, 0, 0] });
-    const build = (width: number) => (tui: import("@ubernaut/deno-tui").Tui) => [
+    const build = (width: number) => (tui: import("@ubernaut/exotui").Tui) => [
       new Button({
         parent: tui,
         rectangle: { column: 0, row: 0, width, height: 3 },

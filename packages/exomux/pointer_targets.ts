@@ -12,13 +12,8 @@
 // what to do with it, and the drawn cursor reads the same answer, so the two
 // cannot disagree about what the pointer is over.
 
-import {
-  contains,
-  createMouseInteractionRouter,
-  type MouseInteractionRouter,
-  type Rectangle,
-} from "@ubernaut/deno-tui";
-import type { WorkbenchWindowHostProjection } from "@ubernaut/deno-tui";
+import { contains, createMouseInteractionRouter, type MouseInteractionRouter, type Rectangle } from "@ubernaut/exotui";
+import type { WorkbenchWindowHostProjection } from "@ubernaut/exotui";
 
 /** What a cell belongs to. The vocabulary dispatch and the cursor share. */
 export type ExomuxPointerTarget =

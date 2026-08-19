@@ -16,7 +16,7 @@
 
 import type { ExomuxAppMount } from "../app.ts";
 import type { ExomuxController } from "../controller.ts";
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 import { EXOMUX_START_BUTTON, exomuxMenuQuitRect } from "../desktop_layout.ts";
 
 /** One resolved cell, in the vocabulary the refactor will make into a type. */

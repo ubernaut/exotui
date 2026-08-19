@@ -15,8 +15,8 @@ desktop behind them, remote machines one keystroke away, and a VHS shader over t
 
 **exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno — from a
 ten-line form to a full desktop environment. It ships as one package with focused entrypoints (published to JSR as
-`@ubernaut/deno-tui`): a signal-driven core, a retained-mode cell canvas, forty-plus widgets with headless controllers,
-an application runtime, terminal emulation good enough to build a terminal _inside_ your terminal, browser and remote
+`@ubernaut/exotui`): a signal-driven core, a retained-mode cell canvas, forty-plus widgets with headless controllers, an
+application runtime, terminal emulation good enough to build a terminal _inside_ your terminal, browser and remote
 hosts, and an optional Three.js ASCII renderer.
 
 **exomux** is its flagship — a terminal multiplexer that grew into a terminal _desktop_. Shells live in a detachable
@@ -163,7 +163,7 @@ New applications should use the focused `./app` entrypoint:
 
 ```ts
 import { crayon } from "https://deno.land/x/crayon@3.3.3/mod.ts";
-import { Button, Computed, createTerminalApp, Signal } from "jsr:@ubernaut/deno-tui/app";
+import { Button, Computed, createTerminalApp, Signal } from "jsr:@ubernaut/exotui/app";
 
 const count = new Signal(0);
 const app = createTerminalApp<{ type: "increment" }>({
@@ -321,7 +321,7 @@ fenced code, links, rules, tables, semantic ANSI styling, scrolling, and respons
 `renderMarkdown()` can be used without mounting the component.
 
 ```ts
-import { Markdown } from "jsr:@ubernaut/deno-tui/app";
+import { Markdown } from "jsr:@ubernaut/exotui/app";
 
 const document = new Markdown({
   parent: app.tui,

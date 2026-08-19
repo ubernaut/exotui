@@ -1,13 +1,13 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import type { ProcessSessionInspection } from "@ubernaut/deno-tui/terminal";
+import type { ProcessSessionInspection } from "@ubernaut/exotui/terminal";
 import { ExomuxTerminalModeTracker } from "./terminal_modes.ts";
 import {
   createProcessTerminalBackend,
   type TerminalBackend,
   type TerminalSessionHandle,
-} from "@ubernaut/deno-tui/terminal";
-import { createSigmaPtyTerminalBackend } from "@ubernaut/deno-tui/terminal";
+} from "@ubernaut/exotui/terminal";
+import { createSigmaPtyTerminalBackend } from "@ubernaut/exotui/terminal";
 import {
   decodeExomuxClientMessage,
   decodeExomuxData,

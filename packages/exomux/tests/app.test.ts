@@ -8,15 +8,15 @@ import {
   POINTER_INPUT_SCHEMA_VERSION,
   type PointerInputEvent,
   type Rectangle,
-} from "@ubernaut/deno-tui";
+} from "@ubernaut/exotui";
 
 /** Width of the top-left start button, mirrored from the app layout. */
 const START_BUTTON_WIDTH = 14;
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
-import { stripAnsi } from "@ubernaut/deno-tui/testing";
-import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/deno-tui/testing";
-import { decodeBuffer } from "@ubernaut/deno-tui";
-import type { Key, MouseScrollEvent } from "@ubernaut/deno-tui";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
+import { stripAnsi } from "@ubernaut/exotui/testing";
+import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/exotui/testing";
+import { decodeBuffer } from "@ubernaut/exotui";
+import type { Key, MouseScrollEvent } from "@ubernaut/exotui";
 import {
   bindExomuxPointerInput,
   createExomuxTerminalOptions,
