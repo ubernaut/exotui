@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertNotEquals } from "./deps.ts";
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 import type { ExomuxAnimatedBackground, ExomuxBackgroundCell } from "../background.ts";
 import { ExomuxMatrixRainField } from "../matrix_background.ts";
 import { ExomuxCircuitField } from "../circuit_background.ts";

@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 
 /** Low-rate cadence keeps the animated desktop responsive over remote terminals. */
 export const EXOMUX_METABALL_FRAME_INTERVAL_MS = 125;

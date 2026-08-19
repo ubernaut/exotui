@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "./deps.ts";
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { createTestMousePress } from "../../../src/testing/input.ts";
 import { createExomuxController } from "../controller.ts";
 import { createExomuxTerminalOptions, type ExomuxAppMount, type ExomuxAppMountRef } from "../app.ts";

@@ -1,6 +1,6 @@
 # Exomux
 
-A terminal multiplexer built on `@ubernaut/deno-tui`: a detachable local host owning PTY-backed shells, and a floating
+A terminal multiplexer built on `@ubernaut/exotui`: a detachable local host owning PTY-backed shells, and a floating
 workbench client that can exit and reattach without disturbing them.
 
 ## Running
@@ -248,12 +248,12 @@ never imports (esbuild and its platform binaries, three.js, the image codecs). R
 
 The library is reached exclusively through its public entrypoints, aliased in `deno.json`:
 
-| alias                         | today                   |
-| ----------------------------- | ----------------------- |
-| `@ubernaut/deno-tui`          | `../../mod.ts`          |
-| `@ubernaut/deno-tui/app`      | `../../mod.app.ts`      |
-| `@ubernaut/deno-tui/terminal` | `../../mod.terminal.ts` |
-| `@ubernaut/deno-tui/testing`  | `../../mod.testing.ts`  |
+| alias                       | today                   |
+| --------------------------- | ----------------------- |
+| `@ubernaut/exotui`          | `../../mod.ts`          |
+| `@ubernaut/exotui/app`      | `../../mod.app.ts`      |
+| `@ubernaut/exotui/terminal` | `../../mod.terminal.ts` |
+| `@ubernaut/exotui/testing`  | `../../mod.testing.ts`  |
 
 No file here imports `../../src/...`. Once the library is published, those four path values become JSR specifiers and
 nothing else changes — that is the whole point of routing them through the import map.

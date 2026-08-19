@@ -1,8 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/deno-tui/app";
-import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/deno-tui/app";
-import type { SurfaceTransition } from "@ubernaut/deno-tui";
+import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/exotui/app";
+import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/exotui/app";
+import type { SurfaceTransition } from "@ubernaut/exotui";
 import {
   clampContextMenuSelection,
   Component,
@@ -32,17 +32,17 @@ import {
   type WorkbenchWindowHostCommand,
   type WorkbenchWindowHostProjection,
   type WorkbenchWindowHostProjectionOptions,
-} from "@ubernaut/deno-tui";
-import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "@ubernaut/deno-tui";
-import { wrapTextBoxLines } from "@ubernaut/deno-tui";
-import { COLOR_PICKER_AXIS_IDS, type ColorPickerAxisId, type ThemeEditorController } from "@ubernaut/deno-tui";
+} from "@ubernaut/exotui";
+import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "@ubernaut/exotui";
+import { wrapTextBoxLines } from "@ubernaut/exotui";
+import { COLOR_PICKER_AXIS_IDS, type ColorPickerAxisId, type ThemeEditorController } from "@ubernaut/exotui";
 import {
   layoutWorkbenchButtonRowInto,
   type WorkbenchButtonRowItem,
   type WorkbenchButtonRowPlacement,
   type WorkbenchButtonRowRenderCommand,
   workbenchButtonRowRenderCommandsInto,
-} from "@ubernaut/deno-tui";
+} from "@ubernaut/exotui";
 import {
   createExomuxController,
   EXOMUX_NETWORK_WINDOW_ID,
@@ -85,7 +85,7 @@ import {
   exomuxWindowId,
   type ExomuxWindowSettings,
 } from "./model.ts";
-import { terminalClipboardSequence, textWidth } from "@ubernaut/deno-tui";
+import { terminalClipboardSequence, textWidth } from "@ubernaut/exotui";
 import {
   exomuxBackgroundOvergrows,
   type ExomuxOvergrowthEdges,
@@ -102,7 +102,7 @@ import {
   formatExomuxFlushTelemetry,
 } from "./debug_log.ts";
 import { exomuxPincushionMagnitude, exomuxPointerWarpCell, isRunningInGhostty } from "./ghostty.ts";
-import { contains, type MouseInteractionRouter } from "@ubernaut/deno-tui";
+import { contains, type MouseInteractionRouter } from "@ubernaut/exotui";
 import { buildExomuxPointerModel, type ExomuxPointerTarget, exomuxWindowRegionResolver } from "./pointer_targets.ts";
 import {
   EXOMUX_FOOTER_ROWS,

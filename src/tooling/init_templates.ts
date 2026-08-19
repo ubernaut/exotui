@@ -25,10 +25,10 @@ function denoJson(importSource: string): string {
       templateVersion: TEMPLATE_VERSION,
       tasks: { test: "deno test", check: "deno check main.ts" },
       imports: {
-        "@ubernaut/deno-tui": `${importSource}/mod.ts`,
-        "@ubernaut/deno-tui/app": `${importSource}/mod.app.ts`,
-        "@ubernaut/deno-tui/remote": `${importSource}/mod.remote.ts`,
-        "@ubernaut/deno-tui/testing": `${importSource}/mod.testing.ts`,
+        "@ubernaut/exotui": `${importSource}/mod.ts`,
+        "@ubernaut/exotui/app": `${importSource}/mod.app.ts`,
+        "@ubernaut/exotui/remote": `${importSource}/mod.remote.ts`,
+        "@ubernaut/exotui/testing": `${importSource}/mod.testing.ts`,
       },
       compilerOptions: { lib: ["deno.window", "dom", "dom.iterable"] },
     },
@@ -40,7 +40,7 @@ function denoJson(importSource: string): string {
 const TEMPLATES: Readonly<Record<TemplateKind, (importSource: string) => TemplateFiles>> = {
   terminal: (importSource) => ({
     "deno.json": denoJson(importSource),
-    "main.ts": `import { createTokenEditor } from "@ubernaut/deno-tui";
+    "main.ts": `import { createTokenEditor } from "@ubernaut/exotui";
 
 /** The app's single controller — grow from here. */
 export function createApp() {
@@ -61,7 +61,7 @@ Deno.test("the terminal app boots with its seed tokens", () => {
   }),
   browser: (importSource) => ({
     "deno.json": denoJson(importSource),
-    "main.ts": `import { parseTuiMarkup } from "@ubernaut/deno-tui";
+    "main.ts": `import { parseTuiMarkup } from "@ubernaut/exotui";
 
 /** Parses the app's markup shell. */
 export function shell() {
@@ -81,7 +81,7 @@ Deno.test("the browser shell parses with its title node", () => {
   }),
   "remote-client": (importSource) => ({
     "deno.json": denoJson(importSource),
-    "main.ts": `import { type CellFrame, encodeCellFrame } from "@ubernaut/deno-tui/remote";
+    "main.ts": `import { type CellFrame, encodeCellFrame } from "@ubernaut/exotui/remote";
 
 /** Encodes the client's first frame. */
 export function firstFrame(): ReturnType<typeof encodeCellFrame> {
@@ -105,7 +105,7 @@ Deno.test("the remote client encodes its first frame", () => {
   }),
   library: (importSource) => ({
     "deno.json": denoJson(importSource),
-    "mod.ts": `import { linearScale } from "@ubernaut/deno-tui";
+    "mod.ts": `import { linearScale } from "@ubernaut/exotui";
 
 /** The library's public helper. */
 export function percentToCell(percent: number, cells: number): number {
@@ -141,5 +141,5 @@ export function generateTemplate(
   kind: TemplateKind,
   options: { readonly importSource?: string } = {},
 ): TemplateFiles {
-  return TEMPLATES[kind](options.importSource ?? "jsr:@ubernaut/deno-tui");
+  return TEMPLATES[kind](options.importSource ?? "jsr:@ubernaut/exotui");
 }

@@ -14,7 +14,7 @@ matter here: exomux spawns PTYs and opens a loopback socket, and the runtime mak
 drags a dependency tree into every application is a toolkit people vendor around. Where an outside capability is
 genuinely needed it is isolated behind a module boundary and made optional:
 
-- **Layout solvers** — Yoga and Taffy are available as opt-in entrypoints (`@ubernaut/deno-tui/layout/yoga`,
+- **Layout solvers** — Yoga and Taffy are available as opt-in entrypoints (`@ubernaut/exotui/layout/yoga`,
   `/layout/taffy`). The built-in flex, grid, and linear layouts have no dependency.
 - **PTY** — exomux uses a sigma PTY backend, selected at runtime through `selectExomuxTerminalBackend`, so the host
   degrades rather than failing when a backend is unavailable.

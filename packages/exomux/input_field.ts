@@ -15,8 +15,8 @@
 // restricts the accepted alphabet. The SCP password prompt and the session-name
 // editor are both just this field with different options.
 
-import { createAnsiStyle, Input, Signal } from "@ubernaut/deno-tui";
-import { createTestKeyPress } from "@ubernaut/deno-tui/testing";
+import { createAnsiStyle, Input, Signal } from "@ubernaut/exotui";
+import { createTestKeyPress } from "@ubernaut/exotui/testing";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

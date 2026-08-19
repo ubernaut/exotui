@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "./deps.ts";
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { createExomuxController } from "../controller.ts";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef } from "../app.ts";
 import { EXOMUX_NETWORK_WINDOW_ID, EXOMUX_SESSIONS_WINDOW_ID, EXOMUX_SETTINGS_WINDOW_ID } from "../controller.ts";

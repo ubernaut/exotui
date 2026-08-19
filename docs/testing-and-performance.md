@@ -40,7 +40,7 @@ focus, component registration, pointer routing, responsive layout, and rendering
 
 ```ts
 import { assertEquals } from "jsr:@std/assert";
-import { createTestTerminalApp } from "jsr:@ubernaut/deno-tui/testing";
+import { createTestTerminalApp } from "jsr:@ubernaut/exotui/testing";
 
 let count = 0;
 const harness = await createTestTerminalApp<{ type: "increment" }>({

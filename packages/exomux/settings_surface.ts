@@ -17,8 +17,8 @@
 // a fresh render plus a repaint. Until a snapshot matches the current request
 // the caller falls back to its own hand-drawn rows, so a picker is never blank.
 
-import { type Component, createAnsiStyle, List, Signal, type Style } from "@ubernaut/deno-tui";
-import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/deno-tui/testing";
+import { type Component, createAnsiStyle, List, Signal, type Style } from "@ubernaut/exotui";
+import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/exotui/testing";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

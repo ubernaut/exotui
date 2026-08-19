@@ -45,7 +45,7 @@ if (import.meta.main) {
     new URL("dist/manifest.json", root),
     JSON.stringify(
       {
-        canonical: "jsr:@ubernaut/deno-tui",
+        canonical: "jsr:@ubernaut/exotui",
         declarations: "type declarations ship from the canonical JSR package",
         artifacts,
       },

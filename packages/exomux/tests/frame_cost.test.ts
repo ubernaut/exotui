@@ -3,7 +3,7 @@
 // deliberately loose for CI variance — before the cell-style memo this
 // scenario cost ~99ms/frame; with it ~15ms.
 import { assert } from "./deps.ts";
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef } from "../app.ts";
 import { createExomuxController } from "../controller.ts";
 import { FakeExomuxClient, session } from "./fakes.ts";

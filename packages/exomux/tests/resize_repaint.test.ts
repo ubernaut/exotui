@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "./deps.ts";
-import { createTestMousePress, createTestTerminalApp } from "@ubernaut/deno-tui/testing";
+import { createTestMousePress, createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { createExomuxTerminalOptions, type ExomuxAppMountRef, exomuxStartMenuLayout } from "../app.ts";
 import { createExomuxController, EXOMUX_SESSIONS_WINDOW_ID, EXOMUX_SETTINGS_WINDOW_ID } from "../controller.ts";
 import { FakeExomuxClient, session } from "./fakes.ts";
@@ -100,8 +100,8 @@ Deno.test("interactive corner resize min->max leaves no ghosts in the frame or t
 
     // End-to-end: replay the emitted ANSI stream into a terminal emulator and
     // compare what a real terminal would show against the frame buffer.
-    const { TerminalScreenController } = await import("@ubernaut/deno-tui/terminal");
-    const { widgetSurfaceCellData } = await import("@ubernaut/deno-tui/app");
+    const { TerminalScreenController } = await import("@ubernaut/exotui/terminal");
+    const { widgetSurfaceCellData } = await import("@ubernaut/exotui/app");
     const { exomuxTerminalRgb } = await import("../terminal_palette.ts");
     const emulator = new TerminalScreenController({ columns: COLS, rows: ROWS });
     emulator.write(harness.stdout.text);

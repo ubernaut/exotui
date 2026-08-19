@@ -27,7 +27,7 @@ Deno.test("ESM artifacts build from source and pass all four smoke runtimes", as
   const built = await run(["deno", "run", "-A", "scripts/build_esm_artifacts.ts"]);
   assert(built.ok, built.output);
   const manifest = JSON.parse(await Deno.readTextFile(new URL("dist/manifest.json", root)));
-  assertEquals(manifest.canonical, "jsr:@ubernaut/deno-tui"); // JSR stays canonical
+  assertEquals(manifest.canonical, "jsr:@ubernaut/exotui"); // JSR stays canonical
   assertEquals(
     manifest.artifacts.map((artifact: { entrypoint: string }) => artifact.entrypoint),
     [...SUPPORTED_ESM_ENTRYPOINTS],

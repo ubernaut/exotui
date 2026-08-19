@@ -8,8 +8,8 @@ import {
   terminalMouseRoutingFromPrivateModes,
   type WorkbenchWindowChromeProjection,
   type WorkbenchWindowHostProjection,
-} from "@ubernaut/deno-tui";
-import type { MousePressEvent, MouseScrollEvent } from "@ubernaut/deno-tui";
+} from "@ubernaut/exotui";
+import type { MousePressEvent, MouseScrollEvent } from "@ubernaut/exotui";
 import type { ExomuxController, ExomuxTerminalRuntime } from "./controller.ts";
 import { exomuxSessionIdFromWindow } from "./model.ts";
 

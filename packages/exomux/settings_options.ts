@@ -15,7 +15,7 @@
 // captures a snapshot the painter blits; until a matching snapshot exists the
 // caller falls back to its own hand-drawn value, so an option is never blank.
 
-import { CheckBox, createAnsiStyle, Cycler, Signal } from "@ubernaut/deno-tui";
+import { CheckBox, createAnsiStyle, Cycler, Signal } from "@ubernaut/exotui";
 import { type ExomuxWidgetCell, ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

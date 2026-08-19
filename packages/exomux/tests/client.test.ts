@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertRejects } from "./deps.ts";
-import { TerminalOutputController } from "@ubernaut/deno-tui";
+import { TerminalOutputController } from "@ubernaut/exotui";
 import {
   connectExomuxWebSocket,
   connectOrLaunchExomuxLocalHost,
@@ -25,8 +25,8 @@ import type {
   TerminalBackendSpawnOptions,
   TerminalSessionHandle,
   TerminalSessionHandleInspection,
-} from "@ubernaut/deno-tui/terminal";
-import type { ProcessSessionCommand, ProcessSessionInspection } from "@ubernaut/deno-tui/terminal";
+} from "@ubernaut/exotui/terminal";
+import type { ProcessSessionCommand, ProcessSessionInspection } from "@ubernaut/exotui/terminal";
 
 Deno.test("Exomux launches its daemon differently from a script and a compiled binary", () => {
   const mainModuleUrl = new URL("file:///opt/exomux/main.ts");

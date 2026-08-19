@@ -1,8 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals } from "./deps.ts";
-import type { Rectangle } from "@ubernaut/deno-tui";
-import { createTestTerminalApp } from "@ubernaut/deno-tui/testing";
+import type { Rectangle } from "@ubernaut/exotui";
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { FakeExomuxClient, session } from "./fakes.ts";
 import { createExomuxController } from "../controller.ts";
 import {

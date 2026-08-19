@@ -5,7 +5,7 @@
 // Exomux consumes it under its existing names, instantiated on its theme spec,
 // so every background field and the desktop compositor are unchanged; any
 // other app can host the same fields (or its own) through
-// `@ubernaut/deno-tui`'s generic contract. The field implementations
+// `@ubernaut/exotui`'s generic contract. The field implementations
 // themselves (metaballs, matrix, circuit, butterchurn GPU, …) still live here
 // in exomux — their relocation is tracked separately.
 
@@ -24,7 +24,7 @@ import {
   type OverlayAnimatedBackground,
   type PresetAnimatedBackground,
   releaseIdleAnimatedBackgrounds,
-} from "@ubernaut/deno-tui";
+} from "@ubernaut/exotui";
 import type { ExomuxBackgroundId, ExomuxRgb, ExomuxThemeSpec } from "./model.ts";
 
 /** Shared cadence for every animated desktop background. */

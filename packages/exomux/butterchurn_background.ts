@@ -24,7 +24,7 @@
 // and a shader translator. The motion of a preset is therefore faithful; its
 // colour grading and fine texture are approximated.
 
-import type { Rectangle } from "@ubernaut/deno-tui";
+import type { Rectangle } from "@ubernaut/exotui";
 import type {
   ExomuxBackgroundAdvanceOptions,
   ExomuxBackgroundCell,

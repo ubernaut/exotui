@@ -4,7 +4,7 @@
 // directory beside the config file, so a theme is a file you can copy to
 // another machine, read in an editor, or delete.
 
-import type { ThemeStoragePort } from "@ubernaut/deno-tui";
+import type { ThemeStoragePort } from "@ubernaut/exotui";
 
 const THEME_FILE = /^[a-z0-9][a-z0-9-]{0,63}\.json$/;
 

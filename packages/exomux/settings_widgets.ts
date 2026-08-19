@@ -16,7 +16,7 @@
 // Until a matching snapshot exists the caller falls back to its own hand-drawn
 // button, so a control is never missing while the widget catches up.
 
-import { Button, createAnsiStyle } from "@ubernaut/deno-tui";
+import { Button, createAnsiStyle } from "@ubernaut/exotui";
 import { type ExomuxWidgetCell, ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 

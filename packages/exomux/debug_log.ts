@@ -22,7 +22,7 @@
 // working directory, or any other error degrades to a silent no-op rather than
 // taking the desktop down.
 
-import type { AnsiFlushTelemetry } from "@ubernaut/deno-tui";
+import type { AnsiFlushTelemetry } from "@ubernaut/exotui";
 
 /**
  * One greppable key=value line for a drained sink-telemetry window — the

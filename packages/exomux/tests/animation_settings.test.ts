@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "./deps.ts";
-import { SURFACE_ANIMATION_KINDS } from "@ubernaut/deno-tui";
+import { SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
 import {
   cycleExomuxGlobalSetting,
   defaultExomuxGlobalSettings,

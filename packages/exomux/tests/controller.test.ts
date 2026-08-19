@@ -1,9 +1,9 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { assert, assertEquals, assertStringIncludes, assertThrows } from "./deps.ts";
-import { MemoryStore } from "@ubernaut/deno-tui";
-import { grWizardThemePalettes } from "@ubernaut/deno-tui";
-import { createTestMousePress } from "@ubernaut/deno-tui/testing";
+import { MemoryStore } from "@ubernaut/exotui";
+import { grWizardThemePalettes } from "@ubernaut/exotui";
+import { createTestMousePress } from "@ubernaut/exotui/testing";
 import { createExomuxController } from "../controller.ts";
 import {
   EXOMUX_T2_SWATCHES,
@@ -19,7 +19,7 @@ import {
 } from "../model.ts";
 import { launchInitialExomuxTerminalIfEmpty, parseExomuxShowcaseArgs } from "../main.ts";
 import { exomuxTerminalForegroundRgb, exomuxTerminalRgb } from "../terminal_palette.ts";
-import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "@ubernaut/deno-tui/terminal";
+import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "@ubernaut/exotui/terminal";
 
 const BOUNDS = { column: 0, row: 2, width: 120, height: 34 } as const;
 const THEME_RGB_FIELDS = [

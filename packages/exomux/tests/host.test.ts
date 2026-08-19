@@ -1,16 +1,12 @@
 import { assert, assertEquals, assertRejects, assertStringIncludes } from "./deps.ts";
-import { TerminalOutputController } from "@ubernaut/deno-tui";
-import type {
-  ProcessSessionCommand,
-  ProcessSessionInspection,
-  ProcessSessionStatus,
-} from "@ubernaut/deno-tui/terminal";
+import { TerminalOutputController } from "@ubernaut/exotui";
+import type { ProcessSessionCommand, ProcessSessionInspection, ProcessSessionStatus } from "@ubernaut/exotui/terminal";
 import type {
   TerminalBackend,
   TerminalBackendSpawnOptions,
   TerminalSessionHandle,
   TerminalSessionHandleInspection,
-} from "@ubernaut/deno-tui/terminal";
+} from "@ubernaut/exotui/terminal";
 import {
   decodeExomuxData,
   decodeExomuxServerMessage,

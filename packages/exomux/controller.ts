@@ -17,10 +17,10 @@ import {
   type WorkbenchWindowHostDescriptor,
   type WorkbenchWindowHostProjection,
   type WorkbenchWindowHostResult,
-} from "@ubernaut/deno-tui";
-import { themeDocumentId, ThemeEditorController, type ThemeLibrary } from "@ubernaut/deno-tui";
-import { renameThemeDocument } from "@ubernaut/deno-tui/theme";
-import type { ThemeDocument } from "@ubernaut/deno-tui/theme";
+} from "@ubernaut/exotui";
+import { themeDocumentId, ThemeEditorController, type ThemeLibrary } from "@ubernaut/exotui";
+import { renameThemeDocument } from "@ubernaut/exotui/theme";
+import type { ThemeDocument } from "@ubernaut/exotui/theme";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import {
   ShowcaseKernel,

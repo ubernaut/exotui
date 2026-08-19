@@ -6,6 +6,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.1.0 — 2026-08-19
+
+The first published release. Everything below was written before anything shipped, so it describes how the library
+arrived at 0.1.0 rather than what changed since a previous version.
+
+The package is published as `@ubernaut/exotui`. It was called `@ubernaut/deno-tui` for most of its development, after
+the deno_tui project it is forked from; the entries below have been written in the published name so that every
+specifier in this file is one you can actually import.
+
 ### Breaking changes (pre-1.0)
 
 - The Three.js-backed ASCII renderer moved off the default `.` entrypoint and now ships only from `./three-ascii`
@@ -40,12 +49,12 @@ quickly, but the affected entrypoint or module family should be named here.
   Favoriting updates the live field without restarting the preset on screen; only the toggle rebuilds it. New surface:
   `exomuxStartMenuItems`, `controller.butterchurnFavorites` / `toggleButterchurnFavorite`, the field's
   `favorites`/`favoritesOnly` options and `setFavorites`.
-- New **`WidgetSurface`** (`@ubernaut/deno-tui/app`): an off-screen component host for apps that paint their own
-  retained grid by hand (a terminal multiplexer fusing PTY screens, translucent windows, and GPU backgrounds is the
-  motivating case). It mounts a component subtree on an in-memory `Canvas`, renders it manually (no terminal, no loop,
-  no stdout), forces a full redraw per pass so a snapshot is always exact, and exposes the cells through `cellAt` for
-  the host to composite. Promoted from exomux's proven `ExomuxWidgetSurface`, which is now a thin alias — so the
-  settings/background surfaces and composited input fields ride the library primitive.
+- New **`WidgetSurface`** (`@ubernaut/exotui/app`): an off-screen component host for apps that paint their own retained
+  grid by hand (a terminal multiplexer fusing PTY screens, translucent windows, and GPU backgrounds is the motivating
+  case). It mounts a component subtree on an in-memory `Canvas`, renders it manually (no terminal, no loop, no stdout),
+  forces a full redraw per pass so a snapshot is always exact, and exposes the cells through `cellAt` for the host to
+  composite. Promoted from exomux's proven `ExomuxWidgetSurface`, which is now a thin alias — so the settings/background
+  surfaces and composited input fields ride the library primitive.
 - Exomux's software MilkDrop renderer is now its own background, **"butterchurn cpu"**, instead of a silent fallback of
   the GPU one. It never touches the GPU and cycles only the **365 of 472** presets that actually resolve to a moving
   image on the CPU path (audited by `scripts/audit_butterchurn_catalog.ts`, now run against the CPU renderer;
@@ -316,7 +325,7 @@ quickly, but the affected entrypoint or module family should be named here.
   ranking, immutable registries, and bounded ambiguity diagnostics.
 - Added a package stability manifest for terminal, browser, remote, experimental, and demo-only surfaces.
 - Added `deno task package-check` to verify the Deno export map stays aligned with the stability manifest.
-- Added `@ubernaut/deno-tui` package metadata, a lean JSR publish allowlist, and `deno task release-check` for strict
+- Added `@ubernaut/exotui` package metadata, a lean JSR publish allowlist, and `deno task release-check` for strict
   publish dry runs with artifact-size reporting.
 
 ### Changed
@@ -377,12 +386,12 @@ quickly, but the affected entrypoint or module family should be named here.
   `ExomuxOvergrowthEdges` argument that defaults to the previous behaviour.
 - Exomux moved out of `examples/showcases/exomux` into `packages/exomux`, a standalone package with its own `deno.json`
   and `deno.lock`. It now reaches the library only through its public entrypoints, aliased in its import map as
-  `@ubernaut/deno-tui`, `/app`, `/terminal` and `/testing`; no file in the package imports `src/` any more, so
-  publishing later means repointing four import-map values rather than rewriting imports. It is deliberately not a Deno
-  workspace member: a workspace shares one npm resolution and `deno compile` materializes all of it rather than just the
-  module graph, which is why the in-workspace binary carried ~48MB of packages Exomux never imports. Compiled against
-  its own config it is 122.5MB rather than 170.4MB, with dependencies still fully locked. The root `exomux`,
-  `exomux:memory`, `exomux:check` and `exomux:test` tasks delegate to it, and `exomux:compile` is new.
+  `@ubernaut/exotui`, `/app`, `/terminal` and `/testing`; no file in the package imports `src/` any more, so publishing
+  later means repointing four import-map values rather than rewriting imports. It is deliberately not a Deno workspace
+  member: a workspace shares one npm resolution and `deno compile` materializes all of it rather than just the module
+  graph, which is why the in-workspace binary carried ~48MB of packages Exomux never imports. Compiled against its own
+  config it is 122.5MB rather than 170.4MB, with dependencies still fully locked. The root `exomux`, `exomux:memory`,
+  `exomux:check` and `exomux:test` tasks delegate to it, and `exomux:compile` is new.
 - `KeyPressEvent`, `MousePressEvent`, `MouseScrollEvent` and the rest of `src/input_reader/types.ts` are exported from
   the default entrypoint, and `decodeTerminalColor`/`encodeTerminalIndexedColor`/`encodeTerminalRgbColor` from
   `./terminal`. Nothing could write a key or mouse handler without naming the event shapes, but they had been reachable

@@ -36,19 +36,19 @@ import { yogaLayoutSolver } from "./src/layout/solvers/yoga.ts";
 Published package imports should use the same subpaths:
 
 ```ts
-import { Tui } from "jsr:@ubernaut/deno-tui";
-import { createTerminalApp } from "jsr:@ubernaut/deno-tui/app";
-import { createWebTui } from "jsr:@ubernaut/deno-tui/web";
-import { RemoteTerminalClient } from "jsr:@ubernaut/deno-tui/remote";
-import { createDefaultAsciiOptions } from "jsr:@ubernaut/deno-tui/three-ascii";
-import { createThemeEngine } from "jsr:@ubernaut/deno-tui/theme";
-import { AsyncScheduler } from "jsr:@ubernaut/deno-tui/runtime";
-import { TerminalScreen } from "jsr:@ubernaut/deno-tui/terminal";
-import { createTestCanvas } from "jsr:@ubernaut/deno-tui/testing";
-import { yogaLayoutSolver } from "jsr:@ubernaut/deno-tui/layout/yoga";
+import { Tui } from "jsr:@ubernaut/exotui";
+import { createTerminalApp } from "jsr:@ubernaut/exotui/app";
+import { createWebTui } from "jsr:@ubernaut/exotui/web";
+import { RemoteTerminalClient } from "jsr:@ubernaut/exotui/remote";
+import { createDefaultAsciiOptions } from "jsr:@ubernaut/exotui/three-ascii";
+import { createThemeEngine } from "jsr:@ubernaut/exotui/theme";
+import { AsyncScheduler } from "jsr:@ubernaut/exotui/runtime";
+import { TerminalScreen } from "jsr:@ubernaut/exotui/terminal";
+import { createTestCanvas } from "jsr:@ubernaut/exotui/testing";
+import { yogaLayoutSolver } from "jsr:@ubernaut/exotui/layout/yoga";
 ```
 
-The package identity and version are pinned in `deno.jsonc` as `@ubernaut/deno-tui`. The first upload still requires the
+The package identity and version are pinned in `deno.jsonc` as `@ubernaut/exotui`. The first upload still requires the
 `ubernaut` JSR scope to exist and authorize the publisher; repository checks deliberately stop at a dry run and do not
 perform authentication or publication.
 

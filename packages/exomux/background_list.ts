@@ -10,7 +10,7 @@
 // async, so a render captures a snapshot the painter blits; until a matching
 // snapshot exists the caller falls back to its own hand-drawn rows.
 
-import { createAnsiStyle, List, Signal } from "@ubernaut/deno-tui";
+import { createAnsiStyle, List, Signal } from "@ubernaut/exotui";
 import { ExomuxWidgetSurface } from "./widget_surface.ts";
 import type { ExomuxRgb } from "./model.ts";
 
