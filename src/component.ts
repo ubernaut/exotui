@@ -87,7 +87,20 @@ export class Component extends EventEmitter<
 
       if (!this.#drawn && visible) {
         if (!this.tui.children.includes(this)) return;
-        this.draw();
+        // A component that was never drawn is being drawn for the first time
+        // here, and `draw()` is where widgets build their children — reading
+        // geometry as they go. One signal change often makes a component both
+        // visible AND sized (a panel that appears already knows its rectangle),
+        // and this subscriber runs while the sibling Computeds of that same
+        // change are still stale. Drawing now bakes the pre-change geometry
+        // into children that never recompute, so a widget appears with a
+        // zero-width body and stays that way. Deferring one microtask lets the
+        // batch settle first.
+        queueMicrotask(() => {
+          if (this.#destroyed || this.#drawn || !this.visible.peek()) return;
+          if (!this.tui.children.includes(this)) return;
+          this.draw();
+        });
       } else {
         this.changeDrawnObjectVisibility(visible, false);
       }
