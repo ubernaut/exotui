@@ -4,16 +4,15 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 
 ## Active
 
-1. **`044` Focus as a first-class concept.** _(User direction, Aug 18.)_ Selection and focus are conflated: a list
-   paints its selected row with the accent whether or not that list is the thing receiving keys. Give exotui a focus
-   model that components and themes can both see, and a paint vocabulary that distinguishes "this is the current item"
-   from "this is where your typing goes". Library-level; exomux is the first consumer.
-
-2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+1. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
-3. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
+2. **`039` Window and menu animations.** Implementation complete Aug 17; **awaiting the maintainer's live visual
    check**, because animations only play on a real terminal. Nothing else blocks on it.
+
+3. **`044` Focus as a first-class concept.** Implementation complete Aug 18 in four slices; **awaiting the maintainer's
+   live visual check** of whether the muted unfocused selection reads well in a real terminal. Headless mounts prove the
+   two selections differ, not that either looks right. Nothing else blocks on it.
 
 ## `deno task health` — seven red gates, fixed August 18 2026
 
@@ -67,6 +66,9 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
 
 Small, real, and worth doing when adjacent code is next touched:
 
+- **`044` — exomux's start menu and settings panes still decide focus by hand.** Each computes a per-row `focused`
+  boolean rather than resolving through `resolveSelectionPaint`. Correct on screen, so this is consistency debt; worth
+  converting when that code is next touched.
 - **`042` — finish the token-to-painter wiring.** Window chrome, menus, list selection, scrollbars and modal buttons
   read their control tokens; the rest of the vocabulary resolves and is editable but still paints from the ten-colour
   spec. Mechanical.
