@@ -3,6 +3,28 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 18 2026 — focus stops meaning selection (044)
+
+Four slices. The task asked for a focus authority; `src/focus.ts` already had one, so the work was extending it rather
+than building the second authority `040` had just finished removing. What it genuinely lacked was `disabled`: a probe
+showed a disabled control losing its look on a focus change it was not part of, then taking the keyboard on the next
+one.
+
+The sketch's other half could not be built as written. It wanted `selected-unfocused` as a component state, but
+`ThemeState` indexes `Theme` directly, so a fifth member would demand a fifth style from every theme. Selection belongs
+to a row and focus to a component — one list is a single focusable drawing many rows — so the distinction became its own
+`SelectionPaintState`, resolved from the two facts that decide it.
+
+Then the colour (two tokens, because the vocabulary requires every foreground to name its ground), the call sites, and
+exomux. `Tree` nearly shipped permanently muted: it draws through a `List` it owns that is never focused, and sharing
+the tree's state signal would have handed that list every key press the tree receives. It takes an explicit `focusState`
+instead.
+
+exomux turned out to have the opposite bug to the one the task was opened for — its panels drew _no_ highlight when
+unfocused, losing the user's place rather than de-emphasising it. They now keep it, muted.
+
+Not verified by anyone yet: whether the muted selection reads well on a real terminal.
+
 ## August 18 2026 — seven red health gates, four causes
 
 `deno task health` had been red at `main` for a while. The six the plan listed collapsed into four causes once they were
