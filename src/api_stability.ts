@@ -18,6 +18,7 @@ export interface PackageEntrypointManifest {
     | "./runtime"
     | "./terminal"
     | "./showcase"
+    | "./viz"
     | "./testing"
     | "./layout/yoga"
     | "./layout/taffy"
@@ -32,6 +33,7 @@ export interface PackageEntrypointManifest {
     | "./mod.runtime.ts"
     | "./mod.terminal.ts"
     | "./src/showcase/mod.ts"
+    | "./src/viz/mod.ts"
     | "./mod.testing.ts"
     | "./src/layout/solvers/yoga.ts"
     | "./src/layout/taffy.ts"
@@ -157,6 +159,23 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "WebGPU compatibility helpers",
     ],
     excludes: ["terminal Tui runtime", "browser Canvas2D host", "workbench demo shell"],
+  },
+  {
+    specifier: "./viz",
+    path: "./src/viz/mod.ts",
+    runtime: "shared",
+    stability: "beta",
+    // Under 120 characters: api_reference.ts emits this verbatim and cannot wrap.
+    description: "Dimensional visualisations: data by rank and time, with streams, scaling and renderers.",
+    includes: [
+      "the rank and time data model",
+      "bounded live data streams",
+      "domain scaling and resampling",
+      "meters, sparklines and psychographs",
+      "bars, racks and waterfalls",
+      "heatmaps, the 2D lattice and volume projection",
+    ],
+    excludes: ["the Three.js renderer", "components", "the Tui runtime"],
   },
   {
     specifier: "./showcase",

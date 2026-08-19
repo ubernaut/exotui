@@ -1,6 +1,6 @@
 {
   "name": "@ubernaut/exotui",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
@@ -9,6 +9,7 @@
     "./remote": "./mod.remote.ts",
     "./three-ascii": "./mod.three_ascii.ts",
     "./showcase": "./src/showcase/mod.ts",
+    "./viz": "./src/viz/mod.ts",
     "./theme": "./mod.theme.ts",
     "./runtime": "./mod.runtime.ts",
     "./terminal": "./mod.terminal.ts",

@@ -6,6 +6,22 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.3.0 — 2026-08-19
+
+### Added
+
+- **`@ubernaut/exotui/viz`** — dimensional visualisations. Data is described by rank and by whether history is kept:
+  `0d` is one number, `0dt` its history, `1d` an array read now (per-core load, audio bands), `1dt` that array over
+  time, and so on through `2d`/`2dt`/`3d`. A visualisation declares the kind it draws, a `DataStream` declares the kind
+  it carries, and pairing them wrongly throws instead of drawing something quietly false.
+
+  Ships `meter`, `sparkline` and `psychograph` for rank 0; `bars`, `rack` and `waterfall` for rank 1; `heatmap`,
+  `lattice` and `volumeProjection` above that. The lattice is the 2D half of the wireframe lattice, separated from its
+  Three.js twin so a flat chart does not drag a renderer dependency behind it.
+
+  Colours come from a new `viz:*` control-token group that falls back through the chrome and status tiers, so a theme
+  that has never heard of a chart still paints one.
+
 ## 0.2.1 — 2026-08-19
 
 ### Fixed
