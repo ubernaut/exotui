@@ -14,6 +14,7 @@ import type { Rgb } from "../src/theme_expressions.ts";
 import { THEME_INTERCHANGE_VERSION } from "../src/theme_interchange.ts";
 import { crayon } from "crayon";
 import { List } from "../src/components/list.ts";
+import { Tree } from "../src/components/tree.ts";
 import { createTestTerminalApp } from "../mod.testing.ts";
 
 function target(state: ComponentState = "base"): Focusable {
@@ -250,6 +251,88 @@ Deno.test("a row callback is told which of the three states it is painting", asy
     list.state.value = "focused";
     await harness.pilot.settle();
     assert(seen.includes("selected"), `focused list reported ${seen.join(",")}`);
+  } finally {
+    harness.destroy();
+  }
+});
+
+// Slice C2: a Tree draws through a List it owns. That inner list is never the
+// thing the user focuses, so painting from *its* state would leave every tree
+// permanently muted — the trap this test exists to catch.
+
+Deno.test("a tree's selection follows the tree's focus, not its inner list's", async () => {
+  let tree: Tree | undefined;
+  const harness = await createTestTerminalApp({
+    size: { columns: 28, rows: 8 },
+    setup(app) {
+      tree = new Tree({
+        parent: app.tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 24, height: 4 },
+        nodes: [
+          { id: "a", label: "alpha", expanded: true, children: [{ id: "a1", label: "one" }] },
+          { id: "b", label: "beta" },
+        ],
+        theme: { base: crayon.white },
+        selectedStyle: crayon.bgBlue,
+        selectedUnfocusedStyle: crayon.bgBlack,
+      });
+    },
+  });
+
+  try {
+    assert(tree);
+    await harness.pilot.settle();
+    const list = tree.subComponents.list;
+    assert(list, "the tree draws through a list");
+    const highlight = list.subComponents.selection;
+    assert(highlight, "which draws the selection highlight");
+
+    // The inner list stays "base" throughout — only the tree is ever focused.
+    tree.state.value = "focused";
+    assertEquals(list.state.peek(), "base", "the inner list is not what gets focused");
+    assert(
+      highlight.style.peek()("x").includes(BG_BLUE),
+      "a focused tree shows an active selection even though its inner list is not focused",
+    );
+
+    tree.state.value = "base";
+    assert(highlight.style.peek()("x").includes(BG_BLACK), "and an unfocused tree shows the muted one");
+  } finally {
+    harness.destroy();
+  }
+});
+
+Deno.test("a tree row callback receives the paint state its tree resolved", async () => {
+  const seen: string[] = [];
+  let tree: Tree | undefined;
+  const harness = await createTestTerminalApp({
+    size: { columns: 28, rows: 8 },
+    setup(app) {
+      tree = new Tree({
+        parent: app.tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 24, height: 4 },
+        nodes: [{ id: "a", label: "alpha" }, { id: "b", label: "beta" }],
+        theme: { base: crayon.white },
+        rowStyle: (_row, _selected, paint) => {
+          seen.push(paint);
+          return undefined;
+        },
+      });
+    },
+  });
+
+  try {
+    assert(tree);
+    tree.state.value = "focused";
+    await harness.pilot.settle();
+    assert(seen.includes("selected"), `focused tree reported ${seen.join(",")}`);
+
+    seen.length = 0;
+    tree.state.value = "base";
+    await harness.pilot.settle();
+    assert(seen.includes("selected-unfocused"), `unfocused tree reported ${seen.join(",")}`);
   } finally {
     harness.destroy();
   }

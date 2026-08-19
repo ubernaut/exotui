@@ -1,5 +1,5 @@
 // Copyright 2023 Im-Beast. MIT license.
-import { Component, type ComponentOptions } from "../component.ts";
+import { Component, type ComponentOptions, type ComponentState } from "../component.ts";
 import { clampSelectionIndex, selectionWindow } from "../selection.ts";
 import { resolveSelectionPaint, type SelectionPaintState, stateHoldsInput } from "../focus.ts";
 import { Computed, Signal } from "../signals/mod.ts";
@@ -33,6 +33,14 @@ export interface ListOptions extends ComponentOptions, ListControllerOptions {
    * accent rows, and no way to see which one the arrow keys move.
    */
   selectedUnfocusedStyle?: Style;
+  /**
+   * Whose focus decides selection painting. Defaults to this list's own state,
+   * which is right for a list the user focuses directly. A composed list — the
+   * one inside a Tree — is never focused itself, so its wrapper passes its own
+   * state here; sharing the signal instead would also hand the inner list every
+   * key press the wrapper receives.
+   */
+  focusState?: Signal<ComponentState>;
   /**
    * When set, a one-column scrollbar is drawn down the List's right edge; the
    * thumb's size scales with the visible/total ratio and tracks the scroll window.
@@ -338,6 +346,7 @@ export class List extends Component {
   readonly #rowBuffer: string[] = [];
   readonly #selectedStyle?: Style;
   readonly #selectedUnfocusedStyle?: Style;
+  readonly #focusState?: Signal<ComponentState>;
   readonly #scrollbar?: ListScrollbar;
   readonly #markerFor: ListRowMarker;
   readonly #rowStyle?: ListRowStyle;
@@ -355,6 +364,7 @@ export class List extends Component {
       });
     this.#selectedStyle = options.selectedStyle;
     this.#selectedUnfocusedStyle = options.selectedUnfocusedStyle;
+    this.#focusState = options.focusState;
     this.#scrollbar = options.scrollbar;
     this.#markerFor = options.markerFor ?? defaultRowMarker;
     this.#rowStyle = options.rowStyle;
@@ -464,7 +474,8 @@ export class List extends Component {
    * Computed that calls it re-runs when focus arrives or leaves.
    */
   #paintFor(selected: boolean): SelectionPaintState {
-    return resolveSelectionPaint({ selected, collectionFocused: stateHoldsInput(this.state.value) });
+    const state = (this.#focusState ?? this.state).value;
+    return resolveSelectionPaint({ selected, collectionFocused: stateHoldsInput(state) });
   }
 
   /** Full-width highlight drawn over the selected row, above the base rows. */
