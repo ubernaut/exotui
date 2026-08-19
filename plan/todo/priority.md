@@ -66,6 +66,11 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
 
 Small, real, and worth doing when adjacent code is next touched:
 
+- **Two presets have a weak _focused_ selection.** Measuring 044's new tokens across all fifteen themes surfaced a
+  pre-existing one: `seaglass` (1.98:1) and `parchment` (2.37:1) paint their accent selection so close to the panel
+  background that the focused row barely reads as selected — `t2` also has its muted row (9.17) louder than its accent
+  (6.56). Nothing to do with 044, which only made it measurable; fixing it means adjusting those themes' accents, which
+  is a design call for the maintainer.
 - **`044` — exomux's start menu and settings panes still decide focus by hand.** Each computes a per-row `focused`
   boolean rather than resolving through `resolveSelectionPaint`. Correct on screen, so this is consistency debt; worth
   converting when that code is next touched.
