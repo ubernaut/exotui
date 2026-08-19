@@ -49,6 +49,10 @@ maintainer's machine. The equivalents, in order of what a change touches:
 - **Anything visible:** the maintainer runs it in a real terminal. Headless mounts disable animations and shaders, GPU
   fidelity reproduces only on their hardware, and every screenshot path from the sandbox returns black. A task that
   changes what a person sees is not complete until they have looked at it.
+- **A version bump in the library is a change to exomux too.** `packages/exomux/deno.json` depends on
+  `jsr:@ubernaut/exotui` by range and resolves it locally through `links`. Bumping the library past that range makes
+  Deno ignore the linked copy — "Linked package … was not used because it did not match" — and the exomux suite fails to
+  resolve at all. Widen the range in the same commit that bumps the version.
 - **Protocol, descriptor, or daemon changes:** check version skew both ways before merging.
   `git worktree add <dir>
   <old-sha>` and run that build's host against the new client, and vice versa. A daemon that
