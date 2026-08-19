@@ -4,7 +4,7 @@
 // File import/export codecs are separate adapters with their own
 // permissions; the fixture needs none.
 
-import type { ShowcaseProvider } from "../shared/mod.ts";
+import type { ShowcaseProvider } from "../../../src/showcase/mod.ts";
 import { glyphForgeFixtureProject, type GlyphProject } from "./model.ts";
 
 /** The fixture provider: a seeded starter project, always available. */

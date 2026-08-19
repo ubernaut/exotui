@@ -46,6 +46,11 @@ jobs:
             asset: exomux-macos-aarch64
           - runner: macos-13
             asset: exomux-macos-x86_64
+          # Windows supports the detached host, per the OS support table in the
+          # README; macOS does not, and is built anyway because everything else
+          # in exomux works there.
+          - runner: windows-latest
+            asset: exomux-windows-x86_64.exe
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6

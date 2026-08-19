@@ -929,7 +929,7 @@ Deno.test({
   async fn() {
     const { createExomuxSessionRenamer, ExomuxRetargetableStore } = await import("../main.ts");
     const { resolveExomuxSessionPaths } = await import("../sessions.ts");
-    const { createShowcaseTerminalStore } = await import("@showcase/kit");
+    const { createShowcaseTerminalStore } = await import("@ubernaut/exotui/showcase");
 
     const stateRoot = await Deno.makeTempDir({ prefix: "exomux-rename-" });
     await Deno.chmod(stateRoot, 0o700);

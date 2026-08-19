@@ -8,7 +8,7 @@ import {
   type TiledWorkspaceLayoutNode,
   type TiledWorkspaceLayoutState,
   type TiledWorkspaceSnapshot,
-} from "../../../mod.ts";
+} from "../../mod.ts";
 import type { ShowcaseManifest } from "./manifest.ts";
 
 /** Stable schema name for persisted showcase sessions. */

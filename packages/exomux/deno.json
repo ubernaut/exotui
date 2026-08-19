@@ -8,9 +8,9 @@
   "imports": {
     "@ubernaut/exotui": "../../mod.ts",
     "@ubernaut/exotui/app": "../../mod.app.ts",
+    "@ubernaut/exotui/showcase": "../../src/showcase/mod.ts",
     "@ubernaut/exotui/terminal": "../../mod.terminal.ts",
     "@ubernaut/exotui/testing": "../../mod.testing.ts",
-    "@showcase/kit": "../../examples/showcases/shared/mod.ts",
     "@sigma/pty-ffi": "jsr:@sigma/pty-ffi@0.42.0",
     "jpeg-js": "npm:jpeg-js@0.4.4",
     "markdown-it": "npm:markdown-it@15.0.0",

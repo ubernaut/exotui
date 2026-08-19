@@ -5,7 +5,7 @@ import { ThemeLibrary } from "@ubernaut/exotui";
 import { createExomuxThemeStorage } from "./theme_storage.ts";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import { EXOMUX_THEMES, exomuxTheme, registerExomuxTheme } from "./model.ts";
-import { createShowcaseTerminalStore } from "@showcase/kit";
+import { createShowcaseTerminalStore } from "@ubernaut/exotui/showcase";
 import { createExomuxTerminalApp, type ExomuxTerminalAppRuntime } from "./app.ts";
 import {
   connectOrLaunchExomuxLocalHost,

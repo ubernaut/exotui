@@ -2,7 +2,7 @@
 
 import { DiagnosticsCollector } from "../../../mod.ts";
 import { probeCompatibleWebGPUDevice } from "../../../src/three_ascii/webgpu_compat.ts";
-import { createShowcaseTerminalStore } from "../shared/mod.ts";
+import { createShowcaseTerminalStore } from "../../../src/showcase/mod.ts";
 import { createOrbitalCommandTerminalApp, type OrbitalCommandRuntime } from "./app.ts";
 import { createOrbitalCommandController } from "./controller.ts";
 

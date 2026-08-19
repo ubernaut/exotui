@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import type { DiagnosticSeverity } from "../../../mod.ts";
+import type { DiagnosticSeverity } from "../../mod.ts";
 import type { ShowcaseManifest } from "./manifest.ts";
 
 /** Provider capability health advertised before activation. */

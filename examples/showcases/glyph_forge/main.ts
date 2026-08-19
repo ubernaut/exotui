@@ -1,7 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { DiagnosticsCollector } from "../../../mod.ts";
-import { createShowcaseTerminalStore } from "../shared/mod.ts";
+import { createShowcaseTerminalStore } from "../../../src/showcase/mod.ts";
 import { createGlyphForgeTerminalApp, type GlyphForgeRuntime } from "./app.ts";
 import { createGlyphForgeController } from "./controller.ts";
 import { type GlyphTextFont, loadGlyphFontPack } from "./text_font.ts";

@@ -6,6 +6,18 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.2.0 — 2026-08-19
+
+### Added
+
+- **`@ubernaut/exotui/showcase`** — the showcase kernel is now part of the library. Manifests, providers, sessions and
+  the terminal store moved from `examples/showcases/shared/` to `src/showcase/` and ship as a `./showcase` entrypoint.
+
+  It moved because exomux depends on it. A module the flagship application imports in `main.ts`, `model.ts` and
+  `controller.ts` is not an example, and leaving it under `examples/` — which is excluded from the published package —
+  meant nobody could build on exomux without it silently missing. Anyone writing an application on this library, rather
+  than beside it, wants the same pieces.
+
 ## 0.1.0 — 2026-08-19
 
 The first published release. Everything below was written before anything shipped, so it describes how the library
