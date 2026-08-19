@@ -10,9 +10,21 @@
 
 import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioFrame, type ExomuxAudioSource } from "./audio.ts";
 
+/** Options for the scripted source. */
+export interface ScriptedExomuxAudioOptions {
+  /** Signal amplitude, 0-1. The default is deliberately non-silent. */
+  readonly level?: number;
+  /**
+   * Emit a beat every N frames. `0` never beats, which is what a test wants
+   * when it is measuring something other than beat response.
+   */
+  readonly beatEvery?: number;
+}
+
 /** Creates the deterministic scripted source (level 0.7, beat each 8). */
-export function createScriptedExomuxAudio(options: { readonly level?: number } = {}): ExomuxAudioSource {
+export function createScriptedExomuxAudio(options: ScriptedExomuxAudioOptions = {}): ExomuxAudioSource {
   const level = options.level ?? 0.7;
+  const beatEvery = options.beatEvery ?? 8;
   const bands = new Float32Array(EXOMUX_AUDIO_BANDS);
   const waveform = new Float32Array(EXOMUX_AUDIO_WAVEFORM);
   let frames = 0;
@@ -34,7 +46,7 @@ export function createScriptedExomuxAudio(options: { readonly level?: number } =
         treble: level * 0.5,
         bands,
         waveform,
-        beat: frames % 8 === 0,
+        beat: beatEvery > 0 && frames % beatEvery === 0,
         source: "synth",
       } as ExomuxAudioFrame;
     },

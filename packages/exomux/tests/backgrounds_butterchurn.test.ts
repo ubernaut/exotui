@@ -13,7 +13,8 @@ import { EXOMUX_BUTTERCHURN_CATALOG, type ExomuxButterchurnPresetSource } from "
 import { EXOMUX_BUTTERCHURN_ROTATION } from "../butterchurn_rotation.ts";
 import { ExomuxButterchurnPreset, MILKDROP_DEFAULTS } from "../butterchurn_preset.ts";
 import { exomuxButterchurnRenderSize, exomuxSafeBlurRanges } from "../butterchurn_gpu.ts";
-import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM, type ExomuxAudioFrame, type ExomuxAudioSource } from "../audio.ts";
+import type { ExomuxAudioSource } from "../audio.ts";
+import { createScriptedExomuxAudio } from "../audio_scripted.ts";
 import { EXOMUX_BACKGROUND_IDS, type ExomuxBackgroundId, exomuxBackgroundId, exomuxTheme } from "../model.ts";
 import { exomuxBackgroundOvergrows } from "../overgrowth.ts";
 import {
@@ -39,37 +40,12 @@ interface ScriptOptions {
  * Deterministic stand-in for the microphone. Every test drives the field
  * through this so nothing spawns a recorder and frames are reproducible.
  */
+/**
+ * The scripted source from the package, with this file's default of "no beats
+ * unless a test asks for them" — the module defaults to a beat every 8.
+ */
 function scriptedAudio(options: ScriptOptions = {}): ExomuxAudioSource {
-  const level = options.level ?? 0.7;
-  const bands = new Float32Array(EXOMUX_AUDIO_BANDS);
-  const waveform = new Float32Array(EXOMUX_AUDIO_WAVEFORM);
-  let frames = 0;
-  return {
-    frame(): ExomuxAudioFrame {
-      frames += 1;
-      const phase = frames * 0.125;
-      const kick = Math.max(0, Math.sin(phase * Math.PI * 2));
-      for (let band = 0; band < bands.length; band += 1) {
-        bands[band] = level * Math.max(0, 0.5 + 0.4 * Math.sin(phase * (0.9 + band * 0.2) + band));
-      }
-      for (let index = 0; index < waveform.length; index += 1) {
-        waveform[index] = level * Math.sin((index / waveform.length) * Math.PI * 6 + phase * 4);
-      }
-      const beatEvery = options.beatEvery ?? 0;
-      return {
-        level,
-        bass: level * (0.5 + 0.4 * kick),
-        mid: level * 0.6,
-        treble: level * 0.5,
-        bands,
-        waveform,
-        beat: beatEvery > 0 && frames % beatEvery === 0,
-        source: "synth",
-      };
-    },
-    label: () => "scripted",
-    close: () => {},
-  };
+  return createScriptedExomuxAudio({ beatEvery: 0, ...options });
 }
 
 function run(
