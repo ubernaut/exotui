@@ -30,5 +30,12 @@ jobs:
       # release happens. The same check CI runs on every push runs here first.
       - name: Verify the release candidate
         run: deno task release-check
-      - name: Publish to JSR
+      - name: Publish exotui to JSR
+        run: deno publish
+      # exomux is a second package in the same repository, linked to it in its
+      # own JSR settings, so the same OIDC token authenticates both. It depends
+      # on exotui from the registry, so it publishes after: a version bumped in
+      # the same commit must already exist by the time exomux resolves it.
+      - name: Publish exomux to JSR
+        working-directory: packages/exomux
         run: deno publish

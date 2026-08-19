@@ -1,16 +1,17 @@
 {
   "name": "@ubernaut/exomux",
   "version": "0.1.0",
+  "license": "MIT",
   "exports": {
     ".": "./mod.ts",
     "./main": "./main.ts"
   },
   "imports": {
-    "@ubernaut/exotui": "../../mod.ts",
-    "@ubernaut/exotui/app": "../../mod.app.ts",
-    "@ubernaut/exotui/showcase": "../../src/showcase/mod.ts",
-    "@ubernaut/exotui/terminal": "../../mod.terminal.ts",
-    "@ubernaut/exotui/testing": "../../mod.testing.ts",
+    "@ubernaut/exotui": "jsr:@ubernaut/exotui@^0.2.0",
+    "@ubernaut/exotui/app": "jsr:@ubernaut/exotui@^0.2.0/app",
+    "@ubernaut/exotui/showcase": "jsr:@ubernaut/exotui@^0.2.0/showcase",
+    "@ubernaut/exotui/terminal": "jsr:@ubernaut/exotui@^0.2.0/terminal",
+    "@ubernaut/exotui/testing": "jsr:@ubernaut/exotui@^0.2.0/testing",
     "@sigma/pty-ffi": "jsr:@sigma/pty-ffi@0.42.0",
     "jpeg-js": "npm:jpeg-js@0.4.4",
     "markdown-it": "npm:markdown-it@15.0.0",
@@ -19,6 +20,7 @@
   "compilerOptions": {
     "lib": ["deno.window", "dom", "dom.iterable"]
   },
+  "links": ["../.."],
   "nodeModulesDir": "none",
   "fmt": {
     "lineWidth": 120

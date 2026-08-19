@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-import { defineShowcaseManifest } from "@ubernaut/exotui/showcase";
+import { defineShowcaseManifest, type ShowcaseManifest } from "@ubernaut/exotui/showcase";
 import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
 import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/exotui";
 
@@ -142,7 +142,7 @@ const EXOMUX_NATIVE_THEMES = [
 ] as const satisfies readonly ExomuxThemeSpec[];
 
 /** Complete catalog: native themes, every Workbench theme, then T2. */
-export const EXOMUX_THEMES = [
+export const EXOMUX_THEMES: readonly ExomuxThemeSpec[] = [
   ...EXOMUX_NATIVE_THEMES,
   ...grWizardThemePalettes.map(exomuxWorkbenchTheme),
   {
@@ -1120,7 +1120,7 @@ export interface ExomuxControllerInspection {
 }
 
 /** Showcase metadata used by the shared lifecycle/persistence kernel. */
-export const EXOMUX_MANIFEST = defineShowcaseManifest({
+export const EXOMUX_MANIFEST: ShowcaseManifest = defineShowcaseManifest({
   id: "exomux",
   title: "Exomux",
   appVersion: "1.0.0",

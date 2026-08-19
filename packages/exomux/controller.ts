@@ -117,7 +117,9 @@ export const EXOMUX_SESSIONS_WINDOW_ID = "sessions" as const;
 export const EXOMUX_WARNING_TTL_MS = 6_000;
 
 /** Focusable panes inside the global config modal, in Tab order. */
-export const EXOMUX_GLOBAL_CONFIG_PANES = Object.freeze(["theme", "background", "options"] as const);
+export const EXOMUX_GLOBAL_CONFIG_PANES: readonly ["theme", "background", "options"] = Object.freeze(
+  ["theme", "background", "options"] as const,
+);
 
 /** The user's home directory, or the filesystem root when it is unreadable. */
 function homeDirectory(): string {
@@ -745,35 +747,39 @@ export class ExomuxController {
   readonly ready: Promise<void>;
 
   readonly sessions: Signal<readonly ExomuxSessionSummary[]>;
-  readonly themeId = new Signal<ExomuxWorkspaceState["themeId"]>("midnight");
+  readonly themeId: Signal<ExomuxWorkspaceState["themeId"]> = new Signal<ExomuxWorkspaceState["themeId"]>("midnight");
   readonly theme: Computed<ExomuxThemeSpec>;
-  readonly themeRevision = new Signal(0);
-  readonly prefixPending = new Signal(false);
-  readonly helpVisible = new Signal(false);
+  readonly themeRevision: Signal<number> = new Signal(0);
+  readonly prefixPending: Signal<boolean> = new Signal(false);
+  readonly helpVisible: Signal<boolean> = new Signal(false);
   /** True while the theme editor window is open. */
-  readonly themeEditorVisible = new Signal(false);
+  readonly themeEditorVisible: Signal<boolean> = new Signal(false);
   /** The live editor, created when the window opens and disposed when it closes. */
-  readonly themeEditor = new Signal<ThemeEditorController | undefined>(undefined);
+  readonly themeEditor: Signal<ThemeEditorController | undefined> = new Signal<ThemeEditorController | undefined>(
+    undefined,
+  );
   /** First visible row of the editor's token list. */
-  readonly themeEditorScroll = new Signal(0);
+  readonly themeEditorScroll: Signal<number> = new Signal(0);
   /**
    * The name being typed, or undefined when not renaming. Without this every
    * theme would be called "Midnight Ops custom", then "Midnight Ops custom
    * copy", which is a naming scheme nobody chose.
    */
-  readonly themeNameDraft = new Signal<string | undefined>(undefined);
+  readonly themeNameDraft: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /**
    * First visible line of the key reference. The reference does not fit on a
    * phone at any font size, so on a narrow screen it reflows to one column and
    * scrolls rather than silently hiding half of itself.
    */
-  readonly helpScroll = new Signal(0);
-  readonly pendingKillSessionId = new Signal<string | undefined>(undefined);
-  readonly quitModalVisible = new Signal(false);
+  readonly helpScroll: Signal<number> = new Signal(0);
+  readonly pendingKillSessionId: Signal<string | undefined> = new Signal<string | undefined>(undefined);
+  readonly quitModalVisible: Signal<boolean> = new Signal(false);
   /** Whether the top-left start menu dropdown is open. */
-  readonly startMenuVisible = new Signal(false);
+  readonly startMenuVisible: Signal<boolean> = new Signal(false);
   /** Where the menu is anchored; undefined docks it under the start button. */
-  readonly startMenuAnchor = new Signal<{ readonly column: number; readonly row: number } | undefined>(undefined);
+  readonly startMenuAnchor: Signal<{ readonly column: number; readonly row: number } | undefined> = new Signal<
+    { readonly column: number; readonly row: number } | undefined
+  >(undefined);
   /**
    * The butterchurn preset showing when the menu opened, or undefined when the
    * active background is not a butterchurn one. Drives the menu's context items
@@ -782,51 +788,61 @@ export class ExomuxController {
    */
   readonly startMenuPreset: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** The tmux-style name of the attached session, editable from settings. */
-  readonly sessionName = new Signal<string>("main");
+  readonly sessionName: Signal<string> = new Signal<string>("main");
   /** True while a rename is in flight, to gate concurrent attempts. */
-  readonly sessionRenaming = new Signal(false);
+  readonly sessionRenaming: Signal<boolean> = new Signal(false);
   /** The in-progress rename draft, or undefined when not editing the name. */
-  readonly sessionNameDraft = new Signal<string | undefined>(undefined);
+  readonly sessionNameDraft: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** True when running inside Ghostty, where GLSL interface shaders are offered. */
-  readonly ghosttyDetected = new Signal(false);
+  readonly ghosttyDetected: Signal<boolean> = new Signal(false);
   /** The current GLSL shader configuration, applied when inside Ghostty. */
-  readonly shaderConfig = new Signal<ExomuxShaderConfig>(defaultExomuxShaderConfig());
+  readonly shaderConfig: Signal<ExomuxShaderConfig> = new Signal<ExomuxShaderConfig>(defaultExomuxShaderConfig());
   /** The shader manager window (UX-009): visibility, selection, add-input. */
-  readonly shaderManagerVisible = new Signal(false);
-  readonly shaderManagerIndex = new Signal(0);
+  readonly shaderManagerVisible: Signal<boolean> = new Signal(false);
+  readonly shaderManagerIndex: Signal<number> = new Signal(0);
   /** The path being typed for a new custom shader; undefined = not adding. */
-  readonly shaderPathDraft = new Signal<string | undefined>(undefined);
-  readonly status = new Signal("Connecting to local Exomux host…");
-  readonly networkStatus = new Signal<TailnetStatusResult | undefined>(undefined);
-  readonly savedHosts = new Signal<readonly string[]>([]);
-  readonly sessionHosts = new Signal<Readonly<Record<string, string>>>({});
+  readonly shaderPathDraft: Signal<string | undefined> = new Signal<string | undefined>(undefined);
+  readonly status: Signal<string> = new Signal("Connecting to local Exomux host…");
+  readonly networkStatus: Signal<TailnetStatusResult | undefined> = new Signal<TailnetStatusResult | undefined>(
+    undefined,
+  );
+  readonly savedHosts: Signal<readonly string[]> = new Signal<readonly string[]>([]);
+  readonly sessionHosts: Signal<Readonly<Record<string, string>>> = new Signal<Readonly<Record<string, string>>>({});
   /** One-shot clipboard payload the app emits as OSC 52; the nonce retriggers repeats. */
-  readonly clipboardCopy = new Signal<{ readonly text: string; readonly nonce: number } | undefined>(undefined);
+  readonly clipboardCopy: Signal<{ readonly text: string; readonly nonce: number } | undefined> = new Signal<
+    { readonly text: string; readonly nonce: number } | undefined
+  >(undefined);
   #clipboardNonce = 0;
   readonly #networkProbeRunner: TailnetCommandRunner;
   #provider!: ExomuxClientProvider;
   /** Remote-session discovery cache, keyed by SSH target (TSM-012). */
-  readonly remoteSessions = new Signal<Readonly<Record<string, ExomuxRemoteSessionProbe>>>({});
+  readonly remoteSessions: Signal<Readonly<Record<string, ExomuxRemoteSessionProbe>>> = new Signal<
+    Readonly<Record<string, ExomuxRemoteSessionProbe>>
+  >({});
   /** Live network-panel fuzzy filter; undefined = off, "" = editing and empty. */
-  readonly networkFilter = new Signal<string | undefined>(undefined);
+  readonly networkFilter: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   readonly #remoteSessionFlights = new Set<string>();
   /** `kind\u0000target\u0000name` → local session id, powering focus-if-open (TSM-013). */
   readonly #remoteAttachMap = new Map<string, string>();
-  readonly backgroundId = new Signal<ExomuxBackgroundId>("metaballs");
+  readonly backgroundId: Signal<ExomuxBackgroundId> = new Signal<ExomuxBackgroundId>("metaballs");
   /** Running total of preset steps requested; the desktop applies the delta. */
   readonly backgroundPresetStep: Signal<number> = new Signal(0);
   /** Session id → per-window shell settings edited from the titlebar config button. */
-  readonly windowSettings = new Signal<Readonly<Record<string, ExomuxWindowSettings>>>({});
+  readonly windowSettings: Signal<Readonly<Record<string, ExomuxWindowSettings>>> = new Signal<
+    Readonly<Record<string, ExomuxWindowSettings>>
+  >({});
   /** Session whose per-window config modal is open, when any. */
-  readonly configSessionId = new Signal<string | undefined>(undefined);
+  readonly configSessionId: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** Highlighted row inside the per-window config modal. */
-  readonly configRowIndex = new Signal(0);
+  readonly configRowIndex: Signal<number> = new Signal(0);
   /** Desktop-wide settings edited from the global config modal. */
-  readonly globalSettings = new Signal<ExomuxGlobalSettings>(defaultExomuxGlobalSettings());
+  readonly globalSettings: Signal<ExomuxGlobalSettings> = new Signal<ExomuxGlobalSettings>(
+    defaultExomuxGlobalSettings(),
+  );
   /** Whether the global config modal is open. */
-  readonly globalConfigVisible = new Signal(false);
+  readonly globalConfigVisible: Signal<boolean> = new Signal(false);
   /** Focused pane inside the global config modal. */
-  readonly globalConfigPane = new Signal<ExomuxGlobalConfigPane>("theme");
+  readonly globalConfigPane: Signal<ExomuxGlobalConfigPane> = new Signal<ExomuxGlobalConfigPane>("theme");
   /** Per-background settings, persisted with the workspace. */
   readonly backgroundSettings: Signal<ExomuxBackgroundSettingsMap> = new Signal<ExomuxBackgroundSettingsMap>(
     Object.freeze({}),
@@ -857,9 +873,9 @@ export class ExomuxController {
   /** Bumped whenever a background's settings change, so the field rebuilds. */
   readonly backgroundSettingsRevision: Signal<number> = new Signal(0);
   /** Highlighted option row inside the global config modal. */
-  readonly globalConfigOptionIndex = new Signal(0);
+  readonly globalConfigOptionIndex: Signal<number> = new Signal(0);
   /** Pending paste-to-scp confirmation; non-undefined opens the transfer modal. */
-  readonly pendingScp = new Signal<ExomuxScpRequest | undefined>(undefined);
+  readonly pendingScp: Signal<ExomuxScpRequest | undefined> = new Signal<ExomuxScpRequest | undefined>(undefined);
   /** Hierarchical Hosts/Tailscale browser state, driven by the shared workbench tree widget. */
   readonly networkTree: TreeController;
 
@@ -910,7 +926,7 @@ export class ExomuxController {
   readonly #themeLibrary?: ThemeLibrary;
   readonly #onSwitchSession?: (name: string) => void;
   /** Exomux sessions on this host, for the sessions panel (UX-006). */
-  readonly hostSessions = new Signal<readonly ExomuxHostSessionRow[]>([]);
+  readonly hostSessions: Signal<readonly ExomuxHostSessionRow[]> = new Signal<readonly ExomuxHostSessionRow[]>([]);
   #hostSessionsRefresh?: Promise<void>;
   #scpCwdCapture?: Promise<string | undefined>;
 
@@ -2504,7 +2520,7 @@ export class ExomuxController {
    * prompt (the probe would otherwise type into a half-written command);
    * undefined falls back to the remote home directory.
    */
-  async captureRemoteCwd(sessionId: string, timeoutMs = this.#scpCwdTimeoutMs): Promise<string | undefined> {
+  async captureRemoteCwd(sessionId: string, timeoutMs: number = this.#scpCwdTimeoutMs): Promise<string | undefined> {
     const runtime = this.#runtimes.get(sessionId);
     if (!runtime || !runtime.attached.peek() || !runtime.summary.peek().running) return undefined;
     const inspection = runtime.screen.inspect();
