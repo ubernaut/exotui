@@ -7,10 +7,6 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 1. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
-2. **`044` Focus as a first-class concept.** Implementation complete Aug 18 in four slices; **awaiting the maintainer's
-   live visual check** of whether the muted unfocused selection reads well in a real terminal. Headless mounts prove the
-   two selections differ, not that either looks right. Nothing else blocks on it.
-
 ## `deno task health` — seven red gates, fixed August 18 2026
 
 All of them predated the branch that fixed them (`bug/health-gates`, cut from `ab98acbc`). The six listed here turned
