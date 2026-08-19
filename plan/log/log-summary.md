@@ -32,6 +32,24 @@ Confirmed at a real terminal by the maintainer the same day. The lesson worth ke
 version's label was unreadable in all fifteen presets, and no test caught it, because every test asserted the two
 selections _differed_ rather than that either could be read. Measuring the vocabulary's own `against` pairs found it.
 
+## August 19 2026 — published, as exotui (0.1.0)
+
+`@ubernaut/exotui@0.1.0` is on JSR. Nothing had ever been published, though it was easy to believe otherwise: the
+`release-check` gate has reported "ok release dry run" for months, and a dry run proves a package _would_ publish, not
+that it has — the same trap as `api-reference`, whose task printed the reference instead of checking it.
+
+The package was renamed before its first publish. It had been `@ubernaut/deno-tui`, after the project it is forked from,
+while everything else called it exotui; the published name is permanent, so it was the last cheap moment to fix it. 83
+files, and not cosmetic — `src/tooling/init_templates.ts` scaffolds projects that import the specifier, so a mismatch
+would have broken every generated project.
+
+Publishing runs from GitHub Actions over OIDC, with no stored secret, and runs `release-check` before `deno publish`
+because JSR versions are immutable. The push triggered two runs, since the workflow file arrived in the push that
+triggered it; both succeeded, because `deno publish` skips a version that already exists.
+
+The slow-type work done for the `release-check` gate the day before turned out to be the actual precondition: those
+thirteen annotations were JSR's requirement, not a local nicety.
+
 ## August 18 2026 — seven red health gates, four causes
 
 `deno task health` had been red at `main` for a while. The six the plan listed collapsed into four causes once they were
