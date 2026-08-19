@@ -6,7 +6,7 @@ import { framesToRuns } from "../src/viz/view.ts";
 import { bars, rack, waterfall } from "../src/viz/renderers_vector.ts";
 import { meter, psychograph, readout, sparkline } from "../src/viz/renderers_scalar.ts";
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
-import { drawStream, visualizationsFor } from "../src/viz/registry.ts";
+import { bestVisualization, drawStream, fitVisualizations, visualizationsFor } from "../src/viz/registry.ts";
 import { scalarStream, vectorStream } from "../src/viz/stream.ts";
 import { defaultVisualizationTheme } from "../src/viz/theme.ts";
 
@@ -179,4 +179,43 @@ Deno.test("a readout is the last rung: the value as text, in one cell if need be
 Deno.test("a readout is offered where nothing else fits", () => {
   const tiny = visualizationsFor("0dt", { width: 2, height: 1 }).map((visualization) => visualization.id);
   assert(tiny.includes("readout"), `nothing could draw a 2x1 box: ${tiny.join(",")}`);
+});
+
+Deno.test("what suits the data depends on how much of it there is", () => {
+  // The case that motivated fitness scoring: the same tile, the same kind of
+  // data, a different number of entries.
+  const tile = { width: 40, height: 10 };
+  const fourCores = fitVisualizations({ kind: "1dt", extent: [4] }, tile);
+  const manyCores = fitVisualizations({ kind: "1dt", extent: [88] }, tile);
+
+  assertEquals(fourCores[0]!.reason, "fits comfortably");
+  assert(
+    manyCores[0]!.score < fourCores[0]!.score,
+    `88 entries should score worse than 4 in the same tile: ${manyCores[0]!.score} vs ${fourCores[0]!.score}`,
+  );
+  assert(manyCores[0]!.reason.includes("88"), `the reason should name the crowding: ${manyCores[0]!.reason}`);
+});
+
+Deno.test("a rack suits a handful of entries and a waterfall suits many", () => {
+  // A rack spends a row per entry, so eight rows hold eight of them and no more.
+  const short = { width: 30, height: 8 };
+  const forEight = fitVisualizations({ kind: "1d", extent: [8] }, short);
+  const forEighty = fitVisualizations({ kind: "1d", extent: [80] }, short);
+  const rackFor = (fits: typeof forEight) => fits.find((fit) => fit.id === "rack")!.score;
+  assert(rackFor(forEight) > rackFor(forEighty), "a rack of eighty rows in eight rows is not a rack");
+});
+
+Deno.test("a tile that grows earns a richer visualisation", () => {
+  const shape = { kind: "0dt" as const };
+  const tiny = fitVisualizations(shape, { width: 20, height: 1 })[0]!;
+  const roomy = fitVisualizations(shape, { width: 40, height: 12 })[0]!;
+  assertEquals(tiny.id, "sparkline", "one row can only be a sparkline");
+  assertEquals(roomy.id, "psychograph", "given a box, the richer view wins");
+});
+
+Deno.test("something is always drawable, however small the tile", () => {
+  const best = bestVisualization({ kind: "0dt" }, { width: 2, height: 1 });
+  assert(best, "a 2x1 tile still has to show something");
+  assertEquals(best.id, "sparkline");
+  assertEquals(bestVisualization({ kind: "0d" }, { width: 1, height: 1 })?.id, "readout");
 });

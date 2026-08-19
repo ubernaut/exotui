@@ -6,6 +6,7 @@ import { type DataKind, satisfies } from "./data.ts";
 import type { DataStream } from "./stream.ts";
 import type { Visualization, VizContext, VizFrame, VizSize } from "./render.ts";
 import { fits } from "./render.ts";
+import { rankFits, scoreFit, type VizDataShape, type VizFit } from "./fit.ts";
 import { SCALAR_VISUALIZATIONS } from "./renderers_scalar.ts";
 import { VECTOR_VISUALIZATIONS } from "./renderers_vector.ts";
 import { MATRIX_VISUALIZATIONS } from "./renderers_matrix.ts";
@@ -54,4 +55,37 @@ export function drawStream(
   const latest = stream.latest();
   if (latest === undefined) return visualization.render([] as never, resolved);
   return visualization.render(latest as never, resolved);
+}
+
+/**
+ * Ranks every visualisation that can draw this data at this size, best first.
+ *
+ * This is the choice a caller actually wants to make: not "does a waterfall
+ * fit" but "what should this tile show, given it is eighty-eight cores and
+ * twenty columns". A tile that grows or a machine with fewer cores changes the
+ * answer without anyone rewriting a rule.
+ */
+export function fitVisualizations(shape: VizDataShape, size: VizSize): VizFit[] {
+  return rankFits(
+    VISUALIZATIONS
+      .filter((visualization) => satisfies(shape.kind, visualization.accepts))
+      .map((visualization) =>
+        scoreFit(
+          {
+            id: visualization.id,
+            minimum: visualization.minimum,
+            ...(visualization.perEntry ? { perEntry: visualization.perEntry } : {}),
+            ...(visualization.weight === undefined ? {} : { weight: visualization.weight }),
+          },
+          shape,
+          size,
+        )
+      ),
+  );
+}
+
+/** The best visualisation for this data at this size, or none if nothing fits. */
+export function bestVisualization(shape: VizDataShape, size: VizSize): Visualization<never> | undefined {
+  const best = fitVisualizations(shape, size)[0];
+  return best ? visualizationById(best.id) : undefined;
 }

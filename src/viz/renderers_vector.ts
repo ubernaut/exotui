@@ -27,6 +27,9 @@ export const bars: Visualization<Vector> = {
   label: "Bars",
   accepts: "1d",
   minimum: { width: 2, height: 2 },
+  // A column each: eighty-eight cores want eighty-eight columns.
+  perEntry: { columns: 1 },
+  weight: 0.8,
   render(values, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
@@ -73,6 +76,10 @@ export const rack: Visualization<Vector> = {
   label: "Rack",
   accepts: "1d",
   minimum: { width: 8, height: 1 },
+  // A row each, which is what makes it readable for a few entries and hopeless
+  // for many.
+  perEntry: { rows: 1 },
+  weight: 0.6,
   render(values, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
@@ -120,6 +127,8 @@ export const waterfall: Visualization<readonly Sample<1>[]> = {
   label: "Waterfall",
   accepts: "1dt",
   minimum: { width: 4, height: 3 },
+  perEntry: { columns: 1 },
+  weight: 1,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;

@@ -20,6 +20,7 @@ export const meter: Visualization<number> = {
   label: "Meter",
   accepts: "0d",
   minimum: { width: 3, height: 1 },
+  weight: 0.5,
   render(value, context) {
     const { width, height } = context.size;
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
@@ -53,6 +54,7 @@ export const sparkline: Visualization<readonly Sample<0>[]> = {
   label: "Sparkline",
   accepts: "0dt",
   minimum: { width: 2, height: 1 },
+  weight: 0.7,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
@@ -85,6 +87,8 @@ export const psychograph: Visualization<readonly Sample<0>[]> = {
   label: "Psychograph",
   accepts: "0dt",
   minimum: { width: 8, height: 4 },
+  // The richest scalar view, so it wins wherever it has room.
+  weight: 1,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;
@@ -119,6 +123,8 @@ export const readout: Visualization<number> = {
   label: "Readout",
   accepts: "0d",
   minimum: { width: 1, height: 1 },
+  // The floor: always available, never preferred where anything else fits.
+  weight: 0.2,
   render(value, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;

@@ -17,5 +17,6 @@ export * from "./render.ts";
 export * from "./renderers_scalar.ts";
 export * from "./renderers_vector.ts";
 export * from "./renderers_matrix.ts";
+export * from "./fit.ts";
 export * from "./registry.ts";
 export * from "./view.ts";

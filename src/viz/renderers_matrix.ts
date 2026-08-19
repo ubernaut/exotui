@@ -55,6 +55,8 @@ export const lattice: Visualization<readonly Sample<1>[]> = {
   label: "Lattice (2D)",
   accepts: "1dt",
   minimum: { width: 8, height: 4 },
+  perEntry: { columns: 1 },
+  weight: 0.9,
   render(samples, context) {
     const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
     const { width, height } = context.size;

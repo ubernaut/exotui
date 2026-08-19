@@ -53,8 +53,17 @@ export interface Visualization<Input> {
   readonly id: string;
   readonly label: string;
   readonly accepts: DataKind;
-  /** Smallest size that draws something readable. */
+  /** Smallest size that draws something readable, whatever the data. */
   readonly minimum: VizSize;
+  /**
+   * Columns and rows one entry of the data wants. A bar chart wants a column
+   * each, a rack a row each; a sparkline wants nothing extra because it draws
+   * history rather than entries. This is what makes eighty-eight cores and four
+   * cores different questions.
+   */
+  readonly perEntry?: { readonly columns?: number; readonly rows?: number };
+  /** Preference among equals: higher is richer, and wins where both fit. */
+  readonly weight?: number;
   render(input: Input, context: VizContext): VizFrame;
 }
 
