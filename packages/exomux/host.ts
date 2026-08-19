@@ -943,7 +943,7 @@ export class ExomuxHostController {
 }
 
 class HostConnection implements ExomuxHostConnection {
-  readonly attachments = new Set<string>();
+  readonly attachments: Set<string> = new Set<string>();
   readonly #host: ExomuxHostController;
   readonly #peer: ExomuxHostPeer;
   readonly #limits: Readonly<ExomuxHostLimits>;

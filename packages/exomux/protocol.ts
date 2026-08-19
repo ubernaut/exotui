@@ -7,29 +7,30 @@ export const EXOMUX_PROTOCOL_VERSION = 1 as const;
 export const EXOMUX_WEBSOCKET_PATH = "/exomux/v1";
 
 /** Hard protocol quotas. Values are deliberately small enough for a local demo daemon. */
-export const EXOMUX_PROTOCOL_LIMITS = Object.freeze(
-  {
-    messageBytes: 128 * 1024,
-    commandBytes: 1024,
-    argumentCount: 128,
-    argumentBytes: 4096,
-    argumentsBytes: 64 * 1024,
-    cwdBytes: 4096,
-    environmentEntries: 128,
-    environmentBytes: 64 * 1024,
-    titleBytes: 256,
-    inputBytes: 64 * 1024,
-    outputBytes: 64 * 1024,
-    sessionIdBytes: 128,
-    errorBytes: 512,
-    sessions: 64,
-    columns: 512,
-    rows: 256,
-    cells: 65_536,
-    workspaceKeyBytes: 64,
-    workspaceBytes: 64 * 1024,
-  } as const,
-);
+const PROTOCOL_LIMITS = {
+  messageBytes: 128 * 1024,
+  commandBytes: 1024,
+  argumentCount: 128,
+  argumentBytes: 4096,
+  argumentsBytes: 64 * 1024,
+  cwdBytes: 4096,
+  environmentEntries: 128,
+  environmentBytes: 64 * 1024,
+  titleBytes: 256,
+  inputBytes: 64 * 1024,
+  outputBytes: 64 * 1024,
+  sessionIdBytes: 128,
+  errorBytes: 512,
+  sessions: 64,
+  columns: 512,
+  rows: 256,
+  cells: 65_536,
+  workspaceKeyBytes: 64,
+  workspaceBytes: 64 * 1024,
+} as const;
+
+/** Hard protocol quotas, frozen. */
+export const EXOMUX_PROTOCOL_LIMITS: typeof PROTOCOL_LIMITS = Object.freeze(PROTOCOL_LIMITS);
 
 export type ExomuxSessionStatus = "idle" | "running" | "exited" | "failed" | "cancelled";
 export type ExomuxRequestOperation =

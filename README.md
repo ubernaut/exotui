@@ -125,7 +125,20 @@ library export.
 
 ## Exomux quick start
 
-Download a binary for your platform from [Releases](https://github.com/ubernaut/exotui/releases) and run it — nothing
+Run it straight from JSR, where it is published as [`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux):
+
+```sh
+deno run -A --unstable-webgpu jsr:@ubernaut/exomux/main
+```
+
+Or build on it — exomux is a package as well as an application, so another application can import its controller,
+protocol and widgets the same way it imports the library:
+
+```ts
+import { createExomuxController } from "jsr:@ubernaut/exomux";
+```
+
+Or download a binary for your platform from [Releases](https://github.com/ubernaut/exotui/releases) and run it — nothing
 else to install:
 
 ```sh
