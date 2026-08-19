@@ -14,6 +14,9 @@ import { fillRect } from "./draw.ts";
 /** One entry's tile in the honeycomb: wide enough to read, small enough to repeat. */
 const TILE_WIDTH = 3;
 const TILE_HEIGHT = 2;
+
+/** One entry's pill in the status grid: a bar, a short name, and a gap. */
+const PILL_WIDTH = 8;
 import { mixColor, rampGradient } from "./theme.ts";
 import type { Sample, Vector } from "./data.ts";
 
@@ -97,7 +100,8 @@ export const rack: Visualization<Vector> = {
       const fraction = normalize(values[row] ?? 0, domain);
       const colour = rampGradient(context.theme, fraction);
       if (labelWidth > 0) {
-        writeText(frame, 0, row, String(row).padEnd(labelWidth).slice(0, labelWidth), {
+        const name = context.labels?.[row] ?? String(row);
+        writeText(frame, 0, row, name.padEnd(labelWidth).slice(0, labelWidth), {
           foreground: context.theme.axis,
           background: context.theme.background,
         });
@@ -254,10 +258,51 @@ export const hexgrid: Visualization<Vector> = {
   },
 };
 
+/**
+ * 1d — a wall of labelled pills, one per entry.
+ *
+ * The channel matrix from the demos, given data to report. Where a rack spends
+ * a row per entry and a honeycomb spends only colour, this spends a short pill:
+ * enough for a name and a state, wrapped across the box. It is the view for
+ * "which of these forty things is unhappy", which neither of the others answers
+ * — a rack cannot fit forty rows and a honeycomb cannot say which tile is which.
+ */
+export const statusGrid: Visualization<Vector> = {
+  id: "status-grid",
+  label: "Status Grid",
+  accepts: "1d",
+  minimum: { width: 8, height: 1 },
+  perEntry: { cells: PILL_WIDTH },
+  minimumEntries: 3,
+  weight: 0.7,
+  render(values, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0 || values.length === 0) return frame;
+    const domain = baselineDomain([values], context.domain);
+    const perRow = Math.max(1, Math.floor(width / PILL_WIDTH));
+    for (let index = 0; index < values.length; index += 1) {
+      const row = Math.floor(index / perRow);
+      if (row >= height) break;
+      const column = (index % perRow) * PILL_WIDTH;
+      const fraction = normalize(values[index] ?? 0, domain);
+      const colour = rampGradient(context.theme, fraction);
+      const name = (context.labels?.[index] ?? String(index)).slice(0, PILL_WIDTH - 3);
+      writeText(frame, column, row, "▌", { foreground: colour, background: context.theme.background });
+      writeText(frame, column + 1, row, name.padEnd(PILL_WIDTH - 2).slice(0, PILL_WIDTH - 2), {
+        foreground: fraction > 0.66 ? colour : context.theme.foreground,
+        background: context.theme.background,
+      });
+    }
+    return frame;
+  },
+};
+
 export const VECTOR_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   bars as unknown as Visualization<never>,
   scope as unknown as Visualization<never>,
   hexgrid as unknown as Visualization<never>,
+  statusGrid as unknown as Visualization<never>,
   rack as unknown as Visualization<never>,
   waterfall as unknown as Visualization<never>,
 ]);

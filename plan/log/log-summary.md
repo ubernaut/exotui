@@ -3,6 +3,38 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — the demos, combed for what was actually a visualisation
+
+Thirty-six visualisations across the neon, monitor and neon3d families, and the finding that mattered came before any of
+them moved: they are not data-driven. `app/visualizations.ts` renders from a `VisualizationDrive` — phase, cadence,
+volatility — and the three.js scenes from a pointer signal. Their "psychograph" is `sin(x·k + phase)`, not a plot of
+anything. So nothing was a move; each one is a form re-driven by data, which is a design decision per renderer.
+
+What did port mechanically is what they are all built on: a drawing toolkit. `plot`, lines, paths, arcs, ellipses,
+rectangles, and quadrant sub-cells that light a quarter of a character each. The versions in
+`app/visualization_primitives.ts` write characters into a string matrix; a visualisation needs a colour per cell, so
+these write `VizCell`s. Until this existed every renderer plotted cell by cell and a dial was not writable.
+
+Eleven renderers came out of it, taking the catalogue from twelve to twenty-three. A dial whose sweep is the value; an
+odometer for a number that has to read across a room; a strip chart; a honeycomb; a status grid of labelled pills; an
+overlay of several series; a scatter at quadrant resolution; and four projected ones — a surface, a ring stack, a point
+cloud and a vector field.
+
+Two model gaps surfaced while fitting them. `perEntry` was one-dimensional, which cannot describe a renderer that lays
+entries out in a grid — eighty-eight tiles fit a box that is neither eighty-eight columns nor eighty-eight rows — so it
+grew a `cells` term and crowding is now bounded by area as well as by each axis. And rank alone cannot separate a
+scatter from a heatmap, since both take a matrix, so a visualisation can declare `suits(shape)` and is left out of the
+ranking rather than ranked badly when the answer is no.
+
+The projection is arithmetic rather than three.js, deliberately: the core has no runtime dependencies and a wireframe
+chart should not add one. The shaded, post-processed look those scenes have is what a `./viz/three` entrypoint would be
+for, and it is not started.
+
+Also `src/viz/axes.ts`, which closes a gap the plan has carried since the visualisations shipped: ticks at round
+numbers, a value axis, a time axis that drops labels rather than truncating them, and a legend. A layer rather than
+something each renderer grew, because a tile two rows tall cannot afford an axis — and nothing in it shrinks the chart
+it labels, which is the one bug it must not have.
+
 ## August 19 2026 — what fits depends on the data (0.3.1)
 
 A visualisation used to declare one minimum size, which cannot answer the question a tile actually asks. Eighty-eight

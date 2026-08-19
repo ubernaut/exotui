@@ -24,6 +24,16 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**A pitch that looked up instead of down (Aug 19).** `camera` rotated by pitch with the sign inverted, so a positive
+pitch put far points _below_ near ones. The symptom was not an upside-down picture — it was a surface whose front edge
+was missing, because the floating horizon then hid the front behind the back. Worth remembering as a shape: a projection
+error shows up as an occlusion bug, one layer away from its cause.
+
+**A flat domain reading as half (Aug 19).** `safeDomain` centres a domain with no span, which is right for a line chart
+— a flat signal has to sit somewhere and the middle is honest — and wrong for a point cloud, where the question is
+occupancy. A volume of all zeroes normalised every cell to 0.5 and drew eighty-three points of solid fog. Occupancy is a
+question about zero, not about position in a range; the test that caught it asserts an empty volume draws nothing.
+
 **Reading a permission failure as an absent device (Aug 19).** exomonitor's `/proc` reader caught every error and
 returned undefined, commented "a source that cannot be read is a source this machine does not have". Deno gates `/proc`
 behind `--allow-all` specifically — `--allow-read=/proc` is refused too — so a monitor started with narrower permissions

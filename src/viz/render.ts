@@ -10,6 +10,7 @@
 import type { Rgb } from "../theme_expressions.ts";
 import type { DataKind } from "./data.ts";
 import type { VisualizationTheme } from "./theme.ts";
+import type { VizDataShape } from "./fit.ts";
 
 export interface VizCell {
   readonly char: string;
@@ -33,6 +34,14 @@ export interface VizContext {
   readonly domain?: { readonly min: number; readonly max: number };
   /** Optional label drawn by renderers that have room for one. */
   readonly label?: string;
+  /**
+   * A name per entry, for renderers that identify what they are drawing.
+   *
+   * Supplied by the caller because only it knows whether entry three is `cpu3`,
+   * `eth0` or `440 Hz`. A renderer that has room falls back to the index, which
+   * is what a rack of cores did before anyone could tell it their names.
+   */
+  readonly labels?: readonly string[];
   /**
    * How a value becomes text, for the renderers that show one. Supplied by the
    * caller because only it knows whether a number is a percentage, a byte rate
@@ -70,6 +79,15 @@ export interface Visualization<Input> {
   readonly minimumEntries?: number;
   /** Preference among equals: higher is richer, and wins where both fit. */
   readonly weight?: number;
+  /**
+   * Whether this data is the kind this draws at all, beyond its rank.
+   *
+   * Rank says a scatter and a heatmap both take a matrix; it cannot say that a
+   * scatter wants rows of two numbers and a heatmap wants a dense field. A
+   * renderer that answers false is not ranked rather than ranked badly, because
+   * "wrong shape" is not a degree of fit.
+   */
+  readonly suits?: (shape: VizDataShape) => boolean;
   render(input: Input, context: VizContext): VizFrame;
 }
 

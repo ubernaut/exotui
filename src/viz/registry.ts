@@ -10,12 +10,14 @@ import { rankFits, scoreFit, type VizDataShape, type VizFit } from "./fit.ts";
 import { SCALAR_VISUALIZATIONS } from "./renderers_scalar.ts";
 import { VECTOR_VISUALIZATIONS } from "./renderers_vector.ts";
 import { MATRIX_VISUALIZATIONS } from "./renderers_matrix.ts";
+import { SPATIAL_VISUALIZATIONS } from "./renderers_spatial.ts";
 
 /** Every visualisation this package ships. */
 export const VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   ...SCALAR_VISUALIZATIONS,
   ...VECTOR_VISUALIZATIONS,
   ...MATRIX_VISUALIZATIONS,
+  ...SPATIAL_VISUALIZATIONS,
 ]);
 
 export function visualizationById(id: string): Visualization<never> | undefined {
@@ -68,7 +70,7 @@ export function drawStream(
 export function fitVisualizations(shape: VizDataShape, size: VizSize): VizFit[] {
   return rankFits(
     VISUALIZATIONS
-      .filter((visualization) => satisfies(shape.kind, visualization.accepts))
+      .filter((visualization) => satisfies(shape.kind, visualization.accepts) && (visualization.suits?.(shape) ?? true))
       .map((visualization) =>
         scoreFit(
           {

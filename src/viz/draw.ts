@@ -29,6 +29,24 @@ export function plot(frame: VizCell[][], column: number, row: number, char: stri
 }
 
 /**
+ * The glyph a segment of this slope should be drawn with.
+ *
+ * A wireframe drawn with one character is a wall of that character: the eye
+ * reads texture rather than direction. Four glyphs is enough to tell a ridge
+ * from a valley, and it costs nothing.
+ */
+export function lineGlyph(from: { column: number; row: number }, to: { column: number; row: number }): string {
+  const across = to.column - from.column;
+  const down = to.row - from.row;
+  if (Math.abs(across) >= Math.abs(down) * 2) return "─";
+  if (Math.abs(down) >= Math.abs(across) * 2) return "│";
+  return (across > 0) === (down > 0) ? "╲" : "╱";
+}
+
+/** Pass as the glyph to have each segment pick its own from its slope. */
+export const AUTO_GLYPH = "auto";
+
+/**
  * A straight line between two cells.
  *
  * Stepped along its longer axis rather than by Bresenham's error term: the
@@ -41,10 +59,11 @@ export function drawLine(
   char: string,
   style: DrawStyle = {},
 ): void {
+  const glyph = char === AUTO_GLYPH ? lineGlyph(from, to) : char;
   const steps = Math.max(Math.abs(to.column - from.column), Math.abs(to.row - from.row), 1);
   for (let step = 0; step <= steps; step += 1) {
     const at = step / steps;
-    plot(frame, from.column + (to.column - from.column) * at, from.row + (to.row - from.row) * at, char, style);
+    plot(frame, from.column + (to.column - from.column) * at, from.row + (to.row - from.row) * at, glyph, style);
   }
 }
 

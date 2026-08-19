@@ -4,7 +4,7 @@
 
 import { blankFrame, type Visualization, type VizContext, type VizFrame } from "./render.ts";
 import { domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
-import { drawPath } from "./draw.ts";
+import { drawPath, plotQuadrant } from "./draw.ts";
 import { rampGradient } from "./theme.ts";
 import type { Matrix, Sample, Volume } from "./data.ts";
 
@@ -161,9 +161,58 @@ export const overlay: Visualization<Matrix> = {
 /** One per series, so colour is not the only thing telling them apart. */
 const SERIES_GLYPHS = ["─", "═", "╌", "·", "▪"] as const;
 
+/**
+ * 2d — points in a plane, at twice the resolution of the grid.
+ *
+ * The tactical map from the demos, given coordinates instead of a phase. Rows
+ * are points: `[x, y]`, or `[x, y, weight]` to colour them. Rank alone cannot
+ * distinguish this from a heatmap — both take a matrix — so it declares the
+ * shape it wants and is not offered for anything else.
+ *
+ * Plotted in quadrants rather than whole cells: a scatter is the one chart
+ * where two nearby points landing in the same cell is a loss of information
+ * rather than a rounding, and quadrants buy back a factor of four.
+ */
+export const scatter: Visualization<Matrix> = {
+  id: "scatter",
+  label: "Scatter",
+  accepts: "2d",
+  minimum: { width: 8, height: 4 },
+  weight: 0.9,
+  suits: (shape) => {
+    const inner = shape.extent?.[1];
+    return inner === undefined || inner === 2 || inner === 3;
+  },
+  render(points, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0 || points.length === 0) return frame;
+    // Each axis scales to its own data: a scatter whose axes share one domain
+    // draws a diagonal line for anything measured in different units.
+    const xs = points.map((point) => point[0] ?? 0);
+    const ys = points.map((point) => point[1] ?? 0);
+    const xDomain = safeDomain(domainOfAll([xs]));
+    const yDomain = safeDomain(domainOfAll([ys]));
+    const weights = points.map((point) => point[2]);
+    const weighted = weights.some((weight) => weight !== undefined);
+    const weightDomain = weighted ? safeDomain(context.domain ?? domainOfAll([weights.map((w) => w ?? 0)])) : undefined;
+    for (let index = 0; index < points.length; index += 1) {
+      const x = normalize(xs[index] ?? 0, xDomain);
+      const y = normalize(ys[index] ?? 0, yDomain);
+      const heat = weightDomain ? normalize(weights[index] ?? 0, weightDomain) : y;
+      plotQuadrant(frame, Math.round(x * (width * 2 - 1)), Math.round((1 - y) * (height * 2 - 1)), {
+        foreground: rampGradient(context.theme, heat),
+        background: context.theme.background,
+      });
+    }
+    return frame;
+  },
+};
+
 export const MATRIX_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   heatmap as unknown as Visualization<never>,
   overlay as unknown as Visualization<never>,
+  scatter as unknown as Visualization<never>,
   lattice as unknown as Visualization<never>,
   volumeProjection as unknown as Visualization<never>,
 ]);

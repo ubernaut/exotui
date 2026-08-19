@@ -8,8 +8,10 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
    fitness ranking are in and green; these are the gaps building a real application found and did not close:
    - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
      natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
-   - **No axis, tick or legend layer.** Every chart is unlabelled, so a reader can see the shape of a signal but not
-     read a value off it. Tiles work around this by putting the current reading in the title bar.
+   - ~~No axis, tick or legend layer.~~ Closed Aug 19: `src/viz/axes.ts` — `niceTicks`, `drawValueAxis`, `drawTimeAxis`,
+     `drawLegend`, and `valueAxisWidth` so a caller can measure the gutter first. Deliberately a layer rather than
+     something each renderer grew: a tile two rows tall cannot afford an axis and must not be given one, and nothing
+     here shrinks the chart it labels.
    - **exomonitor is unpublished**, deliberately: it runs against the working tree through `links` so bugs surface here
      first. Publishing it is a decision for the maintainer, not a task.
 2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
