@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 14
-- Unique modules: 512
-- Module visits: 970
-- Unique re-export declarations: 640
-- Re-export declaration visits: 969
-- Unique symbol declarations: 4780
-- Symbol declaration visits: 9426
-- Documented symbol declarations: 4767
-- Documentation coverage: 99.73%
+- Unique modules: 513
+- Module visits: 971
+- Unique re-export declarations: 641
+- Re-export declaration visits: 970
+- Unique symbol declarations: 4785
+- Symbol declaration visits: 9431
+- Documented symbol declarations: 4771
+- Documentation coverage: 99.71%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -26,7 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      10 |      61 |  86.89% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      11 |      66 |  86.36% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -118,11 +118,11 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Path: `./src/viz/mod.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 10
-- Re-export declarations: 9
-- Exported symbols: 61
-- Documented symbols: 53
-- Documentation coverage: 86.89%
+- Modules: 11
+- Re-export declarations: 10
+- Exported symbols: 66
+- Documented symbols: 57
+- Documentation coverage: 86.36%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -747,7 +747,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
 | [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      16 |         15 |
-| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |          9 |       0 |          0 |
+| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         10 |       0 |          0 |
 | [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       4 |          3 |
 | [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |       9 |          7 |
 | [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
@@ -756,6 +756,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
+| [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       5 |          4 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                           | `./web`                                 |          0 |       5 |          5 |
@@ -9622,6 +9623,7 @@ _Entrypoints: `./viz`_
 | `src/viz/renderers_vector.ts` | star | -     |
 | `src/viz/renderers_matrix.ts` | star | -     |
 | `src/viz/registry.ts`         | star | -     |
+| `src/viz/view.ts`             | star | -     |
 
 _No direct exported symbols._
 
@@ -9725,6 +9727,18 @@ _Entrypoints: `./viz`_
 | `rampGradient`              | function  | no        | yes   |
 | `resolveVisualizationTheme` | function  | no        | yes   |
 | `VisualizationTheme`        | interface | yes       | yes   |
+
+### src/viz/view.ts
+
+_Entrypoints: `./viz`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `dominantRun`              | function  | no        | yes   |
+| `framesToRuns`             | function  | no        | yes   |
+| `VisualizationView`        | class     | no        | yes   |
+| `VisualizationViewOptions` | interface | yes       | no    |
+| `VizRun`                   | interface | yes       | yes   |
 
 ### src/web/cell_canvas_sink.ts
 
