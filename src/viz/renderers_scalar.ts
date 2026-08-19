@@ -105,9 +105,42 @@ export const psychograph: Visualization<readonly Sample<0>[]> = {
   },
 };
 
+/**
+ * 0d — the value as text, for a box with no room for a chart.
+ *
+ * The last rung of the ladder. A terminal can always be made small enough that
+ * a meter is a lie — one cell cannot show sixty-five states — and at that size
+ * the honest thing is the number itself. It is a visualisation like any other
+ * so the same registry can choose it, rather than every caller carrying its own
+ * special case for "too small to draw".
+ */
+export const readout: Visualization<number> = {
+  id: "readout",
+  label: "Readout",
+  accepts: "0d",
+  minimum: { width: 1, height: 1 },
+  render(value, context) {
+    const frame = blankFrame(context.size, { char: " ", background: context.theme.background });
+    const { width, height } = context.size;
+    if (width <= 0 || height <= 0) return frame;
+    const domain = safeDomain(context.domain ?? { min: 0, max: 1 });
+    const fraction = normalize(value, domain);
+    const text = context.format?.(value) ?? `${Math.round(fraction * 100)}%`;
+    // Right-aligned: the digits stay put as the value changes width, which is
+    // what stops a readout jittering.
+    const shown = text.length > width ? text.slice(text.length - width) : text.padStart(width);
+    writeText(frame, 0, 0, shown, {
+      foreground: rampGradient(context.theme, fraction),
+      background: context.theme.background,
+    });
+    return frame;
+  },
+};
+
 /** Every rank-0 visualisation, for a registry to pick from. */
 export const SCALAR_VISUALIZATIONS: readonly Visualization<never>[] = Object.freeze([
   meter as unknown as Visualization<never>,
+  readout as unknown as Visualization<never>,
   sparkline as unknown as Visualization<never>,
   psychograph as unknown as Visualization<never>,
 ]);

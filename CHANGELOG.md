@@ -6,6 +6,16 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.3.1 — 2026-08-19
+
+### Added
+
+- **`readout`** — a rank-0 visualisation that draws the value as text, in as little as one cell. It completes the
+  degradation ladder: a terminal can always be made small enough that a meter is a lie, and at that size the honest
+  thing is the number. It is a visualisation like any other so the registry can choose it, rather than every caller
+  carrying a special case for "too small to draw". `VizContext` gains an optional `format`, because only the caller
+  knows whether a number is a percentage, a byte rate or a temperature.
+
 ## 0.3.0 — 2026-08-19
 
 ### Added

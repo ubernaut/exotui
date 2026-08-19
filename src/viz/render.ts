@@ -33,6 +33,12 @@ export interface VizContext {
   readonly domain?: { readonly min: number; readonly max: number };
   /** Optional label drawn by renderers that have room for one. */
   readonly label?: string;
+  /**
+   * How a value becomes text, for the renderers that show one. Supplied by the
+   * caller because only it knows whether a number is a percentage, a byte rate
+   * or a temperature.
+   */
+  readonly format?: (value: number) => string;
 }
 
 /**

@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 971
 - Unique re-export declarations: 641
 - Re-export declaration visits: 970
-- Unique symbol declarations: 4785
-- Symbol declaration visits: 9431
-- Documented symbol declarations: 4771
+- Unique symbol declarations: 4786
+- Symbol declaration visits: 9432
+- Documented symbol declarations: 4772
 - Documentation coverage: 99.71%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -26,7 +26,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      11 |      66 |  86.36% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      11 |      67 |  86.57% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -120,9 +120,9 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Stability: beta
 - Modules: 11
 - Re-export declarations: 10
-- Exported symbols: 66
-- Documented symbols: 57
-- Documentation coverage: 86.36%
+- Exported symbols: 67
+- Documented symbols: 58
+- Documentation coverage: 86.57%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -751,7 +751,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       4 |          3 |
 | [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |       9 |          7 |
 | [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
-| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       4 |          4 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |       5 |          5 |
 | [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       4 |          3 |
 | [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
@@ -9673,6 +9673,7 @@ _Entrypoints: `./viz`_
 | ----------------------- | ----- | --------- | ----- |
 | `meter`                 | const | no        | yes   |
 | `psychograph`           | const | no        | yes   |
+| `readout`               | const | no        | yes   |
 | `SCALAR_VISUALIZATIONS` | const | no        | yes   |
 | `sparkline`             | const | no        | yes   |
 

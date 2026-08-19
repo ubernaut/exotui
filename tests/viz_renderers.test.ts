@@ -4,7 +4,7 @@ import { assert, assertEquals, assertThrows } from "./deps.ts";
 import { frameToText, type VizFrame } from "../src/viz/render.ts";
 import { framesToRuns } from "../src/viz/view.ts";
 import { bars, rack, waterfall } from "../src/viz/renderers_vector.ts";
-import { meter, psychograph, sparkline } from "../src/viz/renderers_scalar.ts";
+import { meter, psychograph, readout, sparkline } from "../src/viz/renderers_scalar.ts";
 import { heatmap, lattice, volumeProjection } from "../src/viz/renderers_matrix.ts";
 import { drawStream, visualizationsFor } from "../src/viz/registry.ts";
 import { scalarStream, vectorStream } from "../src/viz/stream.ts";
@@ -160,4 +160,23 @@ Deno.test("runs carry their own colour, and blank space costs nothing", () => {
   const runs = framesToRuns(frame);
   assert(runs.length >= 2, `expected filled and empty runs, got ${runs.length}`);
   assert(runs.some((run) => run.foreground !== undefined));
+});
+
+Deno.test("a readout is the last rung: the value as text, in one cell if need be", () => {
+  const theme = defaultVisualizationTheme();
+  const context = { size: { width: 4, height: 1 }, theme, domain: { min: 0, max: 1 } };
+  assertEquals(frameToText(readout.render(0.2, context))[0], " 20%");
+  // A caller that knows the unit supplies the words.
+  assertEquals(
+    frameToText(readout.render(2048, { ...context, size: { width: 6, height: 1 }, format: () => "2.0K/s" }))[0],
+    "2.0K/s",
+  );
+  // Narrower than the text: keep the digits, drop the front, never pad-truncate
+  // into a number that reads as a different one.
+  assertEquals(frameToText(readout.render(1, { ...context, size: { width: 2, height: 1 } }))[0], "0%");
+});
+
+Deno.test("a readout is offered where nothing else fits", () => {
+  const tiny = visualizationsFor("0dt", { width: 2, height: 1 }).map((visualization) => visualization.id);
+  assert(tiny.includes("readout"), `nothing could draw a 2x1 box: ${tiny.join(",")}`);
 });
