@@ -10,6 +10,7 @@
     "./three-ascii": "./mod.three_ascii.ts",
     "./showcase": "./src/showcase/mod.ts",
     "./viz": "./src/viz/mod.ts",
+    "./viz/three": "./src/viz/three/mod.ts",
     "./theme": "./mod.theme.ts",
     "./runtime": "./mod.runtime.ts",
     "./terminal": "./mod.terminal.ts",

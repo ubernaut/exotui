@@ -19,6 +19,7 @@ export interface PackageEntrypointManifest {
     | "./terminal"
     | "./showcase"
     | "./viz"
+    | "./viz/three"
     | "./testing"
     | "./layout/yoga"
     | "./layout/taffy"
@@ -34,6 +35,7 @@ export interface PackageEntrypointManifest {
     | "./mod.terminal.ts"
     | "./src/showcase/mod.ts"
     | "./src/viz/mod.ts"
+    | "./src/viz/three/mod.ts"
     | "./mod.testing.ts"
     | "./src/layout/solvers/yoga.ts"
     | "./src/layout/taffy.ts"
@@ -176,6 +178,20 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "heatmaps, the 2D lattice and volume projection",
     ],
     excludes: ["the Three.js renderer", "components", "the Tui runtime"],
+  },
+  {
+    specifier: "./viz/three",
+    path: "./src/viz/three/mod.ts",
+    runtime: "shared",
+    stability: "experimental",
+    // Under 120 characters: api_reference.ts emits this verbatim and cannot wrap.
+    description: "Optional Three.js-backed visualisation scenes, rendered through the ASCII pipeline.",
+    includes: [
+      "the data scene contract",
+      "height fields, lattices and ring stacks",
+      "fitness ranking shared with ./viz",
+    ],
+    excludes: ["the dependency-free renderers in ./viz", "the ASCII renderer itself", "terminal mounting"],
   },
   {
     specifier: "./showcase",

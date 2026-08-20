@@ -3,6 +3,31 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — the Three.js visualisations, first pass
+
+`@ubernaut/exotui/viz/three` exists: an optional entrypoint like the layout solvers, because the core has no runtime
+dependencies and `./viz` keeps that promise. Its projected charts are arithmetic and draw anywhere; this is the other
+path, retained geometry through the ASCII pipeline, which costs `three` and buys shading and depth a wireframe cannot
+reach.
+
+A scene is deliberately not a `Visualization`. That contract is `render(data) => frame` — synchronous cells — and a
+scene is retained geometry rendered on its own schedule. Pretending otherwise would put a GPU pass inside a call meant
+to be pure arithmetic. So the shape is build once, update when the data changes, dispose when the tile goes. Everything
+else is the same vocabulary: a `DataScene` declares `minimum`, `perEntry`, `weight` and `suits`, and `fitDataScenes`
+ranks through the same `scoreFit`, so the two registries are on one scale and a caller can concatenate them.
+
+Three scenes, and the same finding as the flat ones: the demos are not data-driven. The map slab's height field is
+`sin(x) * cos(y)` and the rest turn on a pointer signal. What carried over is the form. `three-surface` is a matrix as a
+height field, `three-lattice` a volume as a cloud of points that skips empty cells rather than drawing them faintly,
+`three-rings` a matrix as a stack of closed loops. Geometry is rebuilt only when the data changes shape, because a
+monitor pushes a new reading of the same size sixty times a second.
+
+Tested without a renderer, which is the part worth testing: a flat field is flat, a peak stands above the plain, an
+empty volume draws nothing, and a differently shaped reading rebuilds rather than writing past the end.
+
+First pass, and it looks like one: nothing has been seen through the ASCII renderer at a terminal yet, the hex shell and
+capture cage have no data reading yet, and no application uses any of it.
+
 ## August 19 2026 — exomonitor becomes the worked example (0.4.0)
 
 It moved into `examples/showcases/exomonitor/` beside Inkstone, Orbital Command and GlyphForge, and its tests joined the

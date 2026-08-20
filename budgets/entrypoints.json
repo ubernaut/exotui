@@ -1,10 +1,10 @@
 {
   "mod.ts": {
     "modules": 462,
-    "bytes": 5334310,
+    "bytes": 5334933,
     "paths": {
       "mod.ts": 2821,
-      "src/api_stability.ts": 16953,
+      "src/api_stability.ts": 17576,
       "src/app/accessibility_tree.ts": 4349,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,
@@ -873,10 +873,10 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4544118,
+    "bytes": 4544741,
     "paths": {
       "mod.web.ts": 3293,
-      "src/api_stability.ts": 16953,
+      "src/api_stability.ts": 17576,
       "src/app/accessibility_tree.ts": 4349,
       "src/app/action_journal.ts": 18998,
       "src/app/action_journal_checkpoints.ts": 43823,

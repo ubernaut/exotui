@@ -47,6 +47,9 @@ export const REACHABILITY_SCOPES: readonly ReachabilityScope[] = Object.freeze([
       "mod.testing.ts",
       "src/showcase/mod.ts",
       "src/viz/mod.ts",
+      // Optional entrypoints are reachable from the package's export map and
+      // from nowhere else, which is the point of them.
+      "src/viz/three/mod.ts",
     ],
     // Examples and scripts are entrypoints in their own right, and tests are
     // the other thing that legitimately keeps a module alive.

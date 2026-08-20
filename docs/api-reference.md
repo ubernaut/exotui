@@ -5,15 +5,15 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 14
-- Unique modules: 521
-- Module visits: 980
-- Unique re-export declarations: 650
-- Re-export declaration visits: 979
-- Unique symbol declarations: 4860
-- Symbol declaration visits: 9507
-- Documented symbol declarations: 4829
-- Documentation coverage: 99.36%
+- Entrypoints: 15
+- Unique modules: 524
+- Module visits: 983
+- Unique re-export declarations: 652
+- Re-export declaration visits: 981
+- Unique symbol declarations: 4870
+- Symbol declaration visits: 9517
+- Documented symbol declarations: 4838
+- Documentation coverage: 99.34%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -27,6 +27,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
+| `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -123,6 +124,21 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Exported symbols: 137
 - Documented symbols: 111
 - Documentation coverage: 81.02%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./viz/three
+
+Optional Three.js-backed visualisation scenes, rendered through the ASCII pipeline.
+
+- Path: `./src/viz/three/mod.ts`
+- Runtime: shared
+- Stability: experimental
+- Modules: 3
+- Re-export declarations: 2
+- Exported symbols: 10
+- Documented symbols: 9
+- Documentation coverage: 90.00%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -763,6 +779,9 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          1 |       7 |          6 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
+| [`src/viz/three/mod.ts`](#src-viz-three-mod-ts)                                                 | `./viz/three`                           |          2 |       0 |          0 |
+| [`src/viz/three/scene.ts`](#src-viz-three-scene-ts)                                             | `./viz/three`                           |          0 |       7 |          6 |
+| [`src/viz/three/scenes.ts`](#src-viz-three-scenes-ts)                                           | `./viz/three`                           |          0 |       3 |          3 |
 | [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                         | `./viz`                                 |          0 |      13 |          8 |
 | [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       4 |          2 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
@@ -9859,6 +9878,41 @@ _Entrypoints: `./viz`_
 | `rampGradient`              | function  | no        | yes   |
 | `resolveVisualizationTheme` | function  | no        | yes   |
 | `VisualizationTheme`        | interface | yes       | yes   |
+
+### src/viz/three/mod.ts
+
+_Entrypoints: `./viz/three`_
+
+| Re-export Target          | Kind | Names |
+| ------------------------- | ---- | ----- |
+| `src/viz/three/scene.ts`  | star | -     |
+| `src/viz/three/scenes.ts` | star | -     |
+
+_No direct exported symbols._
+
+### src/viz/three/scene.ts
+
+_Entrypoints: `./viz/three`_
+
+| Symbol              | Kind      | Type Only | JSDoc |
+| ------------------- | --------- | --------- | ----- |
+| `DATA_SCENES`       | const     | no        | yes   |
+| `DataScene`         | interface | yes       | yes   |
+| `dataSceneById`     | function  | no        | no    |
+| `DataSceneContext`  | interface | yes       | yes   |
+| `DataSceneInstance` | interface | yes       | yes   |
+| `fitDataScenes`     | function  | no        | yes   |
+| `themeColor`        | function  | no        | yes   |
+
+### src/viz/three/scenes.ts
+
+_Entrypoints: `./viz/three`_
+
+| Symbol         | Kind  | Type Only | JSDoc |
+| -------------- | ----- | --------- | ----- |
+| `latticeScene` | const | no        | yes   |
+| `ringScene`    | const | no        | yes   |
+| `surfaceScene` | const | no        | yes   |
 
 ### src/viz/tiles.ts
 

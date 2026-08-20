@@ -382,6 +382,31 @@ dots but only one colour, so the two make opposite trades and both are ranked.
 The projected views (`surface`, `point-cloud`, `ring-volume`, `vector-field`) are arithmetic, not Three.js: the core has
 no runtime dependencies and a wireframe chart should not add one.
 
+### Rendered through Three.js
+
+`jsr:@ubernaut/exotui/viz/three` is the other path — retained geometry rendered by the ASCII pipeline, which costs a
+dependency on `three` and buys shading, depth and post-processing a wireframe cannot reach. Importing it is the choice
+to pay for that.
+
+A scene is deliberately not a `Visualization`. That contract is `render(data) => frame`, synchronous cells; a scene is
+retained geometry rendered on its own schedule. So it builds once, updates when the data changes, and disposes when the
+tile goes away:
+
+```ts
+import { ThreeAscii } from "jsr:@ubernaut/exotui/three-ascii";
+import { fitDataScenes, surfaceScene } from "jsr:@ubernaut/exotui/viz/three";
+
+const instance = surfaceScene.create({ theme });
+new ThreeAscii({ parent: tui, rectangle, scene: instance.scene, camera: instance.camera });
+
+// whenever a reading arrives
+instance.update(matrix, { theme, domain: { min: 0, max: 1 } });
+```
+
+`three-surface` draws a matrix as a height field, `three-lattice` a volume as a cloud of points, `three-rings` a matrix
+as a stack of rings. They carry the same fitness vocabulary as the cell renderers, so `fitDataScenes` ranks them on the
+same scale — concatenate the two lists and a caller with a box and some data gets one answer rather than two.
+
 ### The worked example
 
 `examples/showcases/exomonitor/` is a system monitor built on all of the above, and the reason most of it exists — real
@@ -440,6 +465,7 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | `./three-ascii`       | `mod.three_ascii.ts`               | shared   | experimental |
 | `./showcase`          | `src/showcase/mod.ts`              | shared   | beta         |
 | `./viz`               | `src/viz/mod.ts`                   | shared   | beta         |
+| `./viz/three`         | `src/viz/three/mod.ts`             | shared   | experimental |
 | `./theme`             | `mod.theme.ts`                     | shared   | beta         |
 | `./runtime`           | `mod.runtime.ts`                   | shared   | beta         |
 | `./terminal`          | `mod.terminal.ts`                  | terminal | beta         |
