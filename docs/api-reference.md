@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 14
-- Unique modules: 520
-- Module visits: 978
-- Unique re-export declarations: 648
-- Re-export declaration visits: 977
-- Unique symbol declarations: 4857
-- Symbol declaration visits: 9503
-- Documented symbol declarations: 4826
+- Unique modules: 521
+- Module visits: 980
+- Unique re-export declarations: 650
+- Re-export declaration visits: 979
+- Unique symbol declarations: 4860
+- Symbol declaration visits: 9507
+- Documented symbol declarations: 4829
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,12 +21,12 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     433 |    4228 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     434 |    4233 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
-| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      18 |     138 |  81.16% |
+| `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      81 |     861 | 100.00% |
@@ -43,10 +43,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 433
-- Re-export declarations: 433
-- Exported symbols: 4228
-- Documented symbols: 4228
+- Modules: 434
+- Re-export declarations: 434
+- Exported symbols: 4233
+- Documented symbols: 4233
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -118,11 +118,11 @@ Dimensional visualisations: data by rank and time, with streams, scaling and ren
 - Path: `./src/viz/mod.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 18
-- Re-export declarations: 17
-- Exported symbols: 138
-- Documented symbols: 112
-- Documentation coverage: 81.16%
+- Modules: 19
+- Re-export declarations: 18
+- Exported symbols: 137
+- Documented symbols: 111
+- Documentation coverage: 81.02%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -738,18 +738,19 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/visual/annotations.ts`](#src-visual-annotations-ts)                                       | `.`                                     |          0 |       4 |          4 |
 | [`src/visual/axes.ts`](#src-visual-axes-ts)                                                     | `.`                                     |          0 |       4 |          4 |
 | [`src/visual/chart_export.ts`](#src-visual-chart-export-ts)                                     | `.`                                     |          0 |       7 |          7 |
-| [`src/visual/downsample.ts`](#src-visual-downsample-ts)                                         | `.`                                     |          0 |       5 |          5 |
+| [`src/visual/downsample.ts`](#src-visual-downsample-ts)                                         | `.`, `./viz`                            |          0 |       6 |          6 |
 | [`src/visual/heatmap.ts`](#src-visual-heatmap-ts)                                               | `.`                                     |          0 |       6 |          6 |
 | [`src/visual/interactions.ts`](#src-visual-interactions-ts)                                     | `.`                                     |          0 |       5 |          5 |
 | [`src/visual/linked_charts.ts`](#src-visual-linked-charts-ts)                                   | `.`                                     |          0 |       4 |          4 |
-| [`src/visual/marks.ts`](#src-visual-marks-ts)                                                   | `.`                                     |          0 |       6 |          6 |
-| [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         10 |       0 |          0 |
+| [`src/visual/marks.ts`](#src-visual-marks-ts)                                                   | `.`                                     |          0 |       7 |          7 |
+| [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         11 |       0 |          0 |
+| [`src/visual/raster.ts`](#src-visual-raster-ts)                                                 | `.`                                     |          0 |       3 |          3 |
 | [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
 | [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
 | [`src/viz/axes.ts`](#src-viz-axes-ts)                                                           | `./viz`                                 |          0 |       8 |          5 |
 | [`src/viz/dashboard.ts`](#src-viz-dashboard-ts)                                                 | `./viz`                                 |          0 |       6 |          4 |
 | [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      17 |         16 |
-| [`src/viz/draw.ts`](#src-viz-draw-ts)                                                           | `./viz`                                 |          0 |      13 |         11 |
+| [`src/viz/draw.ts`](#src-viz-draw-ts)                                                           | `./viz`                                 |          0 |      12 |         10 |
 | [`src/viz/fit.ts`](#src-viz-fit-ts)                                                             | `./viz`                                 |          0 |       5 |          5 |
 | [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         17 |       0 |          0 |
 | [`src/viz/project.ts`](#src-viz-project-ts)                                                     | `./viz`                                 |          0 |       7 |          3 |
@@ -759,7 +760,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |      10 |         10 |
 | [`src/viz/renderers_spatial.ts`](#src-viz-renderers-spatial-ts)                                 | `./viz`                                 |          0 |       5 |          5 |
 | [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       7 |          6 |
-| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          0 |       8 |          7 |
+| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          1 |       7 |          6 |
 | [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
 | [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
 | [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                         | `./viz`                                 |          0 |      13 |          8 |
@@ -9484,7 +9485,7 @@ _Entrypoints: `.`_
 
 ### src/visual/downsample.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./viz`_
 
 | Symbol                       | Kind      | Type Only | JSDoc |
 | ---------------------------- | --------- | --------- | ----- |
@@ -9492,6 +9493,7 @@ _Entrypoints: `.`_
 | `DataPoint`                  | interface | yes       | yes   |
 | `lttbDownsample`             | function  | no        | yes   |
 | `minMaxDownsample`           | function  | no        | yes   |
+| `resampleToWidth`            | function  | no        | yes   |
 | `StreamingDownsampler`       | class     | no        | yes   |
 
 ### src/visual/heatmap.ts
@@ -9540,6 +9542,7 @@ _Entrypoints: `.`_
 | `GlyphCapabilities`  | interface | yes       | yes   |
 | `MarkBackend`        | type      | yes       | yes   |
 | `MarkCanvas`         | class     | no        | yes   |
+| `markGeometry`       | function  | no        | yes   |
 | `MarkRender`         | interface | yes       | yes   |
 | `resolveMarkBackend` | function  | no        | yes   |
 
@@ -9557,10 +9560,21 @@ _Entrypoints: `.`_
 | `src/visual/interactions.ts`  | star | -     |
 | `src/visual/linked_charts.ts` | star | -     |
 | `src/visual/marks.ts`         | star | -     |
+| `src/visual/raster.ts`        | star | -     |
 | `src/visual/scales.ts`        | star | -     |
 | `src/visual/series.ts`        | star | -     |
 
 _No direct exported symbols._
+
+### src/visual/raster.ts
+
+_Entrypoints: `.`_
+
+| Symbol          | Kind      | Type Only | JSDoc |
+| --------------- | --------- | --------- | ----- |
+| `CellPoint`     | interface | yes       | yes   |
+| `polylineCells` | function  | no        | yes   |
+| `segmentCells`  | function  | no        | yes   |
 
 ### src/visual/scales.ts
 
@@ -9648,21 +9662,20 @@ _Entrypoints: `./viz`_
 
 _Entrypoints: `./viz`_
 
-| Symbol         | Kind      | Type Only | JSDoc |
-| -------------- | --------- | --------- | ----- |
-| `ArcOptions`   | interface | yes       | no    |
-| `AUTO_GLYPH`   | const     | no        | yes   |
-| `drawArc`      | function  | no        | yes   |
-| `drawEllipse`  | function  | no        | yes   |
-| `drawLine`     | function  | no        | yes   |
-| `drawPath`     | function  | no        | yes   |
-| `drawRect`     | function  | no        | yes   |
-| `DrawStyle`    | interface | yes       | no    |
-| `fillRect`     | function  | no        | yes   |
-| `lineGlyph`    | function  | no        | yes   |
-| `plot`         | function  | no        | yes   |
-| `plotQuadrant` | function  | no        | yes   |
-| `QUADRANTS`    | const     | no        | yes   |
+| Symbol        | Kind      | Type Only | JSDoc |
+| ------------- | --------- | --------- | ----- |
+| `ArcOptions`  | interface | yes       | no    |
+| `AUTO_GLYPH`  | const     | no        | yes   |
+| `DotPainter`  | class     | no        | yes   |
+| `drawArc`     | function  | no        | yes   |
+| `drawEllipse` | function  | no        | yes   |
+| `drawLine`    | function  | no        | yes   |
+| `drawPath`    | function  | no        | yes   |
+| `drawRect`    | function  | no        | yes   |
+| `DrawStyle`   | interface | yes       | no    |
+| `fillRect`    | function  | no        | yes   |
+| `lineGlyph`   | function  | no        | yes   |
+| `plot`        | function  | no        | yes   |
 
 ### src/viz/fit.ts
 
@@ -9806,6 +9819,10 @@ _Entrypoints: `./viz`_
 
 _Entrypoints: `./viz`_
 
+| Re-export Target           | Kind  | Names             |
+| -------------------------- | ----- | ----------------- |
+| `src/visual/downsample.ts` | named | `resampleToWidth` |
+
 | Symbol           | Kind      | Type Only | JSDoc |
 | ---------------- | --------- | --------- | ----- |
 | `baselineDomain` | function  | no        | yes   |
@@ -9813,7 +9830,6 @@ _Entrypoints: `./viz`_
 | `domainOf`       | function  | no        | yes   |
 | `domainOfAll`    | function  | no        | yes   |
 | `normalize`      | function  | no        | yes   |
-| `resample`       | function  | no        | yes   |
 | `safeDomain`     | function  | no        | yes   |
 | `TrackingDomain` | class     | no        | yes   |
 

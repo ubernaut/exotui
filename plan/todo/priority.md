@@ -65,7 +65,7 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
   immediate-mode demos genuinely want a per-frame LIFO stack and the library genuinely wants one pointer authority.
   _Lesson recorded in the log: `deno task health` covers files that neither suite reaches._
 
-## Two charting stacks, one of them unused
+## Two charting stacks, unified August 19 2026
 
 Found August 19 2026, and the reason the visualisation work kept reinventing things.
 

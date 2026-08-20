@@ -4,7 +4,7 @@
 
 import { assert, assertEquals } from "./deps.ts";
 import { blankFrame, frameToText, type VizFrame } from "../src/viz/render.ts";
-import { drawArc, drawLine, drawPath, drawRect, fillRect, plot, plotQuadrant } from "../src/viz/draw.ts";
+import { DotPainter, drawArc, drawLine, drawPath, drawRect, fillRect, plot } from "../src/viz/draw.ts";
 import { dial, odometer, strip } from "../src/viz/renderers_scalar.ts";
 import { hexgrid } from "../src/viz/renderers_vector.ts";
 import { overlay } from "../src/viz/renderers_matrix.ts";
@@ -64,12 +64,35 @@ Deno.test("rectangles outline and fill", () => {
   assertEquals(frameToText(frame)[2], " #####  ");
 });
 
-Deno.test("quadrants accumulate, so two sub-cell points share a cell", () => {
-  const frame = blankFrame({ width: 4, height: 4 });
-  plotQuadrant(frame, 0, 0);
-  assertEquals(frame[0]![0]!.char, "▘");
-  plotQuadrant(frame, 1, 1);
-  assertEquals(frame[0]![0]!.char, "▚", "the first point is still lit");
+Deno.test("sub-cell dots accumulate, so two points share a cell without hiding one", () => {
+  // The dot space, the backends and the capability degradation are
+  // src/visual's; what the painter adds is that a cell has a colour.
+  const painter = new DotPainter({ width: 4, height: 4 });
+  assertEquals(painter.backend, "braille", "the finest the terminal supports");
+  assertEquals(painter.resolution, { width: 8, height: 16 }, "two dots across and four down per cell");
+  painter.plot(0, 0, [255, 0, 0]);
+  const first = blankFrame({ width: 4, height: 4 });
+  painter.paint(first);
+  const one = first[0]![0]!.char;
+  painter.plot(1, 3, [0, 255, 0]);
+  const both = blankFrame({ width: 4, height: 4 });
+  painter.paint(both);
+  assert(both[0]![0]!.char !== one, "the second dot changed the glyph");
+  assertEquals(both[0]![0]!.foreground, [0, 255, 0], "the last dot lit decides the cell's colour");
+});
+
+Deno.test("a degraded backend still fits the frame it was sized for", () => {
+  // A dot space scaled for braille is twice the rows a quadrant backend would
+  // rasterise it into, so the backend has to be resolved before the space is
+  // sized rather than after.
+  const painter = new DotPainter({ width: 6, height: 3 }, { capabilities: { quadrants: true } });
+  assertEquals(painter.backend, "quadrant");
+  assertEquals(painter.resolution, { width: 12, height: 6 });
+  painter.plot(11, 5, [1, 2, 3]);
+  const frame = blankFrame({ width: 6, height: 3 });
+  painter.paint(frame);
+  assertEquals(frame.length, 3);
+  assertEquals(frame[2]![5]!.foreground, [1, 2, 3], "the last dot lands in the last cell");
 });
 
 Deno.test("a dial's sweep is the value, not decoration", () => {
@@ -121,11 +144,35 @@ Deno.test("a honeycomb spends area, so it holds entries neither axis could", () 
   assert(firstInk(0) !== firstInk(2), `rows 0 and 2 should be offset: ${firstInk(0)} vs ${firstInk(2)}`);
 });
 
-Deno.test("an overlay tells its series apart by glyph as well as by colour", () => {
-  const series = [0, 1, 2].map((k) => Array.from({ length: 40 }, (_, i) => (Math.sin(i / 6 + k * 2) + 1) / 2));
-  const frame = overlay.render(series, { size: { width: 40, height: 9 }, theme: THEME, domain: { min: 0, max: 1 } });
-  const glyphs = new Set(frame.flat().map((cell) => cell.char).filter((char) => char !== " "));
-  assertEquals(glyphs.size, 3, `three series, three glyphs: ${[...glyphs].join("")}`);
-  const colours = new Set(frame.flat().filter((cell) => cell.char !== " ").map((cell) => cell.foreground?.join(",")));
-  assertEquals(colours.size, 3, "and three colours");
+Deno.test("an overlay is the btop chart: a trace per series, at dot resolution", () => {
+  const theme = defaultVisualizationTheme();
+  // Sixteen cores over a window, which is more series than a theme has colours.
+  const history = Array.from({ length: 120 }, (_, t) => ({
+    value: Array.from({ length: 16 }, (_, core) => Math.abs(Math.sin(t / (5 + core) + core))),
+    at: t,
+  }));
+  const frame = overlay.render(history, { size: { width: 60, height: 12 }, theme, domain: { min: 0, max: 1 } });
+  const drawn = frame.flat().filter((cell) => cell.char !== " ");
+  assert(drawn.length > 100, "sixteen traces should cover a lot of the box");
+  // Braille, not block glyphs: the whole point of the dot backend.
+  assert(
+    drawn.every((cell) => cell.char.codePointAt(0)! >= 0x2800 && cell.char.codePointAt(0)! <= 0x28ff),
+    `expected braille: ${[...new Set(drawn.map((cell) => cell.char))].slice(0, 8).join("")}`,
+  );
+  // Sixteen distinct colours, though the theme declares seven.
+  const colours = new Set(drawn.map((cell) => cell.foreground?.join(",")));
+  assert(colours.size >= 12, `expected a colour per series, got ${colours.size}`);
+});
+
+Deno.test("an overlay takes a history of vectors and a matrix alike", () => {
+  const theme = defaultVisualizationTheme();
+  const size = { width: 24, height: 6 };
+  const domain = { min: 0, max: 1 };
+  // The same three series, in the shape a sampler produces and in the shape a
+  // chart wants. They must draw the same thing.
+  const rows = [[0, 0.5, 1], [1, 0.5, 0], [0.5, 0.5, 0.5]];
+  const columns = [0, 1, 2].map((index) => ({ value: rows.map((row) => row[index]!), at: index }));
+  const fromMatrix = frameToText(overlay.render(rows, { size, theme, domain }));
+  const fromHistory = frameToText(overlay.render(columns, { size, theme, domain }));
+  assertEquals(fromHistory, fromMatrix);
 });

@@ -16,6 +16,43 @@ export interface DataPoint {
   readonly y: number;
 }
 
+/**
+ * Resamples a series to exactly `width` values, one per column.
+ *
+ * Terminals are narrow and histories are long, so something has to give. Picking
+ * every nth point drops the spikes that are the whole reason for watching, so
+ * this takes the extreme of each bucket instead: the value furthest from the
+ * bucket's mean survives, which keeps a one-frame spike visible after
+ * downsampling.
+ */
+export function resampleToWidth(values: readonly number[], width: number): number[] {
+  const target = Math.max(0, Math.floor(width));
+  if (target === 0) return [];
+  if (values.length === 0) return new Array(target).fill(0);
+  if (values.length === target) return [...values];
+  if (values.length < target) {
+    // Stretch: hold each value across its share of the wider axis.
+    return Array.from({ length: target }, (_, index) => {
+      const source = Math.min(values.length - 1, Math.floor((index * values.length) / target));
+      return values[source]!;
+    });
+  }
+  const out: number[] = [];
+  for (let index = 0; index < target; index += 1) {
+    const start = Math.floor((index * values.length) / target);
+    const end = Math.max(start + 1, Math.floor(((index + 1) * values.length) / target));
+    let sum = 0;
+    for (let at = start; at < end; at += 1) sum += values[at]!;
+    const mean = sum / (end - start);
+    let extreme = values[start]!;
+    for (let at = start; at < end; at += 1) {
+      if (Math.abs(values[at]! - mean) > Math.abs(extreme - mean)) extreme = values[at]!;
+    }
+    out.push(extreme);
+  }
+  return out;
+}
+
 /** Min/max bucket downsampling: extrema survive by construction. */
 export function minMaxDownsample(points: readonly DataPoint[], buckets: number): DataPoint[] {
   if (points.length <= buckets * 2) return [...points];

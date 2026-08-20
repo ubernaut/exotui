@@ -11,6 +11,7 @@
 // different scales into the same viewport — the grid only sees cells.
 
 import { type ContinuousScale, toCell } from "./scales.ts";
+import { segmentCells } from "./raster.ts";
 
 /** One series point; null y = missing. */
 export interface SeriesPoint {
@@ -44,25 +45,11 @@ function plot(grid: string[][], column: number, row: number, glyph: string): voi
 }
 
 function drawSegment(grid: string[][], x0: number, y0: number, x1: number, y1: number, glyph: string): void {
-  const dx = Math.abs(x1 - x0);
-  const dy = Math.abs(y1 - y0);
-  const stepX = x0 < x1 ? 1 : -1;
-  const stepY = y0 < y1 ? 1 : -1;
-  let error = dx - dy;
-  let x = x0;
-  let y = y0;
-  while (true) {
-    plot(grid, x, y, glyph);
-    if (x === x1 && y === y1) break;
-    const doubled = 2 * error;
-    if (doubled > -dy) {
-      error -= dy;
-      x += stepX;
-    }
-    if (doubled < dx) {
-      error += dx;
-      y += stepY;
-    }
+  // The rasteriser lives in raster.ts so `src/viz` draws the same cells this
+  // does. Two implementations of "which cells does this line cover" drift, and
+  // a chart whose line is one cell off its own axis is a hard bug to see.
+  for (const cell of segmentCells({ column: x0, row: y0 }, { column: x1, row: y1 })) {
+    plot(grid, cell.column, cell.row, glyph);
   }
 }
 

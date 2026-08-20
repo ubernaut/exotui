@@ -3,6 +3,33 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — one charting stack, and the btop graph
+
+The maintainer's call: `src/visual` stays the measuring layer, `src/viz` is the painting one. `visual` answers where
+things go and never learns about colour; `viz` decides what glyph and what colour go there. Every duplicate between them
+is gone — ticks were already delegated, and now rasterisation lives in `visual/raster.ts` so a line and a series cannot
+land one cell apart, `resampleToWidth` sits beside min-max and LTTB in `visual/downsample.ts`, and `viz`'s quadrant
+primitive is replaced by a `DotPainter` over `visual`'s `MarkCanvas`.
+
+That last one is the payoff. The mark canvas already had a logical dot space, braille through full-cell backends, and
+capability-checked degradation; what it could not express is that a cell has a colour, which is the one thing `viz`
+exists for. Wrapping rather than reimplementing gave braille — eight dots to a cell — for the cost of noticing that a
+dot space has to be sized for the _resolved_ backend, since a space scaled for braille rasterises to twice the rows
+through quadrants.
+
+With that, the overlay became the btop CPU graph: one braille trace per core over the window, each in its own colour,
+sixteen of them crossing without becoming a block. It accepts a history of vectors as well as a matrix, because a
+sampler produces "every series at each instant" and a chart wants "one series across all instants". Colours run out
+before cores do, so beyond the theme's own the palette spins hues at golden-ratio spacing.
+
+Identity by colour alone is the trade a dot backend makes — a braille cell holds eight dots and one colour, so there is
+no glyph left to vary. Where that trade is wrong the psychograph draws the same data with a pip per series at cell
+resolution, which survives a monochrome terminal. Both are in the ranking; the overlay leads.
+
+`cpu:cores` in exomonitor states no preference any more. It used to ask for a waterfall on the grounds that history per
+core is what one frame cannot show — and the overlay shows the same history, more legibly, so stating a preference would
+only have been a way of getting it wrong later.
+
 ## August 19 2026 — a psychograph of several lines, and a charting stack nobody had used
 
 The psychograph draws one line or many. Several series overlay on one set of axes — a left and a right channel spectrum

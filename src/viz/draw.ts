@@ -13,6 +13,14 @@
 
 import type { Rgb } from "../theme_expressions.ts";
 import type { VizCell } from "./render.ts";
+import { type CellPoint, polylineCells, segmentCells } from "../visual/raster.ts";
+import {
+  type GlyphCapabilities,
+  type MarkBackend,
+  MarkCanvas,
+  markGeometry,
+  resolveMarkBackend,
+} from "../visual/marks.ts";
 
 export interface DrawStyle {
   readonly foreground?: Rgb;
@@ -60,11 +68,9 @@ export function drawLine(
   style: DrawStyle = {},
 ): void {
   const glyph = char === AUTO_GLYPH ? lineGlyph(from, to) : char;
-  const steps = Math.max(Math.abs(to.column - from.column), Math.abs(to.row - from.row), 1);
-  for (let step = 0; step <= steps; step += 1) {
-    const at = step / steps;
-    plot(frame, from.column + (to.column - from.column) * at, from.row + (to.row - from.row) * at, glyph, style);
-  }
+  // The rasteriser is `src/visual`'s, so a line drawn here covers exactly the
+  // cells a series drawn there does.
+  for (const cell of segmentCells(from, to)) plot(frame, cell.column, cell.row, glyph, style);
 }
 
 /**
@@ -75,14 +81,21 @@ export function drawLine(
  */
 export function drawPath(
   frame: VizCell[][],
-  points: readonly { column: number; row: number }[],
+  points: readonly CellPoint[],
   char: string,
   style: DrawStyle = {},
 ): void {
-  for (let index = 1; index < points.length; index += 1) {
-    drawLine(frame, points[index - 1]!, points[index]!, char, style);
+  if (points.length === 0) return;
+  if (char !== AUTO_GLYPH) {
+    for (const cell of polylineCells(points)) plot(frame, cell.column, cell.row, char, style);
+    return;
   }
-  if (points.length === 1) plot(frame, points[0]!.column, points[0]!.row, char, style);
+  // Auto glyphs are per segment, so the path has to be walked segment by
+  // segment rather than rasterised in one pass.
+  if (points.length === 1) plot(frame, points[0]!.column, points[0]!.row, "─", style);
+  for (let index = 1; index < points.length; index += 1) {
+    drawLine(frame, points[index - 1]!, points[index]!, AUTO_GLYPH, style);
+  }
 }
 
 export interface ArcOptions {
@@ -177,43 +190,77 @@ export function fillRect(
 }
 
 /**
- * Quadrant glyphs, for plotting at twice the resolution of a cell.
+ * Sub-cell plotting, at whatever resolution the terminal supports.
  *
- * A cell is one character, but four sub-cells can be lit independently with
- * these — so a scatter or a curve gets 2x2 the resolution the grid suggests.
- * Indexed by a bitmask: 1 top-left, 2 top-right, 4 bottom-left, 8 bottom-right.
+ * A cell is one character, but a braille cell can light eight dots
+ * independently — so a scatter or a cloud gets eight times the resolution the
+ * grid suggests. The dot space, the backends and the capability degradation are
+ * `src/visual`'s `MarkCanvas`; what this adds is the one thing a mark canvas
+ * cannot express, which is that a cell has a colour.
+ *
+ * Colour is per cell because a terminal cell has one, however many dots it
+ * holds: the last dot lit in a cell decides it. For a scatter that is a
+ * reasonable rule and for two overlapping series it is a visible one, which is
+ * why the renderers that care draw a crossing instead.
  */
-export const QUADRANTS: readonly string[] = Object.freeze([
-  " ",
-  "▘",
-  "▝",
-  "▀",
-  "▖",
-  "▌",
-  "▞",
-  "▛",
-  "▗",
-  "▚",
-  "▐",
-  "▜",
-  "▄",
-  "▙",
-  "▟",
-  "█",
-]);
+export class DotPainter {
+  readonly #canvas: MarkCanvas;
+  readonly #colours = new Map<number, Rgb>();
+  readonly #backend: MarkBackend;
+  readonly #dots: { readonly x: number; readonly y: number };
+  readonly #cells: { readonly width: number; readonly height: number };
 
-/** Lights one quadrant of a cell, keeping whatever was already lit there. */
-export function plotQuadrant(
-  frame: VizCell[][],
-  column: number,
-  row: number,
-  style: DrawStyle = {},
-): void {
-  const cell = { column: Math.floor(column / 2), row: Math.floor(row / 2) };
-  const line = frame[cell.row];
-  if (!line || cell.column < 0 || cell.column >= line.length) return;
-  const bit = 1 << ((column % 2) + (row % 2) * 2);
-  const existing = QUADRANTS.indexOf(line[cell.column]!.char);
-  const mask = (existing > 0 ? existing : 0) | bit;
-  line[cell.column] = { char: QUADRANTS[mask]!, ...style };
+  constructor(
+    size: { readonly width: number; readonly height: number },
+    options: { readonly backend?: MarkBackend; readonly capabilities?: GlyphCapabilities } = {},
+  ) {
+    // Resolved first, because the dot space has to be sized for the backend
+    // that will actually rasterise it. A space scaled for braille rendered
+    // through quadrants is twice as many rows as the frame has.
+    const { backend } = resolveMarkBackend(
+      options.backend ?? "braille",
+      options.capabilities ?? { braille: true, sextants: true, quadrants: true },
+    );
+    this.#backend = backend;
+    this.#dots = markGeometry(backend);
+    this.#cells = { width: Math.max(1, size.width), height: Math.max(1, size.height) };
+    this.#canvas = new MarkCanvas({
+      width: this.#cells.width * this.#dots.x,
+      height: this.#cells.height * this.#dots.y,
+    });
+  }
+
+  /** Dots across and down the whole area, for a caller scaling its data to it. */
+  get resolution(): { readonly width: number; readonly height: number } {
+    return { width: this.#cells.width * this.#dots.x, height: this.#cells.height * this.#dots.y };
+  }
+
+  get backend(): MarkBackend {
+    return this.#backend;
+  }
+
+  /** Lights one dot, in dot coordinates. */
+  plot(x: number, y: number, colour?: Rgb): void {
+    this.#canvas.plot(x, y);
+    if (!colour) return;
+    const cell = Math.floor(y / this.#dots.y) * this.#cells.width + Math.floor(x / this.#dots.x);
+    this.#colours.set(cell, colour);
+  }
+
+  /** Writes the rasterised dots into a frame, at an offset. */
+  paint(frame: VizCell[][], at: CellPoint = { column: 0, row: 0 }, style: DrawStyle = {}): void {
+    const { lines } = this.#canvas.render(this.#backend, { braille: true, sextants: true, quadrants: true });
+    for (let row = 0; row < lines.length; row += 1) {
+      const line = lines[row]!;
+      for (let column = 0; column < line.length; column += 1) {
+        const glyph = line[column]!;
+        if (glyph === " ") continue;
+        const colour = this.#colours.get(row * this.#cells.width + column) ?? style.foreground;
+        plot(frame, at.column + column, at.row + row, glyph, {
+          ...style,
+          ...(colour ? { foreground: colour } : {}),
+        });
+      }
+    }
+  }
 }

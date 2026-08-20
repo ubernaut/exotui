@@ -13,7 +13,7 @@ import { blankFrame, type Visualization, type VizCell, type VizContext, type Viz
 import { baselineDomain, domainOfAll, normalize, resample, safeDomain } from "./scale.ts";
 import { mixColor, rampGradient } from "./theme.ts";
 import { camera, depthFade, type Point3, type Projected, toUnit } from "./project.ts";
-import { AUTO_GLYPH, drawLine, lineGlyph, plot, plotQuadrant } from "./draw.ts";
+import { AUTO_GLYPH, DotPainter, drawLine, lineGlyph, plot } from "./draw.ts";
 import type { Matrix, Volume } from "./data.ts";
 
 /** Far enough back that nothing in a unit cube is behind the eye. */
@@ -112,8 +112,8 @@ export const surface: Visualization<Matrix> = {
  * 3d — a volume as a cloud of points, dimmer the further back they are.
  *
  * Every cell of the volume that carries something becomes a point. Sub-cell
- * quadrants and depth fading are what stop it collapsing into a grey smear: a
- * cloud with no depth cue is a texture, not a shape.
+ * dots and depth fading are what stop it collapsing into a grey smear: a cloud
+ * with no depth cue is a texture, not a shape.
  */
 export const pointCloud: Visualization<Volume> = {
   id: "point-cloud",
@@ -132,6 +132,7 @@ export const pointCloud: Visualization<Volume> = {
     const domain = baselineDomain(volume, context.domain);
     const eye = camera(context.size, { yaw: 0.09, pitch: 0.1, distance: DISTANCE });
     const depths = volume.length;
+    const dots = new DotPainter(context.size);
     const points: { at: Projected; heat: number }[] = [];
     for (let z = 0; z < depths; z += 1) {
       const plane = volume[z] ?? [];
@@ -155,13 +156,17 @@ export const pointCloud: Visualization<Volume> = {
       }
     }
     points.sort((a, b) => b.at.depth - a.at.depth);
+    const across = dots.resolution.width / width;
+    const down = dots.resolution.height / height;
     for (const point of points) {
       if (!point.at.visible) continue;
-      plotQuadrant(frame, Math.round(point.at.column * 2), Math.round(point.at.row * 2), {
-        foreground: fadeToward(rampGradient(context.theme, point.heat), context.theme.background, point.at.depth),
-        background: context.theme.background,
-      });
+      dots.plot(
+        Math.round(point.at.column * across),
+        Math.round(point.at.row * down),
+        fadeToward(rampGradient(context.theme, point.heat), context.theme.background, point.at.depth),
+      );
     }
+    dots.paint(frame, { column: 0, row: 0 }, { background: context.theme.background });
     return frame;
   },
 };

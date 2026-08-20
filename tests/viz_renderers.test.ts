@@ -296,8 +296,12 @@ Deno.test("a field renderer given too little data loses to one that suits it", (
   assert(waterfall.reason.includes("wants"), waterfall.reason);
   assert(pair.indexOf(waterfall) > 2, `a spectrogram of two should not be near the top: ${pair.map((f) => f.id)}`);
   assert(pair[0]!.score > waterfall.score * 2);
-  // Twenty-eight is, and it wins the same box back.
-  assertEquals(fitVisualizations({ kind: "1dt", extent: [28] }, { width: 40, height: 10 })[0]!.id, "waterfall");
+  // Twenty-eight is, and it climbs back to the top of the field renderers —
+  // the overlay outranks it on either count, being a chart of any number of
+  // series rather than a spectrogram of enough of them.
+  const many = fitVisualizations({ kind: "1dt", extent: [28] }, { width: 40, height: 10 });
+  assertEquals(many.find((fit) => fit.id === "waterfall")!.reason, "fits comfortably");
+  assert(many.indexOf(many.find((fit) => fit.id === "waterfall")!) < pair.indexOf(waterfall));
 });
 
 Deno.test("a trace is continuous: no gap between two samples a long way apart", () => {
