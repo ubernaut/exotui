@@ -24,6 +24,19 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**A blank terminal from a new client and an old daemon (Aug 20).** After both tode fixes shipped, tode produced a blank
+window instead of base64. The debugging instrument that settled it was an isolated reproduction: tode run in a scratch
+PTY with exomux's sanitised environment, its GUI stubbed through its own `TODE_TERMINAL_BROWSER_BIN` override, raw bytes
+captured with `script`. In that environment tode behaves — colour queries, a DA probe, a clear "cannot show images"
+message, exit 1. The user's blank was the remaining combination: their daemon (started Aug 19, 21:19, confirmed from
+`host.json`'s `startedAt` and the live pid) predates the env sanitiser, so tode still saw Ghostty's identity and painted
+its whole UI as kitty graphics — into a freshly rebuilt client (binary dated 14:12, after the APC fix) that now consumes
+them silently. Both fixes correct; the skew between them was the bug. The daemon now advertises `sanitizedChildEnv` in
+its descriptor, a client attaching to a daemon without it says so in the status line with the pid to kill, and a screen
+that swallows kitty graphics counts them so the terminal can say "app is sending images" instead of staying wordlessly
+blank. _Rule: when two fixes straddle a daemon boundary, the fix is not deployed until the daemon restarts — make the
+skew a fact on screen, not an inference._
+
 **Two parsers, and the screen used the one without APC (Aug 20).** The repository has a complete incremental terminal
 parser (`terminal_parser.ts`, TERM-001) that knows every string sequence — and `TerminalScreenController` does not use
 it; it parses with `parseTerminalControlSequence` from `terminal_sequences.ts`, which knew OSC/CSI/ESC only. The same

@@ -135,6 +135,15 @@ export class TerminalScreenController {
   #pendingControl = "";
   /** Swallowing an oversized DCS/APC/PM/SOS payload until its ST arrives. */
   #discardingString = false;
+  /**
+   * Kitty graphics sequences consumed without being drawn.
+   *
+   * Counted so a host can say "this application is sending images" instead of
+   * presenting the honest-but-baffling alternative, which is a terminal that
+   * stays blank while an editor paints its whole UI into sequences this model
+   * swallows.
+   */
+  #kittyGraphicsConsumed = 0;
   // VT100 deferred-wrap latch: after a glyph fills the last column the cursor
   // parks there and only the *next* printable character wraps + scrolls. Full
   // -screen TUIs (e.g. nested Exomux) paint the bottom row edge-to-edge every
@@ -188,6 +197,11 @@ export class TerminalScreenController {
     }
   }
 
+  /** How many kitty graphics sequences arrived and were swallowed undrawn. */
+  get kittyGraphicsConsumed(): number {
+    return this.#kittyGraphicsConsumed;
+  }
+
   write(data: string | Uint8Array): void {
     const decoded = typeof data === "string"
       ? this.#decoder.decode() + data
@@ -230,6 +244,7 @@ export class TerminalScreenController {
               // discard to the terminator instead of dropping the buffer and
               // printing whatever half of the payload arrives next.
               this.#discardingString = true;
+              if (opener === "_" && suffix.startsWith("\x1b_G")) this.#kittyGraphicsConsumed += 1;
             }
           }
           break;
@@ -505,7 +520,10 @@ export class TerminalScreenController {
     // where the image would be, never the payload as text.
     if (
       sequence.kind === "dcs" || sequence.kind === "apc" || sequence.kind === "pm" || sequence.kind === "sos"
-    ) return;
+    ) {
+      if (sequence.kind === "apc" && sequence.params.startsWith("G")) this.#kittyGraphicsConsumed += 1;
+      return;
+    }
     if (sequence.kind === "esc" && sequence.intermediates) {
       this.#applyEscIntermediates(sequence.intermediates, sequence.command);
       return;

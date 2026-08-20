@@ -91,3 +91,18 @@ Deno.test("clear() releases a half-received string sequence", () => {
   assertEquals(screenText(screen), "fresh");
   assert(!screenText(screen).includes("AAAA"));
 });
+
+Deno.test("swallowed kitty graphics are counted, so a host can say why the screen is blank", () => {
+  const screen = new TerminalScreenController({ columns: 40, rows: 6 });
+  assertEquals(screen.kittyGraphicsConsumed, 0);
+  for (const apc of kittyTransmit(btoa("x".repeat(9000)))) screen.write(apc);
+  assertEquals(screen.kittyGraphicsConsumed, 3, "one per APC chunk of the transmission");
+  // Non-graphics strings do not count: a tmux passthrough is not an image.
+  screen.write("\x1bPtmux;payload\x1b\\");
+  screen.write("\x1b_Znot-graphics\x1b\\");
+  assertEquals(screen.kittyGraphicsConsumed, 3);
+  // An oversized graphics transmit counts once as it enters discard mode.
+  const huge = `\x1b_Ga=T,f=100;${btoa("p".repeat(120_000))}\x1b\\`;
+  for (let at = 0; at < huge.length; at += 8192) screen.write(huge.slice(at, at + 8192));
+  assertEquals(screen.kittyGraphicsConsumed, 4);
+});

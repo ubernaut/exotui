@@ -3416,7 +3416,15 @@ export class ExomuxController {
       this.#warn(runtime, `Output sequence gap (${runtime.lastSequence} → ${sequence}).`);
     }
     runtime.lastSequence = sequence;
+    const graphicsBefore = runtime.screen.kittyGraphicsConsumed;
     runtime.screen.write(frameValue.data);
+    if (graphicsBefore === 0 && runtime.screen.kittyGraphicsConsumed > 0) {
+      // The application inside believes this terminal draws images — usually
+      // because a daemon older than the env sanitiser handed it the host
+      // terminal's identity. The screen stays honest (blank where the image
+      // would be), so the user gets told why it is blank.
+      this.#warn(runtime, "App is sending images (kitty graphics) — exomux cannot show them yet.");
+    }
     if (runtime.outputTaps.size > 0) {
       const text = typeof frameValue.data === "string" ? frameValue.data : new TextDecoder().decode(frameValue.data);
       for (const tap of runtime.outputTaps) tap(text);

@@ -424,6 +424,15 @@ async function runExomuxClientSession(
       ? ` · replaced unresponsive host pid ${connection.recovery.pid}`
       : " · cleared crashed host state";
   }
+  // A daemon older than this client keeps running with the behaviour it was
+  // started with — that is the point of it — but the skew should be a fact on
+  // screen, not a mystery. The concrete case: a daemon that predates the child
+  // env sanitiser hands PTY children the host terminal's identity, and an app
+  // like tode then paints kitty graphics into a screen that cannot show them.
+  if (!connection.launched && connection.descriptor.sanitizedChildEnv !== true) {
+    connectionStatus += " · daemon predates this client — restart it (kill " +
+      `${connection.descriptor.pid}) to pick up fixes`;
+  }
   try {
     await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
     const runtime = await createExomuxTerminalApp({ controller });
@@ -701,6 +710,10 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     // Advertised so a client that predates the shared-state channel never
     // sends a message this daemon would answer by closing the connection.
     sharedWorkspace: true,
+    // This daemon strips the host terminal's identity from PTY children. A
+    // descriptor without it is a daemon that hands children Ghostty's
+    // environment — the client warns rather than letting an app believe it.
+    sanitizedChildEnv: true,
     hostId: server.controller.id,
     url: address.url,
     token: authToken,

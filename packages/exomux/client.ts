@@ -50,6 +50,8 @@ export interface ExomuxLocalHostDescriptor {
   /** New hosts advertise replay backpressure; absence identifies legacy queue behavior. */
   readonly flowControlledReplay?: true;
   readonly sharedWorkspace?: true;
+  /** Absence identifies a daemon that hands PTY children the host terminal's identity. */
+  readonly sanitizedChildEnv?: true;
 }
 
 /** Minimal WebSocket seam used by deterministic client tests. */
@@ -959,7 +961,8 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     !Number.isSafeInteger(record.pid) || (record.pid as number) < 1 ||
     typeof record.startedAt !== "number" || !Number.isFinite(record.startedAt) || record.startedAt < 0 ||
     (keys.includes("flowControlledReplay") && record.flowControlledReplay !== true) ||
-    (keys.includes("sharedWorkspace") && record.sharedWorkspace !== true)
+    (keys.includes("sharedWorkspace") && record.sharedWorkspace !== true) ||
+    (keys.includes("sanitizedChildEnv") && record.sanitizedChildEnv !== true)
   ) {
     throw invalidDescriptor();
   }
@@ -972,6 +975,7 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     startedAt: Math.floor(record.startedAt),
     ...(record.flowControlledReplay === true ? { flowControlledReplay: true as const } : {}),
     ...(record.sharedWorkspace === true ? { sharedWorkspace: true as const } : {}),
+    ...(record.sanitizedChildEnv === true ? { sanitizedChildEnv: true as const } : {}),
   });
 }
 
