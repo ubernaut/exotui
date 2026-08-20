@@ -18,6 +18,11 @@ written from memory; two of them were wrong and are now what the code prints.
 Released as 0.4.0 rather than the unpublished 0.3.1, because eleven visualisations, a drawing toolkit, a tiling layer,
 an axis layer and the unification of the two charting stacks are not a patch.
 
+The standalone checkout it came from was retired rather than left to drift. Its working tree held nothing the vendored
+copy lacked — the only differences were a modal bug already fixed here and a README describing commands that no longer
+exist — but its seven commits had no remote, so the history went to a git bundle, verified by restoring it and diffing
+the result before anything was deleted.
+
 ## August 19 2026 — one charting stack, and the btop graph
 
 The maintainer's call: `src/visual` stays the measuring layer, `src/viz` is the painting one. `visual` answers where
