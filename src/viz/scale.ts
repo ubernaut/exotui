@@ -42,6 +42,22 @@ export function domainOfAll(values: Iterable<unknown>): Domain {
   return safeDomain({ min, max });
 }
 
+/**
+ * The domain for anything drawn from a baseline: bars, racks, filled areas.
+ *
+ * Auto-scaling to the data's own range is right for a trend line, where the
+ * question is "what shape is this", and wrong for a bar, where the question is
+ * "how much". Two values of 1019K and 698K auto-scaled put the second bar at
+ * zero — the smaller of any pair is always empty, which is not a chart, it is
+ * a ranking drawn as one. So the floor is zero unless the data goes below it,
+ * and a caller with a real domain still wins.
+ */
+export function baselineDomain(values: Iterable<unknown>, given?: Domain): Domain {
+  if (given) return safeDomain(given);
+  const measured = domainOfAll(values);
+  return safeDomain({ min: Math.min(0, measured.min), max: Math.max(0, measured.max) });
+}
+
 /** Where a value sits in a domain, clamped to 0-1. */
 export function normalize(value: number, domain: Domain): number {
   const safe = safeDomain(domain);
@@ -96,36 +112,10 @@ export class TrackingDomain {
 /**
  * Resamples a series to exactly `width` points.
  *
- * Terminals are narrow and histories are long, so something has to give. Picking
- * every nth point drops the spikes that are the whole reason for watching, so
- * this takes the extreme of each bucket instead: the value furthest from the
- * bucket's mean survives, which keeps a one-frame spike visible after
- * downsampling.
+ * Re-exported from the measuring layer, where every other downsampler lives.
+ * A per-column renderer wants one value per column; a polyline wants selected
+ * points and their own positions, which is `lttbDownsample`. Both are honest
+ * answers to "this history is longer than the terminal is wide", and keeping
+ * them in one module is what stops a third appearing.
  */
-export function resample(values: readonly number[], width: number): number[] {
-  const target = Math.max(0, Math.floor(width));
-  if (target === 0) return [];
-  if (values.length === 0) return new Array(target).fill(0);
-  if (values.length === target) return [...values];
-  if (values.length < target) {
-    // Stretch: hold each value across its share of the wider axis.
-    return Array.from({ length: target }, (_, index) => {
-      const source = Math.min(values.length - 1, Math.floor((index * values.length) / target));
-      return values[source]!;
-    });
-  }
-  const out: number[] = [];
-  for (let index = 0; index < target; index += 1) {
-    const start = Math.floor((index * values.length) / target);
-    const end = Math.max(start + 1, Math.floor(((index + 1) * values.length) / target));
-    let sum = 0;
-    for (let at = start; at < end; at += 1) sum += values[at]!;
-    const mean = sum / (end - start);
-    let extreme = values[start]!;
-    for (let at = start; at < end; at += 1) {
-      if (Math.abs(values[at]! - mean) > Math.abs(extreme - mean)) extreme = values[at]!;
-    }
-    out.push(extreme);
-  }
-  return out;
-}
+export { resampleToWidth as resample } from "../visual/downsample.ts";

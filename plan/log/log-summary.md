@@ -3,6 +3,163 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — exomonitor becomes the worked example (0.4.0)
+
+It moved into `examples/showcases/exomonitor/` beside Inkstone, Orbital Command and GlyphForge, and its tests joined the
+root suite as `tests/exomonitor_*.test.ts`. That is where it belonged from the start: nearly every feature of the
+visualisation layer exists because building a system monitor needed it, and a library whose worked example lives in
+another repository is a library whose worked example drifts.
+
+The README grew a Visualizations section that explains the layer rather than listing it — the rank-and-history model,
+what `fitVisualizations` is for and why crowding is reported apart from score, how to draw a frame, how to tile a
+screen, and what each file of exomonitor demonstrates. Its numbers were checked against the running code rather than
+written from memory; two of them were wrong and are now what the code prints.
+
+Released as 0.4.0 rather than the unpublished 0.3.1, because eleven visualisations, a drawing toolkit, a tiling layer,
+an axis layer and the unification of the two charting stacks are not a patch.
+
+## August 19 2026 — one charting stack, and the btop graph
+
+The maintainer's call: `src/visual` stays the measuring layer, `src/viz` is the painting one. `visual` answers where
+things go and never learns about colour; `viz` decides what glyph and what colour go there. Every duplicate between them
+is gone — ticks were already delegated, and now rasterisation lives in `visual/raster.ts` so a line and a series cannot
+land one cell apart, `resampleToWidth` sits beside min-max and LTTB in `visual/downsample.ts`, and `viz`'s quadrant
+primitive is replaced by a `DotPainter` over `visual`'s `MarkCanvas`.
+
+That last one is the payoff. The mark canvas already had a logical dot space, braille through full-cell backends, and
+capability-checked degradation; what it could not express is that a cell has a colour, which is the one thing `viz`
+exists for. Wrapping rather than reimplementing gave braille — eight dots to a cell — for the cost of noticing that a
+dot space has to be sized for the _resolved_ backend, since a space scaled for braille rasterises to twice the rows
+through quadrants.
+
+With that, the overlay became the btop CPU graph: one braille trace per core over the window, each in its own colour,
+sixteen of them crossing without becoming a block. It accepts a history of vectors as well as a matrix, because a
+sampler produces "every series at each instant" and a chart wants "one series across all instants". Colours run out
+before cores do, so beyond the theme's own the palette spins hues at golden-ratio spacing.
+
+Identity by colour alone is the trade a dot backend makes — a braille cell holds eight dots and one colour, so there is
+no glyph left to vary. Where that trade is wrong the psychograph draws the same data with a pip per series at cell
+resolution, which survives a monochrome terminal. Both are in the ranking; the overlay leads.
+
+`cpu:cores` in exomonitor states no preference any more. It used to ask for a waterfall on the grounds that history per
+core is what one frame cannot show — and the overlay shows the same history, more legibly, so stating a preference would
+only have been a way of getting it wrong later.
+
+## August 19 2026 — a psychograph of several lines, and a charting stack nobody had used
+
+The psychograph draws one line or many. Several series overlay on one set of axes — a left and a right channel spectrum
+on the same graph, three histories against each other — each with its own pip and its own colour, because colour alone
+fails a monochrome terminal and a reader who cannot separate two hues. A single series keeps the value ramp: with
+nothing to compare against, height says more than identity. Where two series meet the crossing is drawn rather than one
+of them being quietly overwritten, which matters precisely because two audio channels agree most of the time and a chart
+that hides one for it is a chart claiming they differ.
+
+That needed a model change worth its own line: `accepts` takes a list. One series over time, several over time, and
+several read at one instant are the same picture of differently shaped data, and splitting them into three
+visualisations would make a caller choose by name rather than by data. `drawStream` picks the accepted kind that best
+matches the stream, preferring an exact match so history is not dropped when both are on offer.
+
+exomonitor grew the stereo capture to go with it: `parec` records two channels, the spectra are computed per channel and
+the mono mix kept for the existing feed, and `audio:channels` is a `2dt` matrix of one row per channel. Measured at 61
+Hz on the maintainer's machine.
+
+Then the maintainer said there was already a version of this somewhere. There was. `src/visual/` is a complete charting
+subsystem — eleven modules, eleven test files, exported from `mod.ts` — and nothing imports it. Multi-series overlay, a
+mark canvas with braille through full-cell backends and capability degradation, six kinds of scale, axis tick layout
+with collision thinning, LTTB downsampling, heatmaps with colour-target degradation, annotations, crosshair and brush
+interactions, linked charts, and SVG export. `src/viz/` was built without knowing, and duplicated some of it.
+
+The tick duplicate is gone: `viz/axes.ts` paints over `visual`'s `buildAxis` now, which brought Intl formatting,
+emoji-aware label widths and deterministic thinning for free, and turned up a floating-point bug in the shared tick
+generator on the way — three times 0.2 is 0.6000000000000001, and it was reaching the tick list. What remains is
+recorded in the priority queue: the two stacks meet at colour, and which way that goes is a design call rather than a
+refactor to start blind.
+
+## August 19 2026 — the demos, combed for what was actually a visualisation
+
+Thirty-six visualisations across the neon, monitor and neon3d families, and the finding that mattered came before any of
+them moved: they are not data-driven. `app/visualizations.ts` renders from a `VisualizationDrive` — phase, cadence,
+volatility — and the three.js scenes from a pointer signal. Their "psychograph" is `sin(x·k + phase)`, not a plot of
+anything. So nothing was a move; each one is a form re-driven by data, which is a design decision per renderer.
+
+What did port mechanically is what they are all built on: a drawing toolkit. `plot`, lines, paths, arcs, ellipses,
+rectangles, and quadrant sub-cells that light a quarter of a character each. The versions in
+`app/visualization_primitives.ts` write characters into a string matrix; a visualisation needs a colour per cell, so
+these write `VizCell`s. Until this existed every renderer plotted cell by cell and a dial was not writable.
+
+Eleven renderers came out of it, taking the catalogue from twelve to twenty-three. A dial whose sweep is the value; an
+odometer for a number that has to read across a room; a strip chart; a honeycomb; a status grid of labelled pills; an
+overlay of several series; a scatter at quadrant resolution; and four projected ones — a surface, a ring stack, a point
+cloud and a vector field.
+
+Two model gaps surfaced while fitting them. `perEntry` was one-dimensional, which cannot describe a renderer that lays
+entries out in a grid — eighty-eight tiles fit a box that is neither eighty-eight columns nor eighty-eight rows — so it
+grew a `cells` term and crowding is now bounded by area as well as by each axis. And rank alone cannot separate a
+scatter from a heatmap, since both take a matrix, so a visualisation can declare `suits(shape)` and is left out of the
+ranking rather than ranked badly when the answer is no.
+
+The projection is arithmetic rather than three.js, deliberately: the core has no runtime dependencies and a wireframe
+chart should not add one. The shaded, post-processed look those scenes have is what a `./viz/three` entrypoint would be
+for, and it is not started.
+
+Also `src/viz/axes.ts`, which closes a gap the plan has carried since the visualisations shipped: ticks at round
+numbers, a value axis, a time axis that drops labels rather than truncating them, and a legend. A layer rather than
+something each renderer grew, because a tile two rows tall cannot afford an axis — and nothing in it shrinks the chart
+it labels, which is the one bug it must not have.
+
+## August 19 2026 — what fits depends on the data (0.3.1)
+
+A visualisation used to declare one minimum size, which cannot answer the question a tile actually asks. Eighty-eight
+cores drawn as bars want eighty-eight columns; four cores want four. Same renderer, same box, right answer in one case
+and unreadable in the other.
+
+Each visualisation now declares what one entry costs it — a column for bars and waterfall, a row for rack, nothing for
+the scalar views, which draw history rather than entries — plus a weight ranking it among equals. `scoreFit` combines
+the absolute floor with that crowding and returns both a score and a reason in words: "fits comfortably", "88 entries
+are tight here". `fitVisualizations` ranks every candidate for a shape at a size. Crowding is reported separately from
+the score because it answers a different question: the score ranks candidates against each other, crowding says whether
+the winner is worth drawing at all.
+
+An `area` renderer joined them, and immediately became the default for anything `0dt`. The psychograph plots one point
+per column, which is honest and reads as scatter; a filled body gives the eye an edge to follow. Seeing the two side by
+side is what settled it, which is why exomonitor grew a `scripts/preview.ts` that prints a composed screen at any size
+without a terminal to resize.
+
+`VisualizationView`'s run pool now grows on demand instead of being fixed at construction. It still draws only into
+slots that predate the frame — dependency tracking is asynchronous, so a slot positioned in the frame it was created in
+would not move — which costs one clipped frame after a resize and buys a screen-sized composition that cannot run out.
+
+A trace renderer joined them — the vector as a continuous line rather than bars from a baseline. Bars answer "how much
+of each" and a trace answers "what shape is this", which is what an equaliser and an oscilloscope are asking. It
+resamples across the box, so it declares no per-entry appetite and takes no crowding penalty for two hundred and fifty
+six points in forty columns; what it does declare is a floor on entries, because a line between two of them is not a
+trace of anything.
+
+That broke a test worth recording rather than just fixing. "Eighty-eight entries score worse than four in the same tile"
+had been asserted on the top-ranked fit, and stopped being true once a renderer existed that resamples — the winner
+changes identity, and two renderers' scores are not on the same scale. Compared renderer for renderer the claim holds
+exactly as before. The general lesson: a ranking test should name the thing it is ranking.
+
+Two renderer bugs surfaced from looking at real feeds. A bar chart scaled to its own data range puts the smaller of any
+pair at zero, so `↓1019K/s ↑698K/s` drew one full bar and one empty one — a ranking drawn as a chart. Bars, racks and
+areas now take their floor from zero unless the data goes below it, and a caller's domain still wins. And crowding could
+not catch the opposite mistake: two entries in thirty-five columns fit perfectly and a spectrogram of them is two
+coloured slabs, so a field renderer declares the entries it wants before it earns its weight.
+
+Audio then had to run at sixty. It had been analysing one non-overlapping window per four buffered — 5.9 spectra a
+second, three quarters of the audio discarded — and the screen was reading it once a second on the sample tick. Windows
+now overlap with a hop of `sampleRate / 60`, sliced at hop boundaries rather than at whatever boundary the recorder
+happens to hand over, which is the difference between 50 Hz and 60.0 Hz measured. A feed can declare itself live: its
+tile is drawn by its own listener at its own rate, on a second view above the screen, so sixty frames a second costs one
+chart rather than the whole terminal — 8.3 ms of a 16.7 ms budget for a 77x18 spectrogram.
+
+exomonitor was rebuilt on it: sources became feeds (overall CPU and per-core load are different questions, not one
+panel), the density table became equal tiles, and the panel-to-visualisation mapping became a ranking against live
+cardinality. An 18x4 terminal reads `cpu 42%  mem 70%  gpu 10%  net 20K/s` with no special case for it — that is what
+falls out when no candidate clears the crowding floor and the tile keeps its number. The settings modal is Box, Frame,
+Tabs and List rather than hand-drawn text, with a Display page that shows the registry's own reason for each choice and
+lets one be pinned; a pin that stops fitting is ignored rather than obeyed.
+
 ## August 18 2026 — animations confirmed (039)
 
 The maintainer ran exomux and confirmed the window and menu animations on a real terminal — the one check headless

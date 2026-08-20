@@ -76,66 +76,88 @@ export interface VisualizationViewOptions {
   readonly parent: Component["tui"] | Component;
   readonly rectangle: Signal<Rectangle> | Computed<Rectangle>;
   readonly zIndex?: number;
-  /** Builds the style for a row from the run that dominates it. */
+  /** Builds the style for one run of identically coloured cells. */
   readonly styleFor: (run: VizRun) => Style;
-  /** Rows to allocate. Frames taller than this are clipped. */
-  readonly maxRows?: number;
-}
-
-/** The run that decides a row's colour: the one covering the most cells. */
-export function dominantRun(runs: readonly VizRun[]): VizRun | undefined {
-  let best: VizRun | undefined;
-  for (const run of runs) {
-    const weight = run.text.trim().length;
-    if (weight === 0) continue;
-    if (!best || weight > best.text.trim().length) best = run;
-  }
-  return best ?? runs[0];
+  /**
+   * Runs allocated before the first frame. A frame needing more grows the pool
+   * up to `maxRuns`; this only sets how much is ready immediately.
+   */
+  readonly initialRuns?: number;
+  /** The ceiling the pool may grow to. A frame with more runs is clipped. */
+  readonly maxRuns?: number;
 }
 
 /**
- * Draws frames handed to it, one `Text` per row.
+ * Draws frames handed to it, one `Text` per run of identically styled cells.
  *
- * Fixed geometry, deliberately. A draw object created at one size does not
- * re-register when its rectangle later changes, so anything that resizes a
- * component per frame silently stops painting — reproduced in
- * tests/canvas_zero_width_draw.test.ts. Rows are allocated once at full width
- * and only their text and style change.
+ * The pool is allocated in the constructor and never grows during a frame.
+ * Dependency tracking in this library is asynchronous — a Computed wires itself
+ * to its dependencies a turn of the event loop after it is created — so a
+ * component created and immediately re-positioned misses that change. Creating
+ * everything up front means the wiring is long done by the time frames arrive.
  *
- * The cost is one style per row rather than per cell. Every renderer in this
- * package encodes magnitude in its glyphs as well as its colour, precisely so
- * that a row drawn in one colour still reads — the same property that makes
- * them legible on a monochrome terminal.
+ * Runs rather than rows because a heatmap or a waterfall is a two-dimensional
+ * field: colouring a whole row by its dominant value turns it into a grey wall,
+ * which is exactly what it looked like before this.
  */
+/** Far enough below any frame that a parked slot cannot overlap one. */
+const PARKED_ROW = 1 << 20;
+
 export class VisualizationView {
-  readonly #rows: { text: Signal<string>; style: Signal<Style> }[] = [];
+  readonly #slots: {
+    text: Signal<string>;
+    column: Signal<number>;
+    row: Signal<number>;
+    style: Signal<Style>;
+  }[] = [];
   readonly #options: VisualizationViewOptions;
+
+  readonly #maximum: number;
 
   constructor(options: VisualizationViewOptions) {
     this.#options = options;
-    const rows = Math.max(1, options.maxRows ?? 64);
-    for (let row = 0; row < rows; row += 1) this.#addRow(row);
+    this.#maximum = Math.max(1, options.maxRuns ?? 4096);
+    const slots = Math.max(1, Math.min(this.#maximum, options.initialRuns ?? 512));
+    for (let index = 0; index < slots; index += 1) this.#addSlot();
   }
 
   /** Replaces what is on screen with this frame. */
   present(frame: VizFrame): void {
-    for (let row = 0; row < this.#rows.length; row += 1) {
-      const slot = this.#rows[row]!;
-      const cells = frame[row];
-      if (!cells) {
-        slot.text.value = " ";
+    const runs = framesToRuns(frame);
+    // Grow toward what this frame wanted, but draw with the slots that already
+    // existed. A Computed wires itself to its dependencies a turn of the event
+    // loop after it is created, so a slot positioned in the frame it was made
+    // in would not move; the next frame has it. One clipped frame after a
+    // resize is invisible, a permanently misplaced run is not.
+    const usable = this.#slots.length;
+    if (runs.length > usable && usable < this.#maximum) {
+      const target = Math.min(this.#maximum, runs.length);
+      while (this.#slots.length < target) this.#addSlot();
+    }
+    for (let index = 0; index < usable; index += 1) {
+      const slot = this.#slots[index]!;
+      const run = runs[index];
+      if (!run) {
+        // Parked outside the frame. An idle slot left at its default position
+        // paints a space over whatever is drawn there — which cost the first
+        // cell of every chart until it was noticed.
+        if (slot.text.peek() !== " ") slot.text.value = " ";
+        if (slot.row.peek() !== PARKED_ROW) slot.row.value = PARKED_ROW;
         continue;
       }
-      const runs = framesToRuns([cells]);
-      const dominant = dominantRun(runs);
-      slot.style.value = dominant ? this.#options.styleFor(dominant) : slot.style.peek();
-      const text = cells.map((cell) => cell.char).join("");
-      slot.text.value = text.length > 0 ? text : " ";
+      slot.column.value = run.column;
+      slot.row.value = run.row;
+      slot.style.value = this.#options.styleFor(run);
+      slot.text.value = run.text;
     }
   }
 
-  #addRow(row: number): void {
+  #addSlot(): void {
+    // A space, never the empty string: a zero-width rectangle at creation is
+    // one the canvas has nothing to place.
     const text = new Signal(" ");
+    const column = new Signal(0);
+    const row = new Signal(PARKED_ROW);
     const style = new Signal<Style>(((value: string) => value) as unknown as Style);
     const base = this.#options.rectangle;
     const component = new Text({
@@ -144,14 +166,13 @@ export class VisualizationView {
       theme: { base: style.peek() },
       text,
       overwriteWidth: true,
-      // Full width from the first frame and never changed.
-      rectangle: new Computed<TextRectangle>(() => {
-        const rect = base.value;
-        return { column: rect.column, row: rect.row + row, width: Math.max(1, rect.width) };
-      }),
-      visible: new Computed(() => row < base.value.height),
+      rectangle: new Computed<TextRectangle>(() => ({
+        column: base.value.column + column.value,
+        row: base.value.row + row.value,
+        width: Math.max(1, text.value.length),
+      })),
     });
     component.style = new Computed(() => style.value);
-    this.#rows.push({ text, style });
+    this.#slots.push({ text, column, row, style });
   }
 }

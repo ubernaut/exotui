@@ -56,6 +56,17 @@ const GEOMETRY: Readonly<Record<MarkBackend, { x: number; y: number }>> = {
   "full-cell": { x: 1, y: 1 },
 };
 
+/**
+ * Dots per cell for a backend.
+ *
+ * Exported because a caller sizing a dot canvas has to know it: a dot space
+ * scaled for braille rasterises to twice the rows through the quadrant backend,
+ * and a caller that assumed otherwise overflows whatever it was drawing into.
+ */
+export function markGeometry(backend: MarkBackend): { readonly x: number; readonly y: number } {
+  return GEOMETRY[backend];
+}
+
 /** Resolves the backend under the terminal's capabilities. */
 export function resolveMarkBackend(requested: MarkBackend, capabilities: GlyphCapabilities): {
   backend: MarkBackend;

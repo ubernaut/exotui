@@ -6,6 +6,102 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.4.0 — 2026-08-19
+
+### Added
+
+- **Eleven visualisations**, taking the catalogue from twelve to twenty-three. `dial` and `odometer` for a single
+  number; `strip` for a history as one joined line; `hexgrid` and `status-grid` for entries laid out by area rather than
+  along an axis; `scatter` at sub-cell resolution; and four projected views — `surface` with a floating horizon,
+  `ring-volume`, `point-cloud` and `vector-field`. The projected ones are arithmetic rather than Three.js: the core has
+  no runtime dependencies and a wireframe chart should not add one.
+
+- **`overlay` is the btop-style chart** — one braille trace per series, each in its own colour, sixteen of them crossing
+  without becoming a block. It takes a history of vectors as well as a matrix, because a sampler produces "every series
+  at each instant" and a chart wants "one series across all instants". Past the theme's own colours the palette spins
+  hues at golden-ratio spacing, since colours run out before cores do.
+
+- **`psychograph` draws one series or many.** Several overlay on one set of axes — a left and right channel spectrum on
+  the same graph — each with its own pip and colour. Where two meet, the crossing is drawn rather than one being
+  overwritten: two audio channels agree most of the time, and hiding one for it claims they differ.
+
+- **`area`** — a filled area chart, now the default for anything `0dt`. A scatter of points is something the eye has to
+  assemble and a filled body is not.
+
+- **`src/viz/tiles.ts`** — `planTiles` divides an area into tiles and picks each one's visualisation from the data's
+  live cardinality, with `gridFor`, `placeTiles`, `chartRectFor` and `isFramed` beneath it. Generic over a `TileSource`,
+  so a caller keeps its own typing.
+
+- **`src/viz/dashboard.ts`** — `drawTileFrame`, `drawTileLabel`, `blitFrame` and `screenFrame`: the chrome for a screen
+  of charts, drawn as cells so a title, a reading and a border can be three colours on one row.
+
+- **`src/viz/axes.ts`** — `drawValueAxis`, `drawTimeAxis`, `drawLegend`, and `valueAxisWidth` for measuring the gutter
+  first. A layer rather than something each renderer grew, because a tile two rows tall cannot afford an axis; nothing
+  in it shrinks the chart it labels.
+
+- **`src/viz/draw.ts`** — plotting, lines, paths, arcs, ellipses, rectangles, slope-aware glyphs, and `DotPainter` for
+  sub-cell plotting in colour.
+
+- **`src/viz/project.ts`** — a camera for the projected views, with the cell aspect ratio built in.
+
+- **`groundless`** — drops the background from cells painted in the theme's ground colour, so a host compositing behind
+  the window has something to blend. A terminal cell carrying an explicit background is opaque by definition.
+
+- **`src/visual/raster.ts`** — `segmentCells` and `polylineCells`, the one answer to "which cells does this line cover",
+  shared by both charting layers.
+
+- **exomonitor** joins the showcases as the worked example for `./viz`: `deno task exomonitor`, with
+  `deno task exomonitor:preview 18x4` to print a screen at any size.
+
+### Changed
+
+- **The two charting stacks are unified.** `src/visual` is the measuring layer and never learns about colour; `src/viz`
+  is the painting one. Tick generation, rasterisation, sub-cell plotting and downsampling each had two implementations
+  and now have one. `viz`'s quadrant primitive is replaced by `DotPainter` over `visual`'s `MarkCanvas`, which brings
+  braille — eight dots to a cell — and capability-checked degradation.
+
+- **`resample` moved to `src/visual/downsample.ts`** as `resampleToWidth`, beside min-max and LTTB. `src/viz/scale.ts`
+  re-exports it under the old name.
+
+- **A visualisation may accept several kinds.** `accepts` takes a list, and `drawStream` picks the one that best matches
+  the stream, preferring an exact match so history is not dropped when both are on offer.
+
+- **Fitness answers more than "does it fit".** A visualisation declares `perEntry` costs (now including `cells`, for
+  grid layouts bounded by area rather than by an axis), `minimumEntries` below which it stops being what it claims, a
+  `weight`, and an optional `suits(shape)` for the cases rank cannot separate — a scatter and a heatmap both take a
+  matrix. `VizFit` reports `crowding` alongside `score`, because ranking candidates and deciding the winner is worth
+  drawing at all are different questions.
+
+- **`VizContext` gains `labels`**, so a renderer that identifies its entries can name them rather than numbering them.
+
+- **`VisualizationView`'s run pool grows on demand** instead of being fixed at construction, drawing only into slots
+  that predate the frame — dependency tracking is asynchronous, so a slot positioned in the frame it was created in
+  would not move.
+
+- **`rampGradient` quantises to 32 steps.** A continuous gradient gives almost every cell of a heatmap its own colour,
+  and the view layer draws one component per run of identically styled cells.
+
+### Fixed
+
+- **Bars, racks and areas take their baseline from zero** rather than from the data's own minimum. Scaled to their
+  extent, `1019K` and `698K` drew one full bar and one empty one — a ranking drawn as a chart.
+
+- **Tick values carried floating-point residue.** Three times 0.2 is 0.6000000000000001 in IEEE 754, and it was reaching
+  `ContinuousScale.ticks`, saved from view only by Intl formatting downstream.
+
+- **A widget revealed after its first frame drew into a zero-width box** and stayed blank, because the visibility
+  subscriber ran while a sibling rectangle Computed of the same change was still stale.
+
+## 0.3.1 — 2026-08-19
+
+### Added
+
+- **`readout`** — a rank-0 visualisation that draws the value as text, in as little as one cell. It completes the
+  degradation ladder: a terminal can always be made small enough that a meter is a lie, and at that size the honest
+  thing is the number. It is a visualisation like any other so the registry can choose it, rather than every caller
+  carrying a special case for "too small to draw". `VizContext` gains an optional `format`, because only the caller
+  knows whether a number is a percentage, a byte rate or a temperature.
+
 ## 0.3.0 — 2026-08-19
 
 ### Added

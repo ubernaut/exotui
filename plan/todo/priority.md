@@ -1,10 +1,22 @@
 # Priority queue
 
-Ordered list of open work. A task not in this list is not expected of anyone. Updated August 18 2026.
+Ordered list of open work. A task not in this list is not expected of anyone. Updated August 19 2026.
 
 ## Active
 
-1. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+1. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
+   fitness ranking are in and green; these are the gaps building a real application found and did not close:
+   - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
+     natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
+   - ~~No axis, tick or legend layer.~~ Closed Aug 19: `src/viz/axes.ts` — `niceTicks`, `drawValueAxis`, `drawTimeAxis`,
+     `drawLegend`, and `valueAxisWidth` so a caller can measure the gutter first. Deliberately a layer rather than
+     something each renderer grew: a tile two rows tall cannot afford an axis and must not be given one, and nothing
+     here shrinks the chart it labels.
+   - ~~exomonitor is unpublished~~ — it moved into `examples/showcases/exomonitor/` on Aug 19 and ships with the
+     repository as the worked example for `./viz`. The standalone `~/projects/exomonitor` checkout is now a second copy
+     of the same code; it should be retired rather than kept, because two copies of a thing is the drift this release
+     spent a day undoing.
+2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
 ## `deno task health` — seven red gates, fixed August 18 2026
@@ -54,6 +66,36 @@ which is why they went unnoticed. Both are fixed, as are the seven older gates a
   which 040 deleted from the library; they now carry their own copy in `app/api_workbench_hit_targets.ts`, because
   immediate-mode demos genuinely want a per-frame LIFO stack and the library genuinely wants one pointer authority.
   _Lesson recorded in the log: `deno task health` covers files that neither suite reaches._
+
+## Two charting stacks, unified August 19 2026
+
+Found August 19 2026, and the reason the visualisation work kept reinventing things.
+
+`src/visual/` is a complete charting subsystem — 1,442 lines across eleven modules, exported from `mod.ts`, covered by
+eleven test files — and **nothing imports it**. Not a component, not an example, not exomux, not `src/viz/`. It holds:
+
+- `series.ts` — line, stepped-line, area, scatter and stacked-area, with a `grid` option that overlays passes, which is
+  multi-series charting that already worked.
+- `marks.ts` — a mark canvas over one logical dot space with braille (2x4), sextant (2x3), quadrant (2x2) and full-cell
+  backends, and capability-checked degradation that names both the requested and the used backend.
+- `scales.ts` — linear, log, symlog, time, ordinal and band scales.
+- `axes.ts` — tick layout with Intl formatting, emoji-aware label widths and deterministic collision thinning.
+- `downsample.ts` — min-max, LTTB and a streaming downsampler.
+- `heatmap.ts`, `annotations.ts`, `interactions.ts` (crosshair, brush), `linked_charts.ts`, `chart_export.ts` (data,
+  cells, SVG, description).
+
+`src/viz/` was built without knowing it existed, and duplicated parts of it: tick generation, sub-cell plotting, and
+`resample` against `downsample`. The tick duplicate is gone — `viz/axes.ts` now paints over `visual`'s `buildAxis`,
+which is strictly better than what it replaced. The rest is open:
+
+1. **`viz`'s sub-cell plotting should be `visual`'s `MarkCanvas`.** Braille is four times the resolution of the
+   quadrants `viz/draw.ts` has, and the capability degradation is already written.
+2. **`resample` should be `lttbDownsample`.** LTTB preserves shape by area rather than by picking extremes.
+3. **The unresolved question is colour.** `visual` renders into `string[][]` and has no notion of a cell's colour, which
+   is exactly why `viz` exists. Either `visual` grows a colour-aware target, or it stays the measuring layer and `viz`
+   stays the painting one. That is a design call for the maintainer, not a refactor to start blind.
+4. **`visual`'s other half has no consumer at all** — annotations, crosshair and brush interactions, linked charts, and
+   chart export. Either something should use them or they should be understood as an unreleased surface.
 
 ## Follow-ups carried from completed work
 

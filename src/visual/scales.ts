@@ -72,8 +72,15 @@ function makeContinuous(
       const step = niceStep(d1 - d0, count);
       const lo = Math.ceil(Math.min(d0, d1) / step) * step;
       const hi = Math.floor(Math.max(d0, d1) / step) * step;
+      // Snapped to the step's own precision. `Math.round(v / step) * step` is
+      // not enough on its own — three times 0.2 is 0.6000000000000001 in IEEE
+      // 754, and that reaches an axis label for any caller not formatting
+      // through Intl.
+      const decimals = Math.min(12, Math.max(0, -Math.floor(Math.log10(step))));
       const values: number[] = [];
-      for (let v = lo; v <= hi + step / 2; v += step) values.push(Math.round(v / step) * step);
+      for (let v = lo; v <= hi + step / 2; v += step) {
+        values.push(Number((Math.round(v / step) * step).toFixed(decimals)));
+      }
       return values;
     },
   };

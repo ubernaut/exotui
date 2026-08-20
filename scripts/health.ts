@@ -73,6 +73,9 @@ export const defaultHealthSteps: readonly HealthStep[] = [
   { name: "neon-exodus", command: ["deno", "task", "neon-exodus:check"] },
   { name: "showcase", command: ["deno", "task", "showcase:check"] },
   { name: "api-workbench", command: ["deno", "task", "api-workbench:check"] },
+  // The worked example for ./viz. Its own tests run in the root suite; this is
+  // the check that its launcher and preview still type.
+  { name: "exomonitor", command: ["deno", "task", "exomonitor:check"] },
   { name: "benchmarks", command: ["deno", "task", "benchmark"] },
   { name: "tests", command: ["deno", "test", "-A"] },
   // Exomux resolves against its own config, so the root `deno test` no longer

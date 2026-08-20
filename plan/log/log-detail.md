@@ -24,6 +24,54 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**A modal that resized itself per page (Aug 19).** exomonitor's settings window sized its height to the number of rows
+the current page had, which looked tidier and was wrong twice over. The list drew against the rectangle the previous
+page had left — thirteen rows rendered, two drawn — and the rows the shrinking box vacated were never repainted, so the
+Sources page bled through underneath the Display page. Neither symptom points at resizing. One size for every page, from
+the library's own `layoutWorkbenchModal`, has neither problem. _Rule: a container whose geometry depends on its contents
+has to erase what it gives up, and it is cheaper not to give any up._
+
+**Building a charting layer next to one that already existed (Aug 19).** `src/viz/` grew axes, sub-cell plotting and a
+resampler without anyone noticing `src/visual/` had all three, better, exported from `mod.ts` and covered by eleven test
+files. Nothing imports `src/visual/`, which is why it never surfaced in a search for callers, a grep of the examples, or
+the reachability gate — that gate checks a module is imported by _something_, and `mod.ts` re-exporting it counts.
+_Rule: before adding a capability to a library, grep the library for the capability, not for its callers._
+
+**A pitch that looked up instead of down (Aug 19).** `camera` rotated by pitch with the sign inverted, so a positive
+pitch put far points _below_ near ones. The symptom was not an upside-down picture — it was a surface whose front edge
+was missing, because the floating horizon then hid the front behind the back. Worth remembering as a shape: a projection
+error shows up as an occlusion bug, one layer away from its cause.
+
+**A flat domain reading as half (Aug 19).** `safeDomain` centres a domain with no span, which is right for a line chart
+— a flat signal has to sit somewhere and the middle is honest — and wrong for a point cloud, where the question is
+occupancy. A volume of all zeroes normalised every cell to 0.5 and drew eighty-three points of solid fog. Occupancy is a
+question about zero, not about position in a range; the test that caught it asserts an empty volume draws nothing.
+
+**Reading a permission failure as an absent device (Aug 19).** exomonitor's `/proc` reader caught every error and
+returned undefined, commented "a source that cannot be read is a source this machine does not have". Deno gates `/proc`
+behind `--allow-all` specifically — `--allow-read=/proc` is refused too — so a monitor started with narrower permissions
+concluded the machine had no CPU, no memory and no network. Worse, `reconcile` then filtered the stored configuration by
+what was available that run, and the next save wrote the loss to disk: one run without permission permanently deleted
+the user's selection. Two rules, both now pinned by tests: a read failure and an absent device are different facts, and
+configuration is filtered for drawing, never for saving.
+
+**A density table instead of a measurement (Aug 19).** exomonitor's first layout carried a table of which panels each
+terminal size was allowed to show, and a per-panel list of preferred visualisations. Every new machine shape needed a
+new row: a 4-core laptop and an 88-core workstation want different charts at the same size, and no table indexed by
+terminal size can say so. Replaced by scoring candidates against live cardinality. _Rule: when a table needs a column
+for every machine, the thing being tabulated is a measurement._
+
+**The psychograph as the default scalar chart (Aug 19).** It was chosen because it uses the whole box, which is true,
+and read as scattered dots, which is also true. A filled area chart of the same data at the same size is immediately
+legible. Neither renderer changed; what changed was looking at them side by side, which needed
+`exomonitor/scripts/preview.ts` to exist. _Rule: for anything visual, build the way to look at it before arguing about
+it._
+
+**Quantising the ramp to save components (Aug 19).** `rampGradient` was made to snap to 32 steps so neighbouring cells
+of a heatmap would merge into runs. Measured: 2,564 runs became 2,514 on random data. Kept — it is free and helps real
+data, where neighbours are genuinely similar — but it did not solve the problem, and the pool growing on demand did.
+_Rule: measure the saving before designing around it._
+
 **Shadowing a preset (Aug 18).** The theme editor originally let a saved theme shadow a built-in of the same name, on
 the theory that "fixing a shipped theme" was the common case. The user's direction was the opposite: presets are the
 floor everyone can get back to. Saving over one is now refused, and opening the editor starts a copy. Two test files had
@@ -199,6 +247,23 @@ command's, so `deno task health | tail` reports grep's success, not health's. Ca
 **A gate nobody ran (Aug 18).** Plan 040 deleted `HitTargetStack` from the library and both suites stayed green, because
 `app/api_workbench.ts` and `examples/web/api_workbench_page.ts` are only type-checked by `deno task health`. The
 breakage sat there through several commits. _Rule: `deno test` is not the gate; `deno task health` is._
+
+---
+
+**A terminal cell with an explicit background is opaque, always (Aug 19).** exomonitor ignored exomux's window opacity,
+and the cause is one line in `src/runtime/terminal_palette.ts`:
+`explicit ?? (transparent ? undefined :
+defaultBackground)`, and only an undefined background is later blended against
+the desktop. exomonitor painted the theme's ground on every cell — `blankFrame` fills with it, every renderer sets it,
+`Tui.style` paints a box of it under everything, and the view substituted it for any run that lacked one. Four layers,
+each individually reasonable. An application that wants to be composited behind must leave ground cells unset; a
+full-screen object still has to exist under them, or nothing repaints a cell a chart has moved off.
+
+**A component hidden over a bare canvas is not erased (Aug 19).** `DrawObject.erase()` repaints the objects _under_ the
+one being erased. A real `Tui` with a `style` paints a background box at zIndex -1, so there is always something under
+it; `createTestTerminalApp` does not, so a modal closed in a headless test stays on screen and the test fails for a
+reason the application does not have. Mount the thing the modal covers, as the application does. Confirmed both ways
+with a two-component probe.
 
 ---
 
