@@ -2,6 +2,7 @@
 
 import type { ProcessSessionInspection } from "@ubernaut/exotui/terminal";
 import { ExomuxTerminalModeTracker } from "./terminal_modes.ts";
+import { exomuxChildEnvironment } from "./terminal_env.ts";
 import {
   createProcessTerminalBackend,
   type TerminalBackend,
@@ -566,7 +567,16 @@ export class ExomuxHostController {
           command: request.command,
           ...(request.args ? { args: [...request.args] } : {}),
           ...(request.cwd !== undefined ? { cwd: request.cwd } : {}),
-          ...(request.env ? { env: { ...request.env } } : {}),
+          // Always a full, sanitised environment — never plain inheritance.
+          // The daemon runs inside somebody's terminal, and a child that
+          // inherits that terminal's identity variables will use protocols
+          // exomux's emulator does not speak. tode saw Ghostty's environment
+          // here and painted kitty graphics into a screen model that, at the
+          // time, printed the base64 as text.
+          env: exomuxChildEnvironment({
+            inherited: Deno.env.toObject(),
+            ...(request.env ? { requested: request.env } : {}),
+          }),
           columns: request.columns ?? 80,
           rows: request.rows ?? 24,
           onData: (data) => {

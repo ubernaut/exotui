@@ -133,6 +133,8 @@ export class TerminalScreenController {
   #lastPrintableWidth = 1;
   #tabStops: Set<number>;
   #pendingControl = "";
+  /** Swallowing an oversized DCS/APC/PM/SOS payload until its ST arrives. */
+  #discardingString = false;
   // VT100 deferred-wrap latch: after a glyph fills the last column the cursor
   // parks there and only the *next* printable character wraps + scrolls. Full
   // -screen TUIs (e.g. nested Exomux) paint the bottom row edge-to-edge every
@@ -190,8 +192,23 @@ export class TerminalScreenController {
     const decoded = typeof data === "string"
       ? this.#decoder.decode() + data
       : this.#decoder.decode(data, { stream: true });
-    const text = this.#pendingControl + decoded;
+    let text = this.#pendingControl + decoded;
     this.#pendingControl = "";
+    if (this.#discardingString) {
+      // Inside a string sequence too large to buffer: swallow until ST. The
+      // sequence was already judged inert, so dropping its payload loses
+      // nothing — but letting any of it print would be the bug this mode
+      // exists to prevent.
+      const end = text.indexOf("\x1b\\");
+      if (end < 0) {
+        // ST itself can split across writes; keep a trailing ESC so the pair
+        // is seen whole next time.
+        if (text.endsWith("\x1b")) this.#pendingControl = "\x1b";
+        return;
+      }
+      this.#discardingString = false;
+      text = text.slice(end + 2);
+    }
     for (let index = 0; index < text.length;) {
       const char = readTerminalGraphic(text, index);
       if (char === "\x1b") {
@@ -203,7 +220,18 @@ export class TerminalScreenController {
         }
         const suffix = text.slice(index);
         if (incompleteTerminalControl(suffix)) {
-          if (suffix.length < MAX_PENDING_CONTROL_LENGTH) this.#pendingControl = suffix;
+          if (suffix.length < MAX_PENDING_CONTROL_LENGTH) {
+            this.#pendingControl = suffix;
+          } else {
+            const opener = suffix[1];
+            if (opener === "P" || opener === "_" || opener === "^" || opener === "X") {
+              // A string payload larger than the pending cap — a kitty
+              // graphics transmit can run to megabytes. Stop buffering and
+              // discard to the terminator instead of dropping the buffer and
+              // printing whatever half of the payload arrives next.
+              this.#discardingString = true;
+            }
+          }
           break;
         }
       }
@@ -231,6 +259,7 @@ export class TerminalScreenController {
   clear(): void {
     this.#decoder.decode();
     this.#pendingControl = "";
+    this.#discardingString = false;
     this.#state.cells = createRows(this.#columns, this.#rows);
     this.#state.cursor = { column: 0, row: 0 };
     this.#scrollRegion = fullScrollRegion(this.#rows);
@@ -468,6 +497,15 @@ export class TerminalScreenController {
       this.#applyOsc(sequence.params);
       return;
     }
+    // DCS/APC/PM/SOS are consumed whole and change nothing. APC is the one
+    // that arrives in practice: the kitty graphics protocol ships images as
+    // `ESC _ G … ESC \`, and an application told (or misled) that its
+    // terminal draws images will send screenfuls of base64 through here. This
+    // model does not render them — yet — but the honest failure is a blank
+    // where the image would be, never the payload as text.
+    if (
+      sequence.kind === "dcs" || sequence.kind === "apc" || sequence.kind === "pm" || sequence.kind === "sos"
+    ) return;
     if (sequence.kind === "esc" && sequence.intermediates) {
       this.#applyEscIntermediates(sequence.intermediates, sequence.command);
       return;
@@ -1038,6 +1076,13 @@ function incompleteTerminalControl(suffix: string): boolean {
   if (suffix === "\x1b") return true;
   // An OSC stays pending until its BEL/ST terminator arrives.
   if (suffix.startsWith("\x1b]")) return true;
+  // A string sequence (DCS/APC/PM/SOS) stays pending until ST. These carry
+  // payloads — kitty graphics chunks arrive in APC at ~4 KB each — so a chunk
+  // boundary in the middle of one is the normal case, not the edge case.
+  {
+    const opener = suffix[1];
+    if (opener === "P" || opener === "_" || opener === "^" || opener === "X") return true;
+  }
   if (suffix.startsWith("\x1b[")) {
     // A CSI is only genuinely pending while every byte after the introducer is
     // a parameter/intermediate byte (0x20-0x3F). Anything else means the

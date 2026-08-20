@@ -2,7 +2,7 @@
 
 /** Parsed terminal control sequence emitted by the lightweight terminal parser. */
 export interface ParsedTerminalControlSequence {
-  kind: "csi" | "osc" | "esc";
+  kind: "csi" | "osc" | "esc" | "dcs" | "apc" | "pm" | "sos";
   private: boolean;
   /**
    * ECMA-48 private-parameter prefix byte (`<`, `=`, `>`, `?`) when present.
@@ -23,6 +23,8 @@ export function parseTerminalControlSequence(
 ): ParsedTerminalControlSequence | undefined {
   const osc = parseOscSequence(value, start);
   if (osc) return osc;
+  const string = parseStringSequence(value, start);
+  if (string) return string;
   if (isSingleCharacterEscSequence(value, start)) {
     return {
       kind: "esc",
@@ -118,6 +120,42 @@ function parseOscSequence(value: string, start: number): ParsedTerminalControlSe
     intermediates: "",
     command: "]",
     length: end - start + (end === stEnd ? 2 : 1),
+  };
+}
+
+/** ECMA-48 string-sequence openers and the kinds they introduce. */
+const STRING_SEQUENCE_KINDS: Readonly<Record<string, "dcs" | "apc" | "pm" | "sos">> = {
+  "P": "dcs",
+  "_": "apc",
+  "^": "pm",
+  "X": "sos",
+};
+
+/**
+ * Parses a DCS/APC/PM/SOS string sequence, terminated by ST only.
+ *
+ * BEL deliberately does not terminate these — that is an OSC-only concession
+ * some terminals make, and the kitty graphics protocol (`ESC _ G … ESC \`)
+ * carries base64 payloads in APC where a stray 0x07 must not cut the string.
+ * The parse exists so those payloads are consumed as a sequence: an emulator
+ * that fails to recognise `ESC _` prints an entire image transmission as
+ * literal base64, a full screen of it per frame.
+ */
+function parseStringSequence(value: string, start: number): ParsedTerminalControlSequence | undefined {
+  if (value.charCodeAt(start) !== 0x1b) return undefined;
+  const opener = value[start + 1];
+  const kind = opener === undefined ? undefined : STRING_SEQUENCE_KINDS[opener];
+  if (!kind) return undefined;
+  const end = value.indexOf("\x1b\\", start + 2);
+  if (end < 0) return undefined;
+  return {
+    kind,
+    private: false,
+    prefix: "",
+    params: value.slice(start + 2, end),
+    intermediates: "",
+    command: opener!,
+    length: end - start + 2,
   };
 }
 

@@ -3,6 +3,29 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 20 2026 — a wall of base64, and the two lies behind it
+
+The maintainer ran tode — a VS Code fork that draws in the terminal — inside exomux, and got a full screen of base64.
+The payload was a kitty graphics transmission: tode checks `GHOSTTY_RESOURCES_DIR` and friends to decide whether its
+terminal draws images, exomux's PTY children inherit the daemon's environment, and the daemon runs under Ghostty. So
+tode was told, in effect, "you are talking to Ghostty" — and exomux's screen model then failed the other half of the
+contract, because `parseTerminalControlSequence` knew OSC, CSI and ESC but not APC, and printed the entire
+`ESC _ G …
+ESC \` transmission as text.
+
+Two fixes, one per lie. The emulator now parses DCS/APC/PM/SOS as string sequences terminated by ST only — BEL is an
+OSC-only concession — pending across arbitrary chunk boundaries, with a discard-until-ST mode when a payload outgrows
+the 64 KB pending cap, because a single kitty transmit can run to megabytes and dropping the buffer used to mean
+printing whatever half arrived next. And the daemon now materialises a full, sanitised environment for every PTY child:
+host-terminal identity variables stripped, `TERM=xterm-256color`, `TERM_PROGRAM=exomux`, `COLORTERM=truecolor`, the
+spawn request's own env winning over everything. One of the tests runs tode's actual detection predicate against the
+sanitised environment and asserts it concludes text-only.
+
+What remains for real support is recorded in the priority queue: the emulator answers no queries (tode's OSC 10/11/4
+colour probes fall back gracefully; DSR and DA are simply unanswered), and nothing yet decodes or passes through the
+graphics themselves. Those are design tasks — the reply channel has to live daemon-side, and passthrough has to
+translate placements — not patches.
+
 ## August 19 2026 — the Three.js visualisations, first pass
 
 `@ubernaut/exotui/viz/three` exists: an optional entrypoint like the layout solvers, because the core has no runtime

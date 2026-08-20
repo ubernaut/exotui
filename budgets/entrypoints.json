@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 462,
-    "bytes": 5334933,
+    "bytes": 5338591,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 17576,
@@ -355,9 +355,9 @@
       "src/runtime/terminal_passthrough.ts": 5374,
       "src/runtime/terminal_queries.ts": 4912,
       "src/runtime/terminal_sanitizer.ts": 5145,
-      "src/runtime/terminal_screen.ts": 42308,
+      "src/runtime/terminal_screen.ts": 44550,
       "src/runtime/terminal_scrollback.ts": 11772,
-      "src/runtime/terminal_sequences.ts": 5058,
+      "src/runtime/terminal_sequences.ts": 6474,
       "src/runtime/terminal_services.ts": 24166,
       "src/runtime/terminal_session.ts": 4454,
       "src/runtime/terminal_shell.ts": 13178,
@@ -743,7 +743,7 @@
   },
   "mod.terminal.ts": {
     "modules": 47,
-    "bytes": 433639,
+    "bytes": 437297,
     "paths": {
       "mod.terminal.ts": 900,
       "src/components/bounded_follow_lines.ts": 3469,
@@ -762,9 +762,9 @@
       "src/runtime/terminal_capabilities.ts": 22631,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_palette.ts": 9920,
-      "src/runtime/terminal_screen.ts": 42308,
+      "src/runtime/terminal_screen.ts": 44550,
       "src/runtime/terminal_scrollback.ts": 11772,
-      "src/runtime/terminal_sequences.ts": 5058,
+      "src/runtime/terminal_sequences.ts": 6474,
       "src/runtime/terminal_session.ts": 4454,
       "src/runtime/terminal_shell.ts": 13178,
       "src/runtime/terminal_status.ts": 9902,
@@ -873,7 +873,7 @@
   },
   "mod.web.ts": {
     "modules": 373,
-    "bytes": 4544741,
+    "bytes": 4548399,
     "paths": {
       "mod.web.ts": 3293,
       "src/api_stability.ts": 17576,
@@ -1161,9 +1161,9 @@
       "src/runtime/terminal_capabilities.ts": 22631,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_palette.ts": 9920,
-      "src/runtime/terminal_screen.ts": 42308,
+      "src/runtime/terminal_screen.ts": 44550,
       "src/runtime/terminal_scrollback.ts": 11772,
-      "src/runtime/terminal_sequences.ts": 5058,
+      "src/runtime/terminal_sequences.ts": 6474,
       "src/runtime/terminal_shell.ts": 13178,
       "src/runtime/terminal_shell_workspace.ts": 11329,
       "src/runtime/terminal_status.ts": 9902,

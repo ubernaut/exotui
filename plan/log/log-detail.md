@@ -24,6 +24,19 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**Two parsers, and the screen used the one without APC (Aug 20).** The repository has a complete incremental terminal
+parser (`terminal_parser.ts`, TERM-001) that knows every string sequence — and `TerminalScreenController` does not use
+it; it parses with `parseTerminalControlSequence` from `terminal_sequences.ts`, which knew OSC/CSI/ESC only. The same
+shape as `visual`/`viz`: a capability existed, unreferenced by the code that needed it, and a grep for the capability
+rather than for callers would have found it. The surgical fix taught the second parser string sequences rather than
+refactoring the screen onto the first; unifying them is real work because the token shapes differ.
+
+**An environment is a claim about who is listening (Aug 20).** exomux's PTY children inherited the daemon's environment,
+Ghostty identity included, and tode believed it — its comment even says a protocol probe costs a tty round trip, which
+is why terminals advertise by environment at all. A multiplexer that passes its host's identity through is telling every
+child a lie about who is on the other end of the fd. The child env is now materialised in full per spawn, which also
+makes it deterministic rather than dependent on what happened to launch the daemon.
+
 **Dropping a per-entry cost in a rewrite (Aug 19).** `overlay` declared `perEntry: { rows: 2 }` until it was rewritten
 as the btop chart, and the rewrite did not carry it over. Nothing failed: the fitness pass then scored two hundred and
 fifty-six series as "fits comfortably", the settings page offered it for a 256-point waveform feed, a pin took it, and

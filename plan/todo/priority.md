@@ -97,6 +97,30 @@ which is strictly better than what it replaced. The rest is open:
 4. **`visual`'s other half has no consumer at all** — annotations, crosshair and brush interactions, linked charts, and
    chart export. Either something should use them or they should be understood as an unreleased surface.
 
+## Supporting terminal applications that draw — found via tode, August 20 2026
+
+[tode](https://terminal-code.com) — a VS Code fork that runs in a terminal — painted a full screen of base64 into an
+exomux window. Two causes, both fixed; two capabilities remain open, and they are what "support this app properly"
+means:
+
+- **Fixed: the emulator did not know APC.** `parseTerminalControlSequence` knew OSC/CSI/ESC only, so a kitty graphics
+  transmission (`ESC _ G … ESC \`) printed its payload as text. DCS/APC/PM/SOS are now parsed and consumed whole,
+  pending across chunk boundaries, with a discard-until-ST mode for payloads over the 64 KB pending cap. A stream that
+  opens a string sequence and never sends ST is swallowed until one arrives — bounded misbehaviour for a malformed
+  stream, and what tmux does too.
+- **Fixed: PTY children inherited the daemon's host-terminal identity.** The daemon runs under Ghostty; children saw
+  `GHOSTTY_RESOURCES_DIR` and `TERM=xterm-ghostty` and reasonably used Ghostty's protocols. `terminal_env.ts` now
+  materialises a full environment per spawn: host identities stripped, `TERM=xterm-256color`, `TERM_PROGRAM=exomux`,
+  `COLORTERM=truecolor`, request env winning. tode's own detection logic runs against the sanitised env in a test and
+  concludes text-only.
+- **Open: the emulator answers no queries.** Not OSC 10/11/4 colour queries (tode asks, then falls back), not DSR, not
+  DA. Answering needs a reply channel from the ingest side back to PTY stdin — daemon-side, since replies must beat a
+  round trip through a client — so it is a design task, not a patch.
+- **Open: actually drawing the graphics.** The real endgame is kitty-graphics support in exomux windows: parse the APC
+  (done), decode the image, composite it — or pass it through to the host terminal when the host really is Ghostty, with
+  placements translated. `src/runtime/kitty_graphics.ts` and `todo/hiatus/kitty-graphics-integration.md` are the
+  starting points. Until then, honest text fallback is the supported mode.
+
 ## Follow-ups carried from completed work
 
 Small, real, and worth doing when adjacent code is next touched:
