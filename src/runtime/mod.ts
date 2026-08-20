@@ -10,6 +10,7 @@ export * from "./deadline.ts";
 export * from "./diagnostics.ts";
 export * from "./graphics_surface.ts";
 export * from "./kitty_graphics.ts";
+export * from "./kitty_passthrough.ts";
 export * from "./profiles.ts";
 export * from "./renderer_backends.ts";
 export * from "./resource.ts";

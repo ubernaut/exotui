@@ -255,7 +255,13 @@ export function detectKittyGraphicsCapability(options: KittyGraphicsDetectionOpt
   const forced = options.force || env("DENO_TUI_KITTY") === "1" || env("DENO_TUI_KITTY") === "true";
   const tmuxPassthrough = options.tmuxPassthrough || env("DENO_TUI_KITTY_TMUX") === "1" ||
     env("DENO_TUI_KITTY_TMUX") === "true";
-  const likelyKitty = Boolean(env("KITTY_WINDOW_ID") || /xterm-kitty/i.test(term));
+  // Ghostty implements the kitty graphics protocol and identifies itself by
+  // TERM, TERM_PROGRAM and its resources directory — any one of them is the
+  // same claim.
+  const likelyKitty = Boolean(
+    env("KITTY_WINDOW_ID") || /xterm-kitty/i.test(term) || /ghostty/i.test(term) ||
+      /ghostty/i.test(termProgram) || env("GHOSTTY_RESOURCES_DIR"),
+  );
 
   if (disabled) return capability(false, "disabled", "Kitty graphics were disabled by configuration.");
   if (!isTty && !forced) return capability(false, "disabled", "No interactive terminal is attached.");

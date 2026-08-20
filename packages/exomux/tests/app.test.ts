@@ -1270,7 +1270,7 @@ Deno.test("Exomux snapshots reused key events before asynchronous prefix routing
 
     const source = new Uint8Array([14, ...new TextEncoder().encode("ca")]);
     for (const event of decodeBuffer(source)) {
-      if (event.key !== "mouse" && event.key !== "paste" && event.key !== "focus") {
+      if (event.key !== "mouse" && event.key !== "paste" && event.key !== "focus" && event.key !== "apc") {
         harness.app.tui.emit("keyPress", event);
       }
     }

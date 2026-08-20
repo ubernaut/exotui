@@ -531,6 +531,18 @@ function adaptInputEvent(event: InputEvent, includeRaw: boolean): InputSemanticE
       data: { focused: event.focused },
     }, raw);
   }
+  if (event.key === "apc") {
+    // A terminal-to-application APC (a kitty graphics reply) is not user
+    // input, and schema v1 has no semantic kind for it on purpose: consumers
+    // that route it — a multiplexer's graphics relay — subscribe to the
+    // reader's `terminalApc` event directly. Enveloping one is a category
+    // error, refused rather than shoehorned into a keystroke.
+    throw new InputEnvelopeError(
+      "invalid-shape",
+      "terminal APC replies are not semantic input; subscribe to terminalApc instead",
+      "$.event",
+    );
+  }
   if (event.key !== "mouse") {
     return withRaw({
       kind: "key",

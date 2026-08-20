@@ -6,6 +6,8 @@ import {
   createRuntimePermissionActivationReport,
   createRuntimePermissionManifest,
   type DiagnosticsCollector,
+  KittyPassthroughRelay,
+  type KittyRelayEmission,
   type Rectangle,
   type RuntimePermissionActivationReport,
   type RuntimePermissionManifest,
@@ -588,6 +590,10 @@ export interface ExomuxTerminalRuntime {
   readonly warning: Signal<string | undefined>;
   /** Transient observers of decoded output text (e.g. remote cwd capture). */
   readonly outputTaps: Set<(chunk: string) => void>;
+  /** Kitty graphics relay toward the host terminal, when passthrough is on. */
+  readonly graphics: KittyPassthroughRelay | undefined;
+  /** Emissions captured from the child and not yet flushed to the host. */
+  readonly pendingGraphics: KittyRelayEmission[];
   hostTitle: string;
   screenTitle?: string;
   lastSequence: number;
@@ -662,6 +668,20 @@ export interface ExomuxControllerOptions {
   readonly storageKey?: string;
   readonly diagnostics?: DiagnosticsCollector;
   readonly defaultCommand?: string;
+  /**
+   * Relay kitty graphics from children to the host terminal. On only when the
+   * host actually draws them — the launcher decides from its own environment,
+   * because the client is the process that genuinely sits inside the host.
+   */
+  readonly graphicsPassthrough?: boolean;
+  /**
+   * The host terminal's cell size in pixels, measured by the launcher.
+   *
+   * What lets a child's `CSI 14/16 t` size queries be answered truthfully: a
+   * pixel-rendering child sizes its frames from these, and a terminal that
+   * stays silent leaves it guessing at a geometry it will get wrong.
+   */
+  readonly hostCellPixels?: { readonly width: number; readonly height: number };
   readonly defaultArgs?: readonly string[];
   readonly defaultCwd?: string;
   readonly now?: () => number;
@@ -886,6 +906,11 @@ export class ExomuxController {
   readonly #resizeFlights = new Map<string, Promise<void>>();
   readonly #killFlights = new Map<string, Promise<boolean>>();
   readonly #defaultCommand: string;
+  /** Whether kitty graphics from children are relayed to the host terminal. */
+  readonly #graphicsPassthrough: boolean;
+  readonly #hostCellPixels?: { readonly width: number; readonly height: number };
+  /** Bound once so every runtime shares one identity for the size answerer. */
+  readonly #sizeQuery = (sessionId: string, kind: 14 | 16 | 18): void => this.answerWindowSizeQuery(sessionId, kind);
   readonly #defaultArgs?: readonly string[];
   readonly #defaultCwd?: string;
   #terminalOrdinal = 1;
@@ -943,11 +968,15 @@ export class ExomuxController {
     if (options.ghosttyDetected) this.ghosttyDetected.value = true;
     if (options.initialShaders) this.shaderConfig.value = options.initialShaders;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
+    this.#graphicsPassthrough = options.graphicsPassthrough ?? false;
+    this.#hostCellPixels = options.hostCellPixels;
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
     this.#defaultCwd = options.defaultCwd;
     const initialSessions = normalizeSessionList(options.initialSessions ?? []);
     this.sessions = new Signal<readonly ExomuxSessionSummary[]>(initialSessions);
-    for (const session of initialSessions) this.#runtimes.set(session.id, createTerminalRuntime(session));
+    for (const session of initialSessions) {
+      this.#runtimes.set(session.id, createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery));
+    }
 
     const provider = new ExomuxClientProvider(this.client);
     this.#provider = provider;
@@ -2681,7 +2710,7 @@ export class ExomuxController {
     });
     try {
       const session = normalizeSession(await this.client.spawn(spawnOptions));
-      const runtime = createTerminalRuntime(session);
+      const runtime = createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery);
       const candidateRuntimes = new Map(this.#runtimes);
       candidateRuntimes.set(session.id, runtime);
       const reconciliation = await this.#reconcileWindows(
@@ -3045,7 +3074,7 @@ export class ExomuxController {
     while (this.#spawnFlight) await this.#spawnFlight;
     if (this.#disposed || this.#runtimes.has(summary.id)) return;
     if (this.#runtimes.size >= EXOMUX_MAX_SESSIONS) return;
-    const runtime = createTerminalRuntime(summary);
+    const runtime = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery);
     const candidates = new Map(this.#runtimes);
     candidates.set(summary.id, runtime);
     const reconciliation = await this.#reconcileWindows(this.#windowDescriptors(candidates));
@@ -3179,6 +3208,70 @@ export class ExomuxController {
     return runtime ? await this.writeSession(runtime.sessionId, data) : false;
   }
 
+  /**
+   * Drains the graphics emissions a session's child has produced.
+   *
+   * The caller — the painter, which knows where the window's content sits and
+   * whether it is visible — translates each emission's cell and writes the
+   * sequences to the host. Draining transfers responsibility: whatever is
+   * taken must be either written or dropped knowingly.
+   */
+  takeGraphics(sessionId: string): KittyRelayEmission[] {
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime || runtime.pendingGraphics.length === 0) return [];
+    return runtime.pendingGraphics.splice(0, runtime.pendingGraphics.length);
+  }
+
+  /**
+   * Everything needed to clean a session's relayed images off the host —
+   * emitted by the caller on window close, hide, or move, because an image the
+   * compositor no longer accounts for must not stay on screen.
+   */
+  releaseGraphics(sessionId: string): KittyRelayEmission[] {
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime?.graphics) return [];
+    runtime.pendingGraphics.length = 0;
+    return runtime.graphics.release();
+  }
+
+  /**
+   * Routes a host APC reply to the session whose query it answers.
+   *
+   * Host ids are disjoint per relay, so at most one session claims a reply;
+   * an unclaimed one is dropped, which is also what happened before anything
+   * listened. Returns whether a session claimed it.
+   */
+  async routeGraphicsReply(data: string): Promise<boolean> {
+    for (const runtime of this.#runtimes.values()) {
+      const forChild = runtime.graphics?.routeReply(data);
+      if (forChild == null) continue;
+      await this.writeSession(runtime.sessionId, `\x1b_${forChild}\x1b\\`).catch(() => false);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Answers a child's XTWINOPS size query.
+   *
+   * Cells are always known; pixels only when the launcher measured the host —
+   * an unmeasured host answers nothing rather than something invented, because
+   * a wrong pixel geometry is exactly the bug this exists to fix.
+   */
+  answerWindowSizeQuery(sessionId: string, kind: 14 | 16 | 18): void {
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime) return;
+    const columns = runtime.requestedColumns;
+    const rows = runtime.requestedRows;
+    let reply: string | undefined;
+    if (kind === 18) reply = `\x1b[8;${rows};${columns}t`;
+    else if (this.#hostCellPixels) {
+      const { width, height } = this.#hostCellPixels;
+      reply = kind === 16 ? `\x1b[6;${height};${width}t` : `\x1b[4;${rows * height};${columns * width}t`;
+    }
+    if (reply !== undefined) void this.writeSession(sessionId, reply).catch(() => false);
+  }
+
   /** Writes exact bytes to one ingress-captured daemon session. */
   async writeSession(sessionId: string, data: string | Uint8Array): Promise<boolean> {
     this.#assertActive();
@@ -3238,7 +3331,7 @@ export class ExomuxController {
       const runtime = this.#runtimes.get(summary.id);
       if (runtime) candidateRuntimes.set(summary.id, runtime);
       else {
-        const created = createTerminalRuntime(summary);
+        const created = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery);
         createdRuntimes.push(created);
         candidateRuntimes.set(summary.id, created);
       }
@@ -3740,15 +3833,41 @@ class ExomuxClientProvider implements ShowcaseProvider {
   }
 }
 
-function createTerminalRuntime(summary: ExomuxSessionSummary): ExomuxTerminalRuntime {
+let nextGraphicsRelayIndex = 0;
+
+function createTerminalRuntime(
+  summary: ExomuxSessionSummary,
+  graphicsPassthrough: boolean,
+  onSizeQuery?: (sessionId: string, kind: 14 | 16 | 18) => void,
+): ExomuxTerminalRuntime {
+  // A disjoint host-id block per relay, so two sessions both calling their
+  // image `i=1` cannot collide at the host. The base skips low ids that the
+  // host application itself might use.
+  const relay = graphicsPassthrough
+    ? new KittyPassthroughRelay({ imageIdBase: 0x0100_0000 + (nextGraphicsRelayIndex++ % 512) * 65_536 })
+    : undefined;
+  const pendingGraphics: KittyRelayEmission[] = [];
   const screen = new TerminalScreenController({
     columns: summary.columns,
     rows: summary.rows,
     scrollbackLimit: 2_000,
+    ...(onSizeQuery ? { onWindowSizeQuery: (kind) => onSizeQuery(summary.id, kind) } : {}),
+    ...(relay
+      ? {
+        onKittyGraphics: (data, cursor) => {
+          // Bounded: a stalled flush must not hold every frame an app ever
+          // streamed. Old emissions are droppable — the app repaints.
+          if (pendingGraphics.length > 512) pendingGraphics.length = 0;
+          pendingGraphics.push(...relay.ingest(data, cursor));
+        },
+      }
+      : {}),
   });
   return {
     sessionId: summary.id,
     screen,
+    graphics: relay,
+    pendingGraphics,
     scrollback: new TerminalScrollbackController({ screen, viewportRows: summary.rows }),
     summary: new Signal(summary),
     attached: new Signal(false),

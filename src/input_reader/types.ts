@@ -56,6 +56,22 @@ export interface TerminalFocusEvent {
   buffer: Uint8Array;
 }
 
+/**
+ * An APC string from the terminal (`ESC _ … ESC \`).
+ *
+ * Terminals speak APC back at applications in exactly one common case: kitty
+ * graphics replies — `ESC _ G i=…;OK ESC \` answering a query. A multiplexer
+ * relaying graphics for its children needs these to route the answer to the
+ * child that asked; everything else can ignore them, which is also what
+ * dropping them silently used to do, minus the routing.
+ */
+export interface TerminalApcEvent {
+  key: "apc";
+  /** APC payload between the introducer and ST. */
+  data: string;
+  buffer: Uint8Array;
+}
+
 /** Union of all decoded terminal input event shapes. */
 export type InputEvent =
   | KeyPressEvent
@@ -63,7 +79,8 @@ export type InputEvent =
   | MousePressEvent
   | MouseScrollEvent
   | PasteEvent
-  | TerminalFocusEvent;
+  | TerminalFocusEvent
+  | TerminalApcEvent;
 
 /** Normalized key name emitted by the input reader. */
 export type Key =

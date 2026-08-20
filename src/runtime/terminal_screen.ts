@@ -42,6 +42,24 @@ export interface TerminalScreenControllerOptions {
   columns?: number;
   rows?: number;
   scrollbackLimit?: number;
+  /**
+   * Called with each kitty graphics APC this screen consumes, and the cursor
+   * cell it arrived at — the cell kitty anchors a display to. This is the
+   * capture side of graphics passthrough; without a subscriber the sequences
+   * are simply consumed and counted.
+   */
+  onKittyGraphics?: (data: string, cursor: { row: number; column: number }) => void;
+  /**
+   * Called for XTWINOPS size queries — `CSI 14 t` (text area in pixels),
+   * `CSI 16 t` (cell size in pixels), `CSI 18 t` (size in cells).
+   *
+   * An application deciding how many pixels to render asks its terminal, and a
+   * terminal that stays silent leaves it guessing — which is how an embedded
+   * browser paints a frame sized for a window it is not in. The subscriber
+   * owns the reply because only it knows the host's cell geometry; the screen
+   * model only knows the query arrived.
+   */
+  onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
 }
 
 /** Serializable inspection snapshot for Terminal Screen Controller. */
@@ -135,6 +153,8 @@ export class TerminalScreenController {
   #pendingControl = "";
   /** Swallowing an oversized DCS/APC/PM/SOS payload until its ST arrives. */
   #discardingString = false;
+  #onKittyGraphics?: (data: string, cursor: { row: number; column: number }) => void;
+  #onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
   /**
    * Kitty graphics sequences consumed without being drawn.
    *
@@ -163,6 +183,8 @@ export class TerminalScreenController {
     };
     this.#scrollRegion = fullScrollRegion(this.#rows);
     this.#tabStops = defaultTabStops(this.#columns);
+    this.#onKittyGraphics = options.onKittyGraphics;
+    this.#onWindowSizeQuery = options.onWindowSizeQuery;
   }
 
   get columns(): number {
@@ -521,7 +543,16 @@ export class TerminalScreenController {
     if (
       sequence.kind === "dcs" || sequence.kind === "apc" || sequence.kind === "pm" || sequence.kind === "sos"
     ) {
-      if (sequence.kind === "apc" && sequence.params.startsWith("G")) this.#kittyGraphicsConsumed += 1;
+      if (sequence.kind === "apc" && sequence.params.startsWith("G")) {
+        this.#kittyGraphicsConsumed += 1;
+        // Handed over with the cursor at this instant, because that is the
+        // cell kitty anchors a display command to — a relay that captures the
+        // sequence without the cursor has lost the placement.
+        this.#onKittyGraphics?.(sequence.params, {
+          row: this.#state.cursor.row,
+          column: this.#state.cursor.column,
+        });
+      }
       return;
     }
     if (sequence.kind === "esc" && sequence.intermediates) {
@@ -536,6 +567,15 @@ export class TerminalScreenController {
     // every attach. They carry no screen-model effect, but must be consumed so
     // neither their bytes nor their parameters reach the grid or the SGR state.
     if (sequence.kind === "csi" && sequence.prefix && sequence.prefix !== "?") return;
+    // XTWINOPS: size queries are surfaced to the subscriber; every other
+    // window op (resize and move requests, iconify) is consumed silently — a
+    // child does not get to reshape the window a compositor gave it, and the
+    // bytes must never reach the grid.
+    if (sequence.kind === "csi" && sequence.command === "t" && !sequence.private) {
+      const op = Number.parseInt(sequence.params, 10);
+      if (op === 14 || op === 16 || op === 18) this.#onWindowSizeQuery?.(op);
+      return;
+    }
     const params = parseTerminalParams(sequence.params);
     if (sequence.private && (sequence.command === "h" || sequence.command === "l")) {
       this.#applyPrivateModes(params, sequence.command === "h");

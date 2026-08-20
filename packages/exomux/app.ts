@@ -582,15 +582,112 @@ export async function createExomuxTerminalApp(
     await definition.controller.dispose();
     throw new Error("Exomux desktop did not mount.");
   }
+  const stopGraphics = startGraphicsPassthroughFlush(app, definition.controller, mount);
   return {
     app,
     controller: definition.controller,
     mount,
     start: () => app.start(),
     destroy: async () => {
+      stopGraphics();
       app.destroy();
       await definition.controller.dispose();
     },
+  };
+}
+
+/**
+ * Relays captured kitty graphics to the host terminal.
+ *
+ * Policy, deliberately narrow for a first pass: only the active terminal
+ * window's graphics reach the host, everything a window ever displayed is
+ * deleted the moment it stops being active (or stops existing), and cells are
+ * translated by the window's content rect at flush time. Applications that
+ * stream frames — the case this exists for — repaint continuously, so a focus
+ * change or a window move heals within a frame.
+ *
+ * Emissions are wrapped in cursor save/restore so the canvas's own cursor
+ * bookkeeping survives, and written straight to the host stdout: images live
+ * on the host's image plane, not in exomux's cell compositor, which is also
+ * why anything the compositor cannot account for must be deleted eagerly.
+ */
+/** Whether two rectangles share any cell. */
+function rectanglesOverlap(a: Rectangle, b: Rectangle): boolean {
+  return a.column < b.column + b.width && b.column < a.column + a.width &&
+    a.row < b.row + b.height && b.row < a.row + a.height;
+}
+
+function startGraphicsPassthroughFlush(
+  app: TerminalApp<ExomuxAppAction>,
+  controller: ExomuxController,
+  mount: ExomuxAppMount,
+): () => void {
+  const encoder = new TextEncoder();
+  const displayed = new Set<string>();
+  const write = (text: string) => {
+    try {
+      app.tui.stdout.writeSync(encoder.encode(text));
+    } catch {
+      // A closed stdout means the app is going down; the terminal is gone too.
+    }
+  };
+  const apc = (data: string) => `\x1b_${data}\x1b\\`;
+  const flush = () => {
+    const projection = mount.windowProjection.peek();
+    const seen = new Set<string>();
+    // Host images float above every cell exomux paints, so the compositor's
+    // stacking has to be enforced here: a window relays only while nothing
+    // sits on top of it. `windows` is back-to-front paint order, and a modal
+    // covers the whole desktop. A window that stops qualifying has everything
+    // it displayed deleted; frame-streaming applications repaint on the next
+    // frame, so raising, minimizing and un-minimizing all self-heal.
+    const modalOpen = projection.topModalId !== undefined;
+    for (let index = 0; index < projection.windows.length; index += 1) {
+      const window = projection.windows[index]!;
+      const sessionId = exomuxSessionIdFromWindow(window.id);
+      if (!sessionId) continue;
+      seen.add(sessionId);
+      const occluded = modalOpen ||
+        projection.windows.some((above, at) => at > index && rectanglesOverlap(above.rect, window.clientRect));
+      if (!occluded) {
+        const emissions = controller.takeGraphics(sessionId);
+        if (emissions.length === 0) continue;
+        displayed.add(sessionId);
+        let out = "\x1b7";
+        for (const emission of emissions) {
+          if (emission.cell) {
+            const row = window.clientRect.row + emission.cell.row + 1;
+            const column = window.clientRect.column + emission.cell.column + 1;
+            out += `\x1b[${row};${column}H`;
+          }
+          out += apc(emission.data);
+        }
+        write(out + "\x1b8");
+      } else {
+        // An occluded window's stream is dropped, not queued: it will repaint
+        // when it surfaces again, and a megabyte backlog helps nobody.
+        controller.takeGraphics(sessionId);
+        if (displayed.delete(sessionId)) {
+          write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
+        }
+      }
+    }
+    // Windows that left the projection entirely: closed, or minimized to the
+    // shelf. Their images go with them.
+    for (const sessionId of displayed) {
+      if (seen.has(sessionId)) continue;
+      displayed.delete(sessionId);
+      write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
+    }
+  };
+  const timer = setInterval(flush, 33);
+  if (typeof Deno !== "undefined" && typeof Deno.unrefTimer === "function") Deno.unrefTimer(timer);
+  const unsubscribe = app.tui.on("terminalApc", (event) => {
+    void controller.routeGraphicsReply(event.data);
+  });
+  return () => {
+    clearInterval(timer);
+    unsubscribe();
   };
 }
 

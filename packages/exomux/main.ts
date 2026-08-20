@@ -28,6 +28,7 @@ import {
   probeExomuxSessions,
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
+import { detectKittyGraphicsCapability } from "@ubernaut/exotui/runtime";
 import {
   createExomuxController,
   type ExomuxController,
@@ -357,9 +358,24 @@ async function runExomuxClientSession(
     endPass = resolve;
   });
   let liveRuntime: ExomuxTerminalAppRuntime | undefined;
+  // The client is the process that genuinely sits inside the host terminal,
+  // so its own environment is the honest source for what that host can draw.
+  // Children see a sanitised environment and cannot make this call themselves;
+  // they probe, and the probe only succeeds because this relay answers.
+  const graphicsPassthrough = detectKittyGraphicsCapability({
+    env: (name) => Deno.env.get(name),
+    isTty: Deno.stdout.isTerminal(),
+  }).supported;
+  // Measured before the app takes stdin: one raw XTWINOPS round trip. Without
+  // it, a pixel-rendering child asking `CSI 16 t` gets silence and guesses a
+  // cell geometry the host does not have — frames sized for a window it is
+  // not in.
+  const hostCellPixels = graphicsPassthrough ? await measureHostCellPixels() : undefined;
   const controller = await createExomuxController({
     client: connection.client,
     store: retargetableStore,
+    graphicsPassthrough,
+    ...(hostCellPixels ? { hostCellPixels } : {}),
     hostSessionsSource: {
       probe: async () =>
         (await probeExomuxSessions({ stateRoot })).map((probe) => ({
@@ -670,6 +686,56 @@ export async function launchInitialExomuxTerminalIfEmpty(
     ? `${connectionStatus} · floating terminal ready`
     : `${connectionStatus} · ${controller.status.peek()}`;
   return firstTerminal !== undefined;
+}
+
+/**
+ * Asks the host terminal for its cell size in pixels (`CSI 16 t`).
+ *
+ * A raw, bounded round trip on the real stdin/stdout, run before the TUI owns
+ * either. A host that does not answer within the deadline yields nothing, and
+ * children's pixel queries then go unanswered rather than answered wrongly.
+ */
+async function measureHostCellPixels(
+  deadlineMs = 300,
+): Promise<{ width: number; height: number } | undefined> {
+  if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) return undefined;
+  try {
+    Deno.stdin.setRaw(true);
+  } catch {
+    return undefined;
+  }
+  try {
+    await Deno.stdout.write(new TextEncoder().encode("\x1b[16t"));
+    const decoder = new TextDecoder();
+    const buffer = new Uint8Array(64);
+    let seen = "";
+    const deadline = Date.now() + deadlineMs;
+    while (Date.now() < deadline) {
+      const read = await Promise.race([
+        Deno.stdin.read(buffer),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), Math.max(10, deadline - Date.now()))),
+      ]);
+      if (read === null || read === 0) break;
+      seen += decoder.decode(buffer.subarray(0, read));
+      const match = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
+      if (match) {
+        const height = Number(match[1]);
+        const width = Number(match[2]);
+        if (width > 0 && height > 0) return { width, height };
+        return undefined;
+      }
+      if (seen.length > 256) break;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  } finally {
+    try {
+      Deno.stdin.setRaw(false);
+    } catch {
+      // The TUI re-enables raw mode moments later either way.
+    }
+  }
 }
 
 /** Runs the retaining host until an authenticated shutdown or process signal. */

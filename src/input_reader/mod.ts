@@ -14,6 +14,7 @@ import type {
   MousePressEvent,
   MouseScrollEvent,
   PasteEvent,
+  TerminalApcEvent,
   TerminalFocusEvent,
 } from "./types.ts";
 import type { Stdin } from "../types.ts";
@@ -28,6 +29,7 @@ export type InputEventRecord = {
   mouseScroll: EmitterEvent<[MouseScrollEvent]>;
   paste: EmitterEvent<[PasteEvent]>;
   terminalFocus: EmitterEvent<[TerminalFocusEvent]>;
+  terminalApc: EmitterEvent<[TerminalApcEvent]>;
 };
 
 const BRACKETED_PASTE_START_TEXT = "\x1b[200~";
@@ -72,6 +74,8 @@ export async function emitInputEvents(
       emitter.emit("paste", event);
     } else if (event.key === "focus") {
       emitter.emit("terminalFocus", event);
+    } else if (event.key === "apc") {
+      emitter.emit("terminalApc", event);
     } else {
       emitter.emit("keyPress", event);
     }
@@ -211,7 +215,7 @@ export function* decodeBuffer(
     if (boundary == null) return;
     const chunk = buffer.subarray(index, boundary);
     const code = textDecoder.decode(chunk);
-    yield decodeBracketedPaste(chunk, code) ?? decodeTerminalFocus(chunk, code) ??
+    yield decodeApc(chunk, code) ?? decodeBracketedPaste(chunk, code) ?? decodeTerminalFocus(chunk, code) ??
       decodeMouseVT_UTF8(chunk, code) ?? decodeMouseSGR(chunk, code) ?? decodeKey(chunk, code);
     index = boundary;
   }
@@ -231,6 +235,12 @@ function decodeBracketedPaste(
     text: decoder.decode(payload),
     buffer,
   };
+}
+
+function decodeApc(buffer: Uint8Array, code: string): TerminalApcEvent | undefined {
+  if (!code.startsWith("\x1b_")) return undefined;
+  const end = code.endsWith("\x1b\\") ? code.length - 2 : code.length;
+  return { key: "apc", data: code.slice(2, end), buffer };
 }
 
 function decodeTerminalFocus(buffer: Uint8Array, code: string): TerminalFocusEvent | undefined {
@@ -538,6 +548,16 @@ function nextInputBoundary(buffer: Uint8Array, start: number): number | null {
   }
   if (second === 0x1b) {
     return start + 1;
+  }
+
+  // An APC string (`ESC _ … ESC \`) contains an interior ESC in its own
+  // terminator, so the generic ESC boundary would cut it in half and decode
+  // the pieces as an alt-chord. It spans to its ST or is held for more input.
+  if (second === 0x5f) {
+    for (let index = start + 2; index + 1 < buffer.length; index += 1) {
+      if (buffer[index] === 0x1b && buffer[index + 1] === 0x5c) return index + 2;
+    }
+    return null;
   }
 
   if (second === 0x5b) {

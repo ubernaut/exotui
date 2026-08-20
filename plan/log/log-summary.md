@@ -3,6 +3,37 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 20 2026 — kitty graphics passthrough, first pass
+
+exomux sits between applications that draw images and a host terminal — Ghostty — that can show them. Swallowing the
+sequences was honest; relaying them is better, and the maintainer asked for it directly. The design splits along the
+same line as everything else here: a pure relay (`src/runtime/kitty_passthrough.ts`) that rewrites sequences and returns
+actions, and a thin flush loop in the exomux client that owns visibility, translation and stdout.
+
+The relay's rules are each a test: ids are remapped through per-session blocks so two children calling their image `i=1`
+cannot collide at the host; a display command carries the cursor cell it was issued at, a bare transmit does not;
+continuation chunks of a chained transmission are relayed untouched and position-free; responses are quieted (`q=2`)
+unless the child asked, so a host OK per frame does not land with nobody waiting; delete-all from a child expands to
+per-id deletes of that child's images only; and `release()` produces the deletes for everything live, because an image
+the compositor cannot account for must not stay on screen.
+
+Queries round-trip. The child's probe is remapped out; Ghostty's reply arrives on the client's stdin as an APC — which
+the input reader used to split at the interior ESC of its own terminator and decode as an alt-chord. APC is now one
+input boundary and a `terminalApc` event; the controller routes the reply to the relay that claims it and writes it to
+that child's pty with the id translated back. This is what makes an application that _probes_ — terminal-browser does —
+conclude honestly that graphics work, while the sanitised environment keeps applications that merely sniff env deciding
+text. The input envelope refuses APC by design: a terminal reply is not semantic input, and schema v1 says so now.
+
+Policy, deliberately narrow: only the active terminal window's graphics reach the host; a window that stops being active
+or stops existing has everything it displayed deleted; inactive windows' streams are drained and dropped, since a
+frame-streaming app repaints and a megabyte backlog helps nobody. The client decides whether any of this is on from its
+own environment — it is the process that genuinely sits inside the host — via `detectKittyGraphicsCapability`, which now
+recognises Ghostty.
+
+Not yet seen on a real terminal, which is the check that matters and is the maintainer's to make: tode inside exomux
+inside Ghostty, images landing where the window says. Known limits, recorded: no clipping (an image can overhang a small
+window), z-order is the host's image plane rather than exomux's window order, and only the active window relays.
+
 ## August 20 2026 — a wall of base64, and the two lies behind it
 
 The maintainer ran tode — a VS Code fork that draws in the terminal — inside exomux, and got a full screen of base64.

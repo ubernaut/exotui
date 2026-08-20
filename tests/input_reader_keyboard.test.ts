@@ -8,7 +8,7 @@ const encoder = new TextEncoder();
 
 function decode(code: string): KeyPressEvent {
   const event = fullSnapshot(code)[0];
-  if (!event || event.key === "mouse" || event.key === "paste" || event.key === "focus") {
+  if (!event || event.key === "mouse" || event.key === "paste" || event.key === "focus" || event.key === "apc") {
     throw new Error(`Expected key press event for ${JSON.stringify(code)}`);
   }
   return event;
