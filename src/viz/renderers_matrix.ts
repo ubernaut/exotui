@@ -139,6 +139,26 @@ export const overlay: Visualization<Matrix | readonly Sample<1>[]> = {
   label: "Overlay",
   accepts: ["1dt", "2d"],
   minimum: { width: 8, height: 4 },
+  // Vertical room per series. A braille cell is four dot-rows, so a quarter of
+  // a row each is the floor at which two traces can still be told apart.
+  perEntry: { rows: 0.25 },
+  /**
+   * The point past which this is not a trace chart at any size.
+   *
+   * `perEntry` already ranks it down as the traces crowd — that is legibility,
+   * and it is relative to the box. This is the other thing: every series is
+   * resampled and rasterised separately, so the work scales with their number.
+   * Thirty-two traces of a minute's history take 2.6 ms, two hundred and fifty
+   * six take 17.5 ms, and a live feed pinned to the second could not be drawn
+   * at the rate its data arrived — one monitor locked up on exactly that.
+   *
+   * A flat number is a blunt instrument, because what is affordable depends on
+   * how often the tile is redrawn and the registry is not told. It is set where
+   * two traces stop being distinguishable in any terminal rather than where the
+   * cost stops being affordable in the worst case, and the crowding score does
+   * the rest.
+   */
+  suits: (shape) => (shape.extent?.[0] ?? 1) <= 128,
   // Above the psychograph: at dot resolution it holds more lines legibly, and
   // it is the shape a reader coming from btop expects. The psychograph stays
   // one pin away for the cases where a pip per series matters more.

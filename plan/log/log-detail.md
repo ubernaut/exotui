@@ -24,6 +24,21 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**Dropping a per-entry cost in a rewrite (Aug 19).** `overlay` declared `perEntry: { rows: 2 }` until it was rewritten
+as the btop chart, and the rewrite did not carry it over. Nothing failed: the fitness pass then scored two hundred and
+fifty-six series as "fits comfortably", the settings page offered it for a 256-point waveform feed, a pin took it, and
+the tile cost 49 ms a frame at 60 Hz — two of them, so roughly six cores' worth of work asked of one. The monitor locked
+up.
+
+Found by measuring rather than reading: composition of the automatic layout was 0.45 ms and presenting 0.98 ms, which
+ruled out everything until the probe was re-run against the maintainer's actual config, pins included. The pins were the
+whole story.
+
+Two lessons. A renderer whose cost scales with the data must say so in `perEntry`, because that declaration is the only
+thing standing between a settings page and an offer it cannot honour. And a performance probe built from defaults tests
+the defaults; the configuration that is actually slow is the one somebody chose. _Rule: reproduce with the user's
+config, not with a plausible one._
+
 **A modal that resized itself per page (Aug 19).** exomonitor's settings window sized its height to the number of rows
 the current page had, which looked tidier and was wrong twice over. The list drew against the rectangle the previous
 page had left — thirteen rows rendered, two drawn — and the rows the shrinking box vacated were never repainted, so the

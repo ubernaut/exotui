@@ -123,7 +123,19 @@ export class VisualizationView {
 
   /** Replaces what is on screen with this frame. */
   present(frame: VizFrame): void {
-    const runs = framesToRuns(frame);
+    this.presentRuns(framesToRuns(frame));
+  }
+
+  /**
+   * Replaces what is on screen with these runs.
+   *
+   * For a caller drawing several small charts into one view: composing them
+   * into a frame the size of the whole view first means allocating and walking
+   * every cell of it to draw a few hundred, which at sixty frames a second is
+   * most of a core spent on blank space. Runs from each chart, offset into
+   * place, cost only what was actually drawn.
+   */
+  presentRuns(runs: readonly VizRun[]): void {
     // Grow toward what this frame wanted, but draw with the slots that already
     // existed. A Computed wires itself to its dependencies a turn of the event
     // loop after it is created, so a slot positioned in the frame it was made

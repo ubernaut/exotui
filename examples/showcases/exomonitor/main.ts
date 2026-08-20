@@ -177,14 +177,27 @@ function statusLine(current: FeedLayout, width: number): string {
     .slice(0, Math.max(0, width));
 }
 
-function screenModel(width: number, height: number) {
-  const labels = new Map<string, readonly string[]>();
+/**
+ * Entry names by feed, rebuilt when the layout is rather than when a chart is.
+ *
+ * They change with the machine, not with the data: recomputing them inside the
+ * live path meant allocating a map and walking every tile sixty times a second
+ * to arrive at the same answer.
+ */
+let entryNames = new Map<string, readonly string[]>();
+
+function refreshEntryNames(): void {
+  const names = new Map<string, readonly string[]>();
   for (const tile of layout.tiles) {
-    const names = entryLabels(tile.source.feed, snapshot.peek());
-    if (names.length > 0) labels.set(tile.source.feed.id, names);
+    const found = entryLabels(tile.source.feed, snapshot.peek());
+    if (found.length > 0) names.set(tile.source.feed.id, found);
   }
+  entryNames = names;
+}
+
+function screenModel(width: number, height: number) {
   return {
-    labels,
+    labels: entryNames,
     width,
     height,
     layout,
@@ -203,12 +216,30 @@ function draw(): void {
   const { width, height } = tui.rectangle.peek();
   layout = plan(width, height);
   liveTiles = layout.tiles.filter((tile) => tile.source.feed.live);
+  refreshEntryNames();
   view.present(composeScreen(screenModel(width, height)));
   drawLive();
 }
 
-/** Redraws only the live tiles, which is what runs at the audio rate. */
+/**
+ * Marks the live tiles as needing a redraw.
+ *
+ * Coalesced rather than drawn on the spot. Every live capture calls this at its
+ * own rate — two of them at 60 Hz is 120 calls a second — and the terminal is
+ * only redrawn 60 times a second, so half of that work was being composed,
+ * presented and thrown away. The flag bounds it at one redraw per frame however
+ * many captures are running.
+ */
+let liveDirty = false;
+
 function drawLive(): void {
+  liveDirty = true;
+}
+
+/** Draws the live tiles if anything has changed since the last frame. */
+function flushLive(): void {
+  if (!liveDirty) return;
+  liveDirty = false;
   if (liveTiles.length === 0) {
     view.presentLive([]);
     return;
@@ -286,16 +317,35 @@ function micWanted(): boolean {
  * again — a monitor holding a microphone open for a panel nobody is looking at
  * is a monitor nobody should run.
  */
+let micPending = false;
+
 async function syncMic(): Promise<void> {
+  // Starting a capture takes long enough to notice a recorder that dies
+  // immediately, which is long enough for another keystroke to arrive. Without
+  // this guard, switching a feed on and off quickly spawns a second recorder
+  // that nothing ever closes.
+  if (micPending) return;
   const wanted = micWanted();
   if (wanted && !mic) {
-    mic = await startAudioCapture({ kind: "mic", bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
-    if (mic) listenToMic(mic);
-    else {
-      // Nothing on this machine can record. Say so on the Sources page rather
-      // than leaving a feed switched on that will never produce a sample.
-      micOffered = false;
-      available = FEEDS.filter((feed) => sources.includes(feed.source) && feed.source !== "mic");
+    micPending = true;
+    try {
+      const started = await startAudioCapture({ kind: "mic", bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
+      if (started) {
+        mic = started;
+        listenToMic(started);
+      } else {
+        // Nothing on this machine can record. Say so on the Sources page rather
+        // than leaving a feed switched on that will never produce a sample.
+        micOffered = false;
+        available = FEEDS.filter((feed) => sources.includes(feed.source) && feed.source !== "mic");
+      }
+    } finally {
+      micPending = false;
+    }
+    // Whatever arrived while the device was opening decides whether it stays.
+    if (!micWanted() && mic) {
+      mic.close();
+      mic = undefined;
     }
     draw();
     return;
@@ -366,3 +416,5 @@ tui.on("keyPress", (event) => {
 await syncMic();
 await tick();
 setInterval(() => void tick(), SAMPLE_INTERVAL_MS);
+// One live redraw per frame at most, whatever the captures are doing.
+setInterval(flushLive, 1000 / AUDIO_HZ);

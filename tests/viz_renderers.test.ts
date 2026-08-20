@@ -382,3 +382,30 @@ Deno.test("pairing a stream with a visualisation that cannot draw it still throw
     "psychograph draws 0dt or 1dt or 2d",
   );
 });
+
+Deno.test("an overlay refuses more series than it can draw at speed", () => {
+  // The cost scales with the series count, and this is a chart people put on
+  // live feeds: 256 traces of a minute's history took 17ms to render, which is
+  // more than a frame at 60 Hz, for one tile. Two of them locked a monitor up.
+  const tile = { width: 47, height: 13 };
+  assert(fitVisualizations({ kind: "1dt", extent: [32] }, tile).some((fit) => fit.id === "overlay"));
+  assert(fitVisualizations({ kind: "1dt", extent: [64] }, tile).some((fit) => fit.id === "overlay"));
+  assert(
+    !fitVisualizations({ kind: "1dt", extent: [256] }, tile).some((fit) => fit.id === "overlay"),
+    "a waveform's worth of series is not a trace chart",
+  );
+  // Something still draws it, and the something is cheap.
+  assertEquals(fitVisualizations({ kind: "1dt", extent: [256] }, tile)[0]!.id, "scope");
+});
+
+Deno.test("a stream never reports more history than its capacity", () => {
+  // Trimming is batched, so the buffer runs over capacity between trims. A
+  // reader must not see readings the stream promised to forget.
+  const stream = scalarStream({ capacity: 10 });
+  for (let index = 0; index < 500; index += 1) stream.push(index, index);
+  assertEquals(stream.history().length, 10);
+  assertEquals(stream.values().at(-1), 499);
+  assertEquals(stream.values()[0], 490);
+  assertEquals(stream.history(3).length, 3);
+  assertEquals(stream.length, 10);
+});

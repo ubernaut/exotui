@@ -68,6 +68,11 @@ export class DataStream<R extends DataRank = DataRank> {
       throw new TypeError(`stream of rank ${this.rank} was pushed a rank ${rank} reading`);
     }
     this.#samples.push({ at, value });
+    // Trimmed on every push. Batching the trim would save a copy per push and
+    // cost the buffer's own contract: `length`, `values` and `since` all read
+    // the array, so a buffer allowed to run over capacity reports readings it
+    // has promised to forget. Measured against the work a chart does with the
+    // history, the copy is not worth an inconsistency.
     if (this.#samples.length > this.capacity) {
       this.#samples = this.#samples.slice(this.#samples.length - this.capacity);
     }

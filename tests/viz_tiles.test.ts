@@ -84,9 +84,11 @@ Deno.test("the same source picks a different chart on differently shaped data", 
   const narrow = { column: 0, row: 0, width: 16, height: 8 };
   const squeeze = (entries: number) =>
     planTiles(narrow, [{ id: "cores", shape: { kind: "1dt", extent: [entries] } }]).tiles[0]!.visualization;
-  // Both resample, so both draw — but which one leads changes with the count.
+  // Four traces fit seven rows; eighty-eight do not, and the renderer that
+  // resamples takes over. The trace chart costs vertical room per series, so
+  // this is the crowding score doing its job rather than a size threshold.
   assertEquals(squeeze(4), "overlay", "four traces on one set of axes");
-  assertEquals(squeeze(88), "overlay", "and eighty-eight, which is the point of it");
+  assertEquals(squeeze(88), "scope", "eighty-eight cannot be told apart in seven rows");
   const packed = planTiles(narrow, [{ id: "cores", shape: { kind: "1dt", extent: [88] } }]).tiles[0]!;
   const rankOf = (id: string) => packed.fits.findIndex((fit) => fit.id === id);
   assert(rankOf("scope") < rankOf("bars"), "a renderer that resamples beats one that wants a column each");

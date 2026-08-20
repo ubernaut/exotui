@@ -101,8 +101,12 @@ export function itemsFor(state: SettingsState, context: SettingsContext): Settin
     if (!state.enabled.has(feed.id)) continue;
     const offered = context.feeds.some((candidate) => candidate.id === feed.id);
     const fits = offered ? context.fitsFor(feed.id) : [];
-    const pinned = state.overrides.get(feed.id) ?? AUTOMATIC;
-    const resolved = fits.find((fit) => fit.id === pinned) ?? fits[0];
+    const stored = state.overrides.get(feed.id) ?? AUTOMATIC;
+    const resolved = fits.find((fit) => fit.id === stored) ?? fits[0];
+    // A pin the registry no longer offers is not in effect, so it is not shown
+    // as one. Marking it pinned beside a different chart reads as a bug in the
+    // pin rather than as the planner refusing a choice that stopped fitting.
+    const pinned = resolved?.id === stored ? stored : AUTOMATIC;
     items.push({
       kind: "visualization",
       feed,

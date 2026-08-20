@@ -21,15 +21,12 @@ import {
   type Tui,
 } from "../../../mod.ts";
 import {
+  framesToRuns,
   type VisualizationTheme,
   VisualizationView,
-  type VizCell,
   type VizFrame,
   type VizRun,
 } from "../../../src/viz/mod.ts";
-
-/** An untouched cell: no glyph, no colour, and therefore no run. */
-const BLANK: VizCell = { char: " " };
 import { layoutWorkbenchModal } from "../../../src/app/workbench_overlay.ts";
 import { FEEDS, SOURCE_IDS } from "./feeds.ts";
 import type { MonitorPalette } from "./theme.ts";
@@ -306,27 +303,18 @@ export function createMonitorView(
   return {
     present: (frame: VizFrame) => screen.present(frame),
     presentLive: (tiles) => {
-      const drawable = tiles.filter((tile) => tile.rect.width > 0 && tile.rect.height > 0);
-      if (drawable.length === 0) {
-        live.present([]);
-        return;
-      }
-      // Composited into one sparse frame spanning the terminal: rows nobody
-      // draws stay empty, and an empty row costs no runs at all.
-      const { width, height } = tui.rectangle.peek();
-      const canvas: VizCell[][] = Array.from({ length: height }, () => Array.from({ length: width }, () => BLANK));
-      for (const tile of drawable) {
-        for (let row = 0; row < tile.frame.length; row += 1) {
-          const target = canvas[tile.rect.row + row];
-          const source = tile.frame[row]!;
-          if (!target) continue;
-          for (let column = 0; column < source.length; column += 1) {
-            const at = tile.rect.column + column;
-            if (at >= 0 && at < target.length) target[at] = source[column]!;
-          }
+      // Each chart's own runs, offset into place. Compositing them into a frame
+      // the size of the terminal first meant allocating and walking every cell
+      // of it — seven thousand of them to draw a few hundred, sixty times a
+      // second.
+      const runs: VizRun[] = [];
+      for (const tile of tiles) {
+        if (tile.rect.width <= 0 || tile.rect.height <= 0) continue;
+        for (const run of framesToRuns(tile.frame)) {
+          runs.push({ ...run, column: run.column + tile.rect.column, row: run.row + tile.rect.row });
         }
       }
-      live.present(canvas);
+      live.presentRuns(runs);
     },
     settingsWidth,
     presentSettings: (state, context) => {
