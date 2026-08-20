@@ -11,7 +11,7 @@ import { resolveVisualizationTheme, type VisualizationTheme } from "../../../src
 import { blockedPaths, detectAvailable, MonitorSampler, type Snapshot } from "./sampler.ts";
 import { createMonitorView } from "./view.ts";
 import { composeChart, composeScreen } from "./compose.ts";
-import { createFeedStreams, entryLabels, type Feed, FEEDS, pushSnapshot } from "./feeds.ts";
+import { createFeedStreams, entryLabels, type Feed, feedById, FEEDS, pushSnapshot } from "./feeds.ts";
 import { type FeedLayout, type FeedTile, planFeeds } from "./tiles.ts";
 import {
   activate,
@@ -37,7 +37,9 @@ if (Deno.args.includes("--help")) {
       "exomonitor — a themeable, responsive system monitor",
       "",
       `themes: ${MONITOR_THEMES.map((theme) => theme.id).join(", ")}  (EXOMONITOR_THEME, or press t)`,
-      "audio:  system by default; EXOMONITOR_AUDIO=mic listens instead, --no-audio turns it off",
+      "audio:  what is playing, by default; --no-audio turns it off",
+      "mic:    off until you ask for it — --mic at launch, or switch a Microphone",
+      "        feed on in the settings menu, which starts the capture then",
       "keys:   m opens settings, t cycles the theme, q quits",
       "flags:  --opaque paints the theme background instead of letting the host show through",
     ].join("\n"),
@@ -73,14 +75,31 @@ palette.subscribe((next) => {
 
 // ---- what this machine can supply -------------------------------------
 const sources = await detectAvailable();
-// System audio by default; EXOMONITOR_AUDIO=mic listens to the microphone
-// instead, and a machine with no recorder simply has no audio feed.
-const audioKind = Deno.env.get("EXOMONITOR_AUDIO") === "mic" ? "mic" as const : "system" as const;
+// What is playing, captured from the default sink's monitor. A machine with no
+// recorder simply has no audio feeds.
 const audio: AudioCapture | undefined = Deno.args.includes("--no-audio")
   ? undefined
-  : await startAudioCapture({ kind: audioKind, bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
+  : await startAudioCapture({ kind: "system", bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
 if (audio) sources.push("audio");
-const available: Feed[] = FEEDS.filter((feed) => sources.includes(feed.source));
+
+/**
+ * The microphone, which is a separate source rather than a mode.
+ *
+ * Both at once is the interesting case — what is playing against what the room
+ * hears — and a flag that swaps one for the other cannot show it.
+ *
+ * It does not start on its own. Opening a microphone lights a recording
+ * indicator and is the kind of thing a monitor should be asked to do rather
+ * than assume, so the capture starts when `--mic` is passed or when a
+ * Microphone feed is switched on, and stops when the last one is switched off.
+ */
+let mic: AudioCapture | undefined;
+// Offered whenever a recorder exists at all, which the system capture proves.
+// Without one, enabling a mic feed still tries, and marks the source
+// unavailable if nothing can record.
+let micOffered = audio !== undefined || Deno.args.includes("--mic");
+if (micOffered) sources.push("mic");
+let available: Feed[] = FEEDS.filter((feed) => sources.includes(feed.source));
 
 // ---- state ------------------------------------------------------------
 const sampler = new MonitorSampler();
@@ -89,8 +108,8 @@ const snapshot = new Signal<Snapshot>({ cpu: 0, cores: [], network: [], temperat
 // Seeded at full length rather than empty: the tile's visualisation is chosen
 // from how many entries the feed carries, and one entry picks a different chart
 // than twenty-eight do. Starting empty means visibly swapping chart a second in.
-let bands: readonly number[] = audio ? new Array(AUDIO_BANDS).fill(0) : [];
-let waveform: readonly number[] = audio ? new Array(256).fill(0) : [];
+let bands: readonly number[] = audio || micOffered ? new Array(AUDIO_BANDS).fill(0) : [];
+let waveform: readonly number[] = audio || micOffered ? new Array(256).fill(0) : [];
 let channelCount = audio ? 2 : 0;
 
 const stored = await loadConfig();
@@ -107,6 +126,11 @@ if (settings.enabled.size === 0) {
   // A machine with none of the stored feeds still has to show something.
   const fallback = available.filter((feed) => DEFAULT_FEEDS.includes(feed.id));
   settings = { ...settings, enabled: new Set((fallback.length > 0 ? fallback : available).map((feed) => feed.id)) };
+}
+// `--mic` is a request to see it, not just to permit it: without switching a
+// feed on, the flag would open the device and draw nothing.
+if (Deno.args.includes("--mic")) {
+  settings = { ...settings, enabled: new Set([...settings.enabled, "mic:spectrum"]) };
 }
 let menuOpen = false;
 let layout: FeedLayout = { tiles: [], omitted: [] };
@@ -239,6 +263,50 @@ audio?.onFrame((next) => {
   drawLive();
 });
 
+function listenToMic(capture: AudioCapture): void {
+  capture.onFrame((next) => {
+    const at = Date.now();
+    streams.get("mic:spectrum")?.push([...next.bands] as never, at);
+    streams.get("mic:waveform")?.push([...next.waveform] as never, at);
+    drawLive();
+  });
+}
+
+/** Whether any Microphone feed is switched on. */
+function micWanted(): boolean {
+  for (const id of settings.enabled) if (feedById(id)?.source === "mic") return true;
+  return false;
+}
+
+/**
+ * Starts or stops the microphone to match what is switched on.
+ *
+ * Called after every settings change rather than once at launch, so switching a
+ * Microphone feed on opens the device and switching the last one off closes it
+ * again — a monitor holding a microphone open for a panel nobody is looking at
+ * is a monitor nobody should run.
+ */
+async function syncMic(): Promise<void> {
+  const wanted = micWanted();
+  if (wanted && !mic) {
+    mic = await startAudioCapture({ kind: "mic", bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
+    if (mic) listenToMic(mic);
+    else {
+      // Nothing on this machine can record. Say so on the Sources page rather
+      // than leaving a feed switched on that will never produce a sample.
+      micOffered = false;
+      available = FEEDS.filter((feed) => sources.includes(feed.source) && feed.source !== "mic");
+    }
+    draw();
+    return;
+  }
+  if (!wanted && mic) {
+    mic.close();
+    mic = undefined;
+    draw();
+  }
+}
+
 // A resize must re-tile immediately rather than waiting for the next sample, or
 // a stretched terminal shows a stale grid for up to a second.
 tui.rectangle.subscribe(() => {
@@ -249,6 +317,7 @@ tui.rectangle.subscribe(() => {
 tui.on("keyPress", (event) => {
   if (event.key === "q" || (event.key === "c" && event.ctrl)) {
     audio?.close();
+    mic?.close();
     tui.destroy();
     Deno.exit(0);
   }
@@ -274,6 +343,7 @@ tui.on("keyPress", (event) => {
       settings = activate(settings, context, 1);
       if (settings.themeId !== palette.peek().id) palette.value = themeById(settings.themeId);
       persist();
+      void syncMic();
       draw();
     }
     refreshSettings();
@@ -293,5 +363,6 @@ tui.on("keyPress", (event) => {
   }
 });
 
+await syncMic();
 await tick();
 setInterval(() => void tick(), SAMPLE_INTERVAL_MS);

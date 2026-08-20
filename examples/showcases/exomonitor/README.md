@@ -16,6 +16,12 @@ shows whatever is left and says so in the status bar rather than concluding the 
 
 Keys: `m` settings · `t` theme · `q` quit. In settings: `↑↓` move, `←→` change page, `space` acts, `esc` closes.
 
+| Flag         | What it does                                                       |
+| ------------ | ------------------------------------------------------------------ |
+| `--mic`      | opens the microphone at launch and switches its spectrum on        |
+| `--no-audio` | leaves the default sink's monitor alone                            |
+| `--opaque`   | paints the theme's ground instead of letting the host show through |
+
 ## How it decides what to draw
 
 **Sources and feeds.** A source is a thing you monitor — CPU, memory, the network. A feed is one way of reading it, and
@@ -35,6 +41,12 @@ which is how an 18x4 terminal ends up reading `cpu 42%  mem 70%  gpu 10%  net 20
 can declare itself live, and its tile is then redrawn by its own data — audio analyses at 60 Hz with overlapping windows
 and pushes each frame as it lands — on a second view above the screen, so the fast path costs one chart rather than the
 whole terminal.
+
+**Audio and the microphone are two sources, not two modes.** What is playing and what the room hears can be watched at
+once, which a flag swapping one for the other cannot show. Audio starts with the application; the microphone does not.
+Opening a microphone lights a recording indicator and is the kind of thing a monitor should be asked to do rather than
+assume, so the capture starts when `--mic` is passed or when a Microphone feed is switched on in the settings menu, and
+stops when the last one is switched off.
 
 **Transparency.** Ground cells carry no background, so a host compositing behind this window — exomux's per-window
 opacity, a terminal's own transparency — has something to blend. A cell with an explicit background is opaque by

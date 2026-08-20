@@ -10,7 +10,7 @@
 import { type DataKind, type DataStream, matrixStream, scalarStream, vectorStream } from "../../../src/viz/mod.ts";
 import type { Snapshot } from "./sampler.ts";
 
-export const SOURCE_IDS = ["cpu", "memory", "gpu", "vram", "network", "temperature", "audio"] as const;
+export const SOURCE_IDS = ["cpu", "memory", "gpu", "vram", "network", "temperature", "audio", "mic"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export type Unit = "percent" | "celsius" | "rate";
@@ -210,6 +210,32 @@ export const FEEDS: readonly Feed[] = Object.freeze([
     entryMarks: ["L", "R"],
   },
   {
+    id: "mic:spectrum",
+    source: "mic",
+    sourceLabel: "Microphone",
+    label: "spectrum",
+    title: "MIC",
+    short: "mic",
+    kind: "1dt",
+    unit: "percent",
+    domain: { min: 0, max: 1 },
+    live: true,
+    prefer: "scope",
+  },
+  {
+    id: "mic:waveform",
+    source: "mic",
+    sourceLabel: "Microphone",
+    label: "waveform",
+    title: "MIC SCOPE",
+    short: "mwav",
+    kind: "1dt",
+    unit: "percent",
+    domain: { min: -1, max: 1 },
+    live: true,
+    prefer: "scope",
+  },
+  {
     id: "audio:waveform",
     source: "audio",
     sourceLabel: "Audio",
@@ -255,10 +281,12 @@ export function entriesOfFeed(feed: Feed, snapshot: Snapshot, bands = 0, wavefor
     case "temperature:sensors":
       return Math.max(1, snapshot.temperatures.length);
     case "audio:spectrum":
+    case "mic:spectrum":
       return Math.max(1, bands);
     case "audio:channels":
       return Math.max(1, channels);
     case "audio:waveform":
+    case "mic:waveform":
       return Math.max(1, waveform);
     default:
       return 1;

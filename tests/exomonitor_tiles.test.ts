@@ -91,3 +91,32 @@ Deno.test("every feed in the catalogue has a stream, a short label and a drawabl
     );
   }
 });
+
+Deno.test("the microphone is its own source, not a mode of the audio one", () => {
+  // Both at once is the interesting case — what is playing against what the
+  // room hears — and a flag that swaps one for the other cannot show it.
+  const playing = FEEDS.filter((feed) => feed.source === "audio");
+  const room = FEEDS.filter((feed) => feed.source === "mic");
+  assert(playing.length > 0 && room.length > 0);
+  for (const feed of room) {
+    assertEquals(feed.live, true, `${feed.id} should be redrawn by its own data`);
+    assert(!playing.some((other) => other.id === feed.id), "the two sources share no feed");
+  }
+  // And a machine with a recorder but no speaker output, or the reverse, gets
+  // whichever it has: availability is per source.
+  const withoutSystem = FEEDS.filter((feed) => feed.source !== "audio");
+  assert(withoutSystem.some((feed) => feed.source === "mic"));
+});
+
+Deno.test("microphone feeds carry their live entry counts like the audio ones", () => {
+  const snapshot = machine(4);
+  assertEquals(entriesOfFeed(feedById("mic:spectrum")!, snapshot, 28, 256), 28);
+  assertEquals(entriesOfFeed(feedById("mic:waveform")!, snapshot, 28, 256), 256);
+  // A stream exists for each, and something can draw it at a plausible size.
+  const streams = createFeedStreams();
+  for (const id of ["mic:spectrum", "mic:waveform"]) {
+    const feed = feedById(id)!;
+    assert(streams.get(id), `${id} has no stream`);
+    assert(fitVisualizations({ kind: feed.kind, extent: [28] }, { width: 40, height: 12 }).length > 0);
+  }
+});

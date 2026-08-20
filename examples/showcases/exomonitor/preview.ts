@@ -77,6 +77,16 @@ for (let step = 0; step < 240; step += 1) {
     ] as never,
     at,
   );
+  // The room, quieter and duller than what is playing — the comparison is the
+  // reason both sources exist.
+  streams.get("mic:spectrum")!.push(
+    Array.from({ length: 28 }, (_, band) => Math.abs(Math.sin(step / 9 + band / 6)) * 0.45 * (1 - band / 34)) as never,
+    at,
+  );
+  streams.get("mic:waveform")!.push(
+    Array.from({ length: 256 }, (_, point) => Math.sin(point / 13 + step / 4) * 0.3) as never,
+    at,
+  );
   streams.get("audio:waveform")!.push(
     Array.from(
       { length: 256 },
