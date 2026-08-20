@@ -3,6 +3,21 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 19 2026 — exomonitor becomes the worked example (0.4.0)
+
+It moved into `examples/showcases/exomonitor/` beside Inkstone, Orbital Command and GlyphForge, and its tests joined the
+root suite as `tests/exomonitor_*.test.ts`. That is where it belonged from the start: nearly every feature of the
+visualisation layer exists because building a system monitor needed it, and a library whose worked example lives in
+another repository is a library whose worked example drifts.
+
+The README grew a Visualizations section that explains the layer rather than listing it — the rank-and-history model,
+what `fitVisualizations` is for and why crowding is reported apart from score, how to draw a frame, how to tile a
+screen, and what each file of exomonitor demonstrates. Its numbers were checked against the running code rather than
+written from memory; two of them were wrong and are now what the code prints.
+
+Released as 0.4.0 rather than the unpublished 0.3.1, because eleven visualisations, a drawing toolkit, a tiling layer,
+an axis layer and the unification of the two charting stacks are not a patch.
+
 ## August 19 2026 — one charting stack, and the btop graph
 
 The maintainer's call: `src/visual` stays the measuring layer, `src/viz` is the painting one. `visual` answers where

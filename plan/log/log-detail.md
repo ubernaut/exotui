@@ -24,6 +24,13 @@ buttons, and the background getting first refusal were each fixed in place until
 (`040`) replaced them with one router, ordered targets, and a golden hit map. _Rule: the third fix in the same area is a
 design signal, not a bug._
 
+**A modal that resized itself per page (Aug 19).** exomonitor's settings window sized its height to the number of rows
+the current page had, which looked tidier and was wrong twice over. The list drew against the rectangle the previous
+page had left — thirteen rows rendered, two drawn — and the rows the shrinking box vacated were never repainted, so the
+Sources page bled through underneath the Display page. Neither symptom points at resizing. One size for every page, from
+the library's own `layoutWorkbenchModal`, has neither problem. _Rule: a container whose geometry depends on its contents
+has to erase what it gives up, and it is cheaper not to give any up._
+
 **Building a charting layer next to one that already existed (Aug 19).** `src/viz/` grew axes, sub-cell plotting and a
 resampler without anyone noticing `src/visual/` had all three, better, exported from `mod.ts` and covered by eleven test
 files. Nothing imports `src/visual/`, which is why it never surfaced in a search for callers, a grep of the examples, or

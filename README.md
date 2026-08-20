@@ -251,6 +251,163 @@ deno task demo
 ./visualization
 ```
 
+## Visualizations
+
+`jsr:@ubernaut/exotui/viz` draws data in a terminal. The idea it is built on is that **what to draw is a measurement,
+not a lookup**: you describe the shape of your data, and the registry ranks the visualizations that suit it at the size
+you have.
+
+### Data has a rank, and may have a history
+
+A reading is described by two facts — how many dimensions it has, and whether you keep its past:
+
+| Kind  | A reading is          | For example                             |
+| ----- | --------------------- | --------------------------------------- |
+| `0d`  | one number            | CPU load right now                      |
+| `0dt` | one number, over time | CPU load for the last minute            |
+| `1d`  | an array              | an audio spectrum right now             |
+| `1dt` | an array, over time   | per-core load for the last minute       |
+| `2d`  | a grid                | left and right spectra together         |
+| `2dt` | a grid, over time     | that pair, kept                         |
+| `3d`  | a stack of grids      | a density volume, or a field of vectors |
+
+A stream declares the kind it carries and a visualization declares the kinds it draws. Pairing them wrongly throws
+rather than drawing something quietly false. History can be dropped — a `0dt` stream will feed a renderer that wants
+`0d`, which is handed the latest reading — but never invented, and rank never converts.
+
+```ts
+import { scalarStream, vectorStream } from "jsr:@ubernaut/exotui/viz";
+
+const load = scalarStream({ capacity: 240, domain: { min: 0, max: 1 }, label: "cpu" });
+const cores = vectorStream({ capacity: 240, domain: { min: 0, max: 1 }, label: "cores" });
+
+load.push(0.42, Date.now());
+cores.push([0.4, 0.9, 0.2, 0.6], Date.now());
+```
+
+### Ask what suits the data, at this size
+
+This is the part worth understanding. A visualization declares an absolute minimum size, what one _entry_ of data costs
+it, and how many entries it needs before it is the thing it claims to be. Scoring those against your actual data answers
+a question a table of breakpoints cannot: eighty-eight cores drawn as bars want eighty-eight columns, and four cores
+want four.
+
+```ts
+import { fitVisualizations } from "jsr:@ubernaut/exotui/viz";
+
+fitVisualizations({ kind: "1dt", extent: [4] }, { width: 60, height: 16 });
+// overlay:1.05  psychograph:1.00  bars:0.80  hexgrid:0.75  waterfall:0.67  rack:0.60  scope:0.42
+
+fitVisualizations({ kind: "1dt", extent: [88] }, { width: 60, height: 16 });
+// overlay:1.05  scope:0.85  waterfall:0.76  hexgrid:0.75  bars:0.61  rack:0.23
+```
+
+Each result carries a `score`, a `crowding` and a `reason` in words — `"fits comfortably"`,
+`"88 entries are tight
+here"`, `"only 2 to show — wants 6"`. The reason is meant to be shown to a person: it is how a
+settings page explains its own choice instead of presenting it as a preference.
+
+`crowding` is reported separately from `score` because they answer different questions. The score ranks candidates
+against each other; crowding says whether the winner is worth drawing at all. Sixteen cores in one row can rank first
+and still be nonsense — which is how a very small terminal ends up showing labelled numbers, with no special case
+written for it.
+
+### Draw it
+
+A visualization renders a `VizFrame` — rows of cells, each with its own colour. `VisualizationView` puts one on screen,
+splitting each row into runs of identically styled cells so a chart costs a handful of components per row rather than
+one per column.
+
+```ts
+import { Signal } from "jsr:@ubernaut/exotui";
+import { bestVisualization, drawStream, resolveVisualizationTheme, VisualizationView } from "jsr:@ubernaut/exotui/viz";
+
+const theme = resolveVisualizationTheme(myThemeTokens); // any sparse token map
+const rectangle = new Signal({ column: 2, row: 2, width: 60, height: 12 });
+const view = new VisualizationView({
+  parent: tui,
+  rectangle,
+  styleFor: (run) => createAnsiStyle({ foreground: run.foreground, background: run.background }),
+});
+
+const chart = bestVisualization({ kind: "1dt", extent: [cores.latest()!.length] }, rectangle.peek())!;
+view.present(drawStream(chart, cores, { size: rectangle.peek(), theme }));
+```
+
+Colours come from a `viz:*` token group that falls back through the chrome and status tiers, so a theme that never heard
+of charts still paints them.
+
+### Lay out a screen of them
+
+`planTiles` divides an area into tiles and picks each one's visualization. Give it sources — an id, the shape of that
+source's data, and optionally the visualization that suits its _subject_ — and it returns the layout plus whatever it
+had no room for.
+
+```ts
+import { planTiles } from "jsr:@ubernaut/exotui/viz";
+
+const layout = planTiles({ column: 0, row: 1, width, height: height - 2 }, [
+  { id: "cpu", shape: { kind: "0dt" } },
+  { id: "cores", shape: { kind: "1dt", extent: [navigator.hardwareConcurrency] } },
+  { id: "spectrum", shape: { kind: "1dt", extent: [28] }, prefer: "scope" },
+], { overrides: pinnedByTheUser });
+
+for (const tile of layout.tiles) {
+  // tile.rect, tile.chart, tile.framed, tile.visualization, tile.fits
+}
+```
+
+The order it resolves in is: a visualization the user pinned, then the source's own `prefer`, then whatever ranked
+highest on shape alone. A pin that stops fitting is ignored rather than obeyed.
+
+`drawTileFrame` and `drawTileLabel` draw the chrome — a rounded border with its title and reading set into the top row,
+or a single labelled line for a tile too small for a border. `drawValueAxis`, `drawTimeAxis` and `drawLegend` label a
+chart; measure the gutter with `valueAxisWidth` first, because nothing in that layer shrinks the chart it labels.
+
+### What ships
+
+| Kind  | Visualizations                                            |
+| ----- | --------------------------------------------------------- |
+| `0d`  | `readout`, `meter`, `dial`, `odometer`                    |
+| `0dt` | `sparkline`, `strip`, `area`, `psychograph`               |
+| `1d`  | `bars`, `rack`, `scope`, `hexgrid`, `status-grid`         |
+| `1dt` | `waterfall`, `lattice`, `overlay`, `psychograph`          |
+| `2d`  | `heatmap`, `scatter`, `surface`, `ring-volume`, `overlay` |
+| `3d`  | `volume-projection`, `point-cloud`, `vector-field`        |
+
+`overlay` is the btop-style chart: one braille trace per series, each in its own colour. `psychograph` draws the same
+data with a pip per series at cell resolution — colour alone fails a monochrome terminal, and a braille cell holds eight
+dots but only one colour, so the two make opposite trades and both are ranked.
+
+The projected views (`surface`, `point-cloud`, `ring-volume`, `vector-field`) are arithmetic, not Three.js: the core has
+no runtime dependencies and a wireframe chart should not add one.
+
+### The worked example
+
+`examples/showcases/exomonitor/` is a system monitor built on all of the above, and the reason most of it exists — real
+data of several shapes, arriving at different rates, on a terminal whose size nobody controls.
+
+```sh
+deno task exomonitor                       # run it
+deno task exomonitor:preview 120x36        # print a screen at any size, without resizing a terminal
+deno task exomonitor:preview 18x4          # including sizes nobody can resize to
+```
+
+Worth reading in order:
+
+| File          | What it shows                                                                      |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `feeds.ts`    | describing your data: one entry per way of reading a source, with its kind         |
+| `tiles.ts`    | handing live entry counts to `planTiles` — the whole adapter is forty lines        |
+| `compose.ts`  | composing a screen of charts and chrome into one frame                             |
+| `settings.ts` | offering the alternatives `fits` reported, with the registry's own reason for each |
+| `view.ts`     | mounting: one `VisualizationView` for the screen, a second for anything live       |
+
+Two things it demonstrates that are easy to miss. **Everything except `view.ts` is pure** and tested without a terminal
+— if a chart needs a mounted frame to test, the model is in the wrong place. And **a feed can declare itself live**:
+audio analyses at 60 Hz and its tile is redrawn by its own data on a second view above the screen, so sixty frames a
+second costs one chart rather than the whole terminal.
+
 ## Repository Scope
 
 | Area                         | Primary ownership                                                                        |
@@ -282,6 +439,7 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | `./remote`            | `mod.remote.ts`                    | remote   | experimental |
 | `./three-ascii`       | `mod.three_ascii.ts`               | shared   | experimental |
 | `./showcase`          | `src/showcase/mod.ts`              | shared   | beta         |
+| `./viz`               | `src/viz/mod.ts`                   | shared   | beta         |
 | `./theme`             | `mod.theme.ts`                     | shared   | beta         |
 | `./runtime`           | `mod.runtime.ts`                   | shared   | beta         |
 | `./terminal`          | `mod.terminal.ts`                  | terminal | beta         |
@@ -508,7 +666,7 @@ direct Deno tasks from `deno.jsonc`.
 
 ### Production showcases
 
-Three application-scale showcases under `examples/showcases/` prove the toolkit at product depth. Each runs from a plain
+Four application-scale showcases under `examples/showcases/` prove the toolkit at product depth. Each runs from a plain
 `deno task` (add `:persistent` to keep state across launches) or from the [Nix flake](#nix-flake):
 
 | Command                     | Application                                                 |
@@ -516,6 +674,7 @@ Three application-scale showcases under `examples/showcases/` prove the toolkit 
 | `deno task orbital-command` | 3D orbital observatory and mission console                  |
 | `deno task glyph-forge`     | Cell-art studio with layers, frames, and a figlet text tool |
 | `deno task inkstone`        | Markdown notes editor with command palette and find/replace |
+| `deno task exomonitor`      | System monitor, and the worked example for `./viz`          |
 
 Orbital Command renders a real Three.js scene — Earth, deterministic starfield, Kepler-propagated orbits — through the
 ASCII pipeline, with simulation-time controls, live telemetry, and terminal-cell raycast picking: clicking a satellite

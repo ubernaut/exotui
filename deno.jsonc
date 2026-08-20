@@ -1,6 +1,6 @@
 {
   "name": "@ubernaut/exotui",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
@@ -63,6 +63,12 @@
     "glyph-forge:persistent": "sh -c 'state_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/deno-tui\"; fonts_dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/deno-tui/figlet-fonts\"; fonts=\"\"; [ -d \"$fonts_dir\" ] && fonts=\"--fonts-dir=$fonts_dir\"; exec deno run --allow-read=\"$state_dir\",\"$fonts_dir\" --allow-write=\"$state_dir\" ./examples/showcases/glyph_forge/main.ts --persist --state-file=\"$state_dir/glyph-forge-session.json\" $fonts'",
     "glyph-forge:fonts": "sh -c 'data_dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/deno-tui/figlet-fonts\"; mkdir -p \"$data_dir\"; tmp=$(mktemp -d); echo \"fetching patorjk/figlet.js fonts…\"; curl -sL https://github.com/patorjk/figlet.js/archive/refs/heads/main.tar.gz | tar xz -C \"$tmp\"; cp \"$tmp\"/figlet.js-*/fonts/*.flf \"$data_dir\"/ 2>/dev/null; echo \"fetching xero/figlet-fonts…\"; curl -sL https://github.com/xero/figlet-fonts/archive/refs/heads/main.tar.gz | tar xz -C \"$tmp\"; find \"$tmp\"/figlet-fonts-* \\( -name \"*.flf\" -o -name \"*.tlf\" \\) -exec cp --update=none {} \"$data_dir\"/ \\; ; rm -rf \"$tmp\"; printf \"fonts installed in %s: \" \"$data_dir\"; ls \"$data_dir\" | wc -l'",
     "glyph-forge:check": "deno check ./examples/showcases/glyph_forge/main.ts",
+    // exomonitor is the worked example for ./viz. -A rather than a narrow set
+    // because Deno refuses /proc reads to anything less, and /proc is where a
+    // system monitor's readings live.
+    "exomonitor": "deno run -A ./examples/showcases/exomonitor/main.ts",
+    "exomonitor:preview": "deno run --allow-read --allow-env ./examples/showcases/exomonitor/preview.ts",
+    "exomonitor:check": "deno check ./examples/showcases/exomonitor/main.ts ./examples/showcases/exomonitor/preview.ts",
     // Exomux is a standalone package with its own import map and lockfile —
     // deliberately not a workspace member, because a Deno workspace shares one
     // npm resolution and `deno compile` materializes all of it, which put ~48MB

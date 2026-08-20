@@ -12,8 +12,10 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
      `drawLegend`, and `valueAxisWidth` so a caller can measure the gutter first. Deliberately a layer rather than
      something each renderer grew: a tile two rows tall cannot afford an axis and must not be given one, and nothing
      here shrinks the chart it labels.
-   - **exomonitor is unpublished**, deliberately: it runs against the working tree through `links` so bugs surface here
-     first. Publishing it is a decision for the maintainer, not a task.
+   - ~~exomonitor is unpublished~~ — it moved into `examples/showcases/exomonitor/` on Aug 19 and ships with the
+     repository as the worked example for `./viz`. The standalone `~/projects/exomonitor` checkout is now a second copy
+     of the same code; it should be retired rather than kept, because two copies of a thing is the drift this release
+     spent a day undoing.
 2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
