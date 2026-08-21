@@ -3,6 +3,21 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the top bar, and the desktop asking to be a component
+
+The bar moved to the top where exomux keeps its, and grew exomux's furniture: a tab per open window (click to focus,
+click the active one to minimize), the clock, and a start menu in exomux's order — apps, then Settings and Help as
+ordinary windows (overlays-as-windows applied from birth), then the outward links. Settings carries what a desktop owns:
+the theme gallery handoff, four wallpaper styles the painter honors (dots, plain, grid, drift), the hints toggle,
+recover-all. Driving it over CDP caught one real router bug: the host answers every client-area down with a focus
+command, and the router read any command as "chrome handled it" — so no demo ever received a click. Focus is a side
+effect, not a claim; the gallery, neon and catalog click paths all came back with the one-line fix.
+
+The maintainer asked whether the whole desktop should become an exotui component. The repo has already answered: two
+applications now hand-paint identical furniture over the same host projection. The direction recorded in the priority
+queue: a renderer-neutral shell layer beside the window host — chrome/bar/menu/switcher painters over control tokens,
+content staying app-side behind the adapter contract — extracted incrementally, switcher first.
+
 ## August 21 2026 — the desktop driven for real: two bugs found by looking, parity by command
 
 The maintainer asked for exomux parity — themes, tiling, menus — plus two field reports: the three renderer broken,

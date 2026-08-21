@@ -235,6 +235,112 @@ function themesDemo(): DesktopDemo {
   };
 }
 
+const WALLPAPER_STYLES: readonly { readonly id: WallpaperStyle; readonly label: string }[] = [
+  { id: "dots", label: "dots — a quiet grid of marks" },
+  { id: "plain", label: "plain — nothing but the colour" },
+  { id: "grid", label: "grid — faint rules every few cells" },
+  { id: "drift", label: "drift — the dots, slowly breathing" },
+];
+
+function settingsDemo(): DesktopDemo {
+  // Rows are laid out by the same function that hit-tests them.
+  interface SettingsRow {
+    readonly label: () => string;
+    readonly action: () => void;
+    readonly heading?: boolean;
+  }
+  const rowsOf = (): SettingsRow[] => [
+    { label: () => "THEME", heading: true, action: () => {} },
+    {
+      label: () => `  open the theme gallery — click a palette to apply`,
+      action: () => presentDemoWindow("themes"),
+    },
+    { label: () => "", action: () => {} },
+    { label: () => "BACKGROUND", heading: true, action: () => {} },
+    ...WALLPAPER_STYLES.map((style) => ({
+      label: () => `  ${desktopSettings.wallpaper === style.id ? "●" : "○"} ${style.label}`,
+      action: () => {
+        desktopSettings.wallpaper = style.id;
+      },
+    })),
+    { label: () => "", action: () => {} },
+    { label: () => "BAR", heading: true, action: () => {} },
+    {
+      label: () => `  ${desktopSettings.barHints ? "●" : "○"} show the key hints`,
+      action: () => {
+        desktopSettings.barHints = !desktopSettings.barHints;
+      },
+    },
+    { label: () => "", action: () => {} },
+    { label: () => "WINDOWS", heading: true, action: () => {} },
+    {
+      label: () => "  recover off-screen windows",
+      action: () => {
+        windowHost.execute({ kind: "recover-all" }, bodyBounds(), projectionOptions());
+      },
+    },
+  ];
+  return {
+    id: "settings",
+    title: "settings",
+    summary: "Desktop settings: theme, background, the bar.",
+    window: { width: 48, height: 17, minWidth: 26, minHeight: 8 },
+    render(width, height) {
+      const frame = clientFrame(width, height);
+      const rows = rowsOf();
+      for (let row = 0; row < Math.min(rows.length, height); row += 1) {
+        const entry = rows[row]!;
+        writeCellsText(
+          frame[row]!,
+          1,
+          entry.label().slice(0, Math.max(0, width - 2)),
+          entry.heading ? DESKTOP.accent : DESKTOP.chromeText,
+          DESKTOP.clientGround,
+        );
+      }
+      return frame;
+    },
+    onPointerDown(_, row) {
+      rowsOf()[row]?.action();
+    },
+  };
+}
+
+function helpDemo(): DesktopDemo {
+  const lines = [
+    "",
+    "  DESKTOP",
+    "    drag a title bar        move a window",
+    "    drag to an edge         snap it there",
+    "    double-click the title  maximize / restore",
+    "    g                       float <-> tile",
+    "    tab                     window switcher",
+    "    esc                     close menu / switcher",
+    "",
+    "  IN A WINDOW",
+    "    exomonitor   click for mic · t theme",
+    "    neon         arrows change demo and section",
+    "    catalog      arrows walk the renderers",
+    "    gallery      click a palette to retheme",
+    "    three        arrows change the scene",
+  ];
+  return {
+    id: "help",
+    title: "help",
+    summary: "Every key and click the desktop answers to.",
+    window: { width: 52, height: 17, minWidth: 30, minHeight: 8 },
+    render(width, height) {
+      const frame = clientFrame(width, height);
+      for (let row = 0; row < Math.min(lines.length, height); row += 1) {
+        const text = lines[row]!;
+        const heading = text.trim() === text.trim().toUpperCase() && text.trim().length > 0;
+        writeCellsText(frame[row]!, 0, text, heading ? DESKTOP.accent : DESKTOP.chromeText, DESKTOP.clientGround);
+      }
+      return frame;
+    },
+  };
+}
+
 function aboutDemo(): DesktopDemo {
   const lines = [
     "",
@@ -496,6 +602,8 @@ const DEMOS: DesktopDemo[] = [
   threeDemo(),
   clockDemo(),
   themesDemo(),
+  settingsDemo(),
+  helpDemo(),
 ];
 const demoById = new Map(DEMOS.map((demo) => [demo.id, demo]));
 const DEMO_GLYPHS: Record<string, string> = {
@@ -506,13 +614,18 @@ const DEMO_GLYPHS: Record<string, string> = {
   three: "◱",
   clock: "◔",
   themes: "▤",
+  settings: "⚙",
+  help: "?",
 };
+/** Settings and Help sit below the apps with a rule above, exomux's order. */
+const START_MENU_SEPARATED = new Set(["settings", "workbench"]);
 const START_MENU_ITEMS: StartMenuItem[] = [
   ...DEMOS.map((demo) => ({
     id: demo.id,
     glyph: DEMO_GLYPHS[demo.id] ?? "·",
     title: demo.title,
     summary: demo.summary,
+    separatorBefore: START_MENU_SEPARATED.has(demo.id),
   })),
   {
     id: "workbench",
@@ -572,12 +685,20 @@ const windowHost = createWorkbenchWindowHostController({
 
 const columns = () => host.platform.size.peek().columns;
 const rows = () => host.platform.size.peek().rows;
-const bodyBounds = (): Rectangle => ({ column: 0, row: 0, width: columns(), height: Math.max(1, rows() - 1) });
-const shelfBounds = (): Rectangle => ({ column: 0, row: Math.max(0, rows() - 1), width: columns(), height: 1 });
+// The bar is at the top, where exomux keeps its; windows live below it.
+const bodyBounds = (): Rectangle => ({ column: 0, row: 1, width: columns(), height: Math.max(1, rows() - 1) });
+const barBounds = (): Rectangle => ({ column: 0, row: 0, width: columns(), height: 1 });
 const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
-  shelfBounds: shelfBounds(),
+  shelfBounds: barBounds(),
   doubleClickMaximizeMs: 400,
 });
+
+/** Desktop-wide settings the settings window edits and the painter honors. */
+type WallpaperStyle = "dots" | "plain" | "grid" | "drift";
+const desktopSettings = {
+  wallpaper: "dots" as WallpaperStyle,
+  barHints: true,
+};
 
 /**
  * The phone question, answered the way exomux answers it: below this there is
@@ -604,7 +725,7 @@ function startMenuLayout(): StartMenuLayout {
   let needed = 2; // header + footer hint
   for (const item of START_MENU_ITEMS) needed += rowsPerItem + (item.separatorBefore ? 1 : 0);
   const height = Math.min(needed, rows() - 2);
-  const rect: Rectangle = { column: mobile ? 0 : 1, row: Math.max(0, rows() - 1 - height), width, height };
+  const rect: Rectangle = { column: mobile ? 0 : 1, row: 1, width, height };
   const itemRects: (Rectangle | undefined)[] = [];
   let row = rect.row + 1;
   const limit = rect.row + rect.height - 1;
@@ -792,30 +913,62 @@ function fillRect(frame: VizCell[][], rect: Rectangle, background: Rgb): void {
   }
 }
 
-function paintShelf(frame: VizCell[][]): void {
-  const shelf = shelfBounds();
-  fillRect(frame, shelf, DESKTOP.shelf);
-  writeText(frame, 0, shelf.row, START_BUTTON, {
-    foreground: startMenuOpen ? DESKTOP.wallpaper : DESKTOP.accent,
-    background: startMenuOpen ? DESKTOP.accent : DESKTOP.shelf,
-  });
+/** One tab per open window on the bar, exomux's terminal-bar shape. */
+interface BarTab {
+  readonly id: string;
+  readonly title: string;
+  readonly active: boolean;
+  readonly minimized: boolean;
+  readonly column: number;
+  readonly width: number;
+}
+
+function barTabs(): BarTab[] {
+  const inspection = windowHost.controller.inspect();
+  const tabs: BarTab[] = [];
   let column = START_BUTTON.length + 1;
-  const projection = windowHost.project(bodyBounds(), projectionOptions());
-  for (const item of projection.shelf) {
-    const label = ` ${item.title} `;
-    if (column + label.length >= columns()) break;
-    writeText(frame, column, shelf.row, label, {
-      foreground: item.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
-      background: DESKTOP.wallpaperDot,
+  for (const window of inspection.windows) {
+    if (window.state === "closed" || !window.declaredVisible) continue;
+    const label = ` ${window.title} `;
+    if (column + label.length >= columns() - 10) break;
+    tabs.push({
+      id: window.id,
+      title: label,
+      active: window.id === inspection.activeWindowId,
+      minimized: window.state === "minimized",
+      column,
+      width: label.length,
     });
     column += label.length + 1;
   }
-  const hint = mobileLayout() ? "" : "drag · dbl-click max · tab switch · g tile";
-  if (hint.length > 0 && column + hint.length + 1 < columns()) {
-    writeText(frame, columns() - hint.length - 1, shelf.row, hint, {
-      foreground: DESKTOP.chromeMuted,
-      background: DESKTOP.shelf,
+  return tabs;
+}
+
+function paintBar(frame: VizCell[][]): void {
+  const bar = barBounds();
+  fillRect(frame, bar, DESKTOP.shelf);
+  writeText(frame, 0, bar.row, START_BUTTON, {
+    foreground: startMenuOpen ? DESKTOP.wallpaper : DESKTOP.accent,
+    background: startMenuOpen ? DESKTOP.accent : DESKTOP.shelf,
+  });
+  for (const tab of barTabs()) {
+    writeText(frame, tab.column, bar.row, tab.title, {
+      foreground: tab.minimized ? DESKTOP.chromeMuted : tab.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
+      background: tab.active ? DESKTOP.chromeActive : DESKTOP.wallpaperDot,
     });
+  }
+  const clock = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  writeText(frame, Math.max(0, columns() - clock.length - 1), bar.row, clock, {
+    foreground: DESKTOP.chromeMuted,
+    background: DESKTOP.shelf,
+  });
+  const hint = mobileLayout() || !desktopSettings.barHints ? "" : "drag · dbl-click max · tab switch · g tile";
+  if (hint.length > 0) {
+    const column = columns() - clock.length - hint.length - 4;
+    const lastTab = barTabs().at(-1);
+    if (column > (lastTab ? lastTab.column + lastTab.width + 2 : START_BUTTON.length + 2)) {
+      writeText(frame, column, bar.row, hint, { foreground: DESKTOP.chromeMuted, background: DESKTOP.shelf });
+    }
   }
 }
 
@@ -864,16 +1017,47 @@ function paintStartMenu(frame: VizCell[][]): void {
 
 const WALLPAPER_THEME = resolveVisualizationTheme({});
 
+function paintWallpaper(frame: VizCell[][], width: number, height: number, now: number): void {
+  const style = desktopSettings.wallpaper;
+  if (style === "plain") return;
+  if (style === "grid") {
+    for (let row = 4; row < height; row += 4) {
+      for (let column = 0; column < width; column += 1) {
+        frame[row]![column] = { char: "─", foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
+      }
+    }
+    for (let column = 8; column < width; column += 8) {
+      for (let row = 1; row < height; row += 1) {
+        const char = frame[row]![column]!.char === "─" ? "┼" : "│";
+        frame[row]![column] = { char, foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
+      }
+    }
+    return;
+  }
+  // dots, and drift: the same field, drift phases each mark's brightness.
+  const phase = now / 1600;
+  for (let row = 1; row < height; row += 3) {
+    for (let column = row % 2 === 0 ? 2 : 4; column < width; column += 6) {
+      let color = DESKTOP.wallpaperDot;
+      if (style === "drift") {
+        const wave = 0.5 + 0.5 * Math.sin(phase + row * 0.7 + column * 0.13);
+        color = [
+          Math.round(DESKTOP.wallpaper[0] + (DESKTOP.wallpaperDot[0] - DESKTOP.wallpaper[0]) * (0.4 + wave)),
+          Math.round(DESKTOP.wallpaper[1] + (DESKTOP.wallpaperDot[1] - DESKTOP.wallpaper[1]) * (0.4 + wave)),
+          Math.round(DESKTOP.wallpaper[2] + (DESKTOP.wallpaperDot[2] - DESKTOP.wallpaper[2]) * (0.4 + wave)),
+        ];
+      }
+      frame[row]![column] = { char: "·", foreground: color, background: DESKTOP.wallpaper };
+    }
+  }
+}
+
 function paintDesktop(now: number): void {
   const width = columns();
   const height = rows();
   const frame = screenFrame({ width, height }, WALLPAPER_THEME) as VizCell[][];
   fillRect(frame, { column: 0, row: 0, width, height }, DESKTOP.wallpaper);
-  for (let row = 1; row < height; row += 3) {
-    for (let column = row % 2 === 0 ? 2 : 4; column < width; column += 6) {
-      frame[row]![column] = { char: "·", foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
-    }
-  }
+  paintWallpaper(frame, width, height, now);
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   // Tiled windows, their separators, then floating windows: a separator is
   // part of the tiled layer and must never cut through a window above it.
@@ -920,7 +1104,7 @@ function paintDesktop(now: number): void {
       background: DESKTOP.wallpaper,
     });
   }
-  paintShelf(frame);
+  paintBar(frame);
   if (startMenuOpen) paintStartMenu(frame);
   for (let row = 0; row < height; row += 1) {
     let line = "";
@@ -983,24 +1167,21 @@ host.on("pointerInput", (event: PointerInputEvent) => {
       } else startMenuOpen = false;
       return;
     }
-    const shelf = shelfBounds();
-    if (y === shelf.row) {
+    const bar = barBounds();
+    if (y === bar.row) {
       if (x < START_BUTTON.length) {
         startMenuOpen = true;
         startMenuSelected = 0;
         return;
       }
-      // Shelf item labels are laid out left to right in paint order; recompute
-      // the same layout to hit-test them.
-      let column = START_BUTTON.length + 1;
-      const projection = windowHost.project(bodyBounds(), projectionOptions());
-      for (const item of projection.shelf) {
-        const label = ` ${item.title} `;
-        if (x >= column && x < column + label.length) {
-          presentDemoWindow(item.id);
+      // The same layout the painter uses, so a click lands on its tab.
+      for (const tab of barTabs()) {
+        if (x >= tab.column && x < tab.column + tab.width) {
+          if (tab.active && !tab.minimized) {
+            windowHost.execute({ kind: "minimize", id: tab.id }, bodyBounds(), projectionOptions());
+          } else presentDemoWindow(tab.id);
           return;
         }
-        column += label.length + 1;
       }
       return;
     }
@@ -1008,7 +1189,11 @@ host.on("pointerInput", (event: PointerInputEvent) => {
   const result = windowHost.handlePointer(event, bodyBounds(), projectionOptions());
   if (event.kind === "down") {
     const window = activeDemoWindow();
-    if (window && contains(window.clientRect, x, y) && !result.command) {
+    // A down inside the client belongs to the demo unless chrome claimed it —
+    // and focusing the window it landed in is not a claim, it is a side effect
+    // of every client click.
+    const chromeClaimed = result.command !== undefined && result.command.kind !== "focus";
+    if (window && contains(window.clientRect, x, y) && !chromeClaimed) {
       demoById.get(window.id)?.onPointerDown?.(x - window.clientRect.column, y - window.clientRect.row);
     }
   }
