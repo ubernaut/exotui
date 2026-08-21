@@ -45,6 +45,8 @@ Deno.test("Exomux includes every Workbench theme and its six-family T2 palette",
     "t2",
     "templeos",
     "miami",
+    "dracula",
+    "sabbath",
   ]);
   assertEquals(new Set(EXOMUX_THEMES.map((theme) => theme.id)).size, EXOMUX_THEMES.length);
 
@@ -393,7 +395,7 @@ Deno.test("Exomux cycles the complete theme catalog in both directions with exac
     assertEquals(controller.cycleTheme(), EXOMUX_THEMES[0]);
     assertEquals(controller.themeId.peek(), "midnight");
     assertEquals(controller.cycleTheme(-1), EXOMUX_THEMES.at(-1));
-    assertEquals(controller.themeId.peek(), "miami");
+    assertEquals(controller.themeId.peek(), EXOMUX_THEMES.at(-1)!.id);
     assertEquals(controller.themeRevision.peek(), initialThemeRevision + EXOMUX_THEMES.length + 1);
     assertEquals(
       controller.runtime(session.id)!.renderRevision.peek(),
@@ -412,7 +414,7 @@ Deno.test("Exomux restores theme and exact dynamic window placement while daemon
   const first = await createExomuxController({ client: host.client(), store, persistenceDebounceMs: 0 });
   try {
     for (let index = 1; index < EXOMUX_THEMES.length; index += 1) first.cycleTheme();
-    assertEquals(first.themeId.peek(), "miami");
+    assertEquals(first.themeId.peek(), EXOMUX_THEMES.at(-1)!.id);
     const result = first.windowHost.execute(
       { kind: "set-placement", id: exomuxWindowId(session.id), placement: "floating" },
       BOUNDS,
@@ -426,8 +428,8 @@ Deno.test("Exomux restores theme and exact dynamic window placement while daemon
   assertEquals(host.sessions.has(session.id), true);
   const second = await createExomuxController({ client: host.client(), store, persistenceDebounceMs: 0 });
   try {
-    assertEquals(second.themeId.peek(), "miami");
-    assertEquals(second.theme.peek(), exomuxTheme("miami"));
+    assertEquals(second.themeId.peek(), EXOMUX_THEMES.at(-1)!.id);
+    assertEquals(second.theme.peek(), exomuxTheme(EXOMUX_THEMES.at(-1)!.id));
     const terminalWindow = second.windowHost.controller.inspect().windows.find((window) =>
       window.id === exomuxWindowId(session.id)
     );

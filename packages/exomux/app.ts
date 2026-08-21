@@ -611,6 +611,25 @@ export async function createExomuxTerminalApp(
  * on the host's image plane, not in exomux's cell compositor, which is also
  * why anything the compositor cannot account for must be deleted eagerly.
  */
+/**
+ * Whether one of exomux's own overlays — the config modal, the start menu,
+ * help, a confirmation — is painted over the desktop.
+ *
+ * These are drawn above every window without being windows, so anything that
+ * enforces stacking against `windowProjection` alone floats over them. The
+ * keyboard router and the graphics relay ask the same question; one predicate,
+ * because the day an overlay is added to one and not the other is the day an
+ * image floats over a modal again.
+ */
+export function exomuxDesktopOverlayOpen(controller: ExomuxController): boolean {
+  return controller.helpVisible.peek() || controller.pendingKillSessionId.peek() !== undefined ||
+    controller.quitModalVisible.peek() || controller.pendingScp.peek() !== undefined ||
+    controller.configSessionId.peek() !== undefined ||
+    controller.backgroundConfigVisible.peek() ||
+    controller.shaderManagerVisible.peek() ||
+    controller.startMenuVisible.peek();
+}
+
 /** Whether two rectangles share any cell. */
 function rectanglesOverlap(a: Rectangle, b: Rectangle): boolean {
   return a.column < b.column + b.width && b.column < a.column + a.width &&
@@ -682,7 +701,7 @@ function startGraphicsPassthroughFlush(
     // moved window re-places at its new origin, a partially covered one shows
     // exactly its uncovered pieces, and none of it waits for the application
     // to feel like repainting. `windows` is back-to-front paint order.
-    const modalOpen = projection.topModalId !== undefined;
+    const modalOpen = projection.topModalId !== undefined || exomuxDesktopOverlayOpen(controller);
     for (let index = 0; index < projection.windows.length; index += 1) {
       const window = projection.windows[index]!;
       const sessionId = exomuxSessionIdFromWindow(window.id);
@@ -1965,13 +1984,7 @@ export function mountExomuxDesktop(
   let pendingPointerMove: ExomuxPointerMoveSlot | undefined;
   // Global settings are deliberately absent: they live in an ordinary
   // floating window now, so the rest of the desktop stays interactive.
-  const modalOpen = (): boolean =>
-    controller.helpVisible.peek() || controller.pendingKillSessionId.peek() !== undefined ||
-    controller.quitModalVisible.peek() || controller.pendingScp.peek() !== undefined ||
-    controller.configSessionId.peek() !== undefined ||
-    controller.backgroundConfigVisible.peek() ||
-    controller.shaderManagerVisible.peek() ||
-    controller.startMenuVisible.peek();
+  const modalOpen = (): boolean => exomuxDesktopOverlayOpen(controller);
 
   let exitRequested = false;
   const requestClientExit = (terminateHost: boolean): void => {

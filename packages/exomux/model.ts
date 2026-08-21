@@ -35,7 +35,9 @@ export type ExomuxBuiltInThemeId =
   | ExomuxWorkbenchThemeId
   | "t2"
   | "templeos"
-  | "miami";
+  | "miami"
+  | "dracula"
+  | "sabbath";
 
 /**
  * A theme id. Built-in ids complete; a user theme saved from the editor gets
@@ -196,6 +198,45 @@ export const EXOMUX_THEMES: readonly ExomuxThemeSpec[] = [
     success: [8, 124, 76],
     warning: [163, 96, 0],
     danger: [186, 16, 44],
+  },
+  {
+    // Dracula: the castle, not the popular palette of the same name — blacks,
+    // dark greys, and red as the single voice. Success stays a desaturated
+    // moss and warning an old gold, quiet enough not to compete: in this room
+    // red is the only thing allowed to bleed.
+    id: "dracula",
+    label: "Dracula",
+    background: [9, 7, 8],
+    surface: [19, 16, 17],
+    surfaceStrong: [35, 29, 31],
+    border: [122, 52, 56],
+    text: [232, 224, 222],
+    // Dark enough to carry the white on-accent text the red accent demands —
+    // the unfocused selection paints this as its row.
+    muted: [110, 97, 97],
+    accent: [225, 58, 64],
+    success: [130, 176, 130],
+    warning: [214, 164, 84],
+    danger: [255, 92, 92],
+  },
+  {
+    // Black Sabbath: blacks, dark greys, and purple — the stage lights of the
+    // album covers. The same discipline as Dracula with the hue swapped:
+    // purple carries focus and identity, everything else keeps to the greys.
+    id: "sabbath",
+    label: "Black Sabbath",
+    background: [8, 7, 12],
+    surface: [17, 15, 24],
+    surfaceStrong: [31, 27, 44],
+    border: [104, 78, 148],
+    text: [228, 223, 238],
+    // As in Dracula: the purple accent picks white on-accent text, so the
+    // muted row has to hold white at AA.
+    muted: [104, 96, 122],
+    accent: [178, 110, 255],
+    success: [132, 182, 142],
+    warning: [216, 168, 88],
+    danger: [236, 92, 100],
   },
 ] as const satisfies readonly ExomuxThemeSpec[];
 
