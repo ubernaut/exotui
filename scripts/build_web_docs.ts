@@ -17,12 +17,70 @@ const webExternalSpecifiers = new Map([
 const webExternalSpecifierPattern = /^(?:@sigma\/pty-ffi|crayon|jpeg-js|pngjs|three(?:\/(?:tsl|webgpu))?)$/;
 const treeShakeSafeLibraryModules = new Set([
   resolve("src/unicode/width.ts"),
+  // The web-parity exports: pure computation with no import-time side effects,
+  // marked so a page that ignores them does not carry them. A module whose
+  // import must run for its side effect can never appear here.
+  resolve("src/canvas/dirty_region.ts"),
+  resolve("src/canvas/pixel_samplers.ts"),
+  resolve("src/canvas/spatial_index.ts"),
+  resolve("src/key_sequences.ts"),
+  resolve("src/keymap.ts"),
+  resolve("src/keymap_layers.ts"),
+  resolve("src/permissions.ts"),
+  resolve("src/surface_animation.ts"),
+  resolve("src/theme_contrast.ts"),
+  resolve("src/theme_density.ts"),
+  resolve("src/theme_expressions.ts"),
+  resolve("src/theme_icons.ts"),
+  resolve("src/theme_interchange.ts"),
+  resolve("src/theme_motion.ts"),
+  resolve("src/theme_oklch.ts"),
+  resolve("src/theme_quantize.ts"),
+  resolve("src/theme_token_schemas.ts"),
+]);
+const treeShakeSafeLibraryPrefixes = [
+  `${resolve("src/i18n")}/`,
+  `${resolve("src/perf")}/`,
+];
+
+// Web parity ratchet. `mod.web.ts` still carries guarded terminal paths in its
+// graph — every name here is dead code behind a runtime check in a browser,
+// proven by the shipped workbench page. The list may shrink; a NEW Deno API
+// appearing in the web root means something terminal-bound was exported to the
+// web surface, and this build refuses it before a page can break.
+const WEB_ROOT_ALLOWED_DENO_REFS = new Set([
+  "Deno.addSignalListener",
+  "Deno.build",
+  "Deno.Command",
+  "Deno.consoleSize",
+  "Deno.env",
+  "Deno.errors",
+  "Deno.exit",
+  "Deno.permissions",
+  "Deno.pid",
+  "Deno.readFile",
+  "Deno.readTextFile",
+  "Deno.readTextFileSync",
+  "Deno.removeSignalListener",
+  "Deno.stdin",
+  "Deno.stdout",
+  "Deno.watchFs",
+  "Deno.writeTextFile",
 ]);
 
 if (import.meta.main) {
   await Deno.mkdir(outdir, { recursive: true });
   await removeLegacyDemoAssets();
   await buildPageBundle("examples/web/api_workbench_page.ts", `${outdir}/api-workbench.js`);
+  await verifyWebSurface("mod.web.ts", WEB_ROOT_ALLOWED_DENO_REFS);
+  // The visualisation entrypoints hold a stricter line: zero Deno references,
+  // so a browser can import them without a single guarded terminal path.
+  await verifyWebSurface("src/viz/mod.ts", new Set());
+  await verifyWebSurface("src/viz/three/mod.ts", new Set());
+  // The browser monitor reuses the terminal monitor's compose/feeds/tiles;
+  // this proves that reuse stays value-level clean (its Snapshot import is
+  // type-only and must remain so).
+  await verifyWebSurface("examples/web/exomonitor_page.ts", new Set());
   esbuild.stop();
 
   await Deno.writeTextFile("docs/index.html", pageHtml());
@@ -52,11 +110,42 @@ function treeShakeSafeLibraryModulesPlugin(): esbuild.Plugin {
       build.onResolve({ filter: /\.ts$/ }, (args) => {
         if (args.resolveDir.length === 0) return undefined;
         const path = resolve(args.resolveDir, args.path);
-        if (!treeShakeSafeLibraryModules.has(path)) return undefined;
+        const safe = treeShakeSafeLibraryModules.has(path) ||
+          treeShakeSafeLibraryPrefixes.some((prefix) => path.startsWith(prefix));
+        if (!safe) return undefined;
         return { path, sideEffects: false };
       });
     },
   };
+}
+
+/**
+ * Bundles an entrypoint for the browser without writing it, and fails when the
+ * output references a Deno API the allowlist does not carry. esbuild sees the
+ * value-level graph exactly as a page would, which is what makes this a parity
+ * gate rather than a type check: a type-only import costs nothing here, a real
+ * one is caught before it ships.
+ */
+async function verifyWebSurface(entryPoint: string, allowed: ReadonlySet<string>): Promise<void> {
+  const result = await esbuild.build({
+    entryPoints: [entryPoint],
+    bundle: true,
+    format: "esm",
+    target: ["es2022"],
+    treeShaking: true,
+    write: false,
+    logLevel: "silent",
+    plugins: [treeShakeSafeLibraryModulesPlugin(), webExternalDependencyPlugin()],
+  });
+  const output = result.outputFiles?.[0]?.text ?? "";
+  const refs = new Set([...output.matchAll(/Deno\.[a-zA-Z]+/g)].map((match) => match[0]));
+  const violations = [...refs].filter((ref) => !allowed.has(ref)).sort();
+  if (violations.length > 0) {
+    throw new Error(
+      `${entryPoint} bundles Deno APIs the web surface does not allow: ${violations.join(", ")}. ` +
+        "Something terminal-bound reached the web export graph.",
+    );
+  }
 }
 
 async function removeLegacyDemoAssets(): Promise<void> {

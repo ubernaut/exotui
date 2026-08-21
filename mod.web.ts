@@ -4,6 +4,15 @@ export * from "./src/focus.ts";
 export * from "./src/selection.ts";
 export * from "./src/theme.ts";
 export * from "./src/theme_binding.ts";
+export * from "./src/theme_contrast.ts";
+export * from "./src/theme_density.ts";
+export * from "./src/theme_expressions.ts";
+export * from "./src/theme_icons.ts";
+export * from "./src/theme_interchange.ts";
+export * from "./src/theme_motion.ts";
+export * from "./src/theme_oklch.ts";
+export * from "./src/theme_quantize.ts";
+export * from "./src/theme_token_schemas.ts";
 export * from "./src/theme_engine_cache.ts";
 export * from "./src/theme_engine_factory.ts";
 export * from "./src/theme_engine_pipeline.ts";
@@ -20,11 +29,28 @@ export * from "./src/layout/mod.ts";
 export * from "./src/markup/mod.ts";
 export * from "./src/components/mod.ts";
 export * from "./src/platform/types.ts";
+export * from "./src/i18n/mod.ts";
+export * from "./src/key_sequences.ts";
+export * from "./src/keymap.ts";
+export * from "./src/keymap_layers.ts";
+export * from "./src/permissions.ts";
+export * from "./src/surface_animation.ts";
 export * from "./src/input_envelope.ts";
 export * from "./src/pointer_input.ts";
 export * from "./src/web/mod.ts";
 export * from "./src/remote/handshake.ts";
 export * from "./src/perf/benchmark.ts";
+export * from "./src/perf/cache_budget.ts";
+export * from "./src/perf/diff_planner.ts";
+export * from "./src/perf/entrypoint_budget.ts";
+export * from "./src/perf/frame_cadence.ts";
+export * from "./src/perf/frame_packets.ts";
+export * from "./src/perf/incremental_serialization.ts";
+export * from "./src/perf/layout_benchmarks.ts";
+export * from "./src/perf/pools.ts";
+export * from "./src/perf/profile_tuner.ts";
+export * from "./src/perf/versioned_cache.ts";
+export * from "./src/perf/write_coalescer.ts";
 export {
   CJK_WIDE_WIDTH_PROFILE,
   DEFAULT_TERMINAL_WIDTH_PROFILE_REGISTRY,
@@ -51,11 +77,7 @@ export type {
   TerminalWidthProfileRegistryOptions,
 } from "./src/unicode/width.ts";
 
-export * from "./src/canvas/box.ts";
-export * from "./src/canvas/canvas.ts";
-export * from "./src/canvas/draw_object.ts";
-export * from "./src/canvas/sink.ts";
-export * from "./src/canvas/text.ts";
+export * from "./src/canvas/mod.ts";
 export * from "./src/canvas/three_ascii.ts";
 
 export * from "./src/app/mod.ts";

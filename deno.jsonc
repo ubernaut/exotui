@@ -139,7 +139,7 @@
     "api-workbench": "deno run -A ./app/api_workbench.ts",
     "api-workbench:check": "deno check ./app/api_workbench.ts",
     "web:check": "deno check ./mod.web.ts",
-    "web:demo:check": "deno check ./examples/web/standalone.ts ./examples/web/neon_exodus_page.ts ./examples/web/three_ascii_page.ts ./examples/web/api_workbench_page.ts",
+    "web:demo:check": "deno check ./examples/web/standalone.ts ./examples/web/neon_exodus_page.ts ./examples/web/three_ascii_page.ts ./examples/web/api_workbench_page.ts ./examples/web/exomonitor_page.ts",
     "web:pages:build": "deno run -A ./scripts/build_web_docs.ts",
     "remote:check": "deno check ./mod.remote.ts",
     "web:test": "deno test ./tests/web_runtime.test.ts ./tests/web_remote_terminal.test.ts ./tests/canvas_sink.test.ts",

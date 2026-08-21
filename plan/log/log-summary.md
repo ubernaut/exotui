@@ -3,6 +3,26 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — web parity: the surface, the ratchet, and a browser monitor
+
+"Work on web parity" turned out to mean three things. First the export gap: `mod.web.ts` lacked twenty-nine modules the
+terminal root exports that are pure computation — the theme family, keymaps, i18n, permissions, surface animation, the
+perf family, and the last three canvas modules. All are web-clean by evidence, not assertion: an esbuild browser probe
+of the grown root produced exactly the same seventeen guarded `Deno.*` references as before the change.
+
+Second, the ratchet. Those seventeen are now a pinned allowlist in `scripts/build_web_docs.ts`, which probe-bundles
+`mod.web.ts`, both viz entrypoints and the new browser page on every docs build — the viz surfaces at zero references. A
+terminal-bound export reaching the web root now fails the `web-pages-build` gate instead of a user's page. The workbench
+bundle grew from 568 KB to 829 KB when the exports landed, because only `unicode/width.ts` was marked side-effect-free;
+marking the added pure modules (and the i18n/perf directories) tree-shake-safe brought it to 567 KB — under budget and
+smaller than before.
+
+Third, the proof by application: `examples/web/exomonitor_page.ts` runs the terminal monitor's own compose, feeds and
+tiles in a browser tab, fed by what a browser can honestly measure — the microphone through an AnalyserNode (behind the
+gesture browsers require; the tiles wait until granted, as they do on a machine with no GPU) and the JS heap where the
+browser reports one. One import fix fell out: the showcase's `theme.ts` reached through the terminal root `mod.ts` for
+one palette table, dragging `node:async_hooks` into every consumer; it imports the module itself now.
+
 ## August 21 2026 — release 0.5.0
 
 Everything since 0.4.0 in one cut: the kitty graphics passthrough (relay, string sequences, APC boundary, host probe,

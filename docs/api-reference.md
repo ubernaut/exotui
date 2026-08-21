@@ -7,11 +7,11 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 - Entrypoints: 15
 - Unique modules: 525
-- Module visits: 985
-- Unique re-export declarations: 653
-- Re-export declaration visits: 983
+- Module visits: 1025
+- Unique re-export declarations: 675
+- Re-export declaration visits: 1023
 - Unique symbol declarations: 4879
-- Symbol declaration visits: 9535
+- Symbol declaration visits: 9816
 - Documented symbol declarations: 4847
 - Documentation coverage: 99.34%
 - Duplicate symbol groups: 0
@@ -23,7 +23,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
 | `.`                   | `./mod.ts`                           | terminal | stable       |     435 |    4242 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     345 |    3583 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -74,10 +74,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 305
-- Re-export declarations: 306
-- Exported symbols: 3302
-- Documented symbols: 3302
+- Modules: 345
+- Re-export declarations: 346
+- Exported symbols: 3583
+- Documented symbols: 3583
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -274,7 +274,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.theme.ts`](#mod-theme-ts)                                                                 | `./theme`                               |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                     | `./three-ascii`                         |          3 |       0 |          0 |
 | [`mod.ts`](#mod-ts)                                                                             | `.`                                     |         66 |       0 |          0 |
-| [`mod.web.ts`](#mod-web-ts)                                                                     | `./web`                                 |         61 |       0 |          0 |
+| [`mod.web.ts`](#mod-web-ts)                                                                     | `./web`                                 |         83 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                 | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)               | `.`, `./web`                            |          0 |      24 |         24 |
@@ -420,12 +420,12 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/worker_plugin_host.ts`](#src-app-worker-plugin-host-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/canvas/box.ts`](#src-canvas-box-ts)                                                       | `.`, `./web`                            |          0 |       2 |          2 |
 | [`src/canvas/canvas.ts`](#src-canvas-canvas-ts)                                                 | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/canvas/dirty_region.ts`](#src-canvas-dirty-region-ts)                                     | `.`                                     |          0 |       3 |          3 |
+| [`src/canvas/dirty_region.ts`](#src-canvas-dirty-region-ts)                                     | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                       | `.`                                     |          8 |       0 |          0 |
-| [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                 | `.`                                     |          0 |      19 |         19 |
+| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                       | `.`, `./web`                            |          8 |       0 |          0 |
+| [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                 | `.`, `./web`                            |          0 |      19 |         19 |
 | [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                     | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                   | `.`                                     |          0 |       2 |          2 |
+| [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                   | `.`, `./web`                            |          0 |       2 |          2 |
 | [`src/canvas/text.ts`](#src-canvas-text-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                       | `./web`, `./three-ascii`                |          0 |       6 |          6 |
 | [`src/component.ts`](#src-component-ts)                                                         | `.`                                     |          0 |       4 |          4 |
@@ -482,25 +482,25 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/event_emitter.ts`](#src-event-emitter-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/focus.ts`](#src-focus-ts)                                                                 | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/grwizard_themes.ts`](#src-grwizard-themes-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       5 |          5 |
-| [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                             | `.`                                     |          0 |       5 |          5 |
-| [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                       | `.`                                     |          0 |       4 |          4 |
-| [`src/i18n/locale.ts`](#src-i18n-locale-ts)                                                     | `.`                                     |          0 |       6 |          6 |
-| [`src/i18n/message_format.ts`](#src-i18n-message-format-ts)                                     | `.`                                     |          0 |       9 |          9 |
-| [`src/i18n/message_lint.ts`](#src-i18n-message-lint-ts)                                         | `.`                                     |          0 |       5 |          5 |
-| [`src/i18n/messages.ts`](#src-i18n-messages-ts)                                                 | `.`                                     |          0 |       8 |          8 |
-| [`src/i18n/missing_translation_telemetry.ts`](#src-i18n-missing-translation-telemetry-ts)       | `.`                                     |          0 |       3 |          3 |
-| [`src/i18n/mod.ts`](#src-i18n-mod-ts)                                                           | `.`                                     |         10 |       0 |          0 |
-| [`src/i18n/pseudo_locales.ts`](#src-i18n-pseudo-locales-ts)                                     | `.`                                     |          0 |       4 |          4 |
-| [`src/i18n/reactive_locale.ts`](#src-i18n-reactive-locale-ts)                                   | `.`                                     |          0 |       5 |          5 |
-| [`src/i18n/width_variants.ts`](#src-i18n-width-variants-ts)                                     | `.`                                     |          0 |       5 |          5 |
+| [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/i18n/locale.ts`](#src-i18n-locale-ts)                                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/i18n/message_format.ts`](#src-i18n-message-format-ts)                                     | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/i18n/message_lint.ts`](#src-i18n-message-lint-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/messages.ts`](#src-i18n-messages-ts)                                                 | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/i18n/missing_translation_telemetry.ts`](#src-i18n-missing-translation-telemetry-ts)       | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/i18n/mod.ts`](#src-i18n-mod-ts)                                                           | `.`, `./web`                            |         10 |       0 |          0 |
+| [`src/i18n/pseudo_locales.ts`](#src-i18n-pseudo-locales-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/i18n/reactive_locale.ts`](#src-i18n-reactive-locale-ts)                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/width_variants.ts`](#src-i18n-width-variants-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/input_envelope.ts`](#src-input-envelope-ts)                                               | `.`, `./web`                            |          0 |      28 |         28 |
 | [`src/input_lifecycle.ts`](#src-input-lifecycle-ts)                                             | `.`                                     |          0 |      24 |         24 |
 | [`src/input_reader/mod.ts`](#src-input-reader-mod-ts)                                           | `.`, `./terminal`                       |          1 |       2 |          2 |
 | [`src/input_reader/types.ts`](#src-input-reader-types-ts)                                       | `.`, `./remote`, `./terminal`           |          0 |      12 |         12 |
 | [`src/input.ts`](#src-input-ts)                                                                 | `.`                                     |          0 |       1 |          1 |
-| [`src/key_sequences.ts`](#src-key-sequences-ts)                                                 | `.`                                     |          0 |      24 |         24 |
-| [`src/keymap_layers.ts`](#src-keymap-layers-ts)                                                 | `.`                                     |          0 |      20 |         20 |
-| [`src/keymap.ts`](#src-keymap-ts)                                                               | `.`                                     |          0 |       6 |          6 |
+| [`src/key_sequences.ts`](#src-key-sequences-ts)                                                 | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/keymap_layers.ts`](#src-keymap-layers-ts)                                                 | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/keymap.ts`](#src-keymap-ts)                                                               | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/layout/capabilities.ts`](#src-layout-capabilities-ts)                                     | `.`, `./web`                            |          0 |      26 |         26 |
 | [`src/layout/engine.ts`](#src-layout-engine-ts)                                                 | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/layout/errors.ts`](#src-layout-errors-ts)                                                 | `.`, `./web`                            |          0 |       2 |          2 |
@@ -545,18 +545,18 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/markup/window_interactions.ts`](#src-markup-window-interactions-ts)                       | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/markup/windows.ts`](#src-markup-windows-ts)                                               | `.`, `./web`                            |          0 |      33 |         33 |
 | [`src/perf/benchmark.ts`](#src-perf-benchmark-ts)                                               | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/perf/cache_budget.ts`](#src-perf-cache-budget-ts)                                         | `.`                                     |          0 |       4 |          4 |
-| [`src/perf/diff_planner.ts`](#src-perf-diff-planner-ts)                                         | `.`                                     |          0 |       4 |          4 |
-| [`src/perf/entrypoint_budget.ts`](#src-perf-entrypoint-budget-ts)                               | `.`                                     |          0 |       7 |          7 |
-| [`src/perf/frame_cadence.ts`](#src-perf-frame-cadence-ts)                                       | `.`                                     |          0 |       3 |          3 |
-| [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                       | `.`                                     |          0 |       5 |          5 |
-| [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)               | `.`                                     |          0 |       6 |          6 |
-| [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                               | `.`                                     |          0 |       5 |          5 |
-| [`src/perf/pools.ts`](#src-perf-pools-ts)                                                       | `.`                                     |          0 |       5 |          5 |
-| [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                       | `.`                                     |          0 |       5 |          5 |
-| [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                   | `.`                                     |          0 |       4 |          4 |
-| [`src/perf/write_coalescer.ts`](#src-perf-write-coalescer-ts)                                   | `.`                                     |          0 |       4 |          4 |
-| [`src/permissions.ts`](#src-permissions-ts)                                                     | `.`                                     |          0 |      23 |         23 |
+| [`src/perf/cache_budget.ts`](#src-perf-cache-budget-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/diff_planner.ts`](#src-perf-diff-planner-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/entrypoint_budget.ts`](#src-perf-entrypoint-budget-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/perf/frame_cadence.ts`](#src-perf-frame-cadence-ts)                                       | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/pools.ts`](#src-perf-pools-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/write_coalescer.ts`](#src-perf-write-coalescer-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/permissions.ts`](#src-permissions-ts)                                                     | `.`, `./web`                            |          0 |      23 |         23 |
 | [`src/platform/types.ts`](#src-platform-types-ts)                                               | `./web`                                 |          0 |      10 |         10 |
 | [`src/pointer_input.ts`](#src-pointer-input-ts)                                                 | `.`, `./web`                            |          0 |      40 |         40 |
 | [`src/remote/adaptive_quality.ts`](#src-remote-adaptive-quality-ts)                             | `./remote`                              |          0 |       9 |          9 |
@@ -670,7 +670,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/signals/reactivity.ts`](#src-signals-reactivity-ts)                                       | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
 | [`src/signals/signal.ts`](#src-signals-signal-ts)                                               | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
 | [`src/signals/types.ts`](#src-signals-types-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
-| [`src/surface_animation.ts`](#src-surface-animation-ts)                                         | `.`                                     |          0 |      14 |         14 |
+| [`src/surface_animation.ts`](#src-surface-animation-ts)                                         | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/testing/app.ts`](#src-testing-app-ts)                                                     | `./testing`                             |          0 |      11 |         11 |
 | [`src/testing/aria_apg_suites.ts`](#src-testing-aria-apg-suites-ts)                             | `./testing`                             |          0 |       4 |          4 |
 | [`src/testing/contract_tests.ts`](#src-testing-contract-tests-ts)                               | `./testing`                             |          0 |       6 |          6 |
@@ -687,22 +687,22 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/testing/snapshot.ts`](#src-testing-snapshot-ts)                                           | `.`, `./testing`                        |          0 |      15 |         15 |
 | [`src/testing/visual_report.ts`](#src-testing-visual-report-ts)                                 | `./testing`                             |          0 |       6 |          6 |
 | [`src/theme_binding.ts`](#src-theme-binding-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |       8 |          8 |
-| [`src/theme_contrast.ts`](#src-theme-contrast-ts)                                               | `.`, `./theme`                          |          0 |       7 |          7 |
+| [`src/theme_contrast.ts`](#src-theme-contrast-ts)                                               | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
 | [`src/theme_controls.ts`](#src-theme-controls-ts)                                               | `./theme`                               |          0 |      13 |         13 |
-| [`src/theme_density.ts`](#src-theme-density-ts)                                                 | `.`                                     |          0 |       5 |          5 |
+| [`src/theme_density.ts`](#src-theme-density-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
 | [`src/theme_editor_model.ts`](#src-theme-editor-model-ts)                                       | `./theme`                               |          0 |      21 |         21 |
 | [`src/theme_engine_cache.ts`](#src-theme-engine-cache-ts)                                       | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
 | [`src/theme_engine_factory.ts`](#src-theme-engine-factory-ts)                                   | `.`, `./web`, `./theme`                 |          0 |      19 |         19 |
 | [`src/theme_engine_pipeline.ts`](#src-theme-engine-pipeline-ts)                                 | `.`, `./web`, `./theme`                 |          0 |      12 |         12 |
-| [`src/theme_expressions.ts`](#src-theme-expressions-ts)                                         | `.`, `./theme`                          |          0 |       6 |          6 |
+| [`src/theme_expressions.ts`](#src-theme-expressions-ts)                                         | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
 | [`src/theme_gallery.ts`](#src-theme-gallery-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |      11 |         11 |
-| [`src/theme_icons.ts`](#src-theme-icons-ts)                                                     | `.`                                     |          0 |       8 |          8 |
-| [`src/theme_interchange.ts`](#src-theme-interchange-ts)                                         | `.`, `./theme`                          |          0 |       9 |          9 |
-| [`src/theme_motion.ts`](#src-theme-motion-ts)                                                   | `.`                                     |          0 |       7 |          7 |
-| [`src/theme_oklch.ts`](#src-theme-oklch-ts)                                                     | `.`, `./theme`                          |          0 |       9 |          9 |
-| [`src/theme_quantize.ts`](#src-theme-quantize-ts)                                               | `.`                                     |          0 |       6 |          6 |
+| [`src/theme_icons.ts`](#src-theme-icons-ts)                                                     | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/theme_interchange.ts`](#src-theme-interchange-ts)                                         | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
+| [`src/theme_motion.ts`](#src-theme-motion-ts)                                                   | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/theme_oklch.ts`](#src-theme-oklch-ts)                                                     | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
+| [`src/theme_quantize.ts`](#src-theme-quantize-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/theme_resolver.ts`](#src-theme-resolver-ts)                                               | `.`, `./web`, `./theme`                 |          0 |      15 |         15 |
-| [`src/theme_token_schemas.ts`](#src-theme-token-schemas-ts)                                     | `.`                                     |          0 |       7 |          7 |
+| [`src/theme_token_schemas.ts`](#src-theme-token-schemas-ts)                                     | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/theme_tokens.ts`](#src-theme-tokens-ts)                                                   | `.`                                     |          0 |       6 |          6 |
 | [`src/theme_workspace.ts`](#src-theme-workspace-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
 | [`src/theme.ts`](#src-theme-ts)                                                                 | `.`, `./app`, `./web`, `./theme`        |          0 |     116 |        116 |
@@ -1060,6 +1060,15 @@ _Entrypoints: `./web`_
 | `src/selection.ts`                      | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/theme.ts`                          | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/theme_binding.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_contrast.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_density.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_expressions.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_icons.ts`                    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_interchange.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_motion.ts`                   | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_oklch.ts`                    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_quantize.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/theme_token_schemas.ts`            | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/theme_engine_cache.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/theme_engine_factory.ts`           | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/theme_engine_pipeline.ts`          | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -1075,18 +1084,31 @@ _Entrypoints: `./web`_
 | `src/markup/mod.ts`                     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/components/mod.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/platform/types.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/i18n/mod.ts`                       | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/key_sequences.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/keymap.ts`                         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/keymap_layers.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/permissions.ts`                    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/surface_animation.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/input_envelope.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/pointer_input.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/web/mod.ts`                        | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/remote/handshake.ts`               | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/benchmark.ts`                 | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/cache_budget.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/diff_planner.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/entrypoint_budget.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/frame_cadence.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/frame_packets.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/incremental_serialization.ts` | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/layout_benchmarks.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/pools.ts`                     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/profile_tuner.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/versioned_cache.ts`           | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/write_coalescer.ts`           | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/unicode/width.ts`                  | named | `CJK_WIDE_WIDTH_PROFILE`, `DEFAULT_TERMINAL_WIDTH_PROFILE_REGISTRY`, `TERMINAL_WIDTH_PROFILE_LIMITS`, `TerminalWidthError`, `TerminalWidthProfileRegistry`, `UNICODE_NARROW_WIDTH_PROFILE`, `UnicodeTerminalWidthProfile`, `VISIBLE_COMBINING_WIDTH_PROFILE`, `terminalCodePointWidth`, `terminalTextWidth`                                                                                            |
 | `src/unicode/width.ts`                  | named | `type EastAsianWidthProperty`, `type TerminalCellWidth`, `type TerminalCodePointWidthInspection`, `type TerminalTextWidthInspection`, `type TerminalWidthCategory`, `type TerminalWidthErrorCode`, `type TerminalWidthPolicy`, `type TerminalWidthProfileDefinition`, `type TerminalWidthProfileInspection`, `type TerminalWidthProfileRegistryInspection`, `type TerminalWidthProfileRegistryOptions` |
-| `src/canvas/box.ts`                     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `src/canvas/canvas.ts`                  | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `src/canvas/draw_object.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `src/canvas/sink.ts`                    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `src/canvas/text.ts`                    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/canvas/mod.ts`                     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/canvas/three_ascii.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/app/mod.ts`                        | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/capabilities.ts`           | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -3839,7 +3861,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/canvas/dirty_region.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -3858,7 +3880,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/canvas/mod.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Re-export Target               | Kind | Names |
 | ------------------------------ | ---- | ----- |
@@ -3875,7 +3897,7 @@ _No direct exported symbols._
 
 ### src/canvas/pixel_samplers.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                    | Kind      | Type Only | JSDoc |
 | ------------------------- | --------- | --------- | ----- |
@@ -3917,7 +3939,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/canvas/spatial_index.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                        | Kind      | Type Only | JSDoc |
 | ----------------------------- | --------- | --------- | ----- |
@@ -4813,7 +4835,7 @@ _Entrypoints: `.`, `./web`, `./theme`_
 
 ### src/i18n/formatters.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                           | Kind      | Type Only | JSDoc |
 | -------------------------------- | --------- | --------- | ----- |
@@ -4825,7 +4847,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/locale_scopes.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                  | Kind      | Type Only | JSDoc |
 | ----------------------- | --------- | --------- | ----- |
@@ -4836,7 +4858,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/locale.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                        | Kind      | Type Only | JSDoc |
 | ----------------------------- | --------- | --------- | ----- |
@@ -4849,7 +4871,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/message_format.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                                | Kind      | Type Only | JSDoc |
 | ------------------------------------- | --------- | --------- | ----- |
@@ -4865,7 +4887,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/message_lint.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                 | Kind      | Type Only | JSDoc |
 | ---------------------- | --------- | --------- | ----- |
@@ -4877,7 +4899,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/messages.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -4892,7 +4914,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/missing_translation_telemetry.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                              | Kind      | Type Only | JSDoc |
 | ----------------------------------- | --------- | --------- | ----- |
@@ -4902,7 +4924,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/mod.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Re-export Target                            | Kind | Names |
 | ------------------------------------------- | ---- | ----- |
@@ -4921,7 +4943,7 @@ _No direct exported symbols._
 
 ### src/i18n/pseudo_locales.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol               | Kind     | Type Only | JSDoc |
 | -------------------- | -------- | --------- | ----- |
@@ -4932,7 +4954,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/reactive_locale.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -4944,7 +4966,7 @@ _Entrypoints: `.`_
 
 ### src/i18n/width_variants.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                  | Kind      | Type Only | JSDoc |
 | ----------------------- | --------- | --------- | ----- |
@@ -5062,7 +5084,7 @@ _Entrypoints: `.`_
 
 ### src/key_sequences.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                             | Kind      | Type Only | JSDoc |
 | ---------------------------------- | --------- | --------- | ----- |
@@ -5093,7 +5115,7 @@ _Entrypoints: `.`_
 
 ### src/keymap_layers.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                                   | Kind      | Type Only | JSDoc |
 | ---------------------------------------- | --------- | --------- | ----- |
@@ -5120,7 +5142,7 @@ _Entrypoints: `.`_
 
 ### src/keymap.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                 | Kind      | Type Only | JSDoc |
 | ---------------------- | --------- | --------- | ----- |
@@ -5923,7 +5945,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/perf/cache_budget.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -5934,7 +5956,7 @@ _Entrypoints: `.`_
 
 ### src/perf/diff_planner.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol          | Kind      | Type Only | JSDoc |
 | --------------- | --------- | --------- | ----- |
@@ -5945,7 +5967,7 @@ _Entrypoints: `.`_
 
 ### src/perf/entrypoint_budget.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
@@ -5959,7 +5981,7 @@ _Entrypoints: `.`_
 
 ### src/perf/frame_cadence.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -5969,7 +5991,7 @@ _Entrypoints: `.`_
 
 ### src/perf/frame_packets.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol              | Kind      | Type Only | JSDoc |
 | ------------------- | --------- | --------- | ----- |
@@ -5981,7 +6003,7 @@ _Entrypoints: `.`_
 
 ### src/perf/incremental_serialization.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                 | Kind      | Type Only | JSDoc |
 | ---------------------- | --------- | --------- | ----- |
@@ -5994,7 +6016,7 @@ _Entrypoints: `.`_
 
 ### src/perf/layout_benchmarks.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                   | Kind      | Type Only | JSDoc |
 | ------------------------ | --------- | --------- | ----- |
@@ -6006,7 +6028,7 @@ _Entrypoints: `.`_
 
 ### src/perf/pools.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol               | Kind      | Type Only | JSDoc |
 | -------------------- | --------- | --------- | ----- |
@@ -6018,7 +6040,7 @@ _Entrypoints: `.`_
 
 ### src/perf/profile_tuner.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                      | Kind      | Type Only | JSDoc |
 | --------------------------- | --------- | --------- | ----- |
@@ -6030,7 +6052,7 @@ _Entrypoints: `.`_
 
 ### src/perf/versioned_cache.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                    | Kind      | Type Only | JSDoc |
 | ------------------------- | --------- | --------- | ----- |
@@ -6041,7 +6063,7 @@ _Entrypoints: `.`_
 
 ### src/perf/write_coalescer.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                         | Kind      | Type Only | JSDoc |
 | ------------------------------ | --------- | --------- | ----- |
@@ -6052,7 +6074,7 @@ _Entrypoints: `.`_
 
 ### src/permissions.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                                                 | Kind      | Type Only | JSDoc |
 | ------------------------------------------------------ | --------- | --------- | ----- |
@@ -8121,7 +8143,7 @@ _Entrypoints: `.`, `./app`, `./web`_
 
 ### src/surface_animation.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                        | Kind      | Type Only | JSDoc |
 | ----------------------------- | --------- | --------- | ----- |
@@ -8371,7 +8393,7 @@ _Entrypoints: `.`, `./web`, `./theme`_
 
 ### src/theme_contrast.ts
 
-_Entrypoints: `.`, `./theme`_
+_Entrypoints: `.`, `./web`, `./theme`_
 
 | Symbol                       | Kind      | Type Only | JSDoc |
 | ---------------------------- | --------- | --------- | ----- |
@@ -8405,7 +8427,7 @@ _Entrypoints: `./theme`_
 
 ### src/theme_density.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                 | Kind      | Type Only | JSDoc |
 | ---------------------- | --------- | --------- | ----- |
@@ -8503,7 +8525,7 @@ _Entrypoints: `.`, `./web`, `./theme`_
 
 ### src/theme_expressions.ts
 
-_Entrypoints: `.`, `./theme`_
+_Entrypoints: `.`, `./web`, `./theme`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
@@ -8534,7 +8556,7 @@ _Entrypoints: `.`, `./web`, `./theme`_
 
 ### src/theme_icons.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
@@ -8549,7 +8571,7 @@ _Entrypoints: `.`_
 
 ### src/theme_interchange.ts
 
-_Entrypoints: `.`, `./theme`_
+_Entrypoints: `.`, `./web`, `./theme`_
 
 | Symbol                      | Kind      | Type Only | JSDoc |
 | --------------------------- | --------- | --------- | ----- |
@@ -8565,7 +8587,7 @@ _Entrypoints: `.`, `./theme`_
 
 ### src/theme_motion.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                | Kind      | Type Only | JSDoc |
 | --------------------- | --------- | --------- | ----- |
@@ -8579,7 +8601,7 @@ _Entrypoints: `.`_
 
 ### src/theme_oklch.ts
 
-_Entrypoints: `.`, `./theme`_
+_Entrypoints: `.`, `./web`, `./theme`_
 
 | Symbol                 | Kind      | Type Only | JSDoc |
 | ---------------------- | --------- | --------- | ----- |
@@ -8595,7 +8617,7 @@ _Entrypoints: `.`, `./theme`_
 
 ### src/theme_quantize.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol               | Kind      | Type Only | JSDoc |
 | -------------------- | --------- | --------- | ----- |
@@ -8630,7 +8652,7 @@ _Entrypoints: `.`, `./web`, `./theme`_
 
 ### src/theme_token_schemas.ts
 
-_Entrypoints: `.`_
+_Entrypoints: `.`, `./web`_
 
 | Symbol                       | Kind      | Type Only | JSDoc |
 | ---------------------------- | --------- | --------- | ----- |

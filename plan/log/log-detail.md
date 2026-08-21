@@ -10,6 +10,11 @@ Entries begin August 17 2026, when this log was started; earlier history is in t
 
 ## Dead ends and corrections
 
+**A convenience import that cost a runtime (Aug 21).** The exomonitor showcase's `theme.ts` imported one palette table
+from the root `mod.ts` instead of from `src/grwizard_themes.ts`. In the terminal app nothing noticed; in the browser
+bundle it resolved the entire terminal runtime and died on `node:async_hooks`. The web probe gate now catches the
+pattern structurally. _Rule: shared code imports the module it uses, never a root that happens to re-export it._
+
 **Reflow rescued windows nobody could see (Aug 21).** The first overlay-to-window migration (kill confirmation) added a
 registry window born `closed`, and `reflowFloatingWindows` promptly "rescued" its off-viewport rect on every resize —
 returning `changed` for a window with no pixels. The skip list enumerated bad states (`minimized`, `maximized`) instead

@@ -143,6 +143,23 @@ longer needs telling), and the pointer router derives button rects from the proj
 it was "rescuing" closed windows nobody could see. Next candidate: the quit modal, then relax the modal input capture
 once a general focused-modal-window grammar exists.
 
+## Web parity — started August 21 2026
+
+The web runtime's input, sizing and rendering were already real; what lagged was the export surface and the proof. The
+web root now carries the pure modules the terminal root had and it lacked — the nine theme modules, keymaps and key
+sequences, i18n, permissions, surface animation, the perf family, and `canvas/mod.ts` in place of five cherry-picks —
+and `scripts/build_web_docs.ts` holds the line: every web surface is probe-bundled for the browser on each build, the
+web root pinned to its 17 pre-existing guarded `Deno.*` references (the list may only shrink), the viz entrypoints and
+the browser monitor page at zero. The workbench bundle stayed under budget because the added modules are marked
+tree-shake-safe — which they must remain to be on the web surface at all. `examples/web/exomonitor_page.ts` is the
+worked example: the terminal monitor's own compose/feeds/tiles, fed by the browser's microphone and JS heap.
+
+Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
+seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);
+a browser-real `cpu`-equivalent feed (main-thread busy fraction) wants its own feed id rather than borrowing `cpu:*`
+labels; mod.web still lacks the terminal-bound families by design (input reader, tui, process/terminal backends) — that
+is the boundary, not a gap.
+
 ## Follow-ups carried from completed work
 
 Small, real, and worth doing when adjacent code is next touched:

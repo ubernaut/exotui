@@ -7,7 +7,9 @@
 // copied: a themeable application should be able to adopt the library's themes
 // without transcribing hex codes, and this is the shortest proof of that.
 
-import { grWizardThemePalettes } from "../../../mod.ts";
+// From the module itself, not the terminal root: this file is shared with the
+// browser monitor, and the root drags the terminal runtime behind it.
+import { grWizardThemePalettes } from "../../../src/grwizard_themes.ts";
 import type { Rgb } from "../../../mod.theme.ts";
 
 export interface MonitorPalette {
