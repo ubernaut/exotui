@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deno TUI Portfolio Demo</title>
+    <style>
+    :root {
+      color-scheme: dark;
+      background: #05070d;
+      color: #eff7ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255, 66, 49, 0.18), transparent 32rem),
+        radial-gradient(circle at 90% 10%, rgba(177, 124, 255, 0.16), transparent 34rem),
+        #05070d;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(239, 247, 255, 0.16);
+      background: rgba(5, 7, 13, 0.82);
+    }
+
+    h1 {
+      margin: 0;
+      color: #ff4231;
+      font-size: clamp(1rem, 2vw, 1.35rem);
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: #5a6478;
+      font-size: 0.9rem;
+    }
+
+    .portfolio-shell {
+      display: grid;
+      width: 100vw;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .terminal-host {
+      width: 100%;
+      height: 100%;
+      outline: none;
+      touch-action: none;
+      user-select: none;
+      box-shadow: inset 0 0 0 1px rgba(177, 124, 255, 0.24), 0 0 48px rgba(177, 124, 255, 0.12);
+      background: #05070d;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      user-select: none;
+    }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Deno TUI Portfolio Demo</h1>
+      <p>Standalone browser build of the API Workbench portfolio: windows, menus, controls, tables, themes, and canvas rendering.</p>
+    </header>
+    <div class="portfolio-shell">
+      <main id="api-workbench" class="terminal-host" aria-label="API Workbench portfolio browser demo"></main>
+    </div>
+    <script type="module" src="./assets/api-workbench.js"></script>
+  </body>
+</html>

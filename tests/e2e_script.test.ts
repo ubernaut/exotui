@@ -150,6 +150,8 @@ Deno.test("default e2e catalog covers web console package and generated pages", 
   ]);
   assertEquals(e2eArtifactTargets.map((target) => target.id), [
     "pages-html",
+    "workbench-html",
+    "web-desktop-bundle",
     "web-workbench-bundle",
   ]);
 });

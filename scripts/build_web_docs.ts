@@ -72,7 +72,11 @@ if (import.meta.main) {
   await Deno.mkdir(outdir, { recursive: true });
   await removeLegacyDemoAssets();
   await buildPageBundle("examples/web/api_workbench_page.ts", `${outdir}/api-workbench.js`);
+  await buildPageBundle("examples/web/desktop_page.ts", `${outdir}/desktop.js`);
   await verifyWebSurface("mod.web.ts", WEB_ROOT_ALLOWED_DENO_REFS);
+  // The desktop ships as the landing page; it may lean on the same guarded
+  // paths as the web root, and not one more.
+  await verifyWebSurface("examples/web/desktop_page.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The visualisation entrypoints hold a stricter line: zero Deno references,
   // so a browser can import them without a single guarded terminal path.
   await verifyWebSurface("src/viz/mod.ts", new Set());
@@ -83,7 +87,8 @@ if (import.meta.main) {
   await verifyWebSurface("examples/web/exomonitor_page.ts", new Set());
   esbuild.stop();
 
-  await Deno.writeTextFile("docs/index.html", pageHtml());
+  await Deno.writeTextFile("docs/index.html", desktopHtml());
+  await Deno.writeTextFile("docs/workbench.html", workbenchHtml());
   await formatGeneratedHtml();
 }
 
@@ -169,7 +174,7 @@ async function removeIfExists(path: string): Promise<void> {
 
 async function formatGeneratedHtml(): Promise<void> {
   const command = new Deno.Command(Deno.execPath(), {
-    args: ["fmt", "docs/index.html"],
+    args: ["fmt", "docs/index.html", "docs/workbench.html"],
     stdout: "null",
     stderr: "inherit",
   });
@@ -203,7 +208,57 @@ function npmSpecifierToEsmSh(specifier: string): string {
   return specifier.replace(/^npm:/, "https://esm.sh/");
 }
 
-function pageHtml(): string {
+function desktopHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>exotui desktop</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        background: #0a0c14;
+        color: #e2e8f4;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      #app {
+        width: 100vw;
+        height: 100vh;
+        outline: none;
+        touch-action: none;
+        user-select: none;
+        background: #0a0c14;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" aria-label="exotui desktop demo"></div>
+    <script type="module" src="./assets/desktop.js"></script>
+  </body>
+</html>
+`;
+}
+
+function workbenchHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>

@@ -3,6 +3,24 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the desktop becomes the docs landing page
+
+The maintainer asked for an exomux-like windowing demo as the default docs target, with the demos launchable inside it.
+The pieces were already on the shelf, which was the point of the parity work: `WorkbenchWindowHost` is library code and
+web-clean, the web host already delivers pointer and keyboard events in cell coordinates, and every demo touched
+recently had grown an honest render seam. `examples/web/desktop_page.ts` is the assembly: the host owns focus, dragging,
+snapping, minimize/maximize, the shelf and double-click-maximize — `handlePointer` took the browser's pointer events
+without adaptation — while the page owns a cell-grid painter (wallpaper, title bars, controls, shelf, launcher) and a
+demo adapter contract of one `render(width, height)` plus optional key and pointer handlers.
+
+Four windows: a welcome note, the browser monitor (extracted to `browser_monitor.ts`, shared verbatim with the
+standalone page), the neon suite (ANSI lines through a small SGR parser, `ansi_cells.ts`, tested headless), and a
+GRWizard theme gallery. The API workbench kept its whole page — embedding it in a window is real work, so the launcher
+links out to `docs/workbench.html` instead of pretending. `docs/index.html` is now the desktop; the e2e gate grew
+budgets for both artifacts (desktop 680 KB against a 780 KB ceiling) and the probe gate holds the desktop to the same
+seventeen guarded references as the web root. The neon suite's `PanelRender.body` and the monitor's `composeScreen` both
+blit into a window's client rect unchanged — the "render into a rect" discipline paying out exactly as promised.
+
 ## August 21 2026 — web parity: the surface, the ratchet, and a browser monitor
 
 "Work on web parity" turned out to mean three things. First the export gap: `mod.web.ts` lacked twenty-nine modules the

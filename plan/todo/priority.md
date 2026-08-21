@@ -154,6 +154,14 @@ the browser monitor page at zero. The workbench bundle stayed under budget becau
 tree-shake-safe — which they must remain to be on the web surface at all. `examples/web/exomonitor_page.ts` is the
 worked example: the terminal monitor's own compose/feeds/tiles, fed by the browser's microphone and JS heap.
 
+**The desktop is the docs landing page (August 21 2026).** `examples/web/desktop_page.ts` mounts the library's
+`WorkbenchWindowHost` — the engine exomux runs on — over the web canvas: floating windows with working drag, snap,
+minimize/maximize, shelf and double-click-maximize, all host-owned; the page owns painting and a launcher. Four windows
+so far (welcome, exomonitor via the shared `browser_monitor.ts`, the neon suite through `ansi_cells.ts`, a theme
+gallery), plus an outward launcher link to the workbench, which moved intact to `docs/workbench.html`. The desktop
+bundle is 680 KB with a 780 KB ceiling in `e2e`. Wanted next: a three-ascii scene window (the renderer loop needs a
+window-sized seam), touch-friendly layout at phone sizes, and code-splitting if the launcher grows past the ceiling.
+
 Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
 seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);
 a browser-real `cpu`-equivalent feed (main-thread busy fraction) wants its own feed id rather than borrowing `cpu:*`
