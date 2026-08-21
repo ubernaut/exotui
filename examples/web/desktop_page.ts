@@ -45,20 +45,56 @@ type Rgb = readonly [number, number, number];
 // ---------------------------------------------------------------------------
 // Desktop palette. One hand-picked set; windows carry their own themes.
 
-const DESKTOP = {
-  wallpaper: [10, 12, 20] as Rgb,
-  wallpaperDot: [22, 26, 42] as Rgb,
-  chromeActive: [46, 68, 110] as Rgb,
-  chromeIdle: [26, 30, 46] as Rgb,
-  chromeText: [226, 232, 244] as Rgb,
-  chromeMuted: [130, 138, 158] as Rgb,
-  clientGround: [14, 16, 26] as Rgb,
-  accent: [127, 214, 255] as Rgb,
-  danger: [255, 105, 110] as Rgb,
-  shelf: [18, 21, 34] as Rgb,
-  menu: [21, 25, 40] as Rgb,
-  menuSelected: [40, 58, 96] as Rgb,
-} as const;
+interface DesktopTheme {
+  wallpaper: Rgb;
+  wallpaperDot: Rgb;
+  chromeActive: Rgb;
+  chromeIdle: Rgb;
+  chromeText: Rgb;
+  chromeMuted: Rgb;
+  clientGround: Rgb;
+  accent: Rgb;
+  danger: Rgb;
+  shelf: Rgb;
+  menu: Rgb;
+  menuSelected: Rgb;
+}
+
+const DEFAULT_DESKTOP: DesktopTheme = {
+  wallpaper: [10, 12, 20],
+  wallpaperDot: [22, 26, 42],
+  chromeActive: [46, 68, 110],
+  chromeIdle: [26, 30, 46],
+  chromeText: [226, 232, 244],
+  chromeMuted: [130, 138, 158],
+  clientGround: [14, 16, 26],
+  accent: [127, 214, 255],
+  danger: [255, 105, 110],
+  shelf: [18, 21, 34],
+  menu: [21, 25, 40],
+  menuSelected: [40, 58, 96],
+};
+
+let DESKTOP: DesktopTheme = DEFAULT_DESKTOP;
+
+/** Applies a GRWizard palette to the desktop chrome — the theme gallery's click. */
+function applyDesktopPalette(palette: (typeof grWizardThemePalettes)[number]): void {
+  const pick = (hex: string, spare: Rgb): Rgb => hexToRgb(hex) ?? spare;
+  DESKTOP = {
+    wallpaper: pick(palette.bg, DEFAULT_DESKTOP.wallpaper),
+    wallpaperDot: pick(palette.border, DEFAULT_DESKTOP.wallpaperDot),
+    chromeActive: pick(palette.accentDeep, DEFAULT_DESKTOP.chromeActive),
+    chromeIdle: pick(palette.panel, DEFAULT_DESKTOP.chromeIdle),
+    chromeText: pick(palette.text, DEFAULT_DESKTOP.chromeText),
+    chromeMuted: pick(palette.textMuted, DEFAULT_DESKTOP.chromeMuted),
+    clientGround: pick(palette.bgAlt, DEFAULT_DESKTOP.clientGround),
+    accent: pick(palette.accent, DEFAULT_DESKTOP.accent),
+    danger: pick(palette.danger, DEFAULT_DESKTOP.danger),
+    shelf: pick(palette.panel, DEFAULT_DESKTOP.shelf),
+    menu: pick(palette.panelAlt, DEFAULT_DESKTOP.menu),
+    menuSelected: pick(palette.accentDeep, DEFAULT_DESKTOP.menuSelected),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Demo adapters. A demo renders its client area and may take input; the
@@ -191,8 +227,10 @@ function themesDemo(): DesktopDemo {
       else return false;
       return true;
     },
-    onPointerDown() {
-      offset += 1;
+    onPointerDown(_, row) {
+      // A click on a row applies that palette to the desktop chrome itself.
+      const palette = grWizardThemePalettes[(row + offset) % grWizardThemePalettes.length];
+      if (palette) applyDesktopPalette(palette);
     },
   };
 }
@@ -292,6 +330,7 @@ function vizCatalogDemo(): DesktopDemo {
       if (stream) {
         const chart = drawStream(visualization, stream, { size: { width, height: chartHeight }, theme });
         blitFrame(frame, { column: 0, row: 0 }, chart);
+        groundCells(frame, DESKTOP.clientGround);
       }
       const footer = frame[height - 1];
       if (footer && height >= 2) {
@@ -341,6 +380,7 @@ function clockDemo(): DesktopDemo {
           theme,
         });
         blitFrame(frame, { column: 0, row: 0 }, chart);
+        groundCells(frame, DESKTOP.clientGround);
       }
       const stamp = new Date().toLocaleTimeString();
       const row = Math.max(0, height - 1);
@@ -400,6 +440,23 @@ function threeDemo(): DesktopDemo {
       return true;
     },
   };
+}
+
+/**
+ * Gives every groundless cell an explicit background. The viz layer leaves
+ * unpainted cells transparent so terminal compositors can blend behind them;
+ * a browser canvas repaints in place, and a transparent cell there means the
+ * previous frame survives — the smear the psychograph made obvious.
+ */
+function groundCells(frame: VizCell[][], ground: Rgb): void {
+  for (const row of frame) {
+    for (let column = 0; column < row.length; column += 1) {
+      const cell = row[column]!;
+      if (cell.background === undefined) {
+        row[column] = { char: cell.char, foreground: cell.foreground, background: ground };
+      }
+    }
+  }
 }
 
 function clientFrame(width: number, height: number): VizCell[][] {
@@ -582,6 +639,33 @@ ensureLineSignals();
 
 const START_BUTTON = " ⏻ start ";
 
+let presentedCount = 0;
+
+/**
+ * A rectangle for this demo at this viewport: roughly half the body, clamped
+ * to the demo's declared range, cascaded so successive windows never pile on
+ * one another. Declared sizes were written for one screen; the screen it is
+ * actually on wins.
+ */
+function autoRectFor(id: string): Rectangle {
+  const demo = demoById.get(id);
+  const body = bodyBounds();
+  const width = Math.max(
+    demo?.window.minWidth ?? 20,
+    Math.min(Math.round(body.width * 0.52), Math.max(demo?.window.width ?? 48, Math.round(body.width * 0.4))),
+  );
+  const height = Math.max(
+    demo?.window.minHeight ?? 6,
+    Math.min(Math.round(body.height * 0.62), Math.max(demo?.window.height ?? 14, Math.round(body.height * 0.45))),
+  );
+  const stepColumn = Math.max(2, Math.round(body.width * 0.06));
+  const stepRow = 2;
+  const cascade = presentedCount % 5;
+  const column = Math.min(2 + cascade * stepColumn, Math.max(0, body.width - width - 1));
+  const row = Math.min(1 + cascade * stepRow, Math.max(0, body.height - height - 1));
+  return { column, row, width: Math.min(width, body.width), height: Math.min(height, body.height) };
+}
+
 function presentDemoWindow(id: string): void {
   // The host blocks focusing a window another maximized window hides, so a
   // maximized peer steps down first — the same order exomux presents in.
@@ -589,9 +673,19 @@ function presentDemoWindow(id: string): void {
   if (maximizedId && maximizedId !== id) {
     windowHost.execute({ kind: "restore", id: maximizedId }, bodyBounds(), projectionOptions());
   }
+  const wasClosed = windowHost.controller.inspect().windows.find((window) => window.id === id)?.state === "closed";
   windowHost.execute({ kind: "restore", id }, bodyBounds(), projectionOptions());
   if (mobileLayout()) {
     windowHost.execute({ kind: "maximize", id }, bodyBounds(), projectionOptions());
+  } else if (wasClosed) {
+    // A window opens sized for the screen it is on, not the one it was
+    // declared for.
+    windowHost.execute(
+      { kind: "set-placement", id, placement: "floating", rect: autoRectFor(id) },
+      bodyBounds(),
+      projectionOptions(),
+    );
+    presentedCount += 1;
   }
   windowHost.execute({ kind: "focus", id }, bodyBounds(), projectionOptions());
 }
@@ -716,7 +810,7 @@ function paintShelf(frame: VizCell[][]): void {
     });
     column += label.length + 1;
   }
-  const hint = mobileLayout() ? "" : "drag titlebars · double-click maximizes";
+  const hint = mobileLayout() ? "" : "drag · dbl-click max · tab switch · g tile";
   if (hint.length > 0 && column + hint.length + 1 < columns()) {
     writeText(frame, columns() - hint.length - 1, shelf.row, hint, {
       foreground: DESKTOP.chromeMuted,
@@ -781,7 +875,44 @@ function paintDesktop(now: number): void {
     }
   }
   const projection = windowHost.project(bodyBounds(), projectionOptions());
-  for (const window of projection.windows) paintWindow(frame, window, now);
+  // Tiled windows, their separators, then floating windows: a separator is
+  // part of the tiled layer and must never cut through a window above it.
+  for (const window of projection.tiledWindows) paintWindow(frame, window, now);
+  for (const separator of projection.separators) {
+    const glyph = separator.axis === "column" ? "│" : "─";
+    for (let row = separator.rect.row; row < separator.rect.row + separator.rect.height; row += 1) {
+      for (let column = separator.rect.column; column < separator.rect.column + separator.rect.width; column += 1) {
+        if (frame[row]?.[column] !== undefined) {
+          frame[row]![column] = { char: glyph, foreground: DESKTOP.chromeMuted, background: DESKTOP.wallpaper };
+        }
+      }
+    }
+  }
+  for (const window of projection.floatingWindows) paintWindow(frame, window, now);
+  if (projection.switcher) {
+    const items = projection.switcher.items;
+    const width = Math.min(columns() - 4, Math.max(24, 6 + Math.max(...items.map((item) => item.title.length))));
+    const height = items.length + 2;
+    const rect: Rectangle = {
+      column: Math.max(0, Math.floor((columns() - width) / 2)),
+      row: Math.max(0, Math.floor((rows() - height) / 2)),
+      width,
+      height,
+    };
+    fillRect(frame, rect, DESKTOP.menu);
+    writeText(frame, rect.column + 1, rect.row, "windows", { foreground: DESKTOP.accent, background: DESKTOP.menu });
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]!;
+      const ground = item.selected ? DESKTOP.menuSelected : DESKTOP.menu;
+      if (item.selected) {
+        fillRect(frame, { column: rect.column, row: rect.row + 1 + index, width: rect.width, height: 1 }, ground);
+      }
+      writeText(frame, rect.column + 2, rect.row + 1 + index, item.title.slice(0, rect.width - 4), {
+        foreground: item.state === "minimized" ? DESKTOP.chromeMuted : DESKTOP.chromeText,
+        background: ground,
+      });
+    }
+  }
   if (projection.snapPreview) {
     const preview = projection.snapPreview.rect;
     writeText(frame, preview.column, preview.row, "┌".padEnd(Math.max(1, preview.width - 1), "─") + "┐", {
@@ -895,10 +1026,25 @@ host.on("keyPress", (event: KeyPressEvent) => {
     }
     return;
   }
+  const switcherOpen = windowHost.project(bodyBounds(), projectionOptions()).switcher !== undefined;
+  if (switcherOpen) {
+    if (event.key === "tab") {
+      windowHost.execute({ kind: "switcher-step", direction: event.shift ? -1 : 1 }, bodyBounds(), projectionOptions());
+    } else if (event.key === "return") {
+      windowHost.execute({ kind: "switcher-accept" }, bodyBounds(), projectionOptions());
+    } else if (event.key === "escape") {
+      windowHost.execute({ kind: "switcher-cancel" }, bodyBounds(), projectionOptions());
+    }
+    return;
+  }
   const window = activeDemoWindow();
   if (window && demoById.get(window.id)?.onKey?.(event)) return;
   if (event.key === "tab") {
-    windowHost.execute({ kind: "focus-next", direction: event.shift ? -1 : 1 }, bodyBounds(), projectionOptions());
+    windowHost.execute({ kind: "switcher-open", direction: event.shift ? -1 : 1 }, bodyBounds(), projectionOptions());
+  } else if (event.key === "g" && window && !mobileLayout()) {
+    // Toggle the focused window between floating and the tiled workspace —
+    // the host owns the layout; this is one command, like everything else.
+    windowHost.execute({ kind: "toggle-placement", id: window.id }, bodyBounds(), projectionOptions());
   }
 });
 
@@ -907,7 +1053,30 @@ host.platform.size.subscribe(() => {
   fitWindowsToViewport();
 });
 
-// A phone-sized first paint gets the phone treatment straight away.
+// The first window sizes for the actual screen at boot — phone or desktop.
 if (mobileLayout()) fitWindowsToViewport();
+else {
+  windowHost.execute(
+    { kind: "set-placement", id: "about", placement: "floating", rect: autoRectFor("about") },
+    bodyBounds(),
+    projectionOptions(),
+  );
+  presentedCount += 1;
+}
+
+// Debug hook for driving the page from CDP during development; carries no UI.
+(globalThis as unknown as Record<string, unknown>).__desktop = {
+  order: () =>
+    windowHost.project(bodyBounds(), projectionOptions()).windows.map((window) =>
+      `${window.id}:${window.placement}:${window.state}${
+        window.active ? "*" : ""
+      }@r${window.rect.row}+${window.rect.height}c${window.rect.column}+${window.rect.width} client r${window.clientRect.row}+${window.clientRect.height}`
+    ),
+  row: (index: number) => (lineSignals[index]?.peek() ?? "").replace(/\x1b\[[0-9;]*m/g, ""),
+  separators: () =>
+    windowHost.project(bodyBounds(), projectionOptions()).separators.map((separator) =>
+      `${separator.axis}@r${separator.rect.row}+${separator.rect.height}c${separator.rect.column}+${separator.rect.width}`
+    ),
+};
 
 host.start();

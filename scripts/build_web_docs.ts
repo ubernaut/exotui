@@ -76,6 +76,10 @@ if (import.meta.main) {
   // Loaded lazily by the desktop when the three window opens; `three` itself
   // stays external and arrives from esm.sh.
   await buildPageBundle("examples/web/desktop_three.ts", `${outdir}/desktop-three.js`);
+  // The ASCII renderer resolves its glyph atlases against import.meta.url,
+  // which in the bundle is .../assets/desktop-three.js — so the atlases live
+  // in an assets/ directory NEXT TO the bundle, i.e. assets/assets/.
+  await copyThreeAsciiAtlases(`${outdir}/assets`);
   await verifyWebSurface("mod.web.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The desktop ships as the landing page; it may lean on the same guarded
   // paths as the web root, and not one more.
@@ -154,6 +158,15 @@ async function verifyWebSurface(entryPoint: string, allowed: ReadonlySet<string>
       `${entryPoint} bundles Deno APIs the web surface does not allow: ${violations.join(", ")}. ` +
         "Something terminal-bound reached the web export graph.",
     );
+  }
+}
+
+async function copyThreeAsciiAtlases(target: string): Promise<void> {
+  await Deno.mkdir(target, { recursive: true });
+  for await (const entry of Deno.readDir("src/three_ascii/assets")) {
+    if (entry.isFile && entry.name.endsWith(".png")) {
+      await Deno.copyFile(`src/three_ascii/assets/${entry.name}`, `${target}/${entry.name}`);
+    }
   }
 }
 

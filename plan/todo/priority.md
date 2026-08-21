@@ -172,6 +172,13 @@ Wanted next: per-window pointer signal into the three scene, and relaxing topmos
 draw objects with window order. `recover-all` moves but does not shrink an oversized floating window; acceptable on a
 desktop, worth a resize clamp someday.
 
+**Parity + field fixes (August 21 2026, evening).** Three-ascii atlases ship beside the bundle (`assets/assets/`);
+groundless viz cells are grounded on the web (the browser has no compositor behind the canvas); separators paint under
+floating windows; `g` toggles tiling, Tab runs the host switcher, windows auto-size to the viewport, and the theme
+gallery themes the desktop chrome on click. Verified by driving real Chrome over CDP — screenshots, keys, frame-row
+dumps; the `__desktop` hook in the page is that harness's seam. Still open from the parity ask: window context menus,
+per-window settings, and the workbench inside a window.
+
 Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
 seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);
 a browser-real `cpu`-equivalent feed (main-thread busy fraction) wants its own feed id rather than borrowing `cpu:*`

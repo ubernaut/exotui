@@ -166,6 +166,10 @@ export function createBrowserMonitor(options: BrowserMonitorOptions = {}): Brows
       layout,
       streams,
       theme,
+      // A terminal host composites behind groundless cells; a browser canvas
+      // has no behind, so an unpainted cell must carry the ground or the
+      // previous frame shows through it.
+      opaque: true,
       accent: palette.tokens.accent ?? [127, 214, 255],
       ...(header ? { header: `exomonitor · browser · ${palette.label}` } : {}),
       ...(status ? { status: statusLine() } : {}),

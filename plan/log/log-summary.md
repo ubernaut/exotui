@@ -3,6 +3,28 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the desktop driven for real: two bugs found by looking, parity by command
+
+The maintainer asked for exomux parity — themes, tiling, menus — plus two field reports: the three renderer broken,
+window content not updating cleanly. Then the methodological correction that made the session: "why headless? do it for
+real with an interface you can see." A real Chrome on the real display, driven over CDP — clicks, keys, screenshots of
+the actual renderer — became the loop, and both bugs fell out of looking at pixels rather than reasoning about them.
+
+The three renderer died loading its glyph atlases: `new URL("./assets/edgesASCII.png", import.meta.url)` resolves
+against the bundle, so the atlases must live in `assets/assets/` next to it — the docs build copies them now. The dirty
+updates were the viz layer's deliberate groundless cells: a terminal composites behind an unpainted cell, a browser
+canvas repaints in place, so a transparent cell preserves the previous frame — the psychograph wore its whole history.
+`opaque: true` in the monitor's compose and a `groundCells` pass after every chart blit. A third bug was caught before
+anyone reported it: the tiled-split separator painted after every window and cut a full-width line through floating
+ones; paint order is now tiled → separators → floating, verified by dumping composed frame rows over CDP when the
+screenshots got ambiguous.
+
+Parity landed as commands on the host the desktop already had: `g` toggles a window between floating and the tiled
+workspace (separators drag, snap already worked), Tab drives the host's switcher with a painted panel, windows open
+sized for the viewport (half the body, cascaded, declared minimums respected) instead of for the screen they were
+declared on, and the theme gallery applies its palette to the desktop chrome on click — the desktop palette is derived,
+not hand-set. A `__desktop` debug hook stays in the page: driving the real thing over CDP earned its keep.
+
 ## August 21 2026 — the desktop learns phones, and grows a start menu
 
 Two asks in one breath — "make it responsive for mobile, add a start menu" — that turn out to be one design. The host's
