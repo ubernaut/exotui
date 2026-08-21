@@ -928,7 +928,7 @@ export class ExomuxController {
    * and the graphics relay reads it to occlude relayed images by exactly the
    * cells an overlay covers instead of blanking every image on the desktop.
    */
-  readonly overlayFootprints = new Map<string, Rectangle>();
+  readonly overlayFootprints: Map<string, Rectangle> = new Map();
 
   /** Bound once so every runtime shares one identity for the size answerer. */
   readonly #sizeQuery = (sessionId: string, kind: 14 | 16 | 18): void => this.answerWindowSizeQuery(sessionId, kind);
