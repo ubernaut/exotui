@@ -1,17 +1,17 @@
 {
   "name": "@ubernaut/exomux",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
     "./main": "./main.ts"
   },
   "imports": {
-    "@ubernaut/exotui": "jsr:@ubernaut/exotui@^0.4.0",
-    "@ubernaut/exotui/app": "jsr:@ubernaut/exotui@^0.4.0/app",
-    "@ubernaut/exotui/showcase": "jsr:@ubernaut/exotui@^0.4.0/showcase",
-    "@ubernaut/exotui/terminal": "jsr:@ubernaut/exotui@^0.4.0/terminal",
-    "@ubernaut/exotui/testing": "jsr:@ubernaut/exotui@^0.4.0/testing",
+    "@ubernaut/exotui": "jsr:@ubernaut/exotui@^0.5.0",
+    "@ubernaut/exotui/app": "jsr:@ubernaut/exotui@^0.5.0/app",
+    "@ubernaut/exotui/showcase": "jsr:@ubernaut/exotui@^0.5.0/showcase",
+    "@ubernaut/exotui/terminal": "jsr:@ubernaut/exotui@^0.5.0/terminal",
+    "@ubernaut/exotui/testing": "jsr:@ubernaut/exotui@^0.5.0/testing",
     "@sigma/pty-ffi": "jsr:@sigma/pty-ffi@0.42.0",
     "jpeg-js": "npm:jpeg-js@0.4.4",
     "markdown-it": "npm:markdown-it@15.0.0",

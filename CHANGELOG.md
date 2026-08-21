@@ -6,6 +6,65 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.5.0 — 2026-08-21
+
+### Added
+
+- **`@ubernaut/exotui/viz/three`** — retained-geometry scenes through the ASCII pipeline, as an optional entrypoint like
+  the layout solvers: `./viz`'s projected charts stay arithmetic and dependency-free, and importing this is the choice
+  to pay for `three`. A `DataScene` is deliberately not a `Visualization` — it builds once, updates when the data
+  changes, disposes when the tile goes — but it speaks the same fitness vocabulary (`minimum`, `perEntry`, `weight`,
+  `suits`), and `fitDataScenes` ranks through the same `scoreFit`, so both registries sit on one scale. Three scenes:
+  `three-surface` (a matrix as a height field), `three-lattice` (a volume as a point cloud that skips empty cells),
+  `three-rings` (a matrix as a stack of closed loops). Geometry rebuilds only when the data changes shape. A first pass:
+  proven against the contract, not yet lived with on a real terminal.
+
+- **Kitty graphics passthrough** — `src/runtime/kitty_passthrough.ts`, a pure relay for any compositor sitting between
+  applications that draw kitty graphics and a host terminal that can show them. Per-source id blocks so two children
+  calling their image `i=1` never collide at the host; display commands carry the cursor cell they were issued at;
+  continuation chunks relay untouched; replies are quieted unless the child asked; a child's delete-all expands to
+  per-id deletes of its own images only; `release()` deletes everything live, because an image the compositor cannot
+  account for must not stay on screen. `setClip` re-places retained transmissions as source-rect crops, so partial
+  occlusion and window moves cost placements, not frames.
+
+- **The terminal emulator knows string sequences.** DCS, APC, PM and SOS parse as sequences terminated by ST only — BEL
+  stays an OSC-only concession — buffered across chunk boundaries, with discard-until-ST once a payload outgrows the 64
+  KB pending cap, because one kitty transmit can run to megabytes. The screen takes `onKittyGraphics` and
+  `onWindowSizeQuery` (XTWINOPS 14/16/18) so an embedder can relay graphics and answer size queries with true pixels.
+
+- **APC is one input boundary.** The input reader used to split a host's APC reply at the interior ESC of its own
+  terminator and decode the halves as an alt-chord. It now spans `ESC _` to ST and surfaces a `terminalApc` event; the
+  input envelope refuses APC as semantic input by design, because a terminal's reply to a query is not a keystroke.
+
+- **`detectKittyGraphicsCapability` recognises Ghostty**, alongside kitty and WezTerm.
+
+- **exomux relays graphics end to end** — verified live at 60 FPS through Ghostty. The client probes the host at launch
+  (a kitty query plus a pixel-size report, one write before the TUI owns stdin), so capability is evidence, not
+  terminal-name recognition; placements follow windows, occlusion is computed from what actually painted, and size
+  queries are answered with the host's real cell pixels. Children get a sanitised environment (`TERM_PROGRAM=exomux`,
+  host identity stripped) so applications that sniff rather than probe stop inheriting the host's identity; a daemon
+  older than the client now says so in the status bar instead of failing strangely.
+
+- **Two themes: `dracula`** — blacks, dark grays, red — **and `sabbath`** — blacks, dark grays, purple. Both hold the AA
+  contrast gates the theme suite enforces.
+
+- **exomux's kill confirmation is a window**, the first step of refolding modal overlays into the window host: it
+  stacks, drags and occludes relayed graphics as a window, and dismissing it by any path — including its own [x] —
+  cancels rather than kills. Remaining overlays follow one at a time.
+
+- **exomonitor: the microphone is its own audio source**, selectable beside the monitor loopback.
+
+### Fixed
+
+- **The lock-up.** `overlay`'s rewrite as the btop chart dropped its `perEntry` row cost, so fitness scored 256 series
+  as "fits comfortably" and a pinned overlay on a waveform feed cost 49 ms a frame, twice over. It has a vertical cost
+  again — a quarter row per trace — and a ceiling at 128, past which it is not a trace chart at any size. The live view
+  also composites only the runs that changed instead of the whole terminal frame, and skips frames nothing dirtied.
+
+- **`reflowFloatingWindows` rescued windows nobody could see.** It skipped the states it had met (`minimized`,
+  `maximized`) instead of requiring the one it needs; a `closed` window's off-screen rect was "nudged back on" every
+  resize. It now skips every non-`normal` window.
+
 ## 0.4.0 — 2026-08-19
 
 ### Added

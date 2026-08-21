@@ -3,6 +3,14 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — release 0.5.0
+
+Everything since 0.4.0 in one cut: the kitty graphics passthrough (relay, string sequences, APC boundary, host probe,
+XTWINOPS answers), the Three.js scenes as `@ubernaut/exotui/viz/three`, the lock-up fix with its restored per-entry
+cost, the microphone source, two themes, and the kill confirmation as the first overlay-turned-window. Version bumped in
+`deno.jsonc`, changelog written, `v0.5.0` tagged — CI publishes to JSR on the version move and builds the exomux
+binaries on the tag.
+
 ## August 21 2026 — the kill confirmation becomes a window
 
 First step of the agreed overlays-as-windows refactor. The kill confirmation was the simplest overlay — one question,
