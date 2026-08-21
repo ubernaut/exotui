@@ -358,19 +358,20 @@ async function runExomuxClientSession(
     endPass = resolve;
   });
   let liveRuntime: ExomuxTerminalAppRuntime | undefined;
-  // The client is the process that genuinely sits inside the host terminal,
-  // so its own environment is the honest source for what that host can draw.
-  // Children see a sanitised environment and cannot make this call themselves;
-  // they probe, and the probe only succeeds because this relay answers.
-  const graphicsPassthrough = detectKittyGraphicsCapability({
+  // The client is the process that genuinely sits inside the host terminal —
+  // and the honest way to learn what that host draws is to ask it, not to
+  // recognise its name. One raw round trip before the TUI owns stdin sends the
+  // kitty graphics query and the XTWINOPS cell-size query together: a host
+  // that answers the first speaks the protocol, whatever it is called —
+  // Ghostty, kitty, WezTerm, or something that does not exist yet. The
+  // environment check remains as a fallback for a host that draws but is slow
+  // to answer, and DENO_TUI_KITTY=0/1 still overrides both ways.
+  const probe = await probeHostTerminal();
+  const graphicsPassthrough = probe.graphics ?? detectKittyGraphicsCapability({
     env: (name) => Deno.env.get(name),
     isTty: Deno.stdout.isTerminal(),
   }).supported;
-  // Measured before the app takes stdin: one raw XTWINOPS round trip. Without
-  // it, a pixel-rendering child asking `CSI 16 t` gets silence and guesses a
-  // cell geometry the host does not have — frames sized for a window it is
-  // not in.
-  const hostCellPixels = graphicsPassthrough ? await measureHostCellPixels() : undefined;
+  const hostCellPixels = graphicsPassthrough ? probe.cellPixels : undefined;
   const controller = await createExomuxController({
     client: connection.client,
     store: retargetableStore,
@@ -688,26 +689,63 @@ export async function launchInitialExomuxTerminalIfEmpty(
   return firstTerminal !== undefined;
 }
 
+/** What one pre-launch round trip learned about the host terminal. */
+export interface ExomuxHostProbe {
+  /**
+   * Whether the host answered the kitty graphics query. `true` and `false`
+   * are answers; undefined means silence, and silence falls back to the
+   * environment rather than deciding either way.
+   */
+  readonly graphics?: boolean;
+  readonly cellPixels?: { readonly width: number; readonly height: number };
+}
+
+/** The image id used only for the launch probe, matched in the reply. */
+const HOST_PROBE_IMAGE_ID = 4_242_424;
+
 /**
- * Asks the host terminal for its cell size in pixels (`CSI 16 t`).
+ * Parses the accumulated reply bytes of the launch probe.
+ *
+ * Pure, because the parsing is the part worth pinning: the graphics reply is
+ * an APC naming the probe id — `OK` is support, any other status (an EBADPNG,
+ * an ENOTSUPPORTED) is a host that parses the protocol without honouring it —
+ * and the cell size arrives as `CSI 6 ; height ; width t`.
+ */
+export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
+  const result: { graphics?: boolean; cellPixels?: { width: number; height: number } } = {};
+  const graphics = new RegExp(`\\x1b_Gi=${HOST_PROBE_IMAGE_ID}[^;]*;([^\\x1b]*)\\x1b\\\\`).exec(seen);
+  if (graphics) result.graphics = graphics[1] === "OK";
+  const cell = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
+  if (cell) {
+    const height = Number(cell[1]);
+    const width = Number(cell[2]);
+    if (width > 0 && height > 0) result.cellPixels = { width, height };
+  }
+  return result;
+}
+
+/**
+ * Asks the host terminal, once, what it can do: the kitty graphics query and
+ * the XTWINOPS cell-size query in one write, replies collected until both
+ * arrive or the deadline does.
  *
  * A raw, bounded round trip on the real stdin/stdout, run before the TUI owns
- * either. A host that does not answer within the deadline yields nothing, and
- * children's pixel queries then go unanswered rather than answered wrongly.
+ * either. Asking beats recognising: a terminal's name says what it is, the
+ * probe says what it does, and only the second survives new terminals.
  */
-async function measureHostCellPixels(
-  deadlineMs = 300,
-): Promise<{ width: number; height: number } | undefined> {
-  if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) return undefined;
+async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
+  if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) return {};
   try {
     Deno.stdin.setRaw(true);
   } catch {
-    return undefined;
+    return {};
   }
   try {
-    await Deno.stdout.write(new TextEncoder().encode("\x1b[16t"));
+    await Deno.stdout.write(new TextEncoder().encode(
+      `\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t`,
+    ));
     const decoder = new TextDecoder();
-    const buffer = new Uint8Array(64);
+    const buffer = new Uint8Array(256);
     let seen = "";
     const deadline = Date.now() + deadlineMs;
     while (Date.now() < deadline) {
@@ -717,18 +755,13 @@ async function measureHostCellPixels(
       ]);
       if (read === null || read === 0) break;
       seen += decoder.decode(buffer.subarray(0, read));
-      const match = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
-      if (match) {
-        const height = Number(match[1]);
-        const width = Number(match[2]);
-        if (width > 0 && height > 0) return { width, height };
-        return undefined;
-      }
-      if (seen.length > 256) break;
+      const parsed = parseHostProbeReplies(seen);
+      if (parsed.graphics !== undefined && parsed.cellPixels) return parsed;
+      if (seen.length > 1024) break;
     }
-    return undefined;
+    return parseHostProbeReplies(seen);
   } catch {
-    return undefined;
+    return {};
   } finally {
     try {
       Deno.stdin.setRaw(false);
