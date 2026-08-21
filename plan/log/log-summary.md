@@ -3,6 +3,22 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the desktop learns phones, and grows a start menu
+
+Two asks in one breath — "make it responsive for mobile, add a start menu" — that turn out to be one design. The host's
+compact-auto watches the tiled workspace's minimums, which an all-floating desktop never trips, so the phone answer is
+exomux's, imported wholesale: below 72×20, presenting a window maximizes it, exactly one full-screen window owns the
+body (the host hides the floating peers from the projection on its own), and the start menu is the app switcher. Resizes
+refit in both directions — into phone size the active window takes the screen; out of it the maximized window restores
+and the host's `recover-all` pulls off-screen floating windows back into reach. Verified headless by driving the real
+host at 43×45 and back to 60×24, since a phone cannot be attached to a test.
+
+The launcher grew into the start menu that makes that switching legible: a header, per-demo glyphs, a separator before
+the outward links, summaries only when there is room, full-width on phones. One layout function feeds the painter and
+the pointer router — the exomux lesson about clicks landing on the pixels they were aimed at, applied on the first day
+rather than retrofitted. Mouse hover moves the selection; touch never needs it, because activation only happens on a
+down. The landing bundle is 685 KB, still under its 780 KB ceiling.
+
 ## August 21 2026 — three more windows: the catalog, the clock, and three ascii
 
 "Add some demos!" Three, each exercising a different seam. The **visualization catalog** walks every renderer in the

@@ -4,7 +4,7 @@
 // WorkbenchWindowHost — the same engine exomux runs on — drives floating
 // windows over a cell canvas, and each window's client area is a demo drawn
 // through its own honest seam. The host owns focus, dragging, snapping,
-// minimize/maximize and the shelf; this file owns painting and the launcher.
+// minimize/maximize and the shelf; this file owns painting and the start menu.
 
 import { TextObject, type TextRectangle } from "../../src/canvas/text.ts";
 import { Computed, Signal } from "../../src/signals/mod.ts";
@@ -209,7 +209,7 @@ function aboutDemo(): DesktopDemo {
     "  double-click to maximize, minimize to the",
     "  shelf below.",
     "",
-    "  ⏻ demos, bottom left, launches the rest.",
+    "  ⏻ start, bottom left, launches the rest.",
     "",
     "  jsr.io/@ubernaut/exotui",
     "  github.com/ubernaut/exotui",
@@ -420,13 +420,15 @@ function writeCellsText(cells: VizCell[], column: number, text: string, foregrou
 }
 
 // ---------------------------------------------------------------------------
-// Launcher items: the in-window demos plus outward links.
+// Start-menu items: the in-window demos plus outward links.
 
-interface LauncherItem {
+interface StartMenuItem {
   readonly id: string;
+  readonly glyph: string;
   readonly title: string;
   readonly summary: string;
   readonly href?: string;
+  readonly separatorBefore?: boolean;
 }
 
 const DEMOS: DesktopDemo[] = [
@@ -439,13 +441,43 @@ const DEMOS: DesktopDemo[] = [
   themesDemo(),
 ];
 const demoById = new Map(DEMOS.map((demo) => [demo.id, demo]));
-const LAUNCHER_ITEMS: LauncherItem[] = [
-  ...DEMOS.map((demo) => ({ id: demo.id, title: demo.title, summary: demo.summary })),
+const DEMO_GLYPHS: Record<string, string> = {
+  about: "◆",
+  exomonitor: "▁▄▂▇",
+  neon: "░▒▓",
+  viz: "◫",
+  three: "◱",
+  clock: "◔",
+  themes: "▤",
+};
+const START_MENU_ITEMS: StartMenuItem[] = [
+  ...DEMOS.map((demo) => ({
+    id: demo.id,
+    glyph: DEMO_GLYPHS[demo.id] ?? "·",
+    title: demo.title,
+    summary: demo.summary,
+  })),
   {
     id: "workbench",
-    title: "api workbench ↗",
+    glyph: "↗",
+    title: "api workbench",
     summary: "The interactive API reference, on its own page.",
     href: "./workbench.html",
+    separatorBefore: true,
+  },
+  {
+    id: "jsr",
+    glyph: "↗",
+    title: "jsr.io/@ubernaut/exotui",
+    summary: "The package this desktop is built from.",
+    href: "https://jsr.io/@ubernaut/exotui",
+  },
+  {
+    id: "github",
+    glyph: "↗",
+    title: "github.com/ubernaut/exotui",
+    summary: "Source, issues, and the plan directory.",
+    href: "https://github.com/ubernaut/exotui",
   },
 ];
 
@@ -490,8 +522,44 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
   doubleClickMaximizeMs: 400,
 });
 
-let launcherOpen = false;
-let launcherSelected = 0;
+/**
+ * The phone question, answered the way exomux answers it: below this there is
+ * no room for floating windows, so one maximized window owns the body and the
+ * rest wait in the shelf. The threshold is exomux's, kept for the same reason.
+ */
+const mobileLayout = (): boolean => columns() < 72 || rows() < 20;
+
+let startMenuOpen = false;
+let startMenuSelected = 0;
+
+interface StartMenuLayout {
+  readonly rect: Rectangle;
+  /** Row rects by item index; a hidden item (no room) has none. */
+  readonly itemRects: (Rectangle | undefined)[];
+  /** Rows per item: 2 with a summary line, 1 without. */
+  readonly dense: boolean;
+}
+
+function startMenuLayout(): StartMenuLayout {
+  const mobile = mobileLayout();
+  const width = mobile ? columns() : Math.min(46, Math.max(24, columns() - 4));
+  const rowsPerItem = mobile || rows() < START_MENU_ITEMS.length * 2 + 6 ? 1 : 2;
+  let needed = 2; // header + footer hint
+  for (const item of START_MENU_ITEMS) needed += rowsPerItem + (item.separatorBefore ? 1 : 0);
+  const height = Math.min(needed, rows() - 2);
+  const rect: Rectangle = { column: mobile ? 0 : 1, row: Math.max(0, rows() - 1 - height), width, height };
+  const itemRects: (Rectangle | undefined)[] = [];
+  let row = rect.row + 1;
+  const limit = rect.row + rect.height - 1;
+  for (const item of START_MENU_ITEMS) {
+    if (item.separatorBefore) row += 1;
+    itemRects.push(
+      row + rowsPerItem <= limit ? { column: rect.column, row, width: rect.width, height: rowsPerItem } : undefined,
+    );
+    row += rowsPerItem;
+  }
+  return { rect, itemRects, dense: rowsPerItem === 1 };
+}
 
 const lineSignals: Signal<string>[] = [];
 function ensureLineSignals(): void {
@@ -512,13 +580,7 @@ function ensureLineSignals(): void {
 }
 ensureLineSignals();
 
-const LAUNCHER_BUTTON = " ⏻ demos ";
-
-function launcherPanelRect(): Rectangle {
-  const width = Math.min(46, Math.max(24, columns() - 4));
-  const height = Math.min(LAUNCHER_ITEMS.length * 2 + 1, rows() - 3);
-  return { column: 1, row: Math.max(0, rows() - 1 - height), width, height };
-}
+const START_BUTTON = " ⏻ start ";
 
 function presentDemoWindow(id: string): void {
   // The host blocks focusing a window another maximized window hides, so a
@@ -528,11 +590,30 @@ function presentDemoWindow(id: string): void {
     windowHost.execute({ kind: "restore", id: maximizedId }, bodyBounds(), projectionOptions());
   }
   windowHost.execute({ kind: "restore", id }, bodyBounds(), projectionOptions());
+  if (mobileLayout()) {
+    windowHost.execute({ kind: "maximize", id }, bodyBounds(), projectionOptions());
+  }
   windowHost.execute({ kind: "focus", id }, bodyBounds(), projectionOptions());
 }
 
-function activateLauncherItem(item: LauncherItem): void {
-  launcherOpen = false;
+/**
+ * Fits the open windows to a new viewport. On a phone the active window takes
+ * the whole body; on a desktop, floating windows that ended up off-screen are
+ * recovered by the host rather than left where nobody can reach them.
+ */
+function fitWindowsToViewport(): void {
+  if (mobileLayout()) {
+    const active = windowHost.controller.inspect().activeWindowId;
+    if (active) windowHost.execute({ kind: "maximize", id: active }, bodyBounds(), projectionOptions());
+    return;
+  }
+  const maximizedId = windowHost.controller.inspect().maximizedWindowId;
+  if (maximizedId) windowHost.execute({ kind: "restore", id: maximizedId }, bodyBounds(), projectionOptions());
+  windowHost.execute({ kind: "recover-all" }, bodyBounds(), projectionOptions());
+}
+
+function activateStartMenuItem(item: StartMenuItem): void {
+  startMenuOpen = false;
   if (item.href) {
     globalThis.open(item.href, "_blank", "noopener");
     return;
@@ -562,14 +643,14 @@ async function ensureThreeOverlay(): Promise<void> {
 /**
  * The renderer draws on the shared canvas above the desktop text, so it is
  * only handed a rectangle while nothing could legitimately cover it: its
- * window topmost, not minimized, the launcher closed. Everything else shows
+ * window topmost, not minimized, the start menu closed. Everything else shows
  * the adapter's placeholder instead of a wrong stacking order.
  */
 function syncThreeOverlay(): void {
   if (!threeOverlay) return;
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   const top = projection.windows[projection.windows.length - 1];
-  const eligible = !launcherOpen && top?.id === "three" && top.state !== "minimized" &&
+  const eligible = !startMenuOpen && top?.id === "three" && top.state !== "minimized" &&
     top.clientRect.width > 0 && top.clientRect.height > 1;
   if (!eligible) {
     threeOverlay.setRect(null);
@@ -620,11 +701,11 @@ function fillRect(frame: VizCell[][], rect: Rectangle, background: Rgb): void {
 function paintShelf(frame: VizCell[][]): void {
   const shelf = shelfBounds();
   fillRect(frame, shelf, DESKTOP.shelf);
-  writeText(frame, 0, shelf.row, LAUNCHER_BUTTON, {
-    foreground: launcherOpen ? DESKTOP.wallpaper : DESKTOP.accent,
-    background: launcherOpen ? DESKTOP.accent : DESKTOP.shelf,
+  writeText(frame, 0, shelf.row, START_BUTTON, {
+    foreground: startMenuOpen ? DESKTOP.wallpaper : DESKTOP.accent,
+    background: startMenuOpen ? DESKTOP.accent : DESKTOP.shelf,
   });
-  let column = LAUNCHER_BUTTON.length + 1;
+  let column = START_BUTTON.length + 1;
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   for (const item of projection.shelf) {
     const label = ` ${item.title} `;
@@ -635,8 +716,8 @@ function paintShelf(frame: VizCell[][]): void {
     });
     column += label.length + 1;
   }
-  const hint = "drag titlebars · double-click maximizes";
-  if (column + hint.length + 1 < columns()) {
+  const hint = mobileLayout() ? "" : "drag titlebars · double-click maximizes";
+  if (hint.length > 0 && column + hint.length + 1 < columns()) {
     writeText(frame, columns() - hint.length - 1, shelf.row, hint, {
       foreground: DESKTOP.chromeMuted,
       background: DESKTOP.shelf,
@@ -644,32 +725,47 @@ function paintShelf(frame: VizCell[][]): void {
   }
 }
 
-function paintLauncher(frame: VizCell[][]): void {
-  const rect = launcherPanelRect();
+function paintStartMenu(frame: VizCell[][]): void {
+  const layout = startMenuLayout();
+  const rect = layout.rect;
   fillRect(frame, rect, DESKTOP.menu);
-  for (let index = 0; index < LAUNCHER_ITEMS.length; index += 1) {
-    const item = LAUNCHER_ITEMS[index]!;
-    const row = rect.row + 1 + index * 2;
-    if (row >= rect.row + rect.height) break;
-    const selected = index === launcherSelected;
-    if (selected) {
-      fillRect(frame, { column: rect.column, row, width: rect.width, height: 1 }, DESKTOP.menuSelected);
-      if (row + 1 < rect.row + rect.height) {
-        fillRect(frame, { column: rect.column, row: row + 1, width: rect.width, height: 1 }, DESKTOP.menuSelected);
-      }
+  writeText(frame, rect.column + 1, rect.row, "exotui desktop", {
+    foreground: DESKTOP.accent,
+    background: DESKTOP.menu,
+  });
+  for (let index = 0; index < START_MENU_ITEMS.length; index += 1) {
+    const item = START_MENU_ITEMS[index]!;
+    const itemRect = layout.itemRects[index];
+    if (!itemRect) continue;
+    if (item.separatorBefore) {
+      writeText(frame, rect.column + 1, itemRect.row - 1, "─".repeat(Math.max(0, rect.width - 2)), {
+        foreground: DESKTOP.wallpaperDot,
+        background: DESKTOP.menu,
+      });
     }
+    const selected = index === startMenuSelected;
     const ground = selected ? DESKTOP.menuSelected : DESKTOP.menu;
-    writeText(frame, rect.column + 1, row, item.title.slice(0, rect.width - 2), {
+    if (selected) fillRect(frame, itemRect, DESKTOP.menuSelected);
+    writeText(frame, rect.column + 1, itemRect.row, item.glyph.slice(0, 4), {
+      foreground: DESKTOP.accent,
+      background: ground,
+    });
+    writeText(frame, rect.column + 6, itemRect.row, item.title.slice(0, Math.max(0, rect.width - 7)), {
       foreground: DESKTOP.chromeText,
       background: ground,
     });
-    if (row + 1 < rect.row + rect.height) {
-      writeText(frame, rect.column + 3, row + 1, item.summary.slice(0, Math.max(0, rect.width - 4)), {
+    if (itemRect.height > 1) {
+      writeText(frame, rect.column + 6, itemRect.row + 1, item.summary.slice(0, Math.max(0, rect.width - 7)), {
         foreground: DESKTOP.chromeMuted,
         background: ground,
       });
     }
   }
+  const hint = mobileLayout() ? "tap to open" : "↑↓ · enter · esc";
+  writeText(frame, rect.column + Math.max(1, rect.width - hint.length - 1), rect.row + rect.height - 1, hint, {
+    foreground: DESKTOP.chromeMuted,
+    background: DESKTOP.menu,
+  });
 }
 
 const WALLPAPER_THEME = resolveVisualizationTheme({});
@@ -694,7 +790,7 @@ function paintDesktop(now: number): void {
     });
   }
   paintShelf(frame);
-  if (launcherOpen) paintLauncher(frame);
+  if (startMenuOpen) paintStartMenu(frame);
   for (let row = 0; row < height; row += 1) {
     let line = "";
     let current = "";
@@ -738,32 +834,39 @@ host.on("pointerInput", (event: PointerInputEvent) => {
   const cell = event.coordinates.cell;
   if (!cell) return;
   const { x, y } = cell;
+  if (startMenuOpen && event.kind === "move") {
+    // Mouse hover follows the pointer; touch sends no hover and loses nothing,
+    // because activation only ever happens on a down.
+    const layout = startMenuLayout();
+    const under = layout.itemRects.findIndex((rect) => rect && contains(rect, x, y));
+    if (under >= 0) startMenuSelected = under;
+    return;
+  }
   if (event.kind === "down") {
-    if (launcherOpen) {
-      const rect = launcherPanelRect();
-      if (contains(rect, x, y)) {
-        const index = Math.floor((y - rect.row - 1) / 2);
-        const item = LAUNCHER_ITEMS[index];
-        if (item) activateLauncherItem(item);
-      } else launcherOpen = false;
+    if (startMenuOpen) {
+      const layout = startMenuLayout();
+      if (contains(layout.rect, x, y)) {
+        const index = layout.itemRects.findIndex((rect) => rect && contains(rect, x, y));
+        const item = index >= 0 ? START_MENU_ITEMS[index] : undefined;
+        if (item) activateStartMenuItem(item);
+      } else startMenuOpen = false;
       return;
     }
     const shelf = shelfBounds();
     if (y === shelf.row) {
-      if (x < LAUNCHER_BUTTON.length) {
-        launcherOpen = true;
-        launcherSelected = 0;
+      if (x < START_BUTTON.length) {
+        startMenuOpen = true;
+        startMenuSelected = 0;
         return;
       }
       // Shelf item labels are laid out left to right in paint order; recompute
       // the same layout to hit-test them.
-      let column = LAUNCHER_BUTTON.length + 1;
+      let column = START_BUTTON.length + 1;
       const projection = windowHost.project(bodyBounds(), projectionOptions());
       for (const item of projection.shelf) {
         const label = ` ${item.title} `;
         if (x >= column && x < column + label.length) {
-          windowHost.execute(item.command, bodyBounds(), projectionOptions());
-          windowHost.execute({ kind: "focus", id: item.id }, bodyBounds(), projectionOptions());
+          presentDemoWindow(item.id);
           return;
         }
         column += label.length + 1;
@@ -781,14 +884,14 @@ host.on("pointerInput", (event: PointerInputEvent) => {
 });
 
 host.on("keyPress", (event: KeyPressEvent) => {
-  if (launcherOpen) {
-    if (event.key === "escape") launcherOpen = false;
-    else if (event.key === "down") launcherSelected = (launcherSelected + 1) % LAUNCHER_ITEMS.length;
+  if (startMenuOpen) {
+    if (event.key === "escape") startMenuOpen = false;
+    else if (event.key === "down") startMenuSelected = (startMenuSelected + 1) % START_MENU_ITEMS.length;
     else if (event.key === "up") {
-      launcherSelected = (launcherSelected + LAUNCHER_ITEMS.length - 1) % LAUNCHER_ITEMS.length;
+      startMenuSelected = (startMenuSelected + START_MENU_ITEMS.length - 1) % START_MENU_ITEMS.length;
     } else if (event.key === "return") {
-      const item = LAUNCHER_ITEMS[launcherSelected];
-      if (item) activateLauncherItem(item);
+      const item = START_MENU_ITEMS[startMenuSelected];
+      if (item) activateStartMenuItem(item);
     }
     return;
   }
@@ -801,6 +904,10 @@ host.on("keyPress", (event: KeyPressEvent) => {
 
 host.platform.size.subscribe(() => {
   ensureLineSignals();
+  fitWindowsToViewport();
 });
+
+// A phone-sized first paint gets the phone treatment straight away.
+if (mobileLayout()) fitWindowsToViewport();
 
 host.start();

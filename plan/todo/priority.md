@@ -163,8 +163,14 @@ bundle is 683 KB with a 780 KB ceiling in `e2e`. Three more demos landed the sam
 window (all registry renderers on labelled sample streams), a **clock** (the real time, through `dial`), and **three
 ascii** — the WebGPU pipeline lazily loaded as `desktop-three.js` (140 KB, `three` external from esm.sh) that draws on
 the shared canvas only while its window is topmost, the same active-window-only honesty the exomux relay started with.
-Wanted next: per-window pointer signal into the three scene, touch-friendly layout at phone sizes, and relaxing
-topmost-only once the desktop can interleave draw objects with window order.
+**Mobile + start menu (August 21 2026).** Below 72×20 the desktop runs exomux's phone answer: presenting a window
+maximizes it, one full-screen window owns the body, the start menu is the app switcher, and a resize into or out of
+phone size refits (maximize the active window in; restore + host `recover-all` out). The launcher grew into a proper
+start menu — header, glyphs, a separator before the outward links (workbench, JSR, GitHub), summaries when there is
+room, one shared layout function feeding painter and pointer router, hover-follow on mouse move that touch never needs.
+Wanted next: per-window pointer signal into the three scene, and relaxing topmost-only once the desktop can interleave
+draw objects with window order. `recover-all` moves but does not shrink an oversized floating window; acceptable on a
+desktop, worth a resize clamp someday.
 
 Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
 seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);
