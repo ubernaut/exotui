@@ -159,8 +159,12 @@ worked example: the terminal monitor's own compose/feeds/tiles, fed by the brows
 minimize/maximize, shelf and double-click-maximize, all host-owned; the page owns painting and a launcher. Four windows
 so far (welcome, exomonitor via the shared `browser_monitor.ts`, the neon suite through `ansi_cells.ts`, a theme
 gallery), plus an outward launcher link to the workbench, which moved intact to `docs/workbench.html`. The desktop
-bundle is 680 KB with a 780 KB ceiling in `e2e`. Wanted next: a three-ascii scene window (the renderer loop needs a
-window-sized seam), touch-friendly layout at phone sizes, and code-splitting if the launcher grows past the ceiling.
+bundle is 683 KB with a 780 KB ceiling in `e2e`. Three more demos landed the same day: a **visualization catalog**
+window (all registry renderers on labelled sample streams), a **clock** (the real time, through `dial`), and **three
+ascii** — the WebGPU pipeline lazily loaded as `desktop-three.js` (140 KB, `three` external from esm.sh) that draws on
+the shared canvas only while its window is topmost, the same active-window-only honesty the exomux relay started with.
+Wanted next: per-window pointer signal into the three scene, touch-friendly layout at phone sizes, and relaxing
+topmost-only once the desktop can interleave draw objects with window order.
 
 Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
 seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);

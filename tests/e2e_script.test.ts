@@ -152,6 +152,7 @@ Deno.test("default e2e catalog covers web console package and generated pages", 
     "pages-html",
     "workbench-html",
     "web-desktop-bundle",
+    "web-desktop-three-bundle",
     "web-workbench-bundle",
   ]);
 });

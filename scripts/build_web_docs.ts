@@ -73,10 +73,14 @@ if (import.meta.main) {
   await removeLegacyDemoAssets();
   await buildPageBundle("examples/web/api_workbench_page.ts", `${outdir}/api-workbench.js`);
   await buildPageBundle("examples/web/desktop_page.ts", `${outdir}/desktop.js`);
+  // Loaded lazily by the desktop when the three window opens; `three` itself
+  // stays external and arrives from esm.sh.
+  await buildPageBundle("examples/web/desktop_three.ts", `${outdir}/desktop-three.js`);
   await verifyWebSurface("mod.web.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The desktop ships as the landing page; it may lean on the same guarded
   // paths as the web root, and not one more.
   await verifyWebSurface("examples/web/desktop_page.ts", WEB_ROOT_ALLOWED_DENO_REFS);
+  await verifyWebSurface("examples/web/desktop_three.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The visualisation entrypoints hold a stricter line: zero Deno references,
   // so a browser can import them without a single guarded terminal path.
   await verifyWebSurface("src/viz/mod.ts", new Set());

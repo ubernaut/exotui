@@ -18,13 +18,26 @@ import {
 import type { PointerInputEvent } from "../../src/pointer_input.ts";
 import type { KeyPressEvent } from "../../src/input_reader/types.ts";
 import type { Rectangle } from "../../src/types.ts";
-import { screenFrame, type VizCell, type VizFrame, writeText } from "../../src/viz/mod.ts";
+import {
+  type DataStream,
+  drawStream,
+  matrixStream,
+  scalarStream,
+  screenFrame,
+  vectorStream,
+  VISUALIZATIONS,
+  type VizCell,
+  type VizFrame,
+  volumeStream,
+  writeText,
+} from "../../src/viz/mod.ts";
 import { blitFrame } from "../../src/viz/dashboard.ts";
 import { resolveVisualizationTheme } from "../../src/viz/mod.ts";
 import { grWizardThemePalettes } from "../../src/grwizard_themes.ts";
 import { neonDemosForSection, type NeonSuiteSection, renderNeonSuiteDemo } from "../../app/neon_suite.ts";
 import type { NeonDemo } from "../../app/visualizations.ts";
 import { createBrowserMonitor } from "./browser_monitor.ts";
+import type { ThreeWindowOverlay } from "./desktop_three.ts";
 import { ansiLineToCells, hexToRgb } from "./ansi_cells.ts";
 
 type Rgb = readonly [number, number, number];
@@ -218,6 +231,177 @@ function aboutDemo(): DesktopDemo {
   };
 }
 
+function vizCatalogDemo(): DesktopDemo {
+  // One stream per data kind, refreshed every tick so temporal renderers have
+  // a moving history. The data is a labelled sample — harmonics, not a claim
+  // about the machine — the same stance the terminal preview takes.
+  const scalar = scalarStream({ capacity: 240 });
+  const vector = vectorStream({ capacity: 240 });
+  const matrix = matrixStream({ capacity: 60 });
+  const volume = volumeStream({ capacity: 8 });
+  let step = 0;
+  let index = 0;
+  const theme = resolveVisualizationTheme({});
+  const streamFor = (kind: string): DataStream | undefined => {
+    if (kind.startsWith("0d")) return scalar;
+    if (kind.startsWith("1d")) return vector;
+    if (kind.startsWith("2d")) return matrix;
+    if (kind.startsWith("3d")) return volume;
+    return undefined;
+  };
+  return {
+    id: "viz",
+    title: "visualization catalog",
+    summary: `All ${VISUALIZATIONS.length} visualizations, one at a time, on sample data.`,
+    window: { width: 52, height: 16, minWidth: 20, minHeight: 6 },
+    sample(now) {
+      step += 1;
+      const wave = 0.5 + 0.45 * Math.sin(step / 19);
+      scalar.push(wave as never, now);
+      vector.push(
+        Array.from({ length: 12 }, (_, band) => 0.5 + 0.5 * Math.sin(step / 13 + band / 1.7)) as never,
+        now,
+      );
+      if (step % 4 === 0) {
+        matrix.push(
+          Array.from(
+            { length: 14 },
+            (_, row) =>
+              Array.from({ length: 14 }, (_, col) => 0.5 + 0.5 * Math.sin(row / 2.2 + step / 17) * Math.cos(col / 2.6)),
+          ) as never,
+          now,
+        );
+        volume.push(
+          Array.from({ length: 8 }, (_, plane) =>
+            Array.from({ length: 8 }, (_, row) =>
+              Array.from(
+                { length: 8 },
+                (_, col) => Math.max(0, Math.sin(plane / 1.8 + step / 23) * Math.cos(row / 2 - col / 2.4)),
+              ))) as never,
+          now,
+        );
+      }
+    },
+    render(width, height) {
+      const list = VISUALIZATIONS;
+      const visualization = list[(index % list.length + list.length) % list.length]!;
+      const kind = typeof visualization.accepts === "string" ? visualization.accepts : visualization.accepts[0]!;
+      const stream = streamFor(kind);
+      const frame = clientFrame(width, height);
+      const chartHeight = Math.max(1, height - 1);
+      if (stream) {
+        const chart = drawStream(visualization, stream, { size: { width, height: chartHeight }, theme });
+        blitFrame(frame, { column: 0, row: 0 }, chart);
+      }
+      const footer = frame[height - 1];
+      if (footer && height >= 2) {
+        for (let column = 0; column < width; column += 1) footer[column] = { char: " ", background: DESKTOP.shelf };
+        const at = (index % list.length + list.length) % list.length;
+        writeCellsText(
+          footer,
+          0,
+          ` ${visualization.id} · ${kind} · ${at + 1}/${list.length} `,
+          DESKTOP.chromeText,
+          DESKTOP.shelf,
+        );
+        const hint = "←→ · sample data";
+        writeCellsText(footer, Math.max(0, width - hint.length - 1), hint, DESKTOP.chromeMuted, DESKTOP.shelf);
+      }
+      return frame;
+    },
+    onKey(event) {
+      if (event.key === "right") index += 1;
+      else if (event.key === "left") index -= 1;
+      else return false;
+      return true;
+    },
+    onPointerDown() {
+      index += 1;
+    },
+  };
+}
+
+function clockDemo(): DesktopDemo {
+  const seconds = scalarStream({ capacity: 120 });
+  const theme = resolveVisualizationTheme({});
+  const dial = VISUALIZATIONS.find((candidate) => candidate.id === "dial");
+  return {
+    id: "clock",
+    title: "clock",
+    summary: "The real time of day, through dial and readout.",
+    window: { width: 30, height: 10, minWidth: 14, minHeight: 5 },
+    sample(now) {
+      seconds.push((new Date().getSeconds() / 60) as never, now);
+    },
+    render(width, height) {
+      const frame = clientFrame(width, height);
+      if (dial && height >= 3) {
+        const chart = drawStream(dial, seconds, {
+          size: { width, height: Math.max(1, height - 2) },
+          theme,
+        });
+        blitFrame(frame, { column: 0, row: 0 }, chart);
+      }
+      const stamp = new Date().toLocaleTimeString();
+      const row = Math.max(0, height - 1);
+      writeCellsText(
+        frame[row]!,
+        Math.max(0, Math.floor((width - stamp.length) / 2)),
+        stamp,
+        DESKTOP.accent,
+        DESKTOP.clientGround,
+      );
+      return frame;
+    },
+  };
+}
+
+// The three-ascii window: the client area is drawn by the lazily loaded
+// WebGPU renderer while the window is topmost; this adapter only paints the
+// states the renderer cannot ("loading", "unavailable", "focus to render").
+type ThreeOverlayState = "idle" | "loading" | "ready" | "unavailable";
+let threeOverlay: ThreeWindowOverlay | undefined;
+let threeOverlayState: ThreeOverlayState = "idle";
+
+function threeDemo(): DesktopDemo {
+  return {
+    id: "three",
+    title: "three ascii",
+    summary: "Three.js through the WebGPU ASCII pipeline. Loads on launch.",
+    window: { width: 58, height: 18, minWidth: 28, minHeight: 8 },
+    render(width, height) {
+      const frame = clientFrame(width, height);
+      const message = threeOverlayState === "loading"
+        ? "loading three + webgpu…"
+        : threeOverlayState === "unavailable"
+        ? "webgpu unavailable in this browser"
+        : "focus this window to render";
+      writeCellsText(
+        frame[Math.floor(height / 2)]!,
+        Math.max(0, Math.floor((width - message.length) / 2)),
+        message,
+        DESKTOP.chromeMuted,
+        DESKTOP.clientGround,
+      );
+      if (threeOverlayState === "ready" && height >= 2) {
+        const footer = frame[height - 1]!;
+        for (let column = 0; column < width; column += 1) footer[column] = { char: " ", background: DESKTOP.shelf };
+        writeCellsText(footer, 0, ` ${threeOverlay?.sceneName() ?? ""} `, DESKTOP.chromeText, DESKTOP.shelf);
+        const hint = "←→ scene";
+        writeCellsText(footer, Math.max(0, width - hint.length - 1), hint, DESKTOP.chromeMuted, DESKTOP.shelf);
+      }
+      return frame;
+    },
+    onKey(event) {
+      if (!threeOverlay) return false;
+      if (event.key === "right") threeOverlay.cycleScene(1);
+      else if (event.key === "left") threeOverlay.cycleScene(-1);
+      else return false;
+      return true;
+    },
+  };
+}
+
 function clientFrame(width: number, height: number): VizCell[][] {
   const frame: VizCell[][] = [];
   for (let row = 0; row < height; row += 1) {
@@ -245,7 +429,15 @@ interface LauncherItem {
   readonly href?: string;
 }
 
-const DEMOS: DesktopDemo[] = [aboutDemo(), monitorDemo(), neonDemo(), themesDemo()];
+const DEMOS: DesktopDemo[] = [
+  aboutDemo(),
+  monitorDemo(),
+  neonDemo(),
+  vizCatalogDemo(),
+  threeDemo(),
+  clockDemo(),
+  themesDemo(),
+];
 const demoById = new Map(DEMOS.map((demo) => [demo.id, demo]));
 const LAUNCHER_ITEMS: LauncherItem[] = [
   ...DEMOS.map((demo) => ({ id: demo.id, title: demo.title, summary: demo.summary })),
@@ -345,7 +537,47 @@ function activateLauncherItem(item: LauncherItem): void {
     globalThis.open(item.href, "_blank", "noopener");
     return;
   }
+  if (item.id === "three") void ensureThreeOverlay();
   presentDemoWindow(item.id);
+}
+
+/**
+ * Loads the WebGPU renderer the first time the three window opens. The
+ * specifier is a variable on purpose: esbuild must leave the import for the
+ * browser so `three` never enters the landing bundle.
+ */
+async function ensureThreeOverlay(): Promise<void> {
+  if (threeOverlayState !== "idle") return;
+  threeOverlayState = "loading";
+  try {
+    const specifier = "./desktop-three.js";
+    const module: typeof import("./desktop_three.ts") = await import(specifier);
+    threeOverlay = await module.createThreeWindowOverlay(host.canvas);
+    threeOverlayState = threeOverlay ? "ready" : "unavailable";
+  } catch {
+    threeOverlayState = "unavailable";
+  }
+}
+
+/**
+ * The renderer draws on the shared canvas above the desktop text, so it is
+ * only handed a rectangle while nothing could legitimately cover it: its
+ * window topmost, not minimized, the launcher closed. Everything else shows
+ * the adapter's placeholder instead of a wrong stacking order.
+ */
+function syncThreeOverlay(): void {
+  if (!threeOverlay) return;
+  const projection = windowHost.project(bodyBounds(), projectionOptions());
+  const top = projection.windows[projection.windows.length - 1];
+  const eligible = !launcherOpen && top?.id === "three" && top.state !== "minimized" &&
+    top.clientRect.width > 0 && top.clientRect.height > 1;
+  if (!eligible) {
+    threeOverlay.setRect(null);
+    return;
+  }
+  // The bottom client row stays with the adapter: it is the scene/hint footer.
+  const client = top.clientRect;
+  threeOverlay.setRect({ column: client.column, row: client.row, width: client.width, height: client.height - 1 });
 }
 
 function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection, now: number): void {
@@ -484,6 +716,7 @@ function paintDesktop(now: number): void {
 function tick(now: number): void {
   for (const demo of DEMOS) demo.sample?.(now);
   paintDesktop(now);
+  syncThreeOverlay();
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

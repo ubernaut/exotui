@@ -3,6 +3,17 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — three more windows: the catalog, the clock, and three ascii
+
+"Add some demos!" Three, each exercising a different seam. The **visualization catalog** walks every renderer in the
+registry over four live sample streams (one per data rank, labelled as harmonics, the terminal preview's stance), which
+makes it the first consumer to drive `drawStream` across the whole catalog at arbitrary window sizes. The **clock** is
+eight lines of honest data — the wall clock through `dial`. And **three ascii** is the one the plan called real work:
+the WebGPU pipeline stays out of the landing bundle behind a variable-specifier dynamic import (`desktop-three.js`, 140
+KB, `three` external), and the `ThreeAsciiObject` draws on the shared canvas only while its window is topmost, the
+launcher closed, and nothing could legitimately cover it — placeholder text otherwise. Scene switching swaps retained
+geometry in place, as the standalone page does. The landing bundle grew 3 KB.
+
 ## August 21 2026 — the desktop becomes the docs landing page
 
 The maintainer asked for an exomux-like windowing demo as the default docs target, with the demos launchable inside it.
