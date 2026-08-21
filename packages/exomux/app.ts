@@ -617,6 +617,44 @@ function rectanglesOverlap(a: Rectangle, b: Rectangle): boolean {
     a.row < b.row + b.height && b.row < a.row + a.height;
 }
 
+/**
+ * The area of `base` not covered by any of `covers`, as disjoint rectangles.
+ *
+ * Classic guillotine subtraction: each cover splits every remaining piece into
+ * at most four. Capped, because a pathological stack of windows could shard
+ * the region — past the cap the remainder is dropped, which errs toward
+ * hiding, the direction that cannot paint over another window.
+ */
+export function subtractRectangles(base: Rectangle, covers: readonly Rectangle[], cap = 24): Rectangle[] {
+  let pieces: Rectangle[] = [base];
+  for (const cover of covers) {
+    const next: Rectangle[] = [];
+    for (const piece of pieces) {
+      if (!rectanglesOverlap(piece, cover)) {
+        next.push(piece);
+        continue;
+      }
+      const top = Math.max(piece.row, cover.row);
+      const bottom = Math.min(piece.row + piece.height, cover.row + cover.height);
+      if (top > piece.row) next.push({ ...piece, height: top - piece.row });
+      if (piece.row + piece.height > bottom) {
+        next.push({ ...piece, row: bottom, height: piece.row + piece.height - bottom });
+      }
+      const left = Math.max(piece.column, cover.column);
+      const right = Math.min(piece.column + piece.width, cover.column + cover.width);
+      if (left > piece.column) {
+        next.push({ column: piece.column, row: top, width: left - piece.column, height: bottom - top });
+      }
+      if (piece.column + piece.width > right) {
+        next.push({ column: right, row: top, width: piece.column + piece.width - right, height: bottom - top });
+      }
+    }
+    pieces = next;
+    if (pieces.length > cap) return pieces.slice(0, cap);
+  }
+  return pieces.filter((piece) => piece.width > 0 && piece.height > 0);
+}
+
 function startGraphicsPassthroughFlush(
   app: TerminalApp<ExomuxAppAction>,
   controller: ExomuxController,
@@ -624,6 +662,8 @@ function startGraphicsPassthroughFlush(
 ): () => void {
   const encoder = new TextEncoder();
   const displayed = new Set<string>();
+  /** Last clip signature per session, so placements re-emit only on change. */
+  const clipSignatures = new Map<string, string>();
   const write = (text: string) => {
     try {
       app.tui.stdout.writeSync(encoder.encode(text));
@@ -636,47 +676,54 @@ function startGraphicsPassthroughFlush(
     const projection = mount.windowProjection.peek();
     const seen = new Set<string>();
     // Host images float above every cell exomux paints, so the compositor's
-    // stacking has to be enforced here: a window relays only while nothing
-    // sits on top of it. `windows` is back-to-front paint order, and a modal
-    // covers the whole desktop. A window that stops qualifying has everything
-    // it displayed deleted; frame-streaming applications repaint on the next
-    // frame, so raising, minimizing and un-minimizing all self-heal.
+    // stacking is enforced with the protocol's own tools: each window's
+    // visible region — its client rect minus every window above it, minus any
+    // modal — becomes source-rect placements of the retained image data. A
+    // moved window re-places at its new origin, a partially covered one shows
+    // exactly its uncovered pieces, and none of it waits for the application
+    // to feel like repainting. `windows` is back-to-front paint order.
     const modalOpen = projection.topModalId !== undefined;
     for (let index = 0; index < projection.windows.length; index += 1) {
       const window = projection.windows[index]!;
       const sessionId = exomuxSessionIdFromWindow(window.id);
       if (!sessionId) continue;
       seen.add(sessionId);
-      const occluded = modalOpen ||
-        projection.windows.some((above, at) => at > index && rectanglesOverlap(above.rect, window.clientRect));
-      if (!occluded) {
-        const emissions = controller.takeGraphics(sessionId);
-        if (emissions.length === 0) continue;
-        displayed.add(sessionId);
-        let out = "\x1b7";
-        for (const emission of emissions) {
-          if (emission.cell) {
-            const row = window.clientRect.row + emission.cell.row + 1;
-            const column = window.clientRect.column + emission.cell.column + 1;
-            out += `\x1b[${row};${column}H`;
-          }
-          out += apc(emission.data);
-        }
-        write(out + "\x1b8");
-      } else {
-        // An occluded window's stream is dropped, not queued: it will repaint
-        // when it surfaces again, and a megabyte backlog helps nobody.
-        controller.takeGraphics(sessionId);
-        if (displayed.delete(sessionId)) {
-          write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
-        }
+      const covers = modalOpen ? [window.clientRect] : projection.windows
+        .filter((above, at) => at > index && rectanglesOverlap(above.rect, window.clientRect))
+        .map((above) => above.rect);
+      const fullyVisible = covers.length === 0;
+      const regions = fullyVisible ? null : subtractRectangles(window.clientRect, covers).map((rect) => ({
+        row: rect.row - window.clientRect.row,
+        column: rect.column - window.clientRect.column,
+        width: rect.width,
+        height: rect.height,
+      }));
+      const signature = `${window.clientRect.column},${window.clientRect.row};` +
+        (regions === null ? "full" : regions.map((r) => `${r.column},${r.row},${r.width},${r.height}`).join("|"));
+      const emissions = controller.takeGraphics(sessionId);
+      if (clipSignatures.get(sessionId) !== signature) {
+        clipSignatures.set(sessionId, signature);
+        emissions.push(...controller.setGraphicsClip(sessionId, regions));
       }
+      if (emissions.length === 0) continue;
+      displayed.add(sessionId);
+      let out = "\x1b7";
+      for (const emission of emissions) {
+        if (emission.cell) {
+          const row = window.clientRect.row + emission.cell.row + 1;
+          const column = window.clientRect.column + emission.cell.column + 1;
+          out += `\x1b[${row};${column}H`;
+        }
+        out += apc(emission.data);
+      }
+      write(out + "\x1b8");
     }
     // Windows that left the projection entirely: closed, or minimized to the
     // shelf. Their images go with them.
     for (const sessionId of displayed) {
       if (seen.has(sessionId)) continue;
       displayed.delete(sessionId);
+      clipSignatures.delete(sessionId);
       write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
     }
   };

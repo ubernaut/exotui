@@ -156,3 +156,88 @@ Deno.test("XTWINOPS size queries reach the subscriber; other window ops are cons
   const text = screen.cellRows().map((row) => row.map((cell) => cell.char ?? " ").join("")).join("").trim();
   assertEquals(text, "done");
 });
+
+const CELLS = { width: 10, height: 20 };
+
+Deno.test("a partial clip places exactly the visible pieces as source-rect crops", () => {
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  // A 6x4-cell image at the origin: 60x80 pixels at 10x20 cells.
+  relay.ingest("Ga=T,f=100,i=1,s=60,v=80,c=6,r=4;DATA", { row: 0, column: 0 });
+  // The right half of the window is covered: only columns 0..2 stay visible.
+  const delta = relay.setClip([{ row: 0, column: 0, width: 3, height: 10 }], CELLS);
+  assertEquals(delta.length, 2, "one delete, one clipped placement");
+  const del = control(delta[0]!.data);
+  assertEquals(del.get("a"), "d");
+  assertEquals(del.get("d"), "i", "placements are deleted; the data is retained");
+  const place = control(delta[1]!.data);
+  assertEquals(place.get("a"), "p");
+  assertEquals(place.get("i"), "100");
+  assertEquals(place.get("c"), "3");
+  assertEquals(place.get("r"), "4");
+  assertEquals(place.get("x"), "0");
+  assertEquals(place.get("w"), "30", "half the pixels for half the cells");
+  assertEquals(place.get("h"), "80");
+  assertEquals(delta[1]!.cell, { row: 0, column: 0 });
+});
+
+Deno.test("full occlusion deletes placements and keeps the data; unclip restores", () => {
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  relay.ingest("Ga=T,f=100,i=1,c=4,r=2;DATA", { row: 1, column: 2 });
+  const hidden = relay.setClip([], CELLS);
+  assertEquals(hidden.length, 1);
+  assertEquals(control(hidden[0]!.data).get("d"), "i");
+  // Raised again: the image comes back from retained data, no retransmit.
+  const restored = relay.setClip(null, CELLS);
+  assertEquals(restored.length, 2);
+  const place = control(restored[1]!.data);
+  assertEquals(place.get("a"), "p");
+  assertEquals(restored[1]!.cell, { row: 1, column: 2 }, "at the cell the child anchored it to");
+});
+
+Deno.test("under a clip, a streamed frame transmits without displaying and is placed clipped", () => {
+  // The stranded-image bug: a damage-driven app repaints rarely, so the clip
+  // has to come from placements, not from waiting for the next frame — and a
+  // frame that does arrive must not paint over the occluding window.
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  relay.ingest("Ga=T,f=100,i=1,c=4,r=4;OLD", { row: 0, column: 0 });
+  relay.setClip([{ row: 0, column: 0, width: 4, height: 2 }], CELLS);
+  const frame = relay.ingest("Ga=T,f=100,i=1,c=4,r=4;NEW", { row: 0, column: 0 });
+  assertEquals(control(frame[0]!.data).get("a"), "t", "the display became a transmit");
+  assertEquals(frame[0]!.cell, undefined);
+  const place = control(frame[1]!.data);
+  assertEquals(place.get("a"), "p");
+  assertEquals(place.get("r"), "2", "clipped to the visible rows");
+});
+
+Deno.test("a chained transmit under clip defers its placements until the chain closes", () => {
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  relay.ingest("Ga=T,f=100,i=1,c=4,r=4;X", { row: 0, column: 0 });
+  relay.setClip([{ row: 0, column: 0, width: 2, height: 2 }], CELLS);
+  const first = relay.ingest("Ga=T,f=100,i=1,c=4,r=4,m=1;PART1", { row: 0, column: 0 });
+  assertEquals(first.length, 1, "no placement while the host lacks the data");
+  const middle = relay.ingest("Gm=1;PART2", { row: 0, column: 0 });
+  assertEquals(middle.length, 1);
+  const last = relay.ingest("Gm=0;PART3", { row: 0, column: 0 });
+  assertEquals(last.length, 2, "the final chunk carries the clipped placement");
+  assertEquals(control(last[1]!.data).get("a"), "p");
+});
+
+Deno.test("a display-only command under clip becomes its clipped placements", () => {
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  relay.ingest("Ga=t,f=100,i=1,s=40,v=40;DATA", { row: 0, column: 0 });
+  relay.setClip([{ row: 0, column: 0, width: 2, height: 1 }], CELLS);
+  const shown = relay.ingest("Ga=p,i=1,c=4,r=2;", { row: 0, column: 0 });
+  for (const emission of shown) {
+    assertEquals(control(emission.data).get("a"), "p", "no transmit was invented for data-free display");
+  }
+});
+
+Deno.test("a footprint can come from pixel size alone", () => {
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  // No c/r: 35x45 pixels at 10x20 cells is a 4x3-cell footprint.
+  relay.ingest("Ga=T,f=100,i=1,s=35,v=45;DATA", { row: 0, column: 0 });
+  const delta = relay.setClip([{ row: 0, column: 0, width: 100, height: 100 }], CELLS);
+  const place = control(delta[1]!.data);
+  assertEquals(place.get("c"), "4");
+  assertEquals(place.get("r"), "3");
+});

@@ -8,6 +8,7 @@ import {
   type DiagnosticsCollector,
   KittyPassthroughRelay,
   type KittyRelayEmission,
+  type KittyRelayRect,
   type Rectangle,
   type RuntimePermissionActivationReport,
   type RuntimePermissionManifest,
@@ -3220,6 +3221,18 @@ export class ExomuxController {
     const runtime = this.#runtimes.get(sessionId);
     if (!runtime || runtime.pendingGraphics.length === 0) return [];
     return runtime.pendingGraphics.splice(0, runtime.pendingGraphics.length);
+  }
+
+  /**
+   * Sets a session's visible regions (child cells) and returns the placement
+   * delta to write to the host. The compositor calls this whenever a window's
+   * geometry or stacking changes; the relay turns it into source-rect crops of
+   * retained data, so occlusion and movement cost placements, not frames.
+   */
+  setGraphicsClip(sessionId: string, regions: readonly KittyRelayRect[] | null): KittyRelayEmission[] {
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime?.graphics) return [];
+    return runtime.graphics.setClip(regions, this.#hostCellPixels);
   }
 
   /**

@@ -2941,6 +2941,7 @@
     {"module":"src/runtime/kitty_passthrough.ts","name":"KittyPassthroughRelayOptions","kind":"interface","typeOnly":true,"documented":true},
     {"module":"src/runtime/kitty_passthrough.ts","name":"KittyRelayCell","kind":"interface","typeOnly":true,"documented":true},
     {"module":"src/runtime/kitty_passthrough.ts","name":"KittyRelayEmission","kind":"interface","typeOnly":true,"documented":true},
+    {"module":"src/runtime/kitty_passthrough.ts","name":"KittyRelayRect","kind":"interface","typeOnly":true,"documented":true},
     {"module":"src/runtime/kitty_passthrough.ts","name":"parseKittyGraphicsData","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/kitty_passthrough.ts","name":"serializeKittyGraphicsData","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/line_attributes.ts","name":"createLineAttributeScreen","kind":"function","typeOnly":false,"documented":true},

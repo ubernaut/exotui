@@ -68,6 +68,23 @@ export interface KittyRelayCell {
   readonly column: number;
 }
 
+/** A rectangle in child cells: the unit occlusion arithmetic happens in. */
+export interface KittyRelayRect {
+  readonly row: number;
+  readonly column: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+interface ImagePlacement {
+  /** Placement keys of the child's own display command (c, r, z, C …). */
+  readonly control: readonly (readonly [string, string])[];
+  readonly cell: KittyRelayCell;
+  /** Transmitted pixel size, when the child declared one (`s=`, `v=`). */
+  readonly pixelWidth?: number;
+  readonly pixelHeight?: number;
+}
+
 /** One thing the caller should do with the host terminal. */
 export interface KittyRelayEmission {
   /**
@@ -106,10 +123,27 @@ export class KittyPassthroughRelay {
   readonly #images = new Map<string, number>();
   /** Host image ids this session has transmitted and not deleted. */
   readonly #live = new Set<number>();
+  /**
+   * The last display command per host image: its placement keys and the child
+   * cell it was anchored at. What makes a placement repeatable — a window that
+   * moves re-places retained data at its new origin instead of waiting for an
+   * application that only repaints on damage to feel like repainting.
+   */
+  readonly #placements = new Map<number, ImagePlacement>();
+  /**
+   * Visible regions of the window, in child cells, or null before the caller
+   * ever said. Set by `setClip`; consulted at ingest so a streaming child's
+   * display commands become transmit-only plus clipped placements.
+   */
+  #regions: readonly KittyRelayRect[] | null = null;
+  /** Host cell geometry, needed to turn cell clips into pixel source rects. */
+  #cellPixels: { readonly width: number; readonly height: number } | undefined;
   /** Host image ids with an unanswered query, mapped back to the child's id. */
   readonly #queries = new Map<number, string>();
   /** True while a chunked transmission (`m=1`) is open. */
   #chainOpen = false;
+  /** Image whose clipped placements wait for its transmission chain to close. */
+  #pendingClipPlacement: number | undefined;
 
   constructor(options: KittyPassthroughRelayOptions) {
     this.#base = options.imageIdBase;
@@ -152,7 +186,15 @@ export class KittyPassthroughRelay {
     if (this.#chainOpen) {
       const more = controlValue(parsed, "m");
       this.#chainOpen = more === "1";
-      return [{ data: serializeKittyGraphicsData(parsed) }];
+      const relayed: KittyRelayEmission[] = [{ data: serializeKittyGraphicsData(parsed) }];
+      if (!this.#chainOpen && this.#pendingClipPlacement !== undefined) {
+        // The chained transmission is complete: the clipped placements that
+        // were deferred — placing an image mid-transmission references data
+        // the host does not have yet — go out now.
+        relayed.push(...this.#placementsFor(this.#pendingClipPlacement));
+        this.#pendingClipPlacement = undefined;
+      }
+      return relayed;
     }
 
     const action = controlValue(parsed, "a") ?? "t";
@@ -175,10 +217,141 @@ export class KittyPassthroughRelay {
     this.#chainOpen = controlValue(parsed, "m") === "1";
     // A display command is anchored to the cursor; a bare transmit is not.
     const displays = action === "T" || action === "p";
+    if (displays) {
+      // A concrete placement id, so a later re-placement replaces this one
+      // instead of stacking a second copy — kitty treats a missing id as "a
+      // new anonymous placement" on every display.
+      if (controlValue(rewritten, "p") === undefined) rewritten = withControl(rewritten, "p", "1");
+      const placementKeys = ["p", "c", "r", "x", "y", "w", "h", "z", "C"] as const;
+      const control: (readonly [string, string])[] = [["a", "p"], ["i", String(hostId)]];
+      for (const key of placementKeys) {
+        const value = controlValue(rewritten, key);
+        if (value !== undefined) control.push([key, value]);
+      }
+      control.push(["q", "2"]);
+      const pixelWidth = Number(controlValue(rewritten, "s"));
+      const pixelHeight = Number(controlValue(rewritten, "v"));
+      this.#placements.set(hostId, {
+        control,
+        cell: cursor,
+        ...(Number.isFinite(pixelWidth) && pixelWidth > 0 ? { pixelWidth } : {}),
+        ...(Number.isFinite(pixelHeight) && pixelHeight > 0 ? { pixelHeight } : {}),
+      });
+      // Under a clip, the child's own display would paint the whole image over
+      // whatever occludes the window. Transmissions still go — transmit-only —
+      // and the visible pieces are placed explicitly; a display-only command
+      // (`a=p`) carries no data, so under a clip it is replaced entirely by
+      // its clipped placements.
+      if (this.#regions !== null) {
+        if (action === "p") return this.#placementsFor(hostId);
+        rewritten = withControl(rewritten, "a", "t");
+        if (this.#chainOpen) {
+          this.#pendingClipPlacement = hostId;
+          return [{ data: serializeKittyGraphicsData(rewritten) }];
+        }
+        return [
+          { data: serializeKittyGraphicsData(rewritten) },
+          ...this.#placementsFor(hostId),
+        ];
+      }
+    }
     return [{
       ...(displays ? { cell: cursor } : {}),
       data: serializeKittyGraphicsData(rewritten),
     }];
+  }
+
+  /** The image's footprint in child cells, from its own keys or pixel size. */
+  #footprint(placement: ImagePlacement): KittyRelayRect | undefined {
+    const control = new Map(placement.control as [string, string][]);
+    let columns = Number(control.get("c"));
+    let rows = Number(control.get("r"));
+    if ((!Number.isFinite(columns) || columns <= 0) && this.#cellPixels && placement.pixelWidth) {
+      columns = Math.ceil(placement.pixelWidth / this.#cellPixels.width);
+    }
+    if ((!Number.isFinite(rows) || rows <= 0) && this.#cellPixels && placement.pixelHeight) {
+      rows = Math.ceil(placement.pixelHeight / this.#cellPixels.height);
+    }
+    if (!Number.isFinite(columns) || columns <= 0 || !Number.isFinite(rows) || rows <= 0) return undefined;
+    return { row: placement.cell.row, column: placement.cell.column, width: columns, height: rows };
+  }
+
+  /** Clipped placements for one image against the current regions. */
+  #placementsFor(hostId: number): KittyRelayEmission[] {
+    const placement = this.#placements.get(hostId);
+    if (!placement) return [];
+    const regions = this.#regions;
+    if (regions === null) {
+      // Unclipped: one placement, exactly as the child asked.
+      return [{ cell: placement.cell, data: serializeKittyGraphicsData({ control: placement.control, payload: "" }) }];
+    }
+    const footprint = this.#footprint(placement);
+    if (!footprint) {
+      // Without a footprint there is nothing to clip against: visible only
+      // when the window is wholly unoccluded, hidden otherwise. Blunter than
+      // clipping, never wrong in the direction that matters.
+      return [];
+    }
+    const emissions: KittyRelayEmission[] = [];
+    let nextPlacementId = 1;
+    for (const region of regions) {
+      const top = Math.max(region.row, footprint.row);
+      const left = Math.max(region.column, footprint.column);
+      const bottom = Math.min(region.row + region.height, footprint.row + footprint.height);
+      const right = Math.min(region.column + region.width, footprint.column + footprint.width);
+      if (top >= bottom || left >= right) continue;
+      const control: (readonly [string, string])[] = [["a", "p"], ["i", String(hostId)], [
+        "p",
+        String(nextPlacementId++),
+      ]];
+      // Source rect in pixels, proportional so a scaled image (c/r smaller
+      // than its pixels) clips to the same visual region.
+      if (this.#cellPixels && placement.pixelWidth && placement.pixelHeight) {
+        const scaleX = placement.pixelWidth / (footprint.width * this.#cellPixels.width);
+        const scaleY = placement.pixelHeight / (footprint.height * this.#cellPixels.height);
+        control.push(["x", String(Math.round((left - footprint.column) * this.#cellPixels.width * scaleX))]);
+        control.push(["y", String(Math.round((top - footprint.row) * this.#cellPixels.height * scaleY))]);
+        control.push(["w", String(Math.round((right - left) * this.#cellPixels.width * scaleX))]);
+        control.push(["h", String(Math.round((bottom - top) * this.#cellPixels.height * scaleY))]);
+      }
+      control.push(["c", String(right - left)]);
+      control.push(["r", String(bottom - top)]);
+      const z = new Map(placement.control as [string, string][]).get("z");
+      if (z !== undefined) control.push(["z", z]);
+      control.push(["q", "2"]);
+      emissions.push({ cell: { row: top, column: left }, data: serializeKittyGraphicsData({ control, payload: "" }) });
+    }
+    return emissions;
+  }
+
+  /**
+   * Sets the window's visible regions, in child cells, and returns the delta.
+   *
+   * The compositor's authority over the host's image plane: every placement is
+   * torn down and the visible pieces are placed again as source-rect crops of
+   * the retained data. No retransmit — which is what makes a window move, a
+   * raise, or a partial overlap cost a few hundred bytes instead of a frame,
+   * and what stops a damage-driven application's image being stranded until it
+   * happens to repaint.
+   */
+  setClip(
+    regions: readonly KittyRelayRect[] | null,
+    cellPixels?: { readonly width: number; readonly height: number },
+  ): KittyRelayEmission[] {
+    this.#regions = regions;
+    if (cellPixels) this.#cellPixels = cellPixels;
+    const emissions: KittyRelayEmission[] = [];
+    for (const hostId of this.#live) {
+      if (!this.#placements.has(hostId)) continue;
+      emissions.push({
+        data: serializeKittyGraphicsData({
+          control: [["a", "d"], ["d", "i"], ["i", String(hostId)], ["q", "2"]],
+          payload: "",
+        }),
+      });
+      emissions.push(...this.#placementsFor(hostId));
+    }
+    return emissions;
   }
 
   #ingestDelete(parsed: KittyGraphicsData): KittyRelayEmission[] {
@@ -243,8 +416,9 @@ export class KittyPassthroughRelay {
 
   /**
    * Everything needed to clean this session off the host: one delete per live
-   * image, freeing its data. For a window close, a blur, or a move — a relayed
-   * image the compositor no longer accounts for must not stay on screen.
+   * image, freeing its data. For a window close — a relayed image the
+   * compositor no longer accounts for must not stay on screen, and a closed
+   * window's data has no future placement to serve.
    */
   release(): KittyRelayEmission[] {
     const emissions: KittyRelayEmission[] = [];
@@ -257,7 +431,9 @@ export class KittyPassthroughRelay {
       });
     }
     this.#live.clear();
+    this.#placements.clear();
     this.#chainOpen = false;
+    this.#pendingClipPlacement = undefined;
     return emissions;
   }
 }

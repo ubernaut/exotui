@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 985
 - Unique re-export declarations: 653
 - Re-export declaration visits: 983
-- Unique symbol declarations: 4878
-- Symbol declaration visits: 9533
-- Documented symbol declarations: 4846
+- Unique symbol declarations: 4879
+- Symbol declaration visits: 9535
+- Documented symbol declarations: 4847
 - Documentation coverage: 99.34%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,7 +21,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     435 |    4241 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     435 |    4242 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     305 |    3302 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
@@ -30,7 +30,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      82 |     868 | 100.00% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      82 |     869 | 100.00% |
 | `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      19 |     203 |  99.51% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
@@ -46,8 +46,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 435
 - Re-export declarations: 435
-- Exported symbols: 4241
-- Documented symbols: 4241
+- Exported symbols: 4242
+- Documented symbols: 4242
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -181,8 +181,8 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Stability: beta
 - Modules: 82
 - Re-export declarations: 81
-- Exported symbols: 868
-- Documented symbols: 868
+- Exported symbols: 869
+- Documented symbols: 869
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -587,7 +587,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                               | `.`, `./runtime`                        |          0 |       5 |          5 |
 | [`src/runtime/kitty_graphics.ts`](#src-runtime-kitty-graphics-ts)                               | `.`, `./web`, `./runtime`               |          0 |      25 |         25 |
 | [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                               | `.`, `./runtime`                        |          0 |       9 |          9 |
-| [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                         | `.`, `./runtime`                        |          0 |       7 |          7 |
+| [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                         | `.`, `./runtime`                        |          0 |       8 |          8 |
 | [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
 | [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                     | `.`, `./runtime`                        |         79 |       0 |          0 |
 | [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                         | `.`, `./runtime`                        |          0 |       4 |          4 |
@@ -6686,6 +6686,7 @@ _Entrypoints: `.`, `./runtime`_
 | `KittyPassthroughRelayOptions` | interface | yes       | yes   |
 | `KittyRelayCell`               | interface | yes       | yes   |
 | `KittyRelayEmission`           | interface | yes       | yes   |
+| `KittyRelayRect`               | interface | yes       | yes   |
 | `parseKittyGraphicsData`       | function  | no        | yes   |
 | `serializeKittyGraphicsData`   | function  | no        | yes   |
 
