@@ -3,6 +3,24 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the kill confirmation becomes a window
+
+First step of the agreed overlays-as-windows refactor. The kill confirmation was the simplest overlay — one question,
+two buttons — so it went first: `EXOMUX_KILL_WINDOW_ID` is now a registry window born `closed` (a state that never
+appears in the shelf), presented by the pending-kill signal and closed by its clearing. A projection watcher covers the
+third path: a kill window that vanishes while the question is pending — the chrome [x], anything — is a cancel, because
+a confirmation nobody saw must never default to killing. Painting goes through the ordinary window dispatcher
+(`paintKillWindow` fills the client area; the host draws the chrome), which means stacking, dragging and kitty-graphics
+occlusion all come from the window host with no overlay footprint and no transient surface registration.
+
+Input capture stays modal for this step — `modalOpen()` checks the pending-kill signal explicitly while
+`exomuxDesktopOverlayOpen` (the graphics predicate) drops it — and the pointer router now derives the button rects from
+the projected `clientRect` through the same `exomuxKillWindowButtons` the painter uses, so a click always lands on the
+pixels it was aimed at. The bounds-derived `exomuxKillLayout` is gone. One incidental find: `reflowFloatingWindows`
+"rescued" the closed kill window on every resize — it now skips every non-`normal` window, which is what closed always
+should have meant. The quit modal is the next candidate; the modal input capture relaxes once a general
+focused-modal-window grammar exists.
+
 ## August 20 2026 — kitty graphics passthrough, first pass
 
 exomux sits between applications that draw images and a host terminal — Ghostty — that can show them. Swallowing the

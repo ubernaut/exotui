@@ -24,6 +24,8 @@ import {
   exomuxGlobalConfigLayout,
   exomuxGlyphColumns,
   exomuxHelpLayout,
+  exomuxKillWindow,
+  exomuxKillWindowButtons,
   exomuxManagerRows,
   exomuxMetaballBackgroundVisible,
   exomuxMetaballGradientColors,
@@ -1407,12 +1409,14 @@ Deno.test("Exomux mouse menus, modal buttons, floating chrome, shelf, and tiled 
     assertEquals(controller.helpVisible.peek(), false);
 
     controller.requestKillSession(initial.id);
-    const killButtons = killButtonPoints(mounted.windowProjection.peek().bounds);
+    await mounted.whenIdle();
+    const killButtons = killButtonPoints(mounted.windowProjection.peek());
     assertEquals((await harness.pilot.click(killButtons.cancel.column, killButtons.cancel.row)).press.handled, true);
     await mounted.whenIdle();
     assertEquals(controller.pendingKillSessionId.peek(), undefined);
     assertEquals(controller.sessions.peek().length, 2);
     controller.requestKillSession(initial.id);
+    await mounted.whenIdle();
     assertEquals((await harness.pilot.click(killButtons.confirm.column, killButtons.confirm.row)).press.handled, true);
     await mounted.whenIdle();
     assertEquals(controller.sessions.peek().map((entry) => entry.id), [spawned.id]);
@@ -2039,7 +2043,8 @@ Deno.test("Exomux wheel and touch input scroll styled history and manipulate win
     controller.closeStartMenu();
 
     controller.requestKillSession(initial.id);
-    const kill = killButtonPoints(mounted.windowProjection.peek().bounds);
+    await mounted.whenIdle();
+    const kill = killButtonPoints(mounted.windowProjection.peek());
     await mounted.handlePointer(touchPointer("down", kill.confirm.column, kill.confirm.row, 31));
     assertEquals(controller.sessions.peek().length, 1);
     await mounted.handlePointer(touchPointerWithoutCell("cancel", 32));
@@ -2884,15 +2889,13 @@ function helpClosePoint(bounds: Rectangle) {
   return { column: closeRect.column, row: closeRect.row };
 }
 
-function killButtonPoints(bounds: { column: number; row: number; width: number; height: number }) {
-  const width = Math.min(62, Math.max(24, bounds.width - 6));
-  const height = Math.min(8, Math.max(3, bounds.height - 2));
-  const column = bounds.column + Math.max(0, Math.floor((bounds.width - width) / 2));
-  const row = bounds.row + Math.max(0, Math.floor((bounds.height - height) / 2));
-  const buttonRow = row + Math.max(1, height - 2);
+function killButtonPoints(projection: Parameters<typeof exomuxKillWindow>[0]) {
+  const window = exomuxKillWindow(projection);
+  if (!window) throw new Error("kill window is not presented");
+  const [cancel, confirm] = exomuxKillWindowButtons(window.clientRect);
   return {
-    cancel: { column: column + 2, row: buttonRow },
-    confirm: { column: column + Math.max(13, width - 10), row: buttonRow },
+    cancel: { column: cancel.column, row: cancel.row },
+    confirm: { column: confirm.column, row: confirm.row },
   };
 }
 

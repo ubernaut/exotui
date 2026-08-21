@@ -133,6 +133,16 @@ land as host modal windows from the start; existing ones move one at a time, the
 the simplest. Until each moves, the overlay-footprint registry (`controller.overlayFootprints`, painters reporting the
 rect they painted) is the bridge that keeps the graphics relay honest about what covers what.
 
+**Done — kill confirmation (August 21 2026).** `EXOMUX_KILL_WINDOW_ID` is a registry window born `closed` (never in the
+shelf); the pending-kill signal presents and closes it, a projection watcher treats a vanished-while-pending window as a
+cancel, and `paintKillWindow` paints the client area through the normal window dispatcher — so it stacks, drags, and
+occludes kitty graphics as a window, with no overlay footprint and no transient surface. Input stays modal for now:
+`modalOpen()` gains an explicit pending-kill check while `exomuxDesktopOverlayOpen` loses its (the graphics relay no
+longer needs telling), and the pointer router derives button rects from the projected `clientRect` via the same
+`exomuxKillWindowButtons` the painter uses. Incidental fix: `reflowFloatingWindows` now skips every non-`normal` state —
+it was "rescuing" closed windows nobody could see. Next candidate: the quit modal, then relax the modal input capture
+once a general focused-modal-window grammar exists.
+
 ## Follow-ups carried from completed work
 
 Small, real, and worth doing when adjacent code is next touched:

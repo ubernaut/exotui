@@ -10,6 +10,12 @@ Entries begin August 17 2026, when this log was started; earlier history is in t
 
 ## Dead ends and corrections
 
+**Reflow rescued windows nobody could see (Aug 21).** The first overlay-to-window migration (kill confirmation) added a
+registry window born `closed`, and `reflowFloatingWindows` promptly "rescued" its off-viewport rect on every resize —
+returning `changed` for a window with no pixels. The skip list enumerated bad states (`minimized`, `maximized`) instead
+of naming the one good one; it now skips everything non-`normal`. _Rule: gate on the state you require, not the states
+you have met._
+
 **A coordinate-space model for padding that did not exist (Aug 17).** Built a 183-line `pointer_space.ts` plus 213 lines
 of tests to correct terminal padding between pixel and cell coordinates — before measuring. Measured against real
 Ghostty afterwards: `CSI 14 t` reports the text area as exactly `columns × cellWidth`, so the padding model was

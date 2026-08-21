@@ -569,6 +569,17 @@ export const EXOMUX_NETWORK_WINDOW_ID = "network" as const;
 export const EXOMUX_SETTINGS_WINDOW_ID = "settings" as const;
 /** The theme editor's window (042 E). */
 export const EXOMUX_THEME_EDITOR_WINDOW_ID = "theme-editor" as const;
+
+/**
+ * The kill confirmation, as a window.
+ *
+ * The first overlay refolded into the window host (the agreed direction:
+ * modals are special-case windows, not a parallel system). Born closed rather
+ * than minimized so it never sits in the shelf as a restorable ghost; the
+ * pending-kill signal presents it and closes it, and the host gives it
+ * stacking, occlusion, dragging and the graphics relay's respect for free.
+ */
+export const EXOMUX_KILL_WINDOW_ID = "kill-confirm" as const;
 /**
  * The id an unsaved edit paints under. It is a real catalog entry so every
  * painter finds it the ordinary way, and it is replaced by the saved id the
@@ -2359,7 +2370,7 @@ export class ExomuxController {
     // Cascade successive rescued windows so several never land on one another.
     let cascadeIndex = 0;
     for (const window of this.windowHost.controller.inspect().windows) {
-      if (window.placement !== "floating" || window.state === "minimized" || window.state === "maximized") continue;
+      if (window.placement !== "floating" || window.state !== "normal") continue;
       const rect = window.floatingRect;
       if (!rect) continue;
       if (floatingRectFitsIn(rect, viewport)) continue;
@@ -3666,6 +3677,17 @@ export class ExomuxController {
       // pinned on top. Born minimized: the menu restores it on demand.
       // The theme editor is a window like any other, born minimized: the
       // settings window and the start menu open it on demand.
+      {
+        id: EXOMUX_KILL_WINDOW_ID,
+        title: "End session?",
+        minWidth: 26,
+        minHeight: 8,
+        maxWidth: 62,
+        maxHeight: 12,
+        state: "closed" as const,
+        placement: "floating" as const,
+        floatingRect: { column: 16, row: 7, width: 46, height: 9 },
+      },
       {
         id: EXOMUX_THEME_EDITOR_WINDOW_ID,
         title: "Theme editor",

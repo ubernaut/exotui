@@ -45,6 +45,7 @@ import {
 } from "@ubernaut/exotui";
 import {
   createExomuxController,
+  EXOMUX_KILL_WINDOW_ID,
   EXOMUX_NETWORK_WINDOW_ID,
   EXOMUX_SESSIONS_WINDOW_ID,
   EXOMUX_SETTINGS_WINDOW_ID,
@@ -622,7 +623,7 @@ export async function createExomuxTerminalApp(
  * image floats over a modal again.
  */
 export function exomuxDesktopOverlayOpen(controller: ExomuxController): boolean {
-  return controller.helpVisible.peek() || controller.pendingKillSessionId.peek() !== undefined ||
+  return controller.helpVisible.peek() ||
     controller.quitModalVisible.peek() || controller.pendingScp.peek() !== undefined ||
     controller.configSessionId.peek() !== undefined ||
     controller.backgroundConfigVisible.peek() ||
@@ -1376,9 +1377,28 @@ export function mountExomuxDesktop(
     const preferred = actions.findIndex((action) => action.default && !action.disabled);
     if (preferred >= 0) modal.setSelectedActionIndex(preferred);
   };
+  let killWindowPresented = false;
   controller.pendingKillSessionId.subscribe(() => {
-    if (controller.pendingKillSessionId.peek()) openModalAtDefault(killModal);
-    else killModal.close();
+    if (controller.pendingKillSessionId.peek()) {
+      openModalAtDefault(killModal);
+      controller.presentWindow(EXOMUX_KILL_WINDOW_ID, windowProjection.peek().bounds);
+      killWindowPresented = true;
+    } else {
+      killModal.close();
+      killWindowPresented = false;
+      controller.windowHost.execute({ kind: "close", id: EXOMUX_KILL_WINDOW_ID }, windowProjection.peek().bounds);
+    }
+  }, subscriptions.signal);
+  // The window's own chrome can dismiss it — the [x], a minimize — and a kill
+  // window that is gone with the question still pending is a cancel, not a
+  // confirmation that nobody saw.
+  windowProjection.subscribe(() => {
+    if (!killWindowPresented || controller.pendingKillSessionId.peek() === undefined) return;
+    const visible = windowProjection.peek().windows.some((window) => window.id === EXOMUX_KILL_WINDOW_ID);
+    if (!visible) {
+      killWindowPresented = false;
+      controller.cancelKillSession();
+    }
   }, subscriptions.signal);
   controller.quitModalVisible.subscribe(() => {
     if (controller.quitModalVisible.peek()) openModalAtDefault(quitModal);
@@ -1820,12 +1840,6 @@ export function mountExomuxDesktop(
       (listener) => controller.quitModalVisible.subscribe(listener, subscriptions.signal),
       () => exomuxQuitLayout(windowProjection.peek().bounds).rect,
     );
-    watchTransientSurface(
-      "kill-modal",
-      () => controller.pendingKillSessionId.peek() !== undefined,
-      (listener) => controller.pendingKillSessionId.subscribe(listener, subscriptions.signal),
-      () => exomuxKillLayout(windowProjection.peek().bounds).rect,
-    );
   }
 
   const collectAnimationOverlays = (): ExomuxAnimationOverlayPaint[] => {
@@ -1993,7 +2007,11 @@ export function mountExomuxDesktop(
   let pendingPointerMove: ExomuxPointerMoveSlot | undefined;
   // Global settings are deliberately absent: they live in an ordinary
   // floating window now, so the rest of the desktop stays interactive.
-  const modalOpen = (): boolean => exomuxDesktopOverlayOpen(controller);
+  // The kill confirmation now lives in the window host (it paints, stacks and
+  // occludes as a window) but its input stays modal: while the question is
+  // pending, every pointer and key belongs to it.
+  const modalOpen = (): boolean =>
+    exomuxDesktopOverlayOpen(controller) || controller.pendingKillSessionId.peek() !== undefined;
 
   let exitRequested = false;
   const requestClientExit = (terminateHost: boolean): void => {
@@ -2496,12 +2514,16 @@ export function mountExomuxDesktop(
       return true;
     }
     if (controller.pendingKillSessionId.peek()) {
-      const layout = exomuxKillLayout(windowProjection.peek().bounds);
-      if (contains(layout.confirmRect, column, row)) {
-        await controller.confirmKillSession();
-        await syncWindows();
-      } else if (contains(layout.cancelRect, column, row)) {
-        controller.cancelKillSession();
+      const killWindow = exomuxKillWindow(windowProjection.peek());
+      if (killWindow) {
+        const [cancelRect, confirmRect] = exomuxKillWindowButtons(killWindow.clientRect);
+        const close = killWindow.controls.find((control) => control.kind === "close");
+        if (contains(confirmRect, column, row)) {
+          await controller.confirmKillSession();
+          await syncWindows();
+        } else if (contains(cancelRect, column, row) || (close && contains(close.hitRect, column, row))) {
+          controller.cancelKillSession();
+        }
       }
       return true;
     }
@@ -3007,12 +3029,14 @@ export function mountExomuxDesktop(
     }
     const sessionId = controller.pendingKillSessionId.peek();
     if (sessionId) {
-      const layout = exomuxKillLayout(windowProjection.peek().bounds);
-      if (contains(layout.confirmRect, column, row)) {
-        return { kind: "modal", action: "confirm-kill", sessionId, hitRect: layout.confirmRect };
+      const killWindow = exomuxKillWindow(windowProjection.peek());
+      if (!killWindow) return undefined;
+      const [cancelRect, confirmRect] = exomuxKillWindowButtons(killWindow.clientRect);
+      if (contains(confirmRect, column, row)) {
+        return { kind: "modal", action: "confirm-kill", sessionId, hitRect: confirmRect };
       }
-      if (contains(layout.cancelRect, column, row)) {
-        return { kind: "modal", action: "cancel-kill", sessionId, hitRect: layout.cancelRect };
+      if (contains(cancelRect, column, row)) {
+        return { kind: "modal", action: "cancel-kill", sessionId, hitRect: cancelRect };
       }
       return undefined;
     }
@@ -4693,6 +4717,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
         options.sessionList,
         options.sessionListScrollTop,
         options.networkTreeView,
+        options.killModalSelection,
       );
       flyIn.capture(window.id, scratch.rows, window.rect);
       if (flyIn.suppressed.has(window.id)) return;
@@ -4710,6 +4735,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionList,
       options.sessionListScrollTop,
       options.networkTreeView,
+      options.killModalSelection,
     );
     exomuxSceneGround.commitWindow();
   };
@@ -4823,13 +4849,6 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
         options.shaderManagerControls,
         options.shaderPathField,
       ),
-    );
-  }
-  const pendingKillSessionId = controller.pendingKillSessionId.peek();
-  if (pendingKillSessionId) {
-    controller.overlayFootprints.set(
-      "kill",
-      paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection),
     );
   }
 
@@ -5219,6 +5238,7 @@ function paintWindow(
   sessionList?: ExomuxSessionList,
   sessionListScrollTop = -1,
   networkTreeView?: ExomuxNetworkTree,
+  killSelection?: string,
 ): void {
   const theme = controller.theme.peek();
   const global = controller.globalSettings.peek();
@@ -5313,6 +5333,10 @@ function paintWindow(
   }
   if (window.id === EXOMUX_THEME_EDITOR_WINDOW_ID) {
     paintThemeEditorWindow(painter, window.clientRect, controller, ground);
+    return;
+  }
+  if (window.id === EXOMUX_KILL_WINDOW_ID) {
+    paintKillWindow(painter, window.clientRect, controller, killSelection);
     return;
   }
   if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
@@ -5866,25 +5890,55 @@ function paintModalSelectionMarker(
   });
 }
 
-function paintKillConfirmation(
-  painter: DesktopPainter,
+/** The kill window in the projection, wherever the host stacked it. */
+export function exomuxKillWindow(
   projection: WorkbenchWindowHostProjection,
+): WorkbenchWindowChromeProjection | undefined {
+  return [...projection.floatingWindows, ...projection.tiledWindows]
+    .find((window) => window.id === EXOMUX_KILL_WINDOW_ID);
+}
+
+/**
+ * Button geometry inside the kill window's client area. One function feeds
+ * both the painter and the pointer router, so a click always lands on the
+ * pixels it was aimed at — the invariant the old bounds-derived layout
+ * preserved by never depending on the terminal's name.
+ */
+export function exomuxKillWindowButtons(clientRect: Rectangle): [Rectangle, Rectangle] {
+  const [cancelRect, confirmRect] = modalButtonRects(clientRect, [10, 8]);
+  return [cancelRect!, confirmRect!];
+}
+
+/**
+ * The kill confirmation as window content. The host draws the chrome; this
+ * fills the client area, so it inherits stacking, dragging, occlusion and the
+ * graphics relay's respect without any overlay bookkeeping.
+ */
+function paintKillWindow(
+  painter: DesktopPainter,
+  clientRect: Rectangle,
   controller: ExomuxController,
-  sessionId: string,
   selectedActionId?: string,
-): Rectangle {
+): void {
   const theme = controller.theme.peek();
+  const sessionId = controller.pendingKillSessionId.peek();
+  if (sessionId === undefined) return;
   const title = controller.runtime(sessionId)?.summary.peek().title ?? sessionId;
-  const { rect, bodyRows, cancelRect, confirmRect } = exomuxKillLayout(projection.bounds);
-  const prose = exomuxModalProse(`${title} (${sessionId})`, Math.max(1, rect.width - 4)).slice(0, bodyRows);
-  painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
-  painter.frame(rect, "!", { foreground: theme.danger, background: theme.surfaceStrong, bold: true });
-  painter.write(rect.column + 2, rect.row + 1, fitText("TERMINATE HOST SESSION?", rect.width - 4), {
+  const [cancelRect, confirmRect] = exomuxKillWindowButtons(clientRect);
+  painter.fill(clientRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
+  painter.write(clientRect.column + 2, clientRect.row + 1, fitText("TERMINATE HOST SESSION?", clientRect.width - 4), {
     foreground: theme.danger,
     background: theme.surfaceStrong,
     bold: true,
   });
-  paintModalProse(painter, rect, prose, theme, killActionRows(cancelRect, confirmRect));
+  const prose = exomuxModalProse(`${title} (${sessionId})`, Math.max(1, clientRect.width - 4));
+  const limit = clientRect.row + Math.max(1, clientRect.height - 1 - killActionRows(cancelRect, confirmRect));
+  for (let index = 0; index < prose.length && clientRect.row + 3 + index < limit; index += 1) {
+    painter.write(clientRect.column + 2, clientRect.row + 3 + index, fitText(prose[index]!, clientRect.width - 4), {
+      foreground: theme.text,
+      background: theme.surfaceStrong,
+    });
+  }
   painter.write(cancelRect.column, cancelRect.row, "[ Cancel ]", {
     foreground: exomuxControlColor(theme, "button:foreground", theme.text),
     background: exomuxControlColor(theme, "button:background", theme.surface),
@@ -5897,7 +5951,6 @@ function paintKillConfirmation(
   });
   paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
   paintModalSelectionMarker(painter, confirmRect, theme, selectedActionId === "kill");
-  return rect;
 }
 
 function paintQuitModal(
@@ -5990,32 +6043,6 @@ function rightAlignedButton(rect: Rectangle, width: number): Rectangle {
     height: 1,
   };
 }
-
-interface ExomuxKillLayout {
-  readonly rect: Rectangle;
-  /** Rows reserved for the terminal's name, wrapped. */
-  readonly bodyRows: number;
-  readonly cancelRect: Rectangle;
-  readonly confirmRect: Rectangle;
-}
-
-/**
- * The kill modal's geometry, which deliberately does NOT depend on the name of
- * the terminal it is about to kill: the pointer router lays this out to hit-test
- * a click and has no subject to hand it, so a text-dependent height would put
- * the buttons somewhere other than where they were drawn. Two body rows are
- * reserved, which is what a wrapped title needs on the narrowest box.
- */
-function exomuxKillLayout(bounds: Rectangle): ExomuxKillLayout {
-  const width = fitModalSpan(bounds.width, 24, 62, 6);
-  const buttonWidths = [10, 8];
-  const height = modalHeightForBody(bounds, width, EXOMUX_KILL_BODY_ROWS, buttonWidths, 5);
-  const rect = centeredRect(bounds, width, height);
-  const [cancelRect, confirmRect] = modalButtonRects(rect, buttonWidths);
-  return { rect, bodyRows: EXOMUX_KILL_BODY_ROWS, cancelRect: cancelRect!, confirmRect: confirmRect! };
-}
-
-const EXOMUX_KILL_BODY_ROWS = 2;
 
 export interface ExomuxQuitLayout {
   readonly rect: Rectangle;
