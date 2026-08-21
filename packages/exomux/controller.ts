@@ -910,6 +910,15 @@ export class ExomuxController {
   /** Whether kitty graphics from children are relayed to the host terminal. */
   readonly #graphicsPassthrough: boolean;
   readonly #hostCellPixels?: { readonly width: number; readonly height: number };
+  /**
+   * Footprints of the overlays painted this frame — start menu, modals, the
+   * switcher — keyed by overlay name. A frame-scratch registry, not reactive
+   * state: the painters are the only honest source for where an overlay is,
+   * and the graphics relay reads it to occlude relayed images by exactly the
+   * cells an overlay covers instead of blanking every image on the desktop.
+   */
+  readonly overlayFootprints = new Map<string, Rectangle>();
+
   /** Bound once so every runtime shares one identity for the size answerer. */
   readonly #sizeQuery = (sessionId: string, kind: 14 | 16 | 18): void => this.answerWindowSizeQuery(sessionId, kind);
   readonly #defaultArgs?: readonly string[];

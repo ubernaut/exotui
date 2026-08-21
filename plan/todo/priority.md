@@ -121,6 +121,18 @@ means:
   placements translated. `src/runtime/kitty_graphics.ts` and `todo/hiatus/kitty-graphics-integration.md` are the
   starting points. Until then, honest text fallback is the supported mode.
 
+## Overlays as windows — direction agreed August 21 2026
+
+The maintainer proposed refolding exomux's modal overlays into the window host as special-case windows. The direction is
+right, and it is this codebase's own doctrine — the host already carries modal semantics (`topModalId`), and a modal
+that is a window gets stacking, occlusion, minimize and input routing from the one authority instead of from eight
+bespoke painters. What blocks doing it in one move: each overlay carries its own paint, its own input capture rules (a
+modal blocks everything; the start menu dismisses on outside click; the switcher is keyboard-transient), composited
+widget syncing, and the transition ghosts that composite above modal chrome. The migration is incremental: new overlays
+land as host modal windows from the start; existing ones move one at a time, the kill confirmation first because it is
+the simplest. Until each moves, the overlay-footprint registry (`controller.overlayFootprints`, painters reporting the
+rect they painted) is the bridge that keeps the graphics relay honest about what covers what.
+
 ## Follow-ups carried from completed work
 
 Small, real, and worth doing when adjacent code is next touched:

@@ -701,15 +701,24 @@ function startGraphicsPassthroughFlush(
     // moved window re-places at its new origin, a partially covered one shows
     // exactly its uncovered pieces, and none of it waits for the application
     // to feel like repainting. `windows` is back-to-front paint order.
-    const modalOpen = projection.topModalId !== undefined || exomuxDesktopOverlayOpen(controller);
+    // Overlays cover the cells they painted, not the desktop. The blanket
+    // remains only as the safety net: an overlay that is open but has not yet
+    // reported a footprint — the first tick after it opens, or a painter that
+    // forgot — blanks everything, which errs toward hiding.
+    const overlayCovers = [...controller.overlayFootprints.values()];
+    const modalOpen = projection.topModalId !== undefined ||
+      (exomuxDesktopOverlayOpen(controller) && overlayCovers.length === 0);
     for (let index = 0; index < projection.windows.length; index += 1) {
       const window = projection.windows[index]!;
       const sessionId = exomuxSessionIdFromWindow(window.id);
       if (!sessionId) continue;
       seen.add(sessionId);
-      const covers = modalOpen ? [window.clientRect] : projection.windows
-        .filter((above, at) => at > index && rectanglesOverlap(above.rect, window.clientRect))
-        .map((above) => above.rect);
+      const covers = modalOpen ? [window.clientRect] : [
+        ...projection.windows
+          .filter((above, at) => at > index && rectanglesOverlap(above.rect, window.clientRect))
+          .map((above) => above.rect),
+        ...overlayCovers.filter((overlay) => rectanglesOverlap(overlay, window.clientRect)),
+      ];
       const fullyVisible = covers.length === 0;
       const regions = fullyVisible ? null : subtractRectangles(window.clientRect, covers).map((rect) => ({
         row: rect.row - window.clientRect.row,
@@ -4742,15 +4751,31 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       bold: true,
     });
   }
-  if (projection.switcher) paintSwitcher(painter, projection, theme);
-  if (controller.startMenuVisible.peek()) {
-    paintStartMenu(painter, bounds, theme, controller, options.startMenuView, options.startMenuSelection ?? 0);
+  // Each overlay reports the footprint it painted, so the graphics relay can
+  // occlude relayed images by exactly the cells an overlay covers. Cleared
+  // first: an overlay that closed this frame must not keep hiding pixels.
+  controller.overlayFootprints.clear();
+  if (projection.switcher) {
+    controller.overlayFootprints.set("switcher", paintSwitcher(painter, projection, theme));
   }
-  if (controller.helpVisible.peek()) paintHelp(painter, projection, theme, controller.helpScroll.peek());
-  if (controller.quitModalVisible.peek()) paintQuitModal(painter, projection, theme, options.quitModalSelection);
+  if (controller.startMenuVisible.peek()) {
+    controller.overlayFootprints.set(
+      "start-menu",
+      paintStartMenu(painter, bounds, theme, controller, options.startMenuView, options.startMenuSelection ?? 0),
+    );
+  }
+  if (controller.helpVisible.peek()) {
+    controller.overlayFootprints.set("help", paintHelp(painter, projection, theme, controller.helpScroll.peek()));
+  }
+  if (controller.quitModalVisible.peek()) {
+    controller.overlayFootprints.set("quit", paintQuitModal(painter, projection, theme, options.quitModalSelection));
+  }
   const scpRequest = controller.pendingScp.peek();
   if (scpRequest) {
-    paintScpModal(painter, projection, theme, scpRequest, options.scpPasswordField);
+    controller.overlayFootprints.set(
+      "scp",
+      paintScpModal(painter, projection, theme, scpRequest, options.scpPasswordField),
+    );
   } else {
     // Modal closed: tear the composited Input down (the spec is unused here).
     options.scpPasswordField?.sync(false, "", {
@@ -4765,28 +4790,47 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   }
   const configSessionId = controller.configSessionId.peek();
   if (configSessionId) {
-    paintWindowConfigModal(painter, projection, theme, controller, configSessionId, options.windowConfigOptionControls);
+    controller.overlayFootprints.set(
+      "window-config",
+      paintWindowConfigModal(
+        painter,
+        projection,
+        theme,
+        controller,
+        configSessionId,
+        options.windowConfigOptionControls,
+      ),
+    );
   }
   if (controller.backgroundConfigVisible.peek()) {
-    paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField, {
-      list: options.backgroundList,
-      options: options.backgroundOptionControls,
-      buttons: options.backgroundButtons,
-    });
+    controller.overlayFootprints.set(
+      "background-config",
+      paintBackgroundConfigModal(painter, projection, theme, controller, options.backgroundField, {
+        list: options.backgroundList,
+        options: options.backgroundOptionControls,
+        buttons: options.backgroundButtons,
+      }),
+    );
   }
   if (controller.shaderManagerVisible.peek()) {
-    paintShaderManagerModal(
-      painter,
-      projection,
-      theme,
-      controller,
-      options.shaderManagerControls,
-      options.shaderPathField,
+    controller.overlayFootprints.set(
+      "shader-manager",
+      paintShaderManagerModal(
+        painter,
+        projection,
+        theme,
+        controller,
+        options.shaderManagerControls,
+        options.shaderPathField,
+      ),
     );
   }
   const pendingKillSessionId = controller.pendingKillSessionId.peek();
   if (pendingKillSessionId) {
-    paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection);
+    controller.overlayFootprints.set(
+      "kill",
+      paintKillConfirmation(painter, projection, controller, pendingKillSessionId, options.killModalSelection),
+    );
   }
 
   // Transition ghosts composite above windows AND modal chrome: a menu's
@@ -4887,7 +4931,7 @@ function paintStartMenu(
   controller: ExomuxController,
   startMenuView?: ExomuxStartMenu,
   selectedIndex = 0,
-): void {
+): Rectangle {
   const entries = exomuxStartMenuItems(controller);
   const { panelRect, items } = exomuxStartMenuLayout(bounds, controller.startMenuAnchor.peek(), entries);
   painter.fill(panelRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
@@ -4920,7 +4964,7 @@ function paintStartMenu(
         if (cell !== undefined && cell !== "") painter.rawCell(inner.column + column, inner.row + row, cell);
       }
     }
-    return;
+    return panelRect;
   }
   // Hand-drawn fallback until the composited snapshot lands.
   for (const item of items) {
@@ -4931,6 +4975,7 @@ function paintStartMenu(
       bold: item.danger,
     });
   }
+  return panelRect;
 }
 
 /** Per-window reclaim ratios handed to the overgrowth pass. */
@@ -5631,7 +5676,7 @@ function paintSwitcher(
   painter: DesktopPainter,
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
-): void {
+): Rectangle {
   const switcher = projection.switcher!;
   const width = fitModalSpan(projection.bounds.width, 20, 48, 8);
   const height = Math.min(
@@ -5663,6 +5708,7 @@ function paintSwitcher(
       },
     );
   }
+  return rect;
 }
 
 /** One row of the key reference: what you press, and what it does. */
@@ -5741,7 +5787,7 @@ function paintHelp(
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
   scroll = 0,
-): void {
+): Rectangle {
   const { rect, closeRect, lines, scroll: offset, maxScroll } = exomuxHelpLayout(projection.bounds, scroll);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
@@ -5771,6 +5817,7 @@ function paintHelp(
     background: theme.accent,
     bold: true,
   });
+  return rect;
 }
 
 /** Rows the kill modal's buttons occupy: one when they spread, two stacked. */
@@ -5825,7 +5872,7 @@ function paintKillConfirmation(
   controller: ExomuxController,
   sessionId: string,
   selectedActionId?: string,
-): void {
+): Rectangle {
   const theme = controller.theme.peek();
   const title = controller.runtime(sessionId)?.summary.peek().title ?? sessionId;
   const { rect, bodyRows, cancelRect, confirmRect } = exomuxKillLayout(projection.bounds);
@@ -5850,6 +5897,7 @@ function paintKillConfirmation(
   });
   paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
   paintModalSelectionMarker(painter, confirmRect, theme, selectedActionId === "kill");
+  return rect;
 }
 
 function paintQuitModal(
@@ -5857,7 +5905,7 @@ function paintQuitModal(
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
   selectedActionId?: string,
-): void {
+): Rectangle {
   const { rect, prose, cancelRect, detachRect, terminateRect } = exomuxQuitLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "!", { foreground: theme.warning, background: theme.surfaceStrong, bold: true });
@@ -5885,6 +5933,7 @@ function paintQuitModal(
   paintModalSelectionMarker(painter, cancelRect, theme, selectedActionId === "cancel");
   paintModalSelectionMarker(painter, detachRect, theme, selectedActionId === "detach");
   paintModalSelectionMarker(painter, terminateRect, theme, selectedActionId === "terminate");
+  return rect;
 }
 
 /** The end-session modal's explanation, wrapped to whatever box it gets. */
@@ -6373,7 +6422,7 @@ function paintBackgroundConfigModal(
   controller: ExomuxController,
   backgroundField: ExomuxAnimatedBackground | undefined,
   hosts?: ExomuxBackgroundConfigHosts,
-): void {
+): Rectangle {
   const id = controller.backgroundId.peek();
   const specs = EXOMUX_BACKGROUND_SETTING_SPECS[id] ?? [];
   const list = exomuxBackgroundConfigList(controller);
@@ -6539,6 +6588,7 @@ function paintBackgroundConfigModal(
       bold: true,
     });
   }
+  return layout.rect;
 }
 
 /** Composites one real button's styled cells into its window rect. */
@@ -6945,7 +6995,7 @@ function paintWindowConfigModal(
   controller: ExomuxController,
   sessionId: string,
   optionControls?: ExomuxSettingsOptions,
-): void {
+): Rectangle {
   const { rect, rowRects, resetRect, closeRect } = exomuxWindowConfigLayout(projection.bounds);
   const settings = controller.windowSettingsFor(sessionId);
   const selected = controller.configRowIndex.peek();
@@ -7043,6 +7093,7 @@ function paintWindowConfigModal(
     background: theme.accent,
     bold: true,
   });
+  return rect;
 }
 
 /** Rows the per-window settings detail needs at this width, worst case. */
@@ -7099,7 +7150,7 @@ function paintShaderManagerModal(
   controller: ExomuxController,
   optionControls?: ExomuxSettingsOptions,
   pathField?: ExomuxInputField,
-): void {
+): Rectangle {
   const rows = controller.shaderManagerRows();
   const { rect, rowRects, pathRect, addRect, closeRect } = exomuxShaderManagerLayout(projection.bounds, rows.length);
   const selected = controller.shaderManagerIndex.peek();
@@ -7241,6 +7292,7 @@ function paintShaderManagerModal(
     background: theme.accent,
     bold: true,
   });
+  return rect;
 }
 
 interface ExomuxScpLayout {
@@ -7264,7 +7316,7 @@ function paintScpModal(
   theme: ExomuxThemeSpec,
   request: ExomuxScpRequest,
   passwordField?: ExomuxInputField,
-): void {
+): Rectangle {
   const { rect, cancelRect, pasteRect, sendRect } = exomuxScpLayout(projection.bounds);
   painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
   painter.frame(rect, "=", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
@@ -7325,6 +7377,7 @@ function paintScpModal(
     background: theme.accent,
     bold: true,
   });
+  return rect;
 }
 
 function centeredRect(bounds: Rectangle, width: number, height: number): Rectangle {
