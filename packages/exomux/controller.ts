@@ -920,6 +920,13 @@ export class ExomuxController {
   readonly #defaultCommand: string;
   /** Whether kitty graphics from children are relayed to the host terminal. */
   readonly #graphicsPassthrough: boolean;
+  /**
+   * Delete emissions for relayed images whose sessions are already gone. A
+   * kill can reap the runtime before the compositor notices the window left,
+   * and release-by-session then finds nothing — the images would stay on the
+   * host forever. Removal stashes them here; the app drains every flush.
+   */
+  readonly #orphanGraphics: KittyRelayEmission[] = [];
   readonly #hostCellPixels?: { readonly width: number; readonly height: number };
   /**
    * Footprints of the overlays painted this frame — start menu, modals, the
@@ -3080,6 +3087,7 @@ export class ExomuxController {
       const runtime = this.#runtimes.get(sessionId);
       if (!runtime) continue;
       runtime.attachGeneration += 1;
+      this.#stashOrphanGraphics(runtime);
       this.#runtimes.delete(sessionId);
       this.#lifecycleTails.delete(sessionId);
       disposeTerminalRuntime(runtime);
@@ -3162,6 +3170,7 @@ export class ExomuxController {
       this.status.value = `Terminated ${title}; window cleanup will retry on refresh.`;
       return true;
     }
+    this.#stashOrphanGraphics(runtime);
     this.#runtimes.delete(sessionId);
     this.#lifecycleTails.delete(sessionId);
     disposeTerminalRuntime(runtime);
@@ -3265,6 +3274,20 @@ export class ExomuxController {
     if (!runtime?.graphics) return [];
     runtime.pendingGraphics.length = 0;
     return runtime.graphics.release();
+  }
+
+  #stashOrphanGraphics(runtime: ExomuxTerminalRuntime): void {
+    if (!runtime.graphics) return;
+    runtime.pendingGraphics.length = 0;
+    this.#orphanGraphics.push(...runtime.graphics.release());
+  }
+
+  /**
+   * Drains delete emissions for images whose sessions are already gone —
+   * a killed child must take its relayed pictures with it.
+   */
+  takeOrphanGraphics(): KittyRelayEmission[] {
+    return this.#orphanGraphics.splice(0, this.#orphanGraphics.length);
   }
 
   /**

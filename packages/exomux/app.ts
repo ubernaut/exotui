@@ -34,6 +34,14 @@ import {
   type WorkbenchWindowHostProjectionOptions,
 } from "@ubernaut/exotui";
 import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "@ubernaut/exotui";
+import {
+  borderBoxOnGround,
+  fillOnGround,
+  paintShellMenuPanel,
+  paintShellSwitcher,
+  paintShellWindowChrome,
+  writeOnGround,
+} from "@ubernaut/exotui";
 import { wrapTextBoxLines } from "@ubernaut/exotui";
 import { COLOR_PICKER_AXIS_IDS, type ColorPickerAxisId, type ThemeEditorController } from "@ubernaut/exotui";
 import {
@@ -755,6 +763,10 @@ function startGraphicsPassthroughFlush(
       clipSignatures.delete(sessionId);
       write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
     }
+    // Sessions killed since the last flush: their runtimes are already gone,
+    // so their deletes arrive from the orphan stash instead.
+    const orphaned = controller.takeOrphanGraphics();
+    if (orphaned.length > 0) write(orphaned.map((emission) => apc(emission.data)).join(""));
   };
   const timer = setInterval(flush, 33);
   if (typeof Deno !== "undefined" && typeof Deno.unrefTimer === "function") Deno.unrefTimer(timer);
@@ -764,6 +776,13 @@ function startGraphicsPassthroughFlush(
   return () => {
     clearInterval(timer);
     unsubscribe();
+    // Leaving exomux clears the host: alt-screen restore does not delete
+    // kitty images, so every session still showing takes its pictures down.
+    let out = controller.takeOrphanGraphics().map((emission) => apc(emission.data)).join("");
+    for (const sessionId of displayed) {
+      out += controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join("");
+    }
+    if (out.length > 0) write(out);
   };
 }
 
@@ -4527,33 +4546,7 @@ function blitControlCell(
 }
 
 /** Draws a box frame like `DesktopPainter.borderBox`, on a per-cell ground. */
-function borderBoxOnGround(
-  painter: DesktopPainter,
-  rect: Rectangle,
-  glyphs: ExomuxBorderGlyphs,
-  foreground: ExomuxRgb,
-  ground: ExomuxGround,
-  bold: boolean,
-): void {
-  if (rect.width <= 0 || rect.height <= 0) return;
-  const right = rect.column + rect.width - 1;
-  const bottom = rect.row + rect.height - 1;
-  const cellOn = (column: number, row: number, glyph: string) => {
-    painter.cell(column, row, glyph, { foreground, background: ground(column, row), bold });
-  };
-  for (let column = rect.column + 1; column < right; column += 1) {
-    cellOn(column, rect.row, glyphs.top);
-    cellOn(column, bottom, glyphs.bottom);
-  }
-  for (let row = rect.row + 1; row < bottom; row += 1) {
-    cellOn(rect.column, row, glyphs.left);
-    cellOn(right, row, glyphs.right);
-  }
-  cellOn(rect.column, rect.row, glyphs.topLeft);
-  cellOn(right, rect.row, glyphs.topRight);
-  cellOn(rect.column, bottom, glyphs.bottomLeft);
-  cellOn(right, bottom, glyphs.bottomRight);
-}
+// borderBoxOnGround now comes from the library shell layer.
 
 /**
  * Ground for a window body at a given opacity.
@@ -4578,34 +4571,10 @@ function exomuxWindowGround(theme: ExomuxThemeSpec, opacity: number, backdrop?: 
   return (column, row) => mixExomuxRgb(backdrop(column, row), theme.surface, opacity);
 }
 
-/** Writes text cell by cell so each one keeps its own blended ground. */
-function writeOnGround(
-  painter: DesktopPainter,
-  column: number,
-  row: number,
-  text: string,
-  style: { foreground: ExomuxRgb; bold?: boolean },
-  ground: ExomuxGround,
-): void {
-  const glyphs = [...text];
-  for (let index = 0; index < glyphs.length; index += 1) {
-    painter.write(column + index, row, glyphs[index]!, {
-      foreground: style.foreground,
-      background: ground(column + index, row),
-      bold: style.bold,
-    });
-  }
-}
-
-/** Fills a rect cell by cell so each one can take its own blended ground. */
+// writeOnGround comes from the library shell layer; the fill keeps its
+// theme-taking signature because every call site hands the theme in.
 function fillWithGround(painter: DesktopPainter, rect: Rectangle, theme: ExomuxThemeSpec, ground: ExomuxGround): void {
-  for (let row = 0; row < rect.height; row += 1) {
-    for (let column = 0; column < rect.width; column += 1) {
-      const x = rect.column + column;
-      const y = rect.row + row;
-      painter.write(x, y, " ", { foreground: theme.text, background: ground(x, y) });
-    }
-  }
+  fillOnGround(painter, rect, theme.text, ground);
 }
 
 /**
@@ -4953,12 +4922,6 @@ function paintStartMenu(
 ): Rectangle {
   const entries = exomuxStartMenuItems(controller);
   const { panelRect, items } = exomuxStartMenuLayout(bounds, controller.startMenuAnchor.peek(), entries);
-  painter.fill(panelRect, " ", { foreground: theme.text, background: theme.surfaceStrong });
-  painter.borderBox(panelRect, exomuxBorderGlyphs("thin"), {
-    foreground: theme.accent,
-    background: theme.surfaceStrong,
-    bold: true,
-  });
   const inner: Rectangle = {
     column: panelRect.column + 1,
     row: panelRect.row + 1,
@@ -4976,23 +4939,28 @@ function paintStartMenu(
     selectedForeground: theme.background,
     selectedBackground: theme.accent,
   });
-  if (startMenuView?.ready()) {
+  const composited = startMenuView?.ready() === true;
+  // The shell paints the panel; rows are its hand-drawn fallback until the
+  // composited snapshot lands, and the snapshot blits over an empty panel.
+  paintShellMenuPanel(
+    painter,
+    panelRect,
+    composited ? [] : items.map((item) => ({ rect: item.rect, label: item.label, danger: item.danger })),
+    {
+      panelFill: { foreground: theme.text, background: theme.surfaceStrong },
+      borderGlyphs: exomuxBorderGlyphs("thin"),
+      borderStyle: { foreground: theme.accent, background: theme.surfaceStrong, bold: true },
+      rowStyle: { foreground: theme.text, background: theme.surfaceStrong },
+      dangerForeground: theme.danger,
+    },
+  );
+  if (composited) {
     for (let row = 0; row < inner.height; row += 1) {
       for (let column = 0; column < inner.width; column += 1) {
-        const cell = startMenuView.cellAt(row, column);
+        const cell = startMenuView!.cellAt(row, column);
         if (cell !== undefined && cell !== "") painter.rawCell(inner.column + column, inner.row + row, cell);
       }
     }
-    return panelRect;
-  }
-  // Hand-drawn fallback until the composited snapshot lands.
-  for (const item of items) {
-    if (item.rect.row >= panelRect.row + panelRect.height - 1) break;
-    painter.write(item.rect.column, item.rect.row, fitText(item.label, item.rect.width), {
-      foreground: item.danger ? theme.danger : theme.text,
-      background: theme.surfaceStrong,
-      bold: item.danger,
-    });
   }
   return panelRect;
 }
@@ -5260,57 +5228,37 @@ function paintWindow(
   const border = window.active
     ? exomuxControlColor(theme, "window:border-active", theme.accent)
     : exomuxControlColor(theme, "window:border", theme.border);
-  painter.fill(window.rect, " ", { foreground: theme.text, background: theme.surface });
-  // Focus reads through colour and weight, so both states share one frame
-  // vocabulary rather than swapping the glyphs out underneath the window.
-  borderBoxOnGround(
-    painter,
-    window.rect,
-    exomuxBorderGlyphs(global.borderStyle),
-    border,
-    chromeGround(theme.surfaceStrong),
-    window.active,
-  );
-  const titleBarGround = chromeGround(
-    window.active
-      ? exomuxControlColor(theme, "window:titlebar-background-active", theme.accent)
-      : exomuxControlColor(theme, "window:titlebar-background", theme.surfaceStrong),
-  );
-  const titleBarText = window.active
-    ? exomuxControlColor(theme, "window:titlebar-foreground-active", exomuxActiveTitlebarForeground(theme))
-    : exomuxControlColor(theme, "window:titlebar-foreground", theme.text);
-  fillWithGround(painter, window.titleBarRect, theme, titleBarGround);
-  const firstControl = window.controls.reduce(
-    (minimum, control) => Math.min(minimum, control.rect.column),
-    window.titleBarRect.column + window.titleBarRect.width,
-  );
-  const titleWidth = Math.max(0, firstControl - window.titleBarRect.column - 2);
   const runtime = sessionId ? controller.runtime(sessionId) : undefined;
   // Status tags ([SCROLL], [NO MOUSE]) arrive on the projection first-class.
   const adornments = window.titleAdornments.map((tag) => ` ${tag}`).join("");
-  writeOnGround(
-    painter,
-    window.titleBarRect.column + 1,
-    window.titleBarRect.row,
-    fitText(
-      `${window.placement === "floating" ? "~" : "="} ${runtime?.summary.peek().title ?? window.title}${adornments}`,
-      titleWidth,
+  // The shell paints the chrome; exomux resolves colours through its control
+  // tokens and composes the title (placement glyph, live session title, tags).
+  paintShellWindowChrome(painter, window, {
+    surfaceFill: { foreground: theme.text, background: theme.surface },
+    borderGlyphs: exomuxBorderGlyphs(global.borderStyle),
+    borderForeground: border,
+    chromeGround: chromeGround(theme.surfaceStrong),
+    titleBarGround: chromeGround(
+      window.active
+        ? exomuxControlColor(theme, "window:titlebar-background-active", theme.accent)
+        : exomuxControlColor(theme, "window:titlebar-background", theme.surfaceStrong),
     ),
-    {
-      // Active bars sit on the accent colour, so their text contrasts it
-      // (black on bright accents, white on the light themes' dark accents);
-      // inactive bars keep the main theme foreground (supersedes UX-004).
-      foreground: titleBarText,
-      bold: window.active,
-    },
-    titleBarGround,
-  );
-  for (const control of window.controls) {
-    writeOnGround(painter, control.rect.column, control.rect.row, fitText(control.text, control.rect.width), {
-      foreground: titleBarText,
-      bold: control.tone === "danger" || window.active,
-    }, titleBarGround);
-  }
+    titleBarFillForeground: theme.text,
+    titleText: `${window.placement === "floating" ? "~" : "="} ${
+      runtime?.summary.peek().title ?? window.title
+    }${adornments}`,
+    // Active bars sit on the accent colour, so their text contrasts it
+    // (black on bright accents, white on the light themes' dark accents);
+    // inactive bars keep the main theme foreground (supersedes UX-004).
+    titleForeground: window.active
+      ? exomuxControlColor(theme, "window:titlebar-foreground-active", exomuxActiveTitlebarForeground(theme))
+      : exomuxControlColor(theme, "window:titlebar-foreground", theme.text),
+    titleBold: window.active,
+    controlBold: (control) => control.tone === "danger" || window.active,
+    controlForeground: window.active
+      ? exomuxControlColor(theme, "window:titlebar-foreground-active", exomuxActiveTitlebarForeground(theme))
+      : exomuxControlColor(theme, "window:titlebar-foreground", theme.text),
+  });
   const ground = exomuxWindowGround(theme, windowOpacity, backdrop);
   if (windowOpacity < 1 && backdrop) fillWithGround(painter, window.clientRect, theme, ground);
   else painter.fill(window.clientRect, " ", { foreground: theme.text, background: theme.surface });
@@ -5701,38 +5649,22 @@ function paintSwitcher(
   projection: WorkbenchWindowHostProjection,
   theme: ExomuxThemeSpec,
 ): Rectangle {
-  const switcher = projection.switcher!;
-  const width = fitModalSpan(projection.bounds.width, 20, 48, 8);
-  const height = Math.min(
-    switcher.items.length + 2,
-    fitModalSpan(projection.bounds.height, 3, projection.bounds.height, 4),
-  );
-  const rect = {
-    column: projection.bounds.column + Math.max(0, Math.floor((projection.bounds.width - width) / 2)),
-    row: projection.bounds.row + Math.max(0, Math.floor((projection.bounds.height - height) / 2)),
-    width,
-    height,
-  };
-  painter.fill(rect, " ", { foreground: theme.text, background: theme.surfaceStrong });
-  painter.frame(rect, "#", { foreground: theme.accent, background: theme.surfaceStrong, bold: true });
-  for (let index = 0; index < Math.min(switcher.items.length, Math.max(0, height - 2)); index += 1) {
-    const item = switcher.items[index]!;
-    painter.write(
-      rect.column + 1,
-      rect.row + 1 + index,
-      fitText(`${item.selected ? ">" : " "} ${item.title}`, width - 2),
-      {
-        foreground: item.selected
-          ? exomuxControlColor(theme, "menu:foreground-selected", theme.background)
-          : exomuxControlColor(theme, "menu:foreground", theme.text),
-        background: item.selected
-          ? exomuxControlColor(theme, "menu:background-selected", theme.accent)
-          : exomuxControlColor(theme, "menu:background", theme.surfaceStrong),
-        bold: item.selected,
+  // The shell paints it; exomux only resolves the colours through its tokens.
+  return paintShellSwitcher(painter, projection.switcher!, projection.bounds, {
+    colors: {
+      panelFill: { foreground: theme.text, background: theme.surfaceStrong },
+      frame: { foreground: theme.accent, background: theme.surfaceStrong, bold: true },
+      item: {
+        foreground: exomuxControlColor(theme, "menu:foreground", theme.text),
+        background: exomuxControlColor(theme, "menu:background", theme.surfaceStrong),
       },
-    );
-  }
-  return rect;
+      selectedItem: {
+        foreground: exomuxControlColor(theme, "menu:foreground-selected", theme.background),
+        background: exomuxControlColor(theme, "menu:background-selected", theme.accent),
+        bold: true,
+      },
+    },
+  });
 }
 
 /** One row of the key reference: what you press, and what it does. */

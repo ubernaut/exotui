@@ -4,3 +4,5 @@ export * from "./dom_renderer.ts";
 export * from "./host.ts";
 export * from "./platform.ts";
 export * from "./remote_terminal.ts";
+export * from "./web_presenter.ts";
+export * from "./canvas_shader.ts";

@@ -76,6 +76,9 @@ if (import.meta.main) {
   // Loaded lazily by the desktop when the three window opens; `three` itself
   // stays external and arrives from esm.sh.
   await buildPageBundle("examples/web/desktop_three.ts", `${outdir}/desktop-three.js`);
+  // Butterchurn's preset catalog is megabytes of milkdrop equations; it loads
+  // the way the three renderer does — on first selection.
+  await buildPageBundle("examples/web/desktop_butterchurn.ts", `${outdir}/desktop-butterchurn.js`);
   // The ASCII renderer resolves its glyph atlases against import.meta.url,
   // which in the bundle is .../assets/desktop-three.js — so the atlases live
   // in an assets/ directory NEXT TO the bundle, i.e. assets/assets/.
@@ -84,6 +87,15 @@ if (import.meta.main) {
   // The desktop ships as the landing page; it may lean on the same guarded
   // paths as the web root, and not one more.
   await verifyWebSurface("examples/web/desktop_page.ts", WEB_ROOT_ALLOWED_DENO_REFS);
+  // The shared application module is the 045 oracle: ZERO Deno references —
+  // it must run identically on the console presenter.
+  await verifyWebSurface("examples/web/desktop_app.ts", new Set());
+  // Butterchurn's lazy bundle carries exomux's guarded debug logger, whose
+  // file paths never open in a browser; nothing beyond those three.
+  await verifyWebSurface(
+    "examples/web/desktop_butterchurn.ts",
+    new Set([...WEB_ROOT_ALLOWED_DENO_REFS, "Deno.cwd", "Deno.mkdirSync", "Deno.openSync"]),
+  );
   await verifyWebSurface("examples/web/desktop_three.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The visualisation entrypoints hold a stricter line: zero Deno references,
   // so a browser can import them without a single guarded terminal path.
@@ -209,6 +221,13 @@ function webExternalDependencyPlugin(): esbuild.Plugin {
         path: webExternalSpecifiers.get(args.path)!,
         external: true,
       }));
+      // exomux's shim modules re-export from the package name; in the docs
+      // bundle that name is this repository's own root.
+      build.onResolve(
+        { filter: /^@ubernaut\/exotui$/ },
+        () => ({ path: resolve("scripts/web_docs_package_facade.ts") }),
+      );
+      build.onResolve({ filter: /^@ubernaut\/exotui\/app$/ }, () => ({ path: resolve("mod.app.ts") }));
       build.onResolve({ filter: /^npm:/ }, (args) => ({
         path: npmSpecifierToEsmSh(args.path),
         external: true,
@@ -252,9 +271,11 @@ function desktopHtml(): string {
       #app {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
         outline: none;
         touch-action: none;
         user-select: none;
+        cursor: none;
         background: #0a0c14;
       }
 
@@ -300,6 +321,7 @@ function workbenchHtml(): string {
 
       body {
         min-height: 100vh;
+        min-height: 100dvh;
         overflow: hidden;
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);

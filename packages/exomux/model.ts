@@ -12,6 +12,8 @@ export const EXOMUX_MAX_SESSIONS = 32;
 export const EXOMUX_MAX_COLUMNS = 512;
 export const EXOMUX_MAX_ROWS = 256;
 
+import { SHELL_T2_SWATCHES, SHELL_THEMES, shellControlColor } from "@ubernaut/exotui";
+
 const EXOMUX_WORKBENCH_THEME_IDS = [
   "unit01",
   "arcane",
@@ -36,7 +38,7 @@ export type ExomuxBuiltInThemeId =
   | "t2"
   | "templeos"
   | "miami"
-  | "dracula"
+  | "nosferatu"
   | "sabbath";
 
 /**
@@ -49,16 +51,8 @@ export type ExomuxThemeId = ExomuxBuiltInThemeId | (string & Record<never, never
 export type ExomuxRgb = readonly [red: number, green: number, blue: number];
 
 /** Seven named T2 color families used to keep the theme deliberate and testable. */
-export const EXOMUX_T2_SWATCHES = {
-  black: [3, 4, 8],
-  charcoal: [24, 26, 34],
-  darkBlue: [30, 58, 112],
-  lightBlue: [205, 234, 255],
-  darkPurple: [155, 115, 220],
-  lightPurple: [220, 168, 255],
-  /** Highlight accent: cool steel everywhere, one hot filament where focus lands. */
-  hotPink: [255, 105, 180],
-} as const satisfies Readonly<Record<string, ExomuxRgb>>;
+/** Seven named T2 color families, shared with the library catalog. */
+export const EXOMUX_T2_SWATCHES = SHELL_T2_SWATCHES;
 
 /** One complete Exomux chrome/default-terminal theme. */
 export interface ExomuxThemeSpec {
@@ -83,197 +77,13 @@ export interface ExomuxThemeSpec {
   readonly controls?: Readonly<Record<string, ExomuxRgb>>;
 }
 
-/** Original Exomux themes retained in stable order for persisted workspaces. */
-const EXOMUX_NATIVE_THEMES = [
-  {
-    id: "midnight",
-    label: "Midnight Ops",
-    background: [8, 12, 20],
-    surface: [14, 21, 34],
-    surfaceStrong: [24, 35, 54],
-    border: [73, 101, 134],
-    text: [224, 235, 246],
-    muted: [132, 154, 178],
-    accent: [76, 201, 240],
-    success: [73, 209, 125],
-    warning: [244, 190, 72],
-    danger: [244, 104, 110],
-  },
-  {
-    id: "amber",
-    label: "Amber Glass",
-    background: [20, 12, 2],
-    surface: [37, 24, 7],
-    surfaceStrong: [58, 39, 10],
-    border: [145, 92, 21],
-    text: [255, 220, 145],
-    muted: [188, 137, 67],
-    accent: [255, 174, 45],
-    success: [182, 219, 82],
-    warning: [255, 199, 80],
-    danger: [255, 99, 71],
-  },
-  {
-    id: "matrix",
-    label: "Matrix Phosphor",
-    background: [1, 13, 6],
-    surface: [3, 25, 12],
-    surfaceStrong: [6, 43, 20],
-    border: [28, 112, 55],
-    text: [156, 255, 173],
-    muted: [72, 154, 91],
-    accent: [45, 255, 96],
-    success: [113, 255, 132],
-    warning: [224, 241, 95],
-    danger: [255, 91, 91],
-  },
-  {
-    id: "paper",
-    label: "Paper Terminal",
-    background: [234, 229, 215],
-    surface: [248, 245, 235],
-    surfaceStrong: [218, 211, 194],
-    border: [104, 98, 87],
-    text: [35, 38, 42],
-    muted: [101, 100, 96],
-    accent: [33, 92, 145],
-    success: [42, 116, 65],
-    warning: [157, 101, 11],
-    danger: [165, 48, 48],
-  },
-] as const satisfies readonly ExomuxThemeSpec[];
-
-/** Complete catalog: native themes, every Workbench theme, then T2. */
-export const EXOMUX_THEMES: readonly ExomuxThemeSpec[] = [
-  ...EXOMUX_NATIVE_THEMES,
-  ...grWizardThemePalettes.map(exomuxWorkbenchTheme),
-  {
-    id: "t2",
-    label: "T2 Neural Steel",
-    background: EXOMUX_T2_SWATCHES.black,
-    surface: EXOMUX_T2_SWATCHES.charcoal,
-    surfaceStrong: EXOMUX_T2_SWATCHES.darkBlue,
-    border: EXOMUX_T2_SWATCHES.darkPurple,
-    text: EXOMUX_T2_SWATCHES.lightBlue,
-    muted: EXOMUX_T2_SWATCHES.lightPurple,
-    accent: EXOMUX_T2_SWATCHES.hotPink,
-    success: EXOMUX_T2_SWATCHES.lightBlue,
-    warning: EXOMUX_T2_SWATCHES.darkPurple,
-    danger: EXOMUX_T2_SWATCHES.lightPurple,
-  },
-  {
-    // TempleOS: 640x480, 16 colors, white ground — windows are ink on
-    // paper delimited by VGA-blue borders, red for what matters.
-    id: "templeos",
-    label: "TempleOS",
-    background: [255, 255, 255],
-    surface: [255, 255, 255],
-    surfaceStrong: [170, 170, 170],
-    border: [0, 0, 170],
-    text: [0, 0, 0],
-    muted: [85, 85, 85],
-    accent: [0, 0, 170],
-    success: [0, 170, 0],
-    warning: [170, 85, 0],
-    danger: [170, 0, 0],
-  },
-  {
-    // Miami by day. The palette is neon, and neon only works on a dark ground
-    // when it is TEXT: at full strength on white, the hot pink measures 2.7:1
-    // and cannot be read. So the light ground takes the palette as washes —
-    // cyan paper, blue panels — and every role that has to be read is the same
-    // hue carried down until it can be: mint for secondary text and success,
-    // hot pink for focus, the blue for structure. Warning is the one colour
-    // from outside the palette: it has no warm end, and a warning that reads
-    // as pink or teal is a warning nobody sees.
-    id: "miami",
-    label: "Miami Neon",
-    background: [214, 250, 249],
-    surface: [240, 255, 254],
-    surfaceStrong: [176, 222, 255],
-    border: [10, 132, 224],
-    text: [10, 45, 70],
-    muted: [23, 122, 84],
-    accent: [198, 24, 118],
-    success: [8, 124, 76],
-    warning: [163, 96, 0],
-    danger: [186, 16, 44],
-  },
-  {
-    // Dracula: the castle, not the popular palette of the same name — blacks,
-    // dark greys, and red as the single voice. Success stays a desaturated
-    // moss and warning an old gold, quiet enough not to compete: in this room
-    // red is the only thing allowed to bleed.
-    id: "dracula",
-    label: "Dracula",
-    background: [9, 7, 8],
-    surface: [19, 16, 17],
-    surfaceStrong: [35, 29, 31],
-    border: [122, 52, 56],
-    text: [232, 224, 222],
-    // Dark enough to carry the white on-accent text the red accent demands —
-    // the unfocused selection paints this as its row.
-    muted: [110, 97, 97],
-    accent: [225, 58, 64],
-    success: [130, 176, 130],
-    warning: [214, 164, 84],
-    danger: [255, 92, 92],
-  },
-  {
-    // Black Sabbath: blacks, dark greys, and purple — the stage lights of the
-    // album covers. The same discipline as Dracula with the hue swapped:
-    // purple carries focus and identity, everything else keeps to the greys.
-    id: "sabbath",
-    label: "Black Sabbath",
-    background: [8, 7, 12],
-    surface: [17, 15, 24],
-    surfaceStrong: [31, 27, 44],
-    border: [104, 78, 148],
-    text: [228, 223, 238],
-    // As in Dracula: the purple accent picks white on-accent text, so the
-    // muted row has to hold white at AA.
-    muted: [104, 96, 122],
-    accent: [178, 110, 255],
-    success: [132, 182, 142],
-    warning: [216, 168, 88],
-    danger: [236, 92, 100],
-  },
-] as const satisfies readonly ExomuxThemeSpec[];
-
-/** Adapts one Workbench semantic palette without duplicating its hex source. */
-function exomuxWorkbenchTheme(
-  palette: (typeof grWizardThemePalettes)[number],
-): ExomuxThemeSpec {
-  return {
-    id: exomuxWorkbenchThemeId(palette.name),
-    label: palette.label,
-    background: exomuxHexRgb(palette.bg),
-    surface: exomuxHexRgb(palette.surface),
-    surfaceStrong: exomuxHexRgb(palette.panelAlt),
-    border: exomuxHexRgb(palette.borderStrong),
-    text: exomuxHexRgb(palette.text),
-    muted: exomuxHexRgb(palette.textMuted),
-    accent: exomuxHexRgb(palette.accent),
-    success: exomuxHexRgb(palette.success),
-    warning: exomuxHexRgb(palette.warning),
-    danger: exomuxHexRgb(palette.danger),
-  };
-}
-
-/** Fails loudly if the shared Workbench catalog changes without an ID migration. */
-function exomuxWorkbenchThemeId(id: string): ExomuxWorkbenchThemeId {
-  const match = EXOMUX_WORKBENCH_THEME_IDS.find((candidate) => candidate === id);
-  if (!match) throw new TypeError(`Unsupported Workbench theme id: ${id}`);
-  return match;
-}
-
-/** Converts the Workbench's canonical six-digit hex colors to renderer RGB. */
-function exomuxHexRgb(hex: string): ExomuxRgb {
-  const match = /^#([\da-f]{6})$/i.exec(hex);
-  if (!match) throw new TypeError(`Invalid Workbench theme color: ${hex}`);
-  const value = Number.parseInt(match[1]!, 16);
-  return [(value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
-}
+/**
+ * Complete catalog: native themes, every Workbench theme, then the specials.
+ * The specs themselves moved to the library (`SHELL_THEMES`) so the web
+ * desktop runs the same themes; the ids are all built-ins, so the narrowing
+ * cast holds by construction.
+ */
+export const EXOMUX_THEMES: readonly ExomuxThemeSpec[] = SHELL_THEMES as readonly ExomuxThemeSpec[];
 
 /** Clone-safe session metadata returned by the detached host. */
 export interface ExomuxSessionSummary {
@@ -1178,7 +988,10 @@ export const EXOMUX_MANIFEST: ShowcaseManifest = defineShowcaseManifest({
 
 /** Returns one validated theme, falling back to Midnight Ops. */
 export function exomuxTheme(id: unknown): ExomuxThemeSpec {
-  return exomuxThemeCatalog().find((theme) => theme.id === id) ?? EXOMUX_THEMES[0]!;
+  // The theme once called dracula is nosferatu now; workspaces persisted
+  // under the old id keep their castle.
+  const resolved = id === "dracula" ? "nosferatu" : id;
+  return exomuxThemeCatalog().find((theme) => theme.id === resolved) ?? EXOMUX_THEMES[0]!;
 }
 
 const userThemes = new Map<string, ExomuxThemeSpec>();
@@ -1241,7 +1054,7 @@ export function exomuxControlColor(
   token: string,
   fallback: ExomuxRgb,
 ): ExomuxRgb {
-  return theme.controls?.[token] ?? fallback;
+  return shellControlColor(theme, token, fallback);
 }
 
 /** Stable outer-window identity for one daemon session. */

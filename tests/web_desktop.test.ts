@@ -71,3 +71,44 @@ Deno.test("the browser monitor composes a waiting dashboard without a DOM", () =
   }
   assert(monitor.microphone() === "waiting");
 });
+
+Deno.test("the canvas sink clips glyphs wider than their cell", async () => {
+  // 16px monospace advances ~9.6px in a 9px cell; unclipped, the overhang
+  // painted into the neighbour and survived as a trail when charts animated.
+  const { BrowserCellCanvasSink } = await import("../src/web/cell_canvas_sink.ts");
+  const calls: string[] = [];
+  const context = {
+    canvas: { width: 0, height: 0 },
+    fillStyle: "",
+    font: "",
+    textBaseline: "top" as CanvasTextBaseline,
+    fillRect: () => calls.push("fillRect"),
+    fillText: () => calls.push("fillText"),
+    scale: () => {},
+    setTransform: () => {},
+    measureText: (text: string) => ({ width: text === "." ? 5 : 11.7 }),
+    save: () => calls.push("save"),
+    restore: () => calls.push("restore"),
+    beginPath: () => {},
+    rect: () => calls.push("clipRect"),
+    clip: () => calls.push("clip"),
+  };
+  const canvas = { getContext: () => context, width: 0, height: 0 } as unknown as HTMLCanvasElement;
+  const sink = new BrowserCellCanvasSink({ canvas, cellWidth: 9, cellHeight: 18 });
+  sink.resize(4, 1);
+  calls.length = 0;
+  sink.flush([{ row: 0, column: 0, value: "\u28ff" }], {
+    flushedCells: 1,
+    dirtyRowRanges: 1,
+  } as never);
+  assertEquals(calls, ["fillRect", "save", "clipRect", "clip", "fillText", "restore"]);
+  calls.length = 0;
+  sink.flush([{ row: 0, column: 1, value: "." }], { flushedCells: 1, dirtyRowRanges: 1 } as never);
+  assertEquals(calls, ["fillRect", "fillText"]);
+  // Block elements never go through the font: a full block is two rects \u2014
+  // the cell background, then the exact glyph geometry \u2014 and no fillText,
+  // so no font's shortfall can leave seams over a shaded background.
+  calls.length = 0;
+  sink.flush([{ row: 0, column: 2, value: "\u2588" }], { flushedCells: 1, dirtyRowRanges: 1 } as never);
+  assertEquals(calls, ["fillRect", "fillRect"]);
+});

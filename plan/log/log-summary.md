@@ -3,6 +3,185 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: the welcome flows, the lava survives a resize
+
+The welcome page's text was stored pre-wrapped at 56 columns, so every other width re-wrapped the fragments into ragged
+orphans. The content is flowing blocks now — paragraphs, bullets with hanging indents, a key/description table that
+stacks when narrow — reflowed live to the window's width, and when the figlet art cannot fit whole the window shows a
+plain E X O W E B T U I banner instead of a cropped glyph field. Horizontal scrolling went with the pre-wrapping; there
+is nothing left to scroll to. And butterchurn stopped dying under a live browser resize: the field's resize zeroed its
+ink buffers, and the feedback loop only warps ink that exists, so drag-resizing the viewport left stepped black dead
+zones. The picture is carried across resizes nearest-neighbour, like scaled video — pinned by a field test that grows
+the grid and asserts the ink survives.
+
+## August 22 2026 — exomux: a killed child takes its pictures with it
+
+The live-terminal pass found one regression: kill the exomux window hosting a kitty-passthrough app (tode) and the
+relayed image stays on the host forever. The mechanism was a lifecycle hole, not a paint bug — releaseGraphics needs the
+session's runtime, and a kill reaps the runtime before the compositor's next flush notices the window left the
+projection, so release-by-id finds nothing. Every runtime removal now stashes the relay's delete emissions in an orphan
+list the app drains on every flush, and leaving exomux sweeps every displayed session on teardown — alt-screen restore
+does not delete kitty images, so exomux does it itself. Pinned by a controller test: paint through a passthrough relay,
+kill the session, assert the deletes surface from the stash. 545 exomux tests green.
+
+## August 22 2026 — exowebtui: readable buttons, an honest name, a fluid lava
+
+Four field reports, four fixes. The control-strip buttons were accent-on-chromeActive — the same teal twice in most
+themes, arrows drowned in their own chips — and their half-block caps had just become geometric solids; the strip paints
+as accent chips with the theme's computed on-accent ink now, the exact pair the active title bar reads by. The bar
+button finally says ⏻ exowebtui instead of ⏻ start. Butterchurn stopped being a slideshow: background entries carry a
+preferred fps, the calm catalog keeps its 8, and butterchurn declares 60 — verified at ~53 advances a second in
+headless, every frame the compositor gives. And the coil got a face: a ∪ degauss chip floats bottom-right, quiet on a
+clean tube, alarmed past 0.55 magnetization, blinking danger-and-accent at 380ms when the picture is annoying to read —
+one click thumps the field to 0.02, verified against the layer's newly exposed magnetism(). Butterchurn then took the
+throne: it is the default wallpaper for a fresh visitor, lazy bundle and all, with hosts that cannot supply it — the
+console, a stale persisted id — falling back to the circuit rather than a blank.
+
+## August 22 2026 — exowebtui: unbroken wires, a drawn pointer, and the tap that opens everything
+
+The box-drawing range joined the geometric renderer: light arms, corners, tees and crosses from a URDL bitmask, heavy
+bars, and the double-line set as hand-placed rails with outer corners long and inner corners short — so the circuit's
+wires run unbroken and window borders are continuous strokes, ending the same font-shortfall gaps the blocks had. The
+desktop draws its own pointer now: the OS cursor is hidden (cursor: none) and the library's softwareCursorRender —
+promoted from exomux — paints the block at the tracked cell, turning into ✥ on title bars and ↔ ↕ ⤡ ⤢ on edges; it rides
+the shader warp with the picture, which the floating DOM cursor never could. That required the web host to emit hover:
+pointermove with no buttons was dropped entirely, which had also quietly kept pointer-following backgrounds drag-only on
+the web. Butterchurn's click-to-advance turned out to be unimplemented in the one place it mattered — the lazy wrapper
+never forwarded pick() — so clicks now jump to a random preset (verified: 38 → 425 → 208), and on a phone a tap on bare
+wallpaper opens the start menu, since a phone has no right-click and its windows fill the screen.
+
+## August 22 2026 — exowebtui: degauss means degauss
+
+Magnetization stopped being an amplifier and became the level itself: every shader distortion — tape tremor, tracking,
+chroma bleed, grain, fringe, vignette, glow, scanline depth, the corner stains — now scales with iMagnet (knob values
+are the half-magnetized look, double at full), so hitting degauss takes basically everything to zero except the
+curvature, which is the glass, not the field. The whole picture then creeps back toward character at the drift rate. The
+pointer mapping follows the full display chain now, not just the static curvature: the degauss pass's magnetization
+shear and rotation and even the thump's settling wobble are composed before the curvature in warpPoint, evaluated per
+event on the shader's own clock. A probe of fixed cell centers matched the mapping cell-for-cell, and the start-button
+aim test passes under both crt-only and the full five-pass stack; the boot pair of screenshots — wrecked tube, then
+surgically clean but still curved — is the feature explaining itself.
+
+## August 22 2026 — exowebtui: a phone is not a mouse
+
+Two mobile complaints, one evening. A finger-drag inside a window was arming the text selection, so phones could not
+scroll: now a touch down in a client arms a scroll gesture instead — one wheel tick per three rows of finger travel,
+content pinned under the finger, the host's in-flight gesture cancelled the moment the drag commits — and selection
+stays with the mouse and the pen, where a drag has always meant selecting. And the on-screen keyboard popped up on every
+tap, because the host's hidden capture textarea takes focus on pointerdown: on coarse-pointer devices it now declares
+inputmode=none, and every demo grew a control strip — its keys as tappable buttons along the bottom of the client (◀ ▶ ▲
+▼, hue and lightness for the builder, theme for the monitor) — so nothing needs a keyboard at all. The hunt exposed a
+real host bug on the way: setPointerCapture throws for a pointer that is already gone, and the throw was swallowing the
+pointerdown entirely; the capture is now allowed to fail while the event still flows. Verification moved to a headless
+Chrome mid-stream, because the user's Wayland workspace had hidden the visible one and XWayland stops frame callbacks
+for windows nobody can see — RAF-dead pages, stale screenshots, an hour of ghosts.
+
+## August 22 2026 — exowebtui: the tube gets a voice, a tape deck, and manners
+
+The whole stack turns on by default for a fresh visitor — vhs, crt, phosphor, scanlines, degauss — with degauss at its
+lowest drift rate and magnetization slowed five-fold (full impurity is now a five-minute decay at rate 1, an ambience
+rather than a timer). The page boots fully magnetized and, two seconds in, fires its own degauss: the visitor watches
+the tube come clean, and the coil has a voice now — a WebAudio thump dropping 130→32Hz under a burst of mains hum and
+low-passed crackle, silent only where autoplay policy holds the context until the first gesture. A vhs pass heads the
+catalog (per-line tremor, a rolling tracking band, chroma bleed, tape grain, the head-switch stripe at the bottom),
+placed before the display shaders so the tape's artifacts get warped like any signal. The welcome page speaks in the
+voice of Julius Evola — the desktop of cells upright amid the ruins, tradition by transmission, riding the tiger of the
+modern browser — and every vertically overflowing window (welcome, settings, themes) carries a right-edge scrollbar,
+track and thumb, painted from the same clamped offsets the demos already scroll by.
+
+## August 22 2026 — exowebtui: live feedback, answered live
+
+The user drove the page while the fixes landed. Selection had been arming through overlapping windows — a titlebar drag
+or a corner resize over a lower window's client turned into a text selection — so arming now belongs to the topmost
+window under the pointer, only inside its client, and a down the host claims as drag/resize disarms it. The block
+elements (U+2580–U+259F) stopped going through the font: halves, eighths, and quadrants are exact rects, shades are
+alpha fills, and the grid of seams over every shaded background vanished with them. Shaders became a stack — checkboxes,
+not radios — run as a multi-pass ping-pong chain in catalog order, each with its knobs unfolding beneath it (curvature,
+vignette, fringe, glow, scanline strength and spacing) as `u_*` uniforms with ◂ value ▸ rows. And degauss joined the
+catalog as the Trinitron simulation it deserved: enabled, the tube magnetizes at a drift rate — iMagnet creeps toward 1,
+amplifying every other shader's distortion and staining the corners green and purple — until the right-click menu's
+degauss button thumps the field back to near zero in a settling wobble of chroma and colour blotch. The stack and every
+knob persist; the proof of all of it was the user's own IndexedDB record, mid-session: three shaders enabled, five
+values off their defaults. Then the user named the deeper drag problem: the CRT warp displaces the picture while input
+stays linear, so you aim at what you see and miss what is there. The curvature was renormalised to be tangent at the
+edge midpoints — distortion vanishes where the eye lines rows up, only the corners pull in — and the presenter now maps
+every pointer and wheel cell through the same forward warp the shader samples with, magnetism included. Verified by
+aiming a synthetic click at the start button's displaced visual position under curvature 0.12: the app received the
+button's true cell and the menu opened.
+
+## August 22 2026 — exowebtui: the bug list becomes the feature list
+
+One goal message carried a dozen asks; all of them landed. The renames went across the board — Dracula is Nosferatu (id
+and label, with persisted "dracula" workspaces mapped forward), Black Sabbath is Sabbath — and the web defaults are
+Section 9 over the circuit board, under a start menu that finally says exowebtui. The theme picker stopped wrapping its
+catalog into an illusion of infinity. The welcome window got the graffiti figlet art, the full project story wrapped to
+its width, and both axes of scrolling; the settings window scrolls too, because the night kept adding sections to it:
+SHADER (a WebGL layer over the cell canvas — Shadertoy-style CRT curvature, phosphor glow, scanlines — the ghostty look
+for a host with no ghostty) and WINDOWS (glass: per-cell blending of every window against the live backdrop, exomux's
+translucency with the chrome kept at half transparency for legibility).
+
+Input grew up the same night: right-click context menus (window verbs on a window, desktop verbs on the wallpaper),
+wheel routing through the seam to whatever window is under the pointer, terminal-style drag selection that lands on the
+clipboard through a host service, minimize/restore fly ghosts, and picks reaching interactive backgrounds — the
+circuit's nodes light their wires on the web now. Butterchurn arrived as the thirteenth background: the preset catalog
+is megabytes, so it lazy-loads like the three renderer, fed by a browser AnalyserNode implementing exomux's pull-based
+audio contract (synth until the mic is granted). One performance lesson got a cache: rasterize a background once per
+advance, not once per frame — butterchurn's CPU presets froze a tab teaching it.
+
+## August 22 2026 — one application, two presentations: 045 built
+
+The presenter seam landed whole. `ShellPresenter` (src/app/shell_presenter.ts) owns what both hosts already provided
+under different names — a live grid size, the key/pointer event stream, one-shot frame scheduling, an `AsyncStore`
+factory, a probed capability record — and `runShellApp(presenter, app)` is the entire loop. The browser implementation
+(src/web/web_presenter.ts) absorbed the line-signal and cells-to-ANSI machinery every page used to hand-wire; the
+console implementation (src/runtime/console_presenter.ts) was assembled from parts that already existed — the diffing
+ANSI screen painter, the input reader, the terminal mouse-to-pointer adapter — plus the alternate screen and SIGWINCH.
+
+The desktop became the reference application: `examples/web/desktop_app.ts` is 1,400 lines of desktop that never mention
+a host API (a test greps for Deno./document/navigator and the docs build probe-bundles it at zero Deno references), with
+the browser-only powers — the mic monitor, the WebGPU three overlay, opening tabs — arriving as optional services that
+render honest "unavailable" states when absent. The page shrank from 1,432 lines to 62; the new console entry is 30, and
+running it in a scratch PTY painted the same welcome window, bar and borders the browser shows — the
+zero-additional-code-paths claim, observed rather than asserted. Theme, wallpaper and bar settings persist through the
+presenter's store: IndexedDB in the browser, `~/.exotui/desktop.json` on the console, with the Dracula round-trip pinned
+in tests and new health gates (`desktop-check`, `desktop-console`) booting the shared module in CI.
+
+## August 21 2026 — everything the desktop is made of becomes portable
+
+"Port all of the backgrounds… same goes for the themes." The port turned out to be mostly recognition: the
+animated-background contract had already been promoted to the library (WS-009) and every field imports exactly three
+things — Rectangle, that contract, and the theme spec. So the theme catalog moved first (`ShellThemeSpec`,
+`SHELL_THEMES` — one catalog, exomux narrowing by cast), and the eleven pure simulations followed mechanically, each
+exomux file left behind as a re-export shim so not one import site or test changed. The WebGPU device acquisition moved
+with them behind a pluggable logger; `navigator.gpu` is the same door on Deno and the browser. The one honest adapter
+written by hand was the metaball field's — it was raw simulation, and the cast that pretended otherwise blanked the page
+until it got the palette-and-levels adapter exomux's compositor had kept to itself.
+
+The result on screen: exomux's metaballs as the web desktop's default wallpaper, window-averse and pointer-attracted;
+the full seventeen-theme catalog in the themes window; Dracula applied re-deriving the metaball gradient to red-and-moss
+by the same vivid-pair rule; and the theme builder — the goal's named artifact — editing the live spec slot by slot in
+OKLCH, with the desktop and the background both following each nudge. Solid fills paint as backgrounds rather than block
+glyphs, because a 14px "█" in a 9px cell leaves seams the way the 16px font left trails.
+
+## August 21 2026 — the shell extracted, and the trails were the font
+
+The one-big-go the maintainer asked for, on the `desktop-shell` branch with Pages following it. The extraction line held
+exactly as drawn: `src/app/workbench_shell.ts` is the furniture — ground-aware primitives, window chrome, the switcher
+panel, menu panels, a tab strip — taking a projection and resolved colours, painting cells, never touching content.
+exomux swapped its chrome block, switcher, start-menu panel and ground helpers for shell calls that reproduce its
+painting glyph-for-glyph; the proof is the 544-test suite passing without a single expectation changing. The web desktop
+swapped the same pieces and gained exomux's bordered windows in the trade. The renderer-neutral claim is now
+load-bearing: one painter drives a terminal DesktopPainter and a browser cell grid through the same three-method
+surface, with exomux's animated-backdrop blending arriving through the ground function the web hands in as a constant.
+
+The evening's field report — trails in the three demos and the catalog — turned out to be typography, not repainting:
+the sink's default 16px font advances 9.63px (braille 11.72px) in 9px cells, so every dense glyph painted into its
+neighbour and survived there until the neighbour happened to repaint. The sink now measures each glyph once and clips
+the wide ones to their cell; both web pages also pass a font sized to their cells. One process lesson repeated itself
+twice tonight: a "missing" border after the swap was the browser caching the old bundle from a header-less local server,
+and a plan paragraph a commit message claimed was recorded had silently failed its anchor match — verify the write, not
+the intention.
+
 ## August 21 2026 — the top bar, and the desktop asking to be a component
 
 The bar moved to the top where exomux keeps its, and grew exomux's furniture: a tab per open window (click to focus,

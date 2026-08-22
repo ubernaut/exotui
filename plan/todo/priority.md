@@ -179,6 +179,27 @@ gallery themes the desktop chrome on click. Verified by driving real Chrome over
 dumps; the `__desktop` hook in the page is that harness's seam. Still open from the parity ask: window context menus,
 per-window settings, and the workbench inside a window.
 
+**Backgrounds and themes ported (August 21 2026, later that night).** The whole catalog moved: `ShellThemeSpec` +
+`SHELL_THEMES` (all seventeen — natives, the eight Workbench palettes, T2, TempleOS, Miami, Dracula, Sabbath) live in
+`src/app/shell_theme.ts`; all eleven pure background simulations live under `src/app/backgrounds/` behind the
+`AnimatedBackground` contract that was already library code, with `shellGpuDevice()` as the one WebGPU door (turbulence
+included). exomux consumes everything through shims and aliases — its full suite passes untouched, so the port is
+provably behaviour-free. The web desktop dropped its hand palette for the shared specs (Dracula on the web re-derives
+the metaball gradient to red-and-moss, live), grew the background picker with the full catalog, and gained the **theme
+builder** window (slot-wise OKLCH editing of the live theme). Butterchurn and image backgrounds stay exomux-side hosts
+for now. The zero-extra-code-paths architecture is planned in `todo/045-one-app-two-presentations.md`.
+
+**Shell extraction — landed on the `desktop-shell` branch (August 21 2026, night).** `src/app/workbench_shell.ts` holds
+the furniture both desktops painted by hand: surface/ground primitives (`ShellSurface`, `ShellGround`, `fillOnGround`,
+`writeOnGround`, `borderBoxOnGround`), the window-chrome painter, the switcher panel, menu panels, and a tab strip —
+projection plus resolved colours in, cells out, content never. exomux adopted chrome, switcher, menu panel and the
+ground helpers with zero behaviour change (the 544-test suite is the golden and passed untouched); the web desktop
+adopted the same pieces, deleting its duplicates and gaining exomux's bordered windows. The exomux terminal bar stays
+exomux's (a button-row projection, not a plain tab strip) — a later slice. Fixed on the way: the canvas sink clips
+glyphs whose advance exceeds the cell (the 16px default font in 9px cells bled into neighbours — the trails in animated
+charts), and both web pages pass a font sized to their cells. Merge back to main once the maintainer has run live exomux
+in a real terminal against this branch.
+
 Remaining, in rough order: shrink the 17-reference pin (each removal is a module whose terminal path moved behind a
 seam); decide whether the browser monitor ships to `docs/` beside the workbench (a second bundle needs its own budget);
 a browser-real `cpu`-equivalent feed (main-thread busy fraction) wants its own feed id rather than borrowing `cpu:*`

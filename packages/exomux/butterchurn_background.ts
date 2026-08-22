@@ -956,10 +956,31 @@ export class ExomuxButterchurnField implements ExomuxPresetBackground, ExomuxInt
 
   #resize(width: number, height: number): void {
     if (width === this.#width && height === this.#height) return;
+    const previousWidth = this.#width;
+    const previousHeight = this.#height;
+    const previousInk = this.#ink;
     this.#width = width;
     this.#height = height;
     this.#ink = new Float32Array(width * height * 3);
     this.#inkNext = new Float32Array(width * height * 3);
+    // The feedback loop only decays and warps ink that already exists, so a
+    // zeroed buffer after a live resize leaves dead black regions the preset
+    // may not repaint for a long time — a browser window resized by drag
+    // fires dozens of these. The picture is carried across instead,
+    // nearest-neighbour, like scaled video.
+    if (previousWidth > 0 && previousHeight > 0 && previousInk.length === previousWidth * previousHeight * 3) {
+      for (let row = 0; row < height; row += 1) {
+        const sourceRow = Math.min(previousHeight - 1, Math.floor(row * previousHeight / height));
+        for (let column = 0; column < width; column += 1) {
+          const sourceColumn = Math.min(previousWidth - 1, Math.floor(column * previousWidth / width));
+          const from = (sourceRow * previousWidth + sourceColumn) * 3;
+          const to = (row * width + column) * 3;
+          this.#ink[to] = previousInk[from]!;
+          this.#ink[to + 1] = previousInk[from + 1]!;
+          this.#ink[to + 2] = previousInk[from + 2]!;
+        }
+      }
+    }
     this.#cells = [];
     this.#preset.setSize(width, height);
     this.#previous?.setSize(width, height);

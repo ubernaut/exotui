@@ -214,11 +214,18 @@ export class BrowserInputSource implements InputSource {
 
   #handlePointer(event: PointerEvent, kind: "down" | "up" | "cancel"): void {
     const release = kind !== "down";
-    if (kind === "down") {
-      (this.#keyboardTarget ?? this.#target).focus({ preventScroll: true });
-      this.#target.setPointerCapture?.(event.pointerId);
-    } else if (this.#target.hasPointerCapture?.(event.pointerId)) {
-      this.#target.releasePointerCapture?.(event.pointerId);
+    // Capture can throw NotFoundError when the pointer is already gone — a
+    // finger lifted before the handler ran, or a synthetic event — and the
+    // down must still be emitted.
+    try {
+      if (kind === "down") {
+        (this.#keyboardTarget ?? this.#target).focus({ preventScroll: true });
+        this.#target.setPointerCapture?.(event.pointerId);
+      } else if (this.#target.hasPointerCapture?.(event.pointerId)) {
+        this.#target.releasePointerCapture?.(event.pointerId);
+      }
+    } catch {
+      // The event still flows; only the capture failed.
     }
     const position = this.#cellPosition(event);
     this.#emitPointerInput(event, kind, position);
@@ -241,9 +248,12 @@ export class BrowserInputSource implements InputSource {
   }
 
   #handlePointerMove(event: PointerEvent): void {
-    if (event.buttons === 0) return;
     const position = this.#cellPosition(event);
+    // Hover flows as pointer input — drawn cursors and pointer-following
+    // backgrounds need motion, not only drags. The legacy mouse-press
+    // stream below stays drag-only, as its `drag: true` promises.
     this.#emitPointerInput(event, "move", position);
+    if (event.buttons === 0) return;
     this.#emitter?.emit("mousePress", {
       key: "mouse",
       x: position.x,
@@ -432,6 +442,13 @@ function createHiddenTextInput(target: HTMLElement): { element: HTMLElement; dis
   textarea.setAttribute("autocomplete", "off");
   textarea.setAttribute("autocorrect", "off");
   textarea.setAttribute("spellcheck", "false");
+  // A focused textarea summons the on-screen keyboard on touch devices, and
+  // the desktop's demos are driven by painted buttons there instead — the
+  // OSK stays down. Hardware keyboards still deliver keydown as before.
+  if (globalThis.matchMedia?.("(pointer: coarse)").matches) {
+    textarea.setAttribute("inputmode", "none");
+    textarea.setAttribute("virtualkeyboardpolicy", "manual");
+  }
   textarea.style.position = "fixed";
   textarea.style.left = "0";
   textarea.style.top = "0";
