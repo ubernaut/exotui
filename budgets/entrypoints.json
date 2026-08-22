@@ -892,7 +892,7 @@
   },
   "mod.web.ts": {
     "modules": 426,
-    "bytes": 5468859,
+    "bytes": 5469552,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -1317,7 +1317,7 @@
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,
       "src/web/mod.ts": 283,
-      "src/web/platform.ts": 19089,
+      "src/web/platform.ts": 19782,
       "src/web/remote_terminal.ts": 49112,
       "src/web/web_presenter.ts": 7203
     }

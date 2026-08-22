@@ -132,6 +132,35 @@ interface DesktopDemo {
   onWheel?(direction: 1 | -1, column: number, row: number): boolean;
   /** Vertical scroll state; overflowing windows get a right-edge scrollbar. */
   vscroll?(width: number, height: number): { readonly offset: number; readonly total: number };
+  /** Tappable buttons for every key the demo answers to — the mobile hands. */
+  readonly controls?: readonly DemoControl[];
+}
+
+/** One painted button: a label, and the key its tap synthesizes. */
+interface DemoControl {
+  readonly label: string;
+  readonly key: string;
+}
+
+/** Button spans on the control strip, in client columns. */
+function demoControlSpans(
+  demo: DesktopDemo,
+  width: number,
+): { readonly control: DemoControl; readonly from: number; readonly to: number }[] {
+  const spans: { control: DemoControl; from: number; to: number }[] = [];
+  let cursor = 1;
+  for (const control of demo.controls ?? []) {
+    const length = control.label.length + 2;
+    if (cursor + length > width - 1) break;
+    spans.push({ control, from: cursor, to: cursor + length });
+    cursor += length + 1;
+  }
+  return spans;
+}
+
+/** Feeds one synthesized key press to a demo, as if typed. */
+function pressDemoKey(demo: DesktopDemo, key: string): void {
+  demo.onKey?.({ key, meta: false, ctrl: false, shift: false, buffer: new Uint8Array() } as unknown as KeyPressEvent);
 }
 
 function monitorDemo(): DesktopDemo {
@@ -142,6 +171,9 @@ function monitorDemo(): DesktopDemo {
   };
   return {
     id: "exomonitor",
+    controls: [
+      { label: "theme", key: "t" },
+    ],
     title: "exomonitor",
     summary: "Live dashboard: this host's live sources through the viz layer.",
     window: { width: 62, height: 18, minWidth: 24, minHeight: 8 },
@@ -182,6 +214,12 @@ function neonDemo(): DesktopDemo {
   const demos = (): NeonDemo[] => neonDemosForSection(sections[sectionIndex]!);
   return {
     id: "neon",
+    controls: [
+      { label: "◀ demo", key: "left" },
+      { label: "demo ▶", key: "right" },
+      { label: "▲ sect", key: "up" },
+      { label: "sect ▼", key: "down" },
+    ],
     title: "neon exodus",
     summary: "The neon component suite, one demo at a time.",
     window: { width: 56, height: 17, minWidth: 30, minHeight: 9 },
@@ -275,9 +313,17 @@ function themesDemo(): DesktopDemo {
       const spec = themeAt(row);
       if (spec) applyShellTheme(spec);
     },
+    onWheel(direction) {
+      offset = Math.max(0, offset + direction * 3);
+      return true;
+    },
     vscroll() {
       return { offset, total: SHELL_THEMES.length };
     },
+    controls: [
+      { label: "▲", key: "up" },
+      { label: "▼", key: "down" },
+    ],
   };
 }
 
@@ -418,6 +464,10 @@ function settingsDemo(): DesktopDemo {
     vscroll() {
       return { offset: scrollTop, total: rowsOf().length };
     },
+    controls: [
+      { label: "▲", key: "up" },
+      { label: "▼", key: "down" },
+    ],
   };
 }
 
@@ -490,6 +540,14 @@ function themeBuilderDemo(): DesktopDemo {
   };
   return {
     id: "builder",
+    controls: [
+      { label: "▲ slot", key: "up" },
+      { label: "slot ▼", key: "down" },
+      { label: "◀ hue", key: "left" },
+      { label: "hue ▶", key: "right" },
+      { label: "− light", key: "[" },
+      { label: "light +", key: "]" },
+    ],
     title: "theme builder",
     summary: "Edit the live theme slot by slot, in OKLCH.",
     window: { width: 46, height: 15, minWidth: 30, minHeight: 8 },
@@ -698,6 +756,12 @@ function aboutDemo(): DesktopDemo {
     vscroll(width) {
       return { offset: scrollTop, total: ABOUT_ART.length + wrapped(width - 2).length };
     },
+    controls: [
+      { label: "▲", key: "up" },
+      { label: "▼", key: "down" },
+      { label: "◀", key: "left" },
+      { label: "▶", key: "right" },
+    ],
   };
 }
 
@@ -721,6 +785,10 @@ function vizCatalogDemo(): DesktopDemo {
   };
   return {
     id: "viz",
+    controls: [
+      { label: "◀ prev", key: "left" },
+      { label: "next ▶", key: "right" },
+    ],
     title: "visualization catalog",
     summary: `All ${VISUALIZATIONS.length} visualizations, one at a time, on sample data.`,
     window: { width: 52, height: 16, minWidth: 20, minHeight: 6 },
@@ -835,6 +903,10 @@ function clockDemo(): DesktopDemo {
 function threeDemo(): DesktopDemo {
   return {
     id: "three",
+    controls: [
+      { label: "◀ scene", key: "left" },
+      { label: "scene ▶", key: "right" },
+    ],
     title: "three ascii",
     summary: "Three.js through the WebGPU ASCII pipeline. Loads on launch.",
     window: { width: 58, height: 18, minWidth: 28, minHeight: 8 },
@@ -1191,6 +1263,8 @@ interface SelectionPoint {
 }
 /** A selection lives inside ONE window's client area, in local cells. */
 let selectionAnchor: { readonly windowId: string; readonly local: SelectionPoint } | undefined;
+/** A finger inside a client scrolls the content; selection is for the mouse. */
+let touchScroll: { windowId: string; startY: number; applied: number; active: boolean } | undefined;
 let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
   | undefined;
@@ -1549,6 +1623,31 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
         };
       }
     }
+    // The control strip: every key the demo answers to, as a tappable button
+    // row along the bottom of the client — the demo works without a keyboard.
+    if (demo.controls && demo.controls.length > 0 && client.height >= 3) {
+      const stripY = client.row + client.height - 1;
+      const line = frame[stripY];
+      if (line) {
+        for (let column = 0; column < client.width; column += 1) {
+          const frameX = client.column + column;
+          if (frameX < 0 || frameX >= line.length) continue;
+          line[frameX] = { char: " ", foreground: DESKTOP.chromeMuted, background: DESKTOP.chromeIdle };
+        }
+        for (const span of demoControlSpans(demo, client.width)) {
+          const text = `▌${span.control.label}▐`;
+          for (let offset = 0; offset < text.length; offset += 1) {
+            const frameX = client.column + span.from + offset;
+            if (frameX < 0 || frameX >= line.length) continue;
+            line[frameX] = {
+              char: text[offset]!,
+              foreground: offset === 0 || offset === text.length - 1 ? DESKTOP.chromeMuted : DESKTOP.accent,
+              background: DESKTOP.chromeActive,
+            };
+          }
+        }
+      }
+    }
   } else {
     fillRect(frame, client, DESKTOP.clientGround);
   }
@@ -1761,6 +1860,7 @@ function paintWallpaper(frame: VizCell[][], width: number, height: number, now: 
 
 let lastFrame: VizCell[][] = [];
 let lastPointerCell: { x: number; y: number; kind: string } | undefined;
+let pointerKindCounts: Record<string, number> = {};
 
 function paintDesktop(now: number): VizCell[][] {
   const width = columns();
@@ -1848,7 +1948,8 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   const cell = event.coordinates.cell;
   if (!cell) return;
   const { x, y } = cell;
-  lastPointerCell = { x, y, kind: event.kind };
+  lastPointerCell = { x, y, kind: `${event.kind}:${event.device}` };
+  pointerKindCounts[`${event.kind}:${event.device}`] = (pointerKindCounts[`${event.kind}:${event.device}`] ?? 0) + 1;
   if (event.kind === "move" && backgroundField) backgroundField.setPointer({ column: x, row: y });
   if (contextMenu) {
     if (event.kind !== "down") return;
@@ -1870,13 +1971,44 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   if (event.kind === "down" && event.button !== 2) {
     const projection = windowHost.project(bodyBounds(), projectionOptions());
     // The TOPMOST window under the pointer owns the down. Only when the point
-    // is inside that window's CLIENT does a selection arm — its title bar,
+    // is inside that window's CLIENT does a gesture arm — its title bar,
     // borders, and any window beneath it belong to the host's gestures.
     const top = [...projection.windows].reverse().find((candidate) => contains(candidate.rect, x, y));
-    selectionAnchor = top && contains(top.clientRect, x, y)
-      ? { windowId: top.id, local: { x: x - top.clientRect.column, y: y - top.clientRect.row } }
-      : undefined;
+    const inClient = top !== undefined && contains(top.clientRect, x, y);
+    if (inClient && event.device === "touch") {
+      // Touch convention: a drag moves the CONTENT. Selection stays with the
+      // mouse and the pen, where a drag has always meant selecting.
+      touchScroll = { windowId: top.id, startY: y, applied: 0, active: false };
+      selectionAnchor = undefined;
+    } else {
+      touchScroll = undefined;
+      selectionAnchor = inClient
+        ? { windowId: top.id, local: { x: x - top.clientRect.column, y: y - top.clientRect.row } }
+        : undefined;
+    }
     if (selection) selection = undefined;
+  } else if (event.kind === "move" && touchScroll) {
+    const delta = touchScroll.startY - y;
+    if (touchScroll.active || Math.abs(delta) >= 2) {
+      if (!touchScroll.active) {
+        // Resolve whatever the host began on the down before taking over.
+        windowHost.handlePointer({ ...event, kind: "cancel" }, bodyBounds(), projectionOptions());
+        touchScroll.active = true;
+      }
+      // One wheel tick (three lines) per three rows of travel keeps the
+      // content pinned under the finger.
+      const ticks = Math.trunc(delta / 3);
+      const demo = demoById.get(touchScroll.windowId);
+      while (touchScroll.applied < ticks) {
+        demo?.onWheel?.(1, x, y);
+        touchScroll.applied += 1;
+      }
+      while (touchScroll.applied > ticks) {
+        demo?.onWheel?.(-1, x, y);
+        touchScroll.applied -= 1;
+      }
+      return;
+    }
   } else if (event.kind === "move" && selectionAnchor) {
     const projection = windowHost.project(bodyBounds(), projectionOptions());
     const owner = projection.windows.find((candidate) => candidate.id === selectionAnchor!.windowId);
@@ -1900,6 +2032,11 @@ function handleDesktopPointer(event: PointerInputEvent): void {
       }
     }
   } else if (event.kind === "up" || event.kind === "cancel") {
+    if (touchScroll?.active) {
+      touchScroll = undefined;
+      return;
+    }
+    touchScroll = undefined;
     if (selecting && selection) {
       const text = selectedText();
       if (text.trim().length > 0) services.copyText?.(text);
@@ -1970,7 +2107,19 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     // of every client click.
     const chromeClaimed = result.command !== undefined && result.command.kind !== "focus";
     if (window && contains(window.clientRect, x, y) && !chromeClaimed) {
-      demoById.get(window.id)?.onPointerDown?.(x - window.clientRect.column, y - window.clientRect.row);
+      const demo = demoById.get(window.id);
+      const localX = x - window.clientRect.column;
+      const localY = y - window.clientRect.row;
+      if (
+        demo?.controls && demo.controls.length > 0 && window.clientRect.height >= 3 &&
+        localY === window.clientRect.height - 1
+      ) {
+        const span = demoControlSpans(demo, window.clientRect.width)
+          .find((candidate) => localX >= candidate.from && localX < candidate.to);
+        if (span) pressDemoKey(demo, span.control.key);
+        return;
+      }
+      demo?.onPointerDown?.(localX, localY);
       return;
     }
     // Nothing claimed the down: it landed on the wallpaper, and an interactive
@@ -2049,6 +2198,13 @@ function handleDesktopKey(event: KeyPressEvent): void {
     ),
   row: (index: number) => (lastFrame[index] ?? []).map((cell) => cell.char).join(""),
   pointer: () => lastPointerCell,
+  kinds: () => pointerKindCounts,
+  stats: () => ({
+    rows: lastFrame.length,
+    columns: lastFrame[0]?.length ?? -1,
+    size: presentedSize,
+    presented: presentedCount,
+  }),
   separators: () =>
     windowHost.project(bodyBounds(), projectionOptions()).separators.map((separator) =>
       `${separator.axis}@r${separator.rect.row}+${separator.rect.height}c${separator.rect.column}+${separator.rect.width}`

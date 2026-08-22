@@ -3,6 +3,20 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: a phone is not a mouse
+
+Two mobile complaints, one evening. A finger-drag inside a window was arming the text selection, so phones could not
+scroll: now a touch down in a client arms a scroll gesture instead — one wheel tick per three rows of finger travel,
+content pinned under the finger, the host's in-flight gesture cancelled the moment the drag commits — and selection
+stays with the mouse and the pen, where a drag has always meant selecting. And the on-screen keyboard popped up on every
+tap, because the host's hidden capture textarea takes focus on pointerdown: on coarse-pointer devices it now declares
+inputmode=none, and every demo grew a control strip — its keys as tappable buttons along the bottom of the client (◀ ▶ ▲
+▼, hue and lightness for the builder, theme for the monitor) — so nothing needs a keyboard at all. The hunt exposed a
+real host bug on the way: setPointerCapture throws for a pointer that is already gone, and the throw was swallowing the
+pointerdown entirely; the capture is now allowed to fail while the event still flows. Verification moved to a headless
+Chrome mid-stream, because the user's Wayland workspace had hidden the visible one and XWayland stops frame callbacks
+for windows nobody can see — RAF-dead pages, stale screenshots, an hour of ghosts.
+
 ## August 22 2026 — exowebtui: the tube gets a voice, a tape deck, and manners
 
 The whole stack turns on by default for a fresh visitor — vhs, crt, phosphor, scanlines, degauss — with degauss at its
