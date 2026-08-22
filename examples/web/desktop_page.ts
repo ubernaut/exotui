@@ -103,3 +103,7 @@ runShellApp(
     ],
   }),
 );
+
+// The page boots fully magnetized; two seconds in, the coil fires and the
+// tube comes clean before the visitor's eyes.
+setTimeout(() => presenter.shader.degauss(), 2000);

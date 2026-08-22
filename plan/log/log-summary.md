@@ -3,6 +3,19 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: the tube gets a voice, a tape deck, and manners
+
+The whole stack turns on by default for a fresh visitor — vhs, crt, phosphor, scanlines, degauss — with degauss at its
+lowest drift rate and magnetization slowed five-fold (full impurity is now a five-minute decay at rate 1, an ambience
+rather than a timer). The page boots fully magnetized and, two seconds in, fires its own degauss: the visitor watches
+the tube come clean, and the coil has a voice now — a WebAudio thump dropping 130→32Hz under a burst of mains hum and
+low-passed crackle, silent only where autoplay policy holds the context until the first gesture. A vhs pass heads the
+catalog (per-line tremor, a rolling tracking band, chroma bleed, tape grain, the head-switch stripe at the bottom),
+placed before the display shaders so the tape's artifacts get warped like any signal. The welcome page speaks in the
+voice of Julius Evola — the desktop of cells upright amid the ruins, tradition by transmission, riding the tiger of the
+modern browser — and every vertically overflowing window (welcome, settings, themes) carries a right-edge scrollbar,
+track and thumb, painted from the same clamped offsets the demos already scroll by.
+
 ## August 22 2026 — exowebtui: live feedback, answered live
 
 The user drove the page while the fixes landed. Selection had been arming through overlapping windows — a titlebar drag

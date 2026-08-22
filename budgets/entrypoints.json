@@ -892,7 +892,7 @@
   },
   "mod.web.ts": {
     "modules": 426,
-    "bytes": 5464954,
+    "bytes": 5468859,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -1312,7 +1312,7 @@
       "src/view.ts": 746,
       "src/viewport.ts": 9033,
       "src/web/ansi_color.ts": 985,
-      "src/web/canvas_shader.ts": 18607,
+      "src/web/canvas_shader.ts": 22512,
       "src/web/cell_canvas_sink.ts": 11901,
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,

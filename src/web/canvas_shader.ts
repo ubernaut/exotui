@@ -32,6 +32,40 @@ export interface CanvasShaderDefinition {
 /** The built-in catalog, in the spirit of ghostty's shader packs. */
 export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
   {
+    id: "vhs",
+    label: "vhs — tape tremor, tracking, bleed",
+    options: [
+      { key: "tracking", label: "tracking", min: 0, max: 1, step: 0.1, value: 0.3 },
+      { key: "noise", label: "tape noise", min: 0, max: 0.5, step: 0.05, value: 0.1 },
+      { key: "bleed", label: "chroma bleed", min: 0, max: 3, step: 0.25, value: 1 },
+    ],
+    body: `
+      vec2 uv = fragCoord / iResolution.xy;
+      float track = u_tracking * (1.0 + 1.5 * iMagnet);
+      float line = floor(fragCoord.y);
+      // Per-line tremor, re-rolled at tape speed; the magnetized tube shakes
+      // the transport harder.
+      float wobble = (shaderHash(vec2(line, floor(iTime * 60.0))) - 0.5) * 0.0025 * (0.4 + track);
+      // A tracking band rolls up the tube, shearing and lightening the tape.
+      float band = fract(uv.y * 0.7 + iTime * 0.11);
+      float inBand = smoothstep(0.0, 0.04, band) * (1.0 - smoothstep(0.05, 0.12, band));
+      wobble += inBand * track * 0.03 * (shaderHash(vec2(line, floor(iTime * 24.0))) - 0.3);
+      vec2 shifted = vec2(uv.x + wobble, uv.y);
+      // Luma stays sharp; chroma smears sideways, the composite signature.
+      float px = u_bleed * (1.0 + 2.0 * iMagnet) / iResolution.x;
+      vec3 color;
+      color.r = sampleChannel(vec2(shifted.x + px * 1.5, shifted.y)).r;
+      color.g = sampleChannel(shifted).g;
+      color.b = sampleChannel(vec2(shifted.x - px * 1.5, shifted.y)).b;
+      float sparkle = shaderHash(vec2(fragCoord.x * 0.37 + iTime * 91.0, line * 1.7 + iTime * 57.0));
+      float grain = u_noise * (0.35 + inBand * 2.0);
+      // The head-switch stripe lives at the bottom of the picture.
+      if (uv.y < 0.025) grain += 0.5 * track;
+      color += (sparkle - 0.5) * grain;
+      fragColor = vec4(color, 1.0);
+    `,
+  },
+  {
     id: "crt",
     label: "crt — curvature, vignette, fringe",
     options: [
@@ -103,7 +137,7 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
     id: "degauss",
     label: "degauss — the coil magnetizes",
     options: [
-      { key: "rate", label: "drift rate", min: 0.2, max: 5, step: 0.2, value: 1 },
+      { key: "rate", label: "drift rate", min: 0.2, max: 5, step: 0.2, value: 0.2 },
     ],
     body: `
       vec2 uv = fragCoord / iResolution.xy;
@@ -151,6 +185,9 @@ uniform float iMagnet;
 uniform float iThump;
 ${uniforms}
 out vec4 outColor;
+float shaderHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
 vec4 sampleChannel(vec2 uv) {
   return texture(iChannel0, iFlip > 0.5 ? vec2(uv.x, 1.0 - uv.y) : uv);
 }
@@ -221,8 +258,9 @@ export function createCanvasShaderLayer(
   }
   let raf = 0;
   let degaussStarted = -Infinity;
-  let magnetism = 0;
+  let magnetism = 1;
   let magnetClock = 0;
+  let audio: AudioContext | undefined;
   const DEGAUSS_SECONDS = 1.3;
   const started: number = performance.now();
 
@@ -323,6 +361,52 @@ export function createCanvasShaderLayer(
     context.bindFramebuffer(context.FRAMEBUFFER, null);
   };
 
+  const thumpSound = (): void => {
+    try {
+      audio ??= new AudioContext();
+      void audio.resume().catch(() => {});
+      if (audio.state !== "running") return;
+      const now = audio.currentTime;
+      const master = audio.createGain();
+      master.gain.setValueAtTime(0.5, now);
+      master.gain.exponentialRampToValueAtTime(0.0005, now + 1.2);
+      master.connect(audio.destination);
+      const thump = audio.createOscillator();
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(130, now);
+      thump.frequency.exponentialRampToValueAtTime(32, now + 0.5);
+      thump.connect(master);
+      thump.start(now);
+      thump.stop(now + 1.2);
+      const hum = audio.createOscillator();
+      hum.type = "sawtooth";
+      hum.frequency.value = 50;
+      const humGain = audio.createGain();
+      humGain.gain.setValueAtTime(0.06, now);
+      humGain.gain.exponentialRampToValueAtTime(0.0005, now + 0.9);
+      hum.connect(humGain);
+      humGain.connect(master);
+      hum.start(now);
+      hum.stop(now + 1);
+      const noise = audio.createBufferSource();
+      const buffer = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.4), audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      noise.buffer = buffer;
+      const lowpass = audio.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 900;
+      const noiseGain = audio.createGain();
+      noiseGain.gain.value = 0.18;
+      noise.connect(lowpass);
+      lowpass.connect(noiseGain);
+      noiseGain.connect(master);
+      noise.start(now);
+    } catch {
+      // No audio host, or the context refused; the thump stays visual.
+    }
+  };
+
   const chain = (): CanvasShaderDefinition[] =>
     CANVAS_SHADERS.filter((definition) => active.has(definition.id) && compile(definition) !== undefined);
 
@@ -336,7 +420,9 @@ export function createCanvasShaderLayer(
     magnetClock = now;
     if (active.has("degauss")) {
       const rate = values.get("degauss")?.get("rate") ?? 1;
-      magnetism = Math.min(1, magnetism + elapsed * rate / 60);
+      // Full magnetization in five minutes at drift rate 1 — the tube decays
+      // like furniture ages, not like a timer runs.
+      magnetism = Math.min(1, magnetism + elapsed * rate / 300);
     }
     if (definitions.length === 0) {
       if (thumpAge >= DEGAUSS_SECONDS) {
@@ -436,6 +522,7 @@ export function createCanvasShaderLayer(
       if (!definition || !compile(definition)) return;
       degaussStarted = performance.now();
       magnetism = 0.02;
+      thumpSound();
       overlay.style.display = "block";
       source.style.visibility = "hidden";
       if (!raf) raf = requestAnimationFrame(frame);
@@ -448,6 +535,8 @@ export function createCanvasShaderLayer(
     },
     dispose() {
       stop();
+      void audio?.close().catch(() => {});
+      audio = undefined;
       overlay.remove();
     },
   };

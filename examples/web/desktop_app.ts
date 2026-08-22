@@ -130,6 +130,8 @@ interface DesktopDemo {
   onPointerDown?(column: number, row: number): void;
   /** Scroll inside the client area; direction 1 is down. */
   onWheel?(direction: 1 | -1, column: number, row: number): boolean;
+  /** Vertical scroll state; overflowing windows get a right-edge scrollbar. */
+  vscroll?(width: number, height: number): { readonly offset: number; readonly total: number };
 }
 
 function monitorDemo(): DesktopDemo {
@@ -273,6 +275,9 @@ function themesDemo(): DesktopDemo {
       const spec = themeAt(row);
       if (spec) applyShellTheme(spec);
     },
+    vscroll() {
+      return { offset, total: SHELL_THEMES.length };
+    },
   };
 }
 
@@ -410,6 +415,9 @@ function settingsDemo(): DesktopDemo {
       scrollTop = Math.max(0, scrollTop + direction * 3);
       return true;
     },
+    vscroll() {
+      return { offset: scrollTop, total: rowsOf().length };
+    },
   };
 }
 
@@ -539,52 +547,65 @@ const ABOUT_ART = [
 
 const ABOUT_BODY = [
   "",
-  "a terminal desktop, wherever cells exist",
-  "════════════════════════════════════════",
+  "a desktop of cells, upright amid the ruins",
+  "══════════════════════════════════════════",
   "",
-  "You are looking at exotui — a TUI library for Deno —",
-  "running in your browser. Not a port, not a lookalike:",
-  "the same application object that draws this desktop also",
-  "runs in a real terminal (`deno task desktop`), through",
-  "one seam with two presenters — console and web —",
-  "underneath. Zero additional code paths.",
+  "Regard what stands before you: exotui, a TUI library",
+  "for Deno, made manifest in your browser. This is no",
+  "imitation raised in the image of the modern web — no",
+  "port, no likeness. It is the form itself, transmitted",
+  "without dilution: the same application object that",
+  "draws this desktop rules equally in a true terminal",
+  "(`deno task desktop`), through one seam and two",
+  "presenters — console and web. Zero additional code",
+  "paths. Concessions to the spirit of the age: none.",
   "",
-  "Everything here is shared library machinery:",
+  "A tradition survives not by nostalgia but by",
+  "transmission. All that you see is shared library",
+  "machinery, held in common between the two worlds:",
   "",
-  "  ▪ the window host — the engine the exomux terminal",
-  "    multiplexer ships on: drag, snap, tile (g), minimize,",
-  "    the Tab switcher, double-click to maximize",
-  "  ▪ the shell painters — thin borders, title bars, menus,",
-  "    tabs — one painter for terminal cells and this canvas",
-  "  ▪ seventeen themes, editable live in the theme builder",
-  "    (OKLCH, slot by slot), persisted per host",
-  "  ▪ eleven animated backgrounds — metaballs, matrix, the",
-  "    skull, circuit and friends — simulations that flow",
-  "    around your windows and follow your pointer",
-  "  ▪ the viz layer: twenty-three data visualizations, a live",
-  "    monitor fed by your microphone, Three.js through a",
-  "    WebGPU ASCII pipeline",
+  "  ▪ the window host — the engine on which the exomux",
+  "    terminal multiplexer rides: drag, snap, tile (g),",
+  "    minimize, the Tab switcher, double-click to",
+  "    maximize",
+  "  ▪ the shell painters — thin borders, title bars,",
+  "    menus, tabs — one painter for terminal cells and",
+  "    for this canvas alike, as a rite is one across",
+  "    all of its temples",
+  "  ▪ seventeen themes, an aristocracy of palettes,",
+  "    editable live in the theme builder (OKLCH, slot",
+  "    by slot), persisted per host",
+  "  ▪ eleven animated backgrounds — metaballs, matrix,",
+  "    the skull, circuit and their kin — simulations",
+  "    that flow around your windows and answer your",
+  "    pointer",
+  "  ▪ the viz layer: twenty-three data visualizations,",
+  "    a live monitor fed by your microphone, Three.js",
+  "    through a WebGPU ASCII pipeline",
   "",
-  "getting around",
-  "──────────────",
+  "the discipline of the hand",
+  "──────────────────────────",
   "",
-  "  ⏻ start        every window, bottom-left of nowhere",
-  "  drag titlebar  move · edge-drag snaps · double-click max",
+  "  ⏻ start        every window; begin at the origin",
+  "  drag titlebar  move · edge-drag snaps · dbl-click max",
   "  g              float ⇄ tile the focused window",
   "  tab            window switcher",
-  "  right-click    context menu, desktop or window",
-  "  wheel          scrolls this window; try the themes too",
+  "  right-click    context menu, desktop or window —",
+  "                 degauss when the tube grows impure",
+  "  wheel          scrolls this window; the themes too",
   "",
-  "the project",
-  "───────────",
+  "of the work itself",
+  "──────────────────",
   "",
-  "exotui is a fork-grown terminal UI library: signals,",
-  "layout, components, a markup layer, theme engines, input",
-  "pipelines, remote rendering, and the exomux terminal",
-  "multiplexer built on top as its flagship. The web build",
-  "you are inside is the same package —",
-  "jsr.io/@ubernaut/exotui — with a browser presenter",
-  "instead of a terminal one.",
+  "Ride the tiger of the modern browser: one does not",
+  "flee the machine, one masters it. exotui is a",
+  "fork-grown terminal UI library — signals, layout,",
+  "components, a markup layer, theme engines, input",
+  "pipelines, remote rendering — crowned by the exomux",
+  "terminal multiplexer, its flagship. The web build you",
+  "now inhabit is the same package, with a browser",
+  "presenter in place of a terminal one. What is",
+  "essential does not negotiate with its medium.",
   "",
   "  jsr.io/@ubernaut/exotui",
   "  github.com/ubernaut/exotui",
@@ -641,8 +662,8 @@ function aboutDemo(): DesktopDemo {
         if (line === undefined) break;
         const visible = line.slice(scrollLeft, scrollLeft + width - 2);
         const accent = line.trimStart().startsWith("jsr.io") || line.trimStart().startsWith("github.com");
-        const heading = /^[═─]+$/.test(line.trim()) || line === "a terminal desktop, wherever cells exist" ||
-          line === "getting around" || line === "the project";
+        const heading = /^[═─]+$/.test(line.trim()) || line === "a desktop of cells, upright amid the ruins" ||
+          line === "the discipline of the hand" || line === "of the work itself";
         writeCellsText(
           frame[row]!,
           1,
@@ -673,6 +694,9 @@ function aboutDemo(): DesktopDemo {
     onWheel(direction) {
       scrollTop = Math.max(0, scrollTop + direction * 3);
       return true;
+    },
+    vscroll(width) {
+      return { offset: scrollTop, total: ABOUT_ART.length + wrapped(width - 2).length };
     },
   };
 }
@@ -1505,6 +1529,26 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
   if (client.width <= 0 || client.height <= 0) return;
   if (demo) {
     blitFrame(frame, { column: client.column, row: client.row }, demo.render(client.width, client.height, now));
+    // A right-edge scrollbar wherever the content overflows the viewport —
+    // the render above has already clamped the demo's own offset.
+    const scroll = demo.vscroll?.(client.width, client.height);
+    if (scroll && scroll.total > client.height && client.height >= 2 && client.width >= 2) {
+      const track = client.height;
+      const thumb = Math.max(1, Math.floor(track * client.height / scroll.total));
+      const maxOffset = Math.max(1, scroll.total - client.height);
+      const position = Math.min(track - thumb, Math.round(scroll.offset / maxOffset * (track - thumb)));
+      const x = client.column + client.width - 1;
+      for (let row = 0; row < track; row += 1) {
+        const line = frame[client.row + row];
+        if (!line || x < 0 || x >= line.length) continue;
+        const inThumb = row >= position && row < position + thumb;
+        line[x] = {
+          char: inThumb ? "█" : "░",
+          foreground: inThumb ? DESKTOP.accent : DESKTOP.chromeMuted,
+          background: DESKTOP.clientGround,
+        };
+      }
+    }
   } else {
     fillRect(frame, client, DESKTOP.clientGround);
   }
@@ -2064,6 +2108,7 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
         if (services.shader) {
           if (saved?.shaders) services.shader.setEnabled(saved.shaders);
           else if (saved?.shader && saved.shader !== "none") services.shader.setEnabled([saved.shader]);
+          else services.shader.setEnabled(services.shader.list().map((entry) => entry.id));
           for (const [id, tuning] of Object.entries(saved?.shaderTuning ?? {})) {
             for (const [key, value] of Object.entries(tuning)) {
               if (typeof value === "number") services.shader.setOption(id, key, value);
