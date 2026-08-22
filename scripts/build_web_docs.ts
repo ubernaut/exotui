@@ -271,6 +271,7 @@ function desktopHtml(): string {
       #app {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
         outline: none;
         touch-action: none;
         user-select: none;
@@ -319,6 +320,7 @@ function workbenchHtml(): string {
 
       body {
         min-height: 100vh;
+        min-height: 100dvh;
         overflow: hidden;
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
