@@ -1186,7 +1186,7 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
 /** Desktop-wide settings the settings window edits and the painter honors. */
 const desktopSettings = {
   /** "plain", "dots", or any id from the shared background catalog. */
-  wallpaper: "circuit",
+  wallpaper: "butterchurn",
   barHints: true,
   /** Window body opacity over the backdrop; 1 is solid. */
   windowOpacity: 0.9,
@@ -1232,8 +1232,11 @@ function currentBackgroundField(): ShellAnimatedBackground | undefined {
   if (disposable && typeof (disposable as { dispose?: () => void }).dispose === "function") {
     (disposable as { dispose: () => void }).dispose();
   }
+  // A wallpaper this host cannot supply — butterchurn on the console, or a
+  // stale persisted id — falls back to the circuit rather than a blank.
   const entry = SHELL_BACKGROUND_FIELDS.find((candidate) => candidate.id === id) ??
-    services.extraBackgrounds?.find((candidate) => candidate.id === id);
+    services.extraBackgrounds?.find((candidate) => candidate.id === id) ??
+    SHELL_BACKGROUND_FIELDS.find((candidate) => candidate.id === "circuit");
   backgroundField = entry?.create();
   // A field that asks for 60 gets every frame; the calm catalog keeps its 8.
   backgroundFrameMs = entry?.fps ? 1000 / entry.fps - 1 : BACKGROUND_FRAME_MS;

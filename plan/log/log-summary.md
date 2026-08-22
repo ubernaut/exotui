@@ -12,7 +12,9 @@ button finally says ⏻ exowebtui instead of ⏻ start. Butterchurn stopped bein
 preferred fps, the calm catalog keeps its 8, and butterchurn declares 60 — verified at ~53 advances a second in
 headless, every frame the compositor gives. And the coil got a face: a ∪ degauss chip floats bottom-right, quiet on a
 clean tube, alarmed past 0.55 magnetization, blinking danger-and-accent at 380ms when the picture is annoying to read —
-one click thumps the field to 0.02, verified against the layer's newly exposed magnetism().
+one click thumps the field to 0.02, verified against the layer's newly exposed magnetism(). Butterchurn then took the
+throne: it is the default wallpaper for a fresh visitor, lazy bundle and all, with hosts that cannot supply it — the
+console, a stale persisted id — falling back to the circuit rather than a blank.
 
 ## August 22 2026 — exowebtui: unbroken wires, a drawn pointer, and the tap that opens everything
 
