@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 479,
-    "bytes": 5738570,
+    "modules": 481,
+    "bytes": 5750750,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 17576,
@@ -79,7 +79,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 5111,
+      "src/app/mod.ts": 5149,
       "src/app/mouse_bindings.ts": 15693,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -118,6 +118,7 @@
       "src/app/settings.ts": 7600,
       "src/app/settings_bindings.ts": 25344,
       "src/app/shell_background.ts": 17258,
+      "src/app/shell_presenter.ts": 5291,
       "src/app/shell_theme.ts": 9792,
       "src/app/software_cursor.ts": 6547,
       "src/app/split_pane_commands.ts": 6019,
@@ -307,6 +308,7 @@
       "src/runtime/cell_screen.ts": 6006,
       "src/runtime/clock.ts": 20882,
       "src/runtime/conflict_resolvers.ts": 5008,
+      "src/runtime/console_presenter.ts": 6811,
       "src/runtime/core_metrics.ts": 4554,
       "src/runtime/data_pipeline.ts": 10448,
       "src/runtime/data_pipeline_bindings.ts": 3792,
@@ -321,7 +323,7 @@
       "src/runtime/kitty_passthrough.ts": 19183,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4837,
-      "src/runtime/mod.ts": 3004,
+      "src/runtime/mod.ts": 3044,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3970,
       "src/runtime/observability_context.ts": 3332,
@@ -889,8 +891,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 423,
-    "bytes": 5431406,
+    "modules": 425,
+    "bytes": 5442110,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -968,7 +970,7 @@
       "src/app/log_viewer_commands.ts": 3040,
       "src/app/menu_bar_commands.ts": 3864,
       "src/app/metric_series_commands.ts": 3602,
-      "src/app/mod.ts": 5111,
+      "src/app/mod.ts": 5149,
       "src/app/mouse_bindings.ts": 15693,
       "src/app/navigation_blockers.ts": 3226,
       "src/app/navigation_journal.ts": 5149,
@@ -1007,6 +1009,7 @@
       "src/app/settings.ts": 7600,
       "src/app/settings_bindings.ts": 25344,
       "src/app/shell_background.ts": 17258,
+      "src/app/shell_presenter.ts": 5291,
       "src/app/shell_theme.ts": 9792,
       "src/app/software_cursor.ts": 6547,
       "src/app/split_pane_commands.ts": 6019,
@@ -1312,9 +1315,10 @@
       "src/web/cell_canvas_sink.ts": 9852,
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,
-      "src/web/mod.ts": 211,
+      "src/web/mod.ts": 247,
       "src/web/platform.ts": 19089,
-      "src/web/remote_terminal.ts": 49112
+      "src/web/remote_terminal.ts": 49112,
+      "src/web/web_presenter.ts": 5339
     }
   }
 }

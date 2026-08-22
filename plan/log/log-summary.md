@@ -3,6 +3,24 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — one application, two presentations: 045 built
+
+The presenter seam landed whole. `ShellPresenter` (src/app/shell_presenter.ts) owns what both hosts already provided
+under different names — a live grid size, the key/pointer event stream, one-shot frame scheduling, an `AsyncStore`
+factory, a probed capability record — and `runShellApp(presenter, app)` is the entire loop. The browser implementation
+(src/web/web_presenter.ts) absorbed the line-signal and cells-to-ANSI machinery every page used to hand-wire; the
+console implementation (src/runtime/console_presenter.ts) was assembled from parts that already existed — the diffing
+ANSI screen painter, the input reader, the terminal mouse-to-pointer adapter — plus the alternate screen and SIGWINCH.
+
+The desktop became the reference application: `examples/web/desktop_app.ts` is 1,400 lines of desktop that never mention
+a host API (a test greps for Deno./document/navigator and the docs build probe-bundles it at zero Deno references), with
+the browser-only powers — the mic monitor, the WebGPU three overlay, opening tabs — arriving as optional services that
+render honest "unavailable" states when absent. The page shrank from 1,432 lines to 62; the new console entry is 30, and
+running it in a scratch PTY painted the same welcome window, bar and borders the browser shows — the
+zero-additional-code-paths claim, observed rather than asserted. Theme, wallpaper and bar settings persist through the
+presenter's store: IndexedDB in the browser, `~/.exotui/desktop.json` on the console, with the Dracula round-trip pinned
+in tests and new health gates (`desktop-check`, `desktop-console`) booting the shared module in CI.
+
 ## August 21 2026 — everything the desktop is made of becomes portable
 
 "Port all of the backgrounds… same goes for the themes." The port turned out to be mostly recognition: the

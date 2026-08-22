@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 15
-- Unique modules: 541
-- Module visits: 1057
-- Unique re-export declarations: 692
-- Re-export declaration visits: 1057
-- Unique symbol declarations: 4972
-- Symbol declaration visits: 10002
-- Documented symbol declarations: 4940
+- Unique modules: 544
+- Module visits: 1062
+- Unique re-export declarations: 695
+- Re-export declaration visits: 1062
+- Unique symbol declarations: 4989
+- Symbol declaration visits: 10032
+- Documented symbol declarations: 4957
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,16 +21,16 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     451 |    4335 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     361 |    3676 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     363 |    3690 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      82 |     869 | 100.00% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      83 |     872 | 100.00% |
 | `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      19 |     203 |  99.51% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
@@ -44,10 +44,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 451
-- Re-export declarations: 452
-- Exported symbols: 4335
-- Documented symbols: 4335
+- Modules: 453
+- Re-export declarations: 454
+- Exported symbols: 4348
+- Documented symbols: 4348
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -74,10 +74,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 361
-- Re-export declarations: 363
-- Exported symbols: 3676
-- Documented symbols: 3676
+- Modules: 363
+- Re-export declarations: 365
+- Exported symbols: 3690
+- Documented symbols: 3690
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -179,10 +179,10 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Path: `./mod.runtime.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 82
-- Re-export declarations: 81
-- Exported symbols: 869
-- Documented symbols: 869
+- Modules: 83
+- Re-export declarations: 82
+- Exported symbols: 872
+- Documented symbols: 872
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -349,7 +349,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/log_viewer_commands.ts`](#src-app-log-viewer-commands-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/menu_bar_commands.ts`](#src-app-menu-bar-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/metric_series_commands.ts`](#src-app-metric-series-commands-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/mod.ts`](#src-app-mod-ts)                                                                   | `.`, `./web`                            |        124 |       0 |          0 |
+| [`src/app/mod.ts`](#src-app-mod-ts)                                                                   | `.`, `./web`                            |        125 |       0 |          0 |
 | [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                             | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/app/navigation_blockers.ts`](#src-app-navigation-blockers-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/navigation_journal.ts`](#src-app-navigation-journal-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
@@ -388,6 +388,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/settings_bindings.ts`](#src-app-settings-bindings-ts)                                       | `.`, `./web`                            |          0 |      21 |         21 |
 | [`src/app/settings.ts`](#src-app-settings-ts)                                                         | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/app/shell_background.ts`](#src-app-shell-background-ts)                                         | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/shell_presenter.ts`](#src-app-shell-presenter-ts)                                           | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/app/shell_theme.ts`](#src-app-shell-theme-ts)                                                   | `.`, `./web`                            |          1 |       8 |          8 |
 | [`src/app/software_cursor.ts`](#src-app-software-cursor-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/split_pane_commands.ts`](#src-app-split-pane-commands-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
@@ -592,6 +593,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/cell_screen.ts`](#src-runtime-cell-screen-ts)                                           | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/clock.ts`](#src-runtime-clock-ts)                                                       | `.`, `./web`, `./runtime`               |          0 |      23 |         23 |
 | [`src/runtime/conflict_resolvers.ts`](#src-runtime-conflict-resolvers-ts)                             | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/console_presenter.ts`](#src-runtime-console-presenter-ts)                               | `.`, `./runtime`                        |          0 |       3 |          3 |
 | [`src/runtime/core_metrics.ts`](#src-runtime-core-metrics-ts)                                         | `.`, `./runtime`                        |          0 |       6 |          6 |
 | [`src/runtime/data_pipeline_bindings.ts`](#src-runtime-data-pipeline-bindings-ts)                     | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
 | [`src/runtime/data_pipeline.ts`](#src-runtime-data-pipeline-ts)                                       | `.`, `./web`, `./runtime`               |          0 |      19 |         19 |
@@ -605,7 +607,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                                     | `.`, `./runtime`                        |          0 |       9 |          9 |
 | [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                               | `.`, `./runtime`                        |          0 |       8 |          8 |
 | [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                                   | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                        |         79 |       0 |          0 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                        |         80 |       0 |          0 |
 | [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                               | `.`, `./runtime`                        |          0 |       4 |          4 |
 | [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                       | `.`, `./runtime`                        |          0 |       3 |          3 |
 | [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                       | `.`, `./runtime`                        |          0 |      15 |         15 |
@@ -804,9 +806,10 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                         | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                                 | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                                 | `./web`                                 |          0 |       5 |          5 |
-| [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                 |          5 |       0 |          0 |
+| [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                 |          6 |       0 |          0 |
 | [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                     |          0 |      33 |         33 |
+| [`src/web/web_presenter.ts`](#src-web-web-presenter-ts)                                               | `./web`                                 |          0 |       4 |          4 |
 
 ## Module Details
 
@@ -2318,6 +2321,7 @@ _Entrypoints: `.`, `./web`_
 | `src/app/shell_background.ts`           | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/shell_theme.ts`                | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/backgrounds/mod.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/shell_presenter.ts`            | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/calendar.ts`                   | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/clipboard.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/general_widgets.ts`            | star  | -                                                                                                                                                                                                                                                                     |
@@ -3052,6 +3056,23 @@ _Entrypoints: `.`, `./web`_
 | `ShellMetaballInspection`          | interface | yes       | yes   |
 | `shellMetaballPalette`             | function  | no        | yes   |
 | `ShellMetaballPoint`               | interface | yes       | yes   |
+
+### src/app/shell_presenter.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `runShellApp`         | function  | no        | yes   |
+| `ShellApp`            | interface | yes       | yes   |
+| `ShellAppHandle`      | interface | yes       | yes   |
+| `ShellCapabilities`   | interface | yes       | yes   |
+| `shellCellsToAnsiRow` | function  | no        | yes   |
+| `shellPresentedCell`  | function  | no        | yes   |
+| `ShellPresentedCell`  | interface | yes       | yes   |
+| `ShellPresentedFrame` | type      | yes       | yes   |
+| `ShellPresenter`      | interface | yes       | yes   |
+| `ShellPresenterSize`  | interface | yes       | yes   |
 
 ### src/app/shell_theme.ts
 
@@ -6728,6 +6749,16 @@ _Entrypoints: `.`, `./runtime`_
 | `rejectResolver`       | function  | no        | yes   |
 | `threeWayResolver`     | function  | no        | yes   |
 
+### src/runtime/console_presenter.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `consolePresenter`        | function  | no        | yes   |
+| `ConsolePresenterOptions` | interface | yes       | yes   |
+| `runConsoleShellApp`      | function  | no        | yes   |
+
 ### src/runtime/core_metrics.ts
 
 _Entrypoints: `.`, `./runtime`_
@@ -7053,6 +7084,7 @@ _Entrypoints: `.`, `./runtime`_
 | `src/runtime/kitty_keyboard.ts`            | star | -     |
 | `src/runtime/render_accounting.ts`         | star | -     |
 | `src/runtime/stream_ownership.ts`          | star | -     |
+| `src/runtime/console_presenter.ts`         | star | -     |
 
 _No direct exported symbols._
 
@@ -10278,6 +10310,7 @@ _Entrypoints: `./web`_
 | `src/web/host.ts`             | star | -     |
 | `src/web/platform.ts`         | star | -     |
 | `src/web/remote_terminal.ts`  | star | -     |
+| `src/web/web_presenter.ts`    | star | -     |
 
 _No direct exported symbols._
 
@@ -10334,3 +10367,14 @@ _Entrypoints: `./web`, `./remote`_
 | `RemoteTerminalServerMessage`                   | type      | yes       | yes   |
 | `RemoteTerminalTransport`                       | interface | yes       | yes   |
 | `WebSocketRemoteTerminalTransport`              | class     | no        | yes   |
+
+### src/web/web_presenter.ts
+
+_Entrypoints: `./web`_
+
+| Symbol                | Kind      | Type Only | JSDoc |
+| --------------------- | --------- | --------- | ----- |
+| `runWebShellApp`      | function  | no        | yes   |
+| `webPresenter`        | function  | no        | yes   |
+| `WebPresenterOptions` | interface | yes       | yes   |
+| `WebShellPresenter`   | interface | yes       | yes   |

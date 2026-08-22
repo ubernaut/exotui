@@ -67,17 +67,25 @@ every capability the record reports absent renders as "waiting/unavailable" UI, 
 
 ## Acceptance checks
 
-- [ ] `examples/web/desktop_page.ts` and a console entry run the same desktop app object with no host branching in the
-      app module (grep-verifiable: no `Deno.`, no `document`/`navigator` outside the presenters).
-- [ ] The app module passes both oracles in CI: browser probe-bundle with zero Deno references, Deno type-check with
-      DOM-free libs.
-- [ ] A workspace/theme persisted on one host loads on the other (IndexedDB ↔ filesystem through one `AsyncStore`
-      contract).
-- [ ] Turbulence (WebGPU) and the mic-driven monitor run on both hosts where the capability record reports support, and
-      render an honest "unavailable" state where it doesn't.
-- [ ] exomux is untouched except by choice: its suite passes unchanged throughout.
+- [x] `examples/web/desktop_page.ts` and `examples/desktop_console.ts` run the same `createDesktopApp` object with no
+      host branching in `examples/web/desktop_app.ts` (grep-verified by `tests/desktop_presentation.test.ts`).
+- [x] Both oracles in CI: `web-pages-build` probe-bundles `desktop_app.ts` at ZERO Deno references, and the
+      `desktop-console` health gate boots the same module under Deno (`--smoke` paints frames and exits).
+- [x] Theme/background/settings persist through the presenter's `AsyncStore` — IndexedDB in the browser,
+      `~/.exotui/desktop.json` on the console — and the load path is pinned by the Dracula round-trip test. (Workspace
+      snapshots joining the same store is follow-up scope.)
+- [x] The capability/service record gates the monitor and the three overlay: absent services render "no live sources on
+      this host" / "webgpu unavailable" — never a crash. Turbulence runs wherever `navigator.gpu` answers the probe.
+- [x] exomux is untouched: its suite passed unchanged through every slice of this plan.
 
 ## Notes
+
+- **Delivered shape vs the sketch:** Phase 2 sketched `createShellApp` assembling the window host and painters inside
+  the library; what shipped is the leaner cut — `runShellApp(presenter, app)` owns the loop, and the reference desktop
+  keeps its own composition above the seam. The acceptance checks held without the mega-assembler; promote one only when
+  a second application wants the same assembly.
+- **Follow-up scope:** window-workspace snapshots joining the persisted settings store; a Deno-side audio source behind
+  `capabilities.audioInput` so the monitor lights up on the console too.
 
 - The shell painters, theme catalog, background fields, GPU door, and window host are already shared and live on both
   hosts as of the desktop-shell branch — this plan is the remaining fifth of the work, not the first four.

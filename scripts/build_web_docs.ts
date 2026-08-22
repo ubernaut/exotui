@@ -84,6 +84,9 @@ if (import.meta.main) {
   // The desktop ships as the landing page; it may lean on the same guarded
   // paths as the web root, and not one more.
   await verifyWebSurface("examples/web/desktop_page.ts", WEB_ROOT_ALLOWED_DENO_REFS);
+  // The shared application module is the 045 oracle: ZERO Deno references —
+  // it must run identically on the console presenter.
+  await verifyWebSurface("examples/web/desktop_app.ts", new Set());
   await verifyWebSurface("examples/web/desktop_three.ts", WEB_ROOT_ALLOWED_DENO_REFS);
   // The visualisation entrypoints hold a stricter line: zero Deno references,
   // so a browser can import them without a single guarded terminal path.

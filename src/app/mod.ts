@@ -33,6 +33,7 @@ export * from "./workbench_shell.ts";
 export * from "./shell_background.ts";
 export * from "./shell_theme.ts";
 export * from "./backgrounds/mod.ts";
+export * from "./shell_presenter.ts";
 export * from "./calendar.ts";
 export * from "./clipboard.ts";
 export * from "./general_widgets.ts";

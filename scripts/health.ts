@@ -76,6 +76,8 @@ export const defaultHealthSteps: readonly HealthStep[] = [
   // The worked example for ./viz. Its own tests run in the root suite; this is
   // the check that its launcher and preview still type.
   { name: "exomonitor", command: ["deno", "task", "exomonitor:check"] },
+  { name: "desktop-check", command: ["deno", "task", "desktop:check"] },
+  { name: "desktop-console", command: ["deno", "task", "desktop:smoke"] },
   { name: "benchmarks", command: ["deno", "task", "benchmark"] },
   { name: "tests", command: ["deno", "test", "-A"] },
   // Exomux resolves against its own config, so the root `deno test` no longer

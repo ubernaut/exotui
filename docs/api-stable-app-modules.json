@@ -113,6 +113,7 @@
     "src/app/settings.ts",
     "src/app/settings_bindings.ts",
     "src/app/shell_background.ts",
+    "src/app/shell_presenter.ts",
     "src/app/shell_theme.ts",
     "src/app/software_cursor.ts",
     "src/app/split_pane_commands.ts",
