@@ -604,97 +604,145 @@ const ABOUT_ART = [
   "     \\/      \\/                 \\/    \\/              ",
 ];
 
-const ABOUT_BODY = [
-  "",
-  "a desktop of cells, upright amid the ruins",
-  "══════════════════════════════════════════",
-  "",
-  "Regard what stands before you: exotui, a TUI library",
-  "for Deno, made manifest in your browser. This is no",
-  "imitation raised in the image of the modern web — no",
-  "port, no likeness. It is the form itself, transmitted",
-  "without dilution: the same application object that",
-  "draws this desktop rules equally in a true terminal",
-  "(`deno task desktop`), through one seam and two",
-  "presenters — console and web. Zero additional code",
-  "paths. Concessions to the spirit of the age: none.",
-  "",
-  "A tradition survives not by nostalgia but by",
-  "transmission. All that you see is shared library",
-  "machinery, held in common between the two worlds:",
-  "",
-  "  ▪ the window host — the engine on which the exomux",
-  "    terminal multiplexer rides: drag, snap, tile (g),",
-  "    minimize, the Tab switcher, double-click to",
-  "    maximize",
-  "  ▪ the shell painters — thin borders, title bars,",
-  "    menus, tabs — one painter for terminal cells and",
-  "    for this canvas alike, as a rite is one across",
-  "    all of its temples",
-  "  ▪ seventeen themes, an aristocracy of palettes,",
-  "    editable live in the theme builder (OKLCH, slot",
-  "    by slot), persisted per host",
-  "  ▪ eleven animated backgrounds — metaballs, matrix,",
-  "    the skull, circuit and their kin — simulations",
-  "    that flow around your windows and answer your",
-  "    pointer",
-  "  ▪ the viz layer: twenty-three data visualizations,",
-  "    a live monitor fed by your microphone, Three.js",
-  "    through a WebGPU ASCII pipeline",
-  "",
-  "the discipline of the hand",
-  "──────────────────────────",
-  "",
-  "  ⏻ exowebtui    every window; begin at the origin",
-  "  drag titlebar  move · edge-drag snaps · dbl-click max",
-  "  g              float ⇄ tile the focused window",
-  "  tab            window switcher",
-  "  right-click    context menu, desktop or window —",
-  "                 degauss when the tube grows impure",
-  "  wheel          scrolls this window; the themes too",
-  "",
-  "of the work itself",
-  "──────────────────",
-  "",
-  "Ride the tiger of the modern browser: one does not",
-  "flee the machine, one masters it. exotui is a",
-  "fork-grown terminal UI library — signals, layout,",
-  "components, a markup layer, theme engines, input",
-  "pipelines, remote rendering — crowned by the exomux",
-  "terminal multiplexer, its flagship. The web build you",
-  "now inhabit is the same package, with a browser",
-  "presenter in place of a terminal one. What is",
-  "essential does not negotiate with its medium.",
-  "",
-  "  jsr.io/@ubernaut/exotui",
-  "  github.com/ubernaut/exotui",
-  "",
+/** The welcome text as flowing blocks, reflowed live to the window width. */
+type AboutBlock =
+  | { readonly kind: "gap" }
+  | { readonly kind: "heading"; readonly text: string; readonly rule: "═" | "─" }
+  | { readonly kind: "para"; readonly text: string }
+  | { readonly kind: "bullet"; readonly text: string }
+  | { readonly kind: "pair"; readonly key: string; readonly text: string }
+  | { readonly kind: "link"; readonly text: string };
+
+const ABOUT_BLOCKS: readonly AboutBlock[] = [
+  { kind: "gap" },
+  { kind: "heading", text: "a desktop of cells, upright amid the ruins", rule: "═" },
+  { kind: "gap" },
+  {
+    kind: "para",
+    text: "Regard what stands before you: exotui, a TUI library for Deno, made manifest in your browser. " +
+      "This is no imitation raised in the image of the modern web — no port, no likeness. It is the form " +
+      "itself, transmitted without dilution: the same application object that draws this desktop rules " +
+      "equally in a true terminal (`deno task desktop`), through one seam and two presenters — console " +
+      "and web. Zero additional code paths. Concessions to the spirit of the age: none.",
+  },
+  { kind: "gap" },
+  {
+    kind: "para",
+    text: "A tradition survives not by nostalgia but by transmission. All that you see is shared library " +
+      "machinery, held in common between the two worlds:",
+  },
+  { kind: "gap" },
+  {
+    kind: "bullet",
+    text: "the window host — the engine on which the exomux terminal multiplexer rides: drag, snap, " +
+      "tile (g), minimize, the Tab switcher, double-click to maximize",
+  },
+  {
+    kind: "bullet",
+    text: "the shell painters — thin borders, title bars, menus, tabs — one painter for terminal cells " +
+      "and for this canvas alike, as a rite is one across all of its temples",
+  },
+  {
+    kind: "bullet",
+    text: "seventeen themes, an aristocracy of palettes, editable live in the theme builder (OKLCH, " +
+      "slot by slot), persisted per host",
+  },
+  {
+    kind: "bullet",
+    text: "eleven animated backgrounds — metaballs, matrix, the skull, circuit and their kin — " +
+      "simulations that flow around your windows and answer your pointer",
+  },
+  {
+    kind: "bullet",
+    text: "the viz layer: twenty-three data visualizations, a live monitor fed by your microphone, " +
+      "Three.js through a WebGPU ASCII pipeline",
+  },
+  { kind: "gap" },
+  { kind: "heading", text: "the discipline of the hand", rule: "─" },
+  { kind: "gap" },
+  { kind: "pair", key: "⏻ exowebtui", text: "every window; begin at the origin" },
+  { kind: "pair", key: "drag titlebar", text: "move · edge-drag snaps · dbl-click max" },
+  { kind: "pair", key: "g", text: "float ⇄ tile the focused window" },
+  { kind: "pair", key: "tab", text: "window switcher" },
+  { kind: "pair", key: "right-click", text: "context menu, desktop or window — degauss when the tube grows impure" },
+  { kind: "pair", key: "wheel", text: "scrolls this window; the themes too" },
+  { kind: "gap" },
+  { kind: "heading", text: "of the work itself", rule: "─" },
+  { kind: "gap" },
+  {
+    kind: "para",
+    text: "Ride the tiger of the modern browser: one does not flee the machine, one masters it. exotui " +
+      "is a fork-grown terminal UI library — signals, layout, components, a markup layer, theme engines, " +
+      "input pipelines, remote rendering — crowned by the exomux terminal multiplexer, its flagship. The " +
+      "web build you now inhabit is the same package, with a browser presenter in place of a terminal " +
+      "one. What is essential does not negotiate with its medium.",
+  },
+  { kind: "gap" },
+  { kind: "link", text: "jsr.io/@ubernaut/exotui" },
+  { kind: "link", text: "github.com/ubernaut/exotui" },
+  { kind: "gap" },
 ];
+
+/** Greedy word wrap with a hanging indent from the second line on. */
+function flowWords(text: string, first: string, hang: string, width: number): string[] {
+  const lines: string[] = [];
+  let line = first;
+  let bare = first.length;
+  for (const word of text.split(/\s+/)) {
+    const joined = line.length > bare ? `${line} ${word}` : line + word;
+    if (joined.length > width && line.length > bare) {
+      lines.push(line);
+      line = hang + word;
+      bare = hang.length;
+    } else {
+      line = joined;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
 
 function aboutDemo(): DesktopDemo {
   let scrollTop = 0;
-  let scrollLeft = 0;
   const artWidth = ABOUT_ART.reduce((max, line) => Math.max(max, line.length), 0);
-  const contentWidth = Math.max(artWidth, ABOUT_BODY.reduce((max, line) => Math.max(max, line.length), 0));
-  /** Body lines wrapped to the viewport, computed per width. */
-  const wrapped = (width: number): string[] => {
-    const lines: string[] = [];
-    for (const line of ABOUT_BODY) {
-      if (line.length <= width || width < 12) {
-        lines.push(line);
-        continue;
-      }
-      // Wrap on spaces; indented bullets keep their gutter.
-      const gutter = line.match(/^\s*/)?.[0] ?? "";
-      let rest = line.trimEnd();
-      while (rest.length > width) {
-        let cut = rest.lastIndexOf(" ", width);
-        if (cut <= gutter.length) cut = width;
-        lines.push(rest.slice(0, cut));
-        rest = gutter + "  " + rest.slice(cut).trimStart();
-      }
-      lines.push(rest);
+  let cache: { width: number; lines: { text: string; accent: boolean }[] } | undefined;
+  /** The whole document, reflowed to the width the window actually has. */
+  const layout = (width: number): { text: string; accent: boolean }[] => {
+    if (cache?.width === width) return cache.lines;
+    const lines: { text: string; accent: boolean }[] = [];
+    // The figlet art only when it fits whole; a plain banner otherwise.
+    if (artWidth <= width) {
+      for (const row of ABOUT_ART) lines.push({ text: row, accent: true });
+    } else {
+      lines.push({ text: "", accent: false });
+      lines.push({ text: width >= 19 ? "E X O W E B T U I" : "EXOWEBTUI", accent: true });
     }
+    for (const block of ABOUT_BLOCKS) {
+      if (block.kind === "gap") {
+        lines.push({ text: "", accent: false });
+      } else if (block.kind === "heading") {
+        for (const row of flowWords(block.text, "", "", width)) lines.push({ text: row, accent: true });
+        lines.push({ text: block.rule.repeat(Math.min(width, block.text.length)), accent: true });
+      } else if (block.kind === "para") {
+        for (const row of flowWords(block.text, "", "", width)) lines.push({ text: row, accent: false });
+      } else if (block.kind === "bullet") {
+        for (const row of flowWords(block.text, "▪ ", "  ", width)) lines.push({ text: row, accent: false });
+      } else if (block.kind === "pair") {
+        // Key column beside the text where there is room; stacked when not.
+        if (width >= 34) {
+          const gutter = " ".repeat(15);
+          for (const row of flowWords(block.text, block.key.padEnd(15), gutter, width)) {
+            lines.push({ text: row, accent: false });
+          }
+        } else {
+          lines.push({ text: block.key, accent: true });
+          for (const row of flowWords(block.text, "  ", "  ", width)) lines.push({ text: row, accent: false });
+        }
+      } else {
+        lines.push({ text: `  ${block.text}`, accent: true });
+      }
+    }
+    cache = { width, lines };
     return lines;
   };
   return {
@@ -704,36 +752,18 @@ function aboutDemo(): DesktopDemo {
     window: { width: 64, height: 20, minWidth: 30, minHeight: 8 },
     render(width, height) {
       const frame = clientFrame(width, height);
-      const body = wrapped(width - 2);
-      const artRows = ABOUT_ART.length;
-      const total = artRows + body.length;
-      scrollTop = Math.max(0, Math.min(scrollTop, Math.max(0, total - height)));
-      const maxLeft = Math.max(0, contentWidth - (width - 2));
-      scrollLeft = Math.max(0, Math.min(scrollLeft, maxLeft));
+      const lines = layout(Math.max(12, width - 3));
+      scrollTop = Math.max(0, Math.min(scrollTop, Math.max(0, lines.length - height)));
       for (let row = 0; row < height; row += 1) {
-        const index = row + scrollTop;
-        if (index < artRows) {
-          const art = ABOUT_ART[index]!.slice(scrollLeft);
-          writeCellsText(frame[row]!, 1, art.slice(0, width - 2), DESKTOP.accent, DESKTOP.clientGround);
-          continue;
-        }
-        const line = body[index - artRows];
-        if (line === undefined) break;
-        const visible = line.slice(scrollLeft, scrollLeft + width - 2);
-        const accent = line.trimStart().startsWith("jsr.io") || line.trimStart().startsWith("github.com");
-        const heading = /^[═─]+$/.test(line.trim()) || line === "a desktop of cells, upright amid the ruins" ||
-          line === "the discipline of the hand" || line === "of the work itself";
+        const line = lines[row + scrollTop];
+        if (!line) break;
         writeCellsText(
           frame[row]!,
           1,
-          visible,
-          accent || heading ? DESKTOP.accent : DESKTOP.chromeText,
+          line.text.slice(0, Math.max(0, width - 2)),
+          line.accent ? DESKTOP.accent : DESKTOP.chromeText,
           DESKTOP.clientGround,
         );
-      }
-      // A quiet scroll hint when there is more below.
-      if (scrollTop + height < total && height > 1) {
-        writeCellsText(frame[height - 1]!, width - 4, " ▼ ", DESKTOP.chromeMuted, DESKTOP.clientGround);
       }
       return frame;
     },
@@ -742,12 +772,8 @@ function aboutDemo(): DesktopDemo {
       else if (event.key === "up") scrollTop = Math.max(0, scrollTop - 1);
       else if (event.key === "pagedown" || event.key === "space") scrollTop += 8;
       else if (event.key === "pageup") scrollTop = Math.max(0, scrollTop - 8);
-      else if (event.key === "right") scrollLeft += 4;
-      else if (event.key === "left") scrollLeft = Math.max(0, scrollLeft - 4);
-      else if (event.key === "home") {
-        scrollTop = 0;
-        scrollLeft = 0;
-      } else return false;
+      else if (event.key === "home") scrollTop = 0;
+      else return false;
       return true;
     },
     onWheel(direction) {
@@ -755,13 +781,11 @@ function aboutDemo(): DesktopDemo {
       return true;
     },
     vscroll(width) {
-      return { offset: scrollTop, total: ABOUT_ART.length + wrapped(width - 2).length };
+      return { offset: scrollTop, total: layout(Math.max(12, width - 3)).length };
     },
     controls: [
       { label: "▲", key: "up" },
       { label: "▼", key: "down" },
-      { label: "◀", key: "left" },
-      { label: "▶", key: "right" },
     ],
   };
 }

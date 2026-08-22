@@ -763,6 +763,10 @@ function startGraphicsPassthroughFlush(
       clipSignatures.delete(sessionId);
       write(controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join(""));
     }
+    // Sessions killed since the last flush: their runtimes are already gone,
+    // so their deletes arrive from the orphan stash instead.
+    const orphaned = controller.takeOrphanGraphics();
+    if (orphaned.length > 0) write(orphaned.map((emission) => apc(emission.data)).join(""));
   };
   const timer = setInterval(flush, 33);
   if (typeof Deno !== "undefined" && typeof Deno.unrefTimer === "function") Deno.unrefTimer(timer);
@@ -772,6 +776,13 @@ function startGraphicsPassthroughFlush(
   return () => {
     clearInterval(timer);
     unsubscribe();
+    // Leaving exomux clears the host: alt-screen restore does not delete
+    // kitty images, so every session still showing takes its pictures down.
+    let out = controller.takeOrphanGraphics().map((emission) => apc(emission.data)).join("");
+    for (const sessionId of displayed) {
+      out += controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join("");
+    }
+    if (out.length > 0) write(out);
   };
 }
 

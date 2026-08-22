@@ -970,3 +970,32 @@ Deno.test("Exomux reflow leaves tiled and maximized windows to the layout", asyn
     await controller.dispose();
   }
 });
+
+Deno.test("a killed session's relayed kitty images are deleted via the orphan stash", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("tode-like", "kitty painter");
+  const client = host.client();
+  const controller = await createExomuxController({ client, graphicsPassthrough: true });
+  try {
+    const runtime = controller.runtime(session.id)!;
+    assert(runtime.graphics, "passthrough gives the runtime a relay");
+    // The child paints one kitty image; the relay now has a live placement.
+    host.emit(session.id, "\x1b_Ga=T,f=24,s=1,v=1,i=7;AAAA\x1b\\");
+    assert(controller.takeGraphics(session.id).length > 0, "the paint reached the relay");
+    // A kill reaps the runtime before any compositor flush can release by
+    // session id — the regression left the image on the host forever.
+    assertEquals(await controller.killSession(session.id), true);
+    assertEquals(controller.runtime(session.id), undefined);
+    assertEquals(controller.releaseGraphics(session.id), []);
+    const orphaned = controller.takeOrphanGraphics();
+    assert(orphaned.length > 0, "the kill stashed delete emissions");
+    assert(
+      orphaned.some((emission) => emission.data.includes("a=d")),
+      "the emissions delete host placements",
+    );
+    // Drained means drained.
+    assertEquals(controller.takeOrphanGraphics(), []);
+  } finally {
+    await controller.dispose();
+  }
+});

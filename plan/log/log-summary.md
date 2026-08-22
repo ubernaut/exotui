@@ -3,6 +3,27 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: the welcome flows, the lava survives a resize
+
+The welcome page's text was stored pre-wrapped at 56 columns, so every other width re-wrapped the fragments into ragged
+orphans. The content is flowing blocks now — paragraphs, bullets with hanging indents, a key/description table that
+stacks when narrow — reflowed live to the window's width, and when the figlet art cannot fit whole the window shows a
+plain E X O W E B T U I banner instead of a cropped glyph field. Horizontal scrolling went with the pre-wrapping; there
+is nothing left to scroll to. And butterchurn stopped dying under a live browser resize: the field's resize zeroed its
+ink buffers, and the feedback loop only warps ink that exists, so drag-resizing the viewport left stepped black dead
+zones. The picture is carried across resizes nearest-neighbour, like scaled video — pinned by a field test that grows
+the grid and asserts the ink survives.
+
+## August 22 2026 — exomux: a killed child takes its pictures with it
+
+The live-terminal pass found one regression: kill the exomux window hosting a kitty-passthrough app (tode) and the
+relayed image stays on the host forever. The mechanism was a lifecycle hole, not a paint bug — releaseGraphics needs the
+session's runtime, and a kill reaps the runtime before the compositor's next flush notices the window left the
+projection, so release-by-id finds nothing. Every runtime removal now stashes the relay's delete emissions in an orphan
+list the app drains on every flush, and leaving exomux sweeps every displayed session on teardown — alt-screen restore
+does not delete kitty images, so exomux does it itself. Pinned by a controller test: paint through a passthrough relay,
+kill the session, assert the deletes surface from the stash. 545 exomux tests green.
+
 ## August 22 2026 — exowebtui: readable buttons, an honest name, a fluid lava
 
 Four field reports, four fixes. The control-strip buttons were accent-on-chromeActive — the same teal twice in most

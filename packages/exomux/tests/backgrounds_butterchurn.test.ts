@@ -1153,3 +1153,27 @@ Deno.test("butterchurn: the resolve never samples below one pixel per cell", () 
   }
   assertEquals(exomuxButterchurnRenderSize(548, 154), [736, 416]);
 });
+
+Deno.test("butterchurn: a resize carries the picture instead of zeroing it", () => {
+  const field = new ExomuxButterchurnField({ gpu: false, audio: scriptedAudio(), autoCycle: false });
+  run(field, 60);
+  const settled = inkStats(field);
+  assert(settled.painted > 0, "the settled frame has ink");
+  // A live browser resize: one advance at a larger grid. The feedback loop
+  // only warps ink that exists, so a zeroed buffer here left dead black
+  // regions until the preset happened to repaint them.
+  const grown = { column: 4, row: 3, width: 90, height: 30 };
+  field.advance({ bounds: grown, obstacles: [], solidObstacles: [], now: 60 * 125 + 125 });
+  let painted = 0;
+  let paintedBeyondOldGrid = 0;
+  const rows = field.rasterizeCells(grown, THEME);
+  for (let row = 0; row < rows.length; row += 1) {
+    for (let column = 0; column < (rows[row]?.length ?? 0); column += 1) {
+      if (!rows[row]![column]) continue;
+      painted += 1;
+      if (column >= 60 || row >= 20) paintedBeyondOldGrid += 1;
+    }
+  }
+  assert(painted >= settled.painted * 0.5, `the picture survived the resize (${painted} vs ${settled.painted})`);
+  assert(paintedBeyondOldGrid > 0, "the grown region is seeded, not dead black");
+});
