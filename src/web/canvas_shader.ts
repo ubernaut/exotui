@@ -41,7 +41,7 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
     ],
     body: `
       vec2 uv = fragCoord / iResolution.xy;
-      float track = u_tracking * (1.0 + 1.5 * iMagnet);
+      float track = u_tracking * iMagnet * 2.0;
       float line = floor(fragCoord.y);
       // Per-line tremor, re-rolled at tape speed; the magnetized tube shakes
       // the transport harder.
@@ -52,13 +52,13 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
       wobble += inBand * track * 0.03 * (shaderHash(vec2(line, floor(iTime * 24.0))) - 0.3);
       vec2 shifted = vec2(uv.x + wobble, uv.y);
       // Luma stays sharp; chroma smears sideways, the composite signature.
-      float px = u_bleed * (1.0 + 2.0 * iMagnet) / iResolution.x;
+      float px = u_bleed * iMagnet * 2.0 / iResolution.x;
       vec3 color;
       color.r = sampleChannel(vec2(shifted.x + px * 1.5, shifted.y)).r;
       color.g = sampleChannel(shifted).g;
       color.b = sampleChannel(vec2(shifted.x - px * 1.5, shifted.y)).b;
       float sparkle = shaderHash(vec2(fragCoord.x * 0.37 + iTime * 91.0, line * 1.7 + iTime * 57.0));
-      float grain = u_noise * (0.35 + inBand * 2.0);
+      float grain = u_noise * iMagnet * 2.0 * (0.35 + inBand * 2.0);
       // The head-switch stripe lives at the bottom of the picture.
       if (uv.y < 0.025) grain += 0.5 * track;
       color += (sparkle - 0.5) * grain;
@@ -79,16 +79,16 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
       // Tangent at the edge midpoints (r = 1): distortion vanishes there, so
       // the picture stays flush with its container where the eye lines up
       // rows, and only the corners pull in.
-      centered *= 1.0 + u_curve * (1.0 + 1.2 * iMagnet) * (dot(centered, centered) - 1.0);
+      centered *= 1.0 + u_curve * (dot(centered, centered) - 1.0);
       uv = (centered + 1.0) * 0.5;
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
       }
       vec3 color = sampleChannel(uv).rgb;
-      float dim = 1.0 - u_vignette * pow(length(centered), 3.0);
+      float dim = max(0.0, 1.0 - u_vignette * iMagnet * 2.0 * pow(length(centered), 3.0));
       color *= dim;
-      float fringe = u_fringe * (1.0 + 5.0 * iMagnet);
+      float fringe = u_fringe * iMagnet * 2.0;
       color.r = sampleChannel(uv + vec2(fringe, 0.0)).r * dim;
       color.b = sampleChannel(uv - vec2(fringe, 0.0)).b * dim;
       fragColor = vec4(color, 1.0);
@@ -110,8 +110,8 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
         }
       }
       glow /= 25.0;
-      color = color + glow * glow * u_glow * (1.0 + 0.8 * iMagnet);
-      color *= vec3(0.94, 1.03, 0.96);
+      color = color + glow * glow * u_glow * iMagnet * 2.0;
+      color *= mix(vec3(1.0), vec3(0.94, 1.03, 0.96), min(1.0, iMagnet * 2.0));
       fragColor = vec4(color, 1.0);
     `,
   },
@@ -125,7 +125,7 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
     body: `
       vec2 uv = fragCoord / iResolution.xy;
       vec3 color = sampleChannel(uv).rgb;
-      float line = mod(fragCoord.y, u_period) < 1.0 ? 1.0 - u_strength * (1.0 + 0.8 * iMagnet) : 1.0;
+      float line = mod(fragCoord.y, u_period) < 1.0 ? max(0.0, 1.0 - u_strength * iMagnet * 2.0) : 1.0;
       fragColor = vec4(color * line, 1.0);
     `,
   },
@@ -509,13 +509,37 @@ export function createCanvasShaderLayer(
     },
     option: (id: string, key: string) => values.get(id)?.get(key),
     warpPoint(u: number, v: number): { u: number; v: number } {
+      if (!raf) return { u, v };
+      const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+      // Work in the shaders' own bottom-origin uv space.
+      let px = clamp01(u);
+      let py = 1 - clamp01(v);
+      if (active.has("degauss")) {
+        const time = (performance.now() - started) / 1000;
+        const thumpAge = Math.min((performance.now() - degaussStarted) / 1000, 60);
+        const settle = Math.exp(-2.6 * thumpAge);
+        const wob = Math.sin(thumpAge * 34 - py * 9) * settle;
+        const cx = px - 0.5;
+        const cy = py - 0.5;
+        const radius = Math.hypot(cx, cy);
+        const angle = wob * 0.10 * radius + magnetism * 0.05 * Math.sin(time * 0.4) * radius;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const sx = cx + magnetism * 0.008 * Math.sin(py * 21 + time * 0.7);
+        const scale = 1 + wob * 0.05;
+        // mat2(c,-s,s,c) is column-major: rotate * v = (c*x + s*y, -s*x + c*y).
+        px = clamp01(0.5 + (cos * sx + sin * cy) * scale);
+        py = clamp01(0.5 + (-sin * sx + cos * cy) * scale);
+      }
       const curve = values.get("crt")?.get("curve") ?? 0;
-      if (!raf || !active.has("crt") || curve === 0) return { u, v };
-      const strength = curve * (1 + 1.2 * magnetism);
-      const x = u * 2 - 1;
-      const y = v * 2 - 1;
-      const factor = 1 + strength * (x * x + y * y - 1);
-      return { u: (x * factor + 1) / 2, v: (y * factor + 1) / 2 };
+      if (active.has("crt") && curve !== 0) {
+        const cx = px * 2 - 1;
+        const cy = py * 2 - 1;
+        const factor = 1 + curve * (cx * cx + cy * cy - 1);
+        px = (cx * factor + 1) / 2;
+        py = (cy * factor + 1) / 2;
+      }
+      return { u: px, v: 1 - py };
     },
     degauss() {
       const definition = CANVAS_SHADERS.find((candidate) => candidate.id === "degauss");

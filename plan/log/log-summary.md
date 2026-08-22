@@ -3,6 +3,18 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: degauss means degauss
+
+Magnetization stopped being an amplifier and became the level itself: every shader distortion — tape tremor, tracking,
+chroma bleed, grain, fringe, vignette, glow, scanline depth, the corner stains — now scales with iMagnet (knob values
+are the half-magnetized look, double at full), so hitting degauss takes basically everything to zero except the
+curvature, which is the glass, not the field. The whole picture then creeps back toward character at the drift rate. The
+pointer mapping follows the full display chain now, not just the static curvature: the degauss pass's magnetization
+shear and rotation and even the thump's settling wobble are composed before the curvature in warpPoint, evaluated per
+event on the shader's own clock. A probe of fixed cell centers matched the mapping cell-for-cell, and the start-button
+aim test passes under both crt-only and the full five-pass stack; the boot pair of screenshots — wrecked tube, then
+surgically clean but still curved — is the feature explaining itself.
+
 ## August 22 2026 — exowebtui: a phone is not a mouse
 
 Two mobile complaints, one evening. A finger-drag inside a window was arming the text selection, so phones could not
