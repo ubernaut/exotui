@@ -3,6 +3,25 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — the shell extracted, and the trails were the font
+
+The one-big-go the maintainer asked for, on the `desktop-shell` branch with Pages following it. The extraction line held
+exactly as drawn: `src/app/workbench_shell.ts` is the furniture — ground-aware primitives, window chrome, the switcher
+panel, menu panels, a tab strip — taking a projection and resolved colours, painting cells, never touching content.
+exomux swapped its chrome block, switcher, start-menu panel and ground helpers for shell calls that reproduce its
+painting glyph-for-glyph; the proof is the 544-test suite passing without a single expectation changing. The web desktop
+swapped the same pieces and gained exomux's bordered windows in the trade. The renderer-neutral claim is now
+load-bearing: one painter drives a terminal DesktopPainter and a browser cell grid through the same three-method
+surface, with exomux's animated-backdrop blending arriving through the ground function the web hands in as a constant.
+
+The evening's field report — trails in the three demos and the catalog — turned out to be typography, not repainting:
+the sink's default 16px font advances 9.63px (braille 11.72px) in 9px cells, so every dense glyph painted into its
+neighbour and survived there until the neighbour happened to repaint. The sink now measures each glyph once and clips
+the wide ones to their cell; both web pages also pass a font sized to their cells. One process lesson repeated itself
+twice tonight: a "missing" border after the swap was the browser caching the old bundle from a header-less local server,
+and a plan paragraph a commit message claimed was recorded had silently failed its anchor match — verify the write, not
+the intention.
+
 ## August 21 2026 — the top bar, and the desktop asking to be a component
 
 The bar moved to the top where exomux keeps its, and grew exomux's furniture: a tab per open window (click to focus,

@@ -39,6 +39,12 @@ interface CellCanvasContext {
   fillText(text: string, x: number, y: number): void;
   scale(x: number, y: number): void;
   setTransform?(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  measureText?(text: string): { width: number };
+  save?(): void;
+  restore?(): void;
+  beginPath?(): void;
+  rect?(x: number, y: number, width: number, height: number): void;
+  clip?(): void;
 }
 
 /** Parsed display attributes for one ANSI-styled terminal cell. */
@@ -65,6 +71,8 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
   #cellWidth: number;
   #cellHeight: number;
   #lastStats?: CanvasRenderStats;
+  /** Advance per glyph at this font, cached — measured once, asked constantly. */
+  readonly #glyphAdvance = new Map<string, number>();
 
   constructor(options: BrowserCellCanvasSinkOptions) {
     const context = options.canvas.getContext("2d");
@@ -143,7 +151,32 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     this.#context.font = parsed.bold ? `700 ${this.#font}` : this.#font;
     this.#context.fillStyle = parsed.dim ? dimColor(parsed.foreground ?? this.#foreground) : parsed.foreground ??
       this.#foreground;
+    // A glyph whose advance exceeds the cell bleeds into the neighbour, and
+    // when the neighbour never repaints the residue reads as a trail — the
+    // whole reason animated charts smeared. Wide glyphs are clipped to their
+    // cell; the advance is measured once per (weight, glyph) and cached.
+    if (this.#glyphOverflows(text, parsed.bold === true) && this.#context.save && this.#context.clip) {
+      this.#context.save();
+      this.#context.beginPath?.();
+      this.#context.rect?.(x, y, this.#cellWidth, this.#cellHeight);
+      this.#context.clip();
+      this.#context.fillText(text, x, y);
+      this.#context.restore?.();
+      return;
+    }
     this.#context.fillText(text, x, y);
+  }
+
+  #glyphOverflows(text: string, bold: boolean): boolean {
+    if (!this.#context.measureText) return false;
+    const key = `${bold ? "b" : "n"}:${text}`;
+    let advance = this.#glyphAdvance.get(key);
+    if (advance === undefined) {
+      advance = this.#context.measureText(text).width;
+      if (this.#glyphAdvance.size >= 4096) this.#glyphAdvance.clear();
+      this.#glyphAdvance.set(key, advance);
+    }
+    return advance > this.#cellWidth + 0.01;
   }
 }
 

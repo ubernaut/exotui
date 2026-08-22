@@ -18,7 +18,7 @@ if (!root) throw new Error("Missing #app mount element.");
 
 const host = createWebTui({
   root,
-  sinkOptions: { cellWidth: 9, cellHeight: 18 },
+  sinkOptions: { cellWidth: 9, cellHeight: 18, font: "14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" },
 });
 
 const monitor = createBrowserMonitor();

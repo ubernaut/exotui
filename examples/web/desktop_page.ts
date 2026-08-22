@@ -39,6 +39,15 @@ import type { NeonDemo } from "../../app/visualizations.ts";
 import { createBrowserMonitor } from "./browser_monitor.ts";
 import type { ThreeWindowOverlay } from "./desktop_three.ts";
 import { ansiLineToCells, hexToRgb } from "./ansi_cells.ts";
+import {
+  paintShellMenuPanel,
+  paintShellSwitcher,
+  paintShellTabStrip,
+  paintShellWindowChrome,
+  type ShellSurface,
+  type ShellTabRect,
+  solidGround,
+} from "../../src/app/workbench_shell.ts";
 
 type Rgb = readonly [number, number, number];
 
@@ -565,6 +574,38 @@ function groundCells(frame: VizCell[][], ground: Rgb): void {
   }
 }
 
+const THIN_GLYPHS = {
+  topLeft: "┌",
+  top: "─",
+  topRight: "┐",
+  left: "│",
+  right: "│",
+  bottomLeft: "└",
+  bottom: "─",
+  bottomRight: "┘",
+} as const;
+
+/** The shell paints through this into the composed cell grid, clipped. */
+function frameSurface(frame: VizCell[][]): ShellSurface {
+  const put = (column: number, row: number, char: string, style: { foreground?: Rgb; background?: Rgb }) => {
+    const line = frame[row];
+    if (!line || column < 0 || column >= line.length) return;
+    line[column] = { char, foreground: style.foreground, background: style.background };
+  };
+  return {
+    cell: put,
+    write(column, row, text, style) {
+      const glyphs = [...text];
+      for (let index = 0; index < glyphs.length; index += 1) put(column + index, row, glyphs[index]!, style);
+    },
+    fill(rect, char, style) {
+      for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+        for (let column = rect.column; column < rect.column + rect.width; column += 1) put(column, row, char, style);
+      }
+    },
+  };
+}
+
 function clientFrame(width: number, height: number): VizCell[][] {
   const frame: VizCell[][] = [];
   for (let row = 0; row < height; row += 1) {
@@ -657,7 +698,10 @@ const START_MENU_ITEMS: StartMenuItem[] = [
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("Missing #app mount element.");
 
-const host = createWebTui({ root, sinkOptions: { cellWidth: 9, cellHeight: 18 } });
+const host = createWebTui({
+  root,
+  sinkOptions: { cellWidth: 9, cellHeight: 18, font: "14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" },
+});
 
 const workspace = createTiledWorkspaceController({});
 const windowHost = createWorkbenchWindowHostController({
@@ -732,7 +776,9 @@ function startMenuLayout(): StartMenuLayout {
   for (const item of START_MENU_ITEMS) {
     if (item.separatorBefore) row += 1;
     itemRects.push(
-      row + rowsPerItem <= limit ? { column: rect.column, row, width: rect.width, height: rowsPerItem } : undefined,
+      row + rowsPerItem <= limit
+        ? { column: rect.column + 1, row, width: Math.max(0, rect.width - 2), height: rowsPerItem }
+        : undefined,
     );
     row += rowsPerItem;
   }
@@ -878,21 +924,22 @@ function syncThreeOverlay(): void {
 
 function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection, now: number): void {
   const demo = demoById.get(window.id);
-  // Chrome ground first, so borders the projection reserves are never stale.
-  fillRect(frame, window.rect, window.active ? DESKTOP.chromeIdle : DESKTOP.wallpaperDot);
-  const bar = window.titleBarRect;
-  fillRect(frame, bar, window.active ? DESKTOP.chromeActive : DESKTOP.chromeIdle);
-  writeText(frame, bar.column + 1, bar.row, window.title.slice(0, Math.max(0, bar.width - 2)), {
-    foreground: window.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
-    background: window.active ? DESKTOP.chromeActive : DESKTOP.chromeIdle,
+  const chromeBase = window.active ? DESKTOP.chromeIdle : DESKTOP.wallpaperDot;
+  // The library shell paints the chrome — the same painter exomux draws with —
+  // and this desktop only resolves the colours from its palette.
+  paintShellWindowChrome(frameSurface(frame), window, {
+    surfaceFill: { foreground: DESKTOP.chromeText, background: chromeBase },
+    borderGlyphs: THIN_GLYPHS,
+    borderForeground: window.active ? DESKTOP.accent : DESKTOP.chromeMuted,
+    chromeGround: solidGround(chromeBase),
+    titleBarGround: solidGround(window.active ? DESKTOP.chromeActive : DESKTOP.chromeIdle),
+    titleBarFillForeground: DESKTOP.chromeText,
+    titleText: window.title,
+    titleForeground: window.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
+    titleBold: window.active,
+    controlBold: (control) => control.tone === "danger" || window.active,
+    controlForeground: window.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
   });
-  for (const control of window.controls) {
-    const tone = control.kind === "close" ? DESKTOP.danger : DESKTOP.chromeText;
-    writeText(frame, control.rect.column, control.rect.row, control.text, {
-      foreground: window.active ? tone : DESKTOP.chromeMuted,
-      background: window.active ? DESKTOP.chromeActive : DESKTOP.chromeIdle,
-    });
-  }
   const client = window.clientRect;
   if (client.width <= 0 || client.height <= 0) return;
   if (demo) {
@@ -913,35 +960,21 @@ function fillRect(frame: VizCell[][], rect: Rectangle, background: Rgb): void {
   }
 }
 
-/** One tab per open window on the bar, exomux's terminal-bar shape. */
-interface BarTab {
-  readonly id: string;
-  readonly title: string;
-  readonly active: boolean;
-  readonly minimized: boolean;
-  readonly column: number;
-  readonly width: number;
-}
+/** The rects the shell painted tabs into last frame; the router hit-tests these. */
+let paintedTabRects: ShellTabRect[] = [];
+/** Which windows the painted tabs stand for, aligned with paintedTabRects. */
+let paintedTabMinimized = new Map<string, boolean>();
 
-function barTabs(): BarTab[] {
+function barTabItems(): { id: string; label: string; active: boolean; dimmed: boolean }[] {
   const inspection = windowHost.controller.inspect();
-  const tabs: BarTab[] = [];
-  let column = START_BUTTON.length + 1;
-  for (const window of inspection.windows) {
-    if (window.state === "closed" || !window.declaredVisible) continue;
-    const label = ` ${window.title} `;
-    if (column + label.length >= columns() - 10) break;
-    tabs.push({
+  return inspection.windows
+    .filter((window) => window.state !== "closed" && window.declaredVisible)
+    .map((window) => ({
       id: window.id,
-      title: label,
+      label: window.title ?? window.id,
       active: window.id === inspection.activeWindowId,
-      minimized: window.state === "minimized",
-      column,
-      width: label.length,
-    });
-    column += label.length + 1;
-  }
-  return tabs;
+      dimmed: window.state === "minimized",
+    }));
 }
 
 function paintBar(frame: VizCell[][]): void {
@@ -951,13 +984,20 @@ function paintBar(frame: VizCell[][]): void {
     foreground: startMenuOpen ? DESKTOP.wallpaper : DESKTOP.accent,
     background: startMenuOpen ? DESKTOP.accent : DESKTOP.shelf,
   });
-  for (const tab of barTabs()) {
-    writeText(frame, tab.column, bar.row, tab.title, {
-      foreground: tab.minimized ? DESKTOP.chromeMuted : tab.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
-      background: tab.active ? DESKTOP.chromeActive : DESKTOP.wallpaperDot,
-    });
-  }
   const clock = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const tabs = barTabItems();
+  const strip: Rectangle = {
+    column: START_BUTTON.length + 1,
+    row: bar.row,
+    width: Math.max(0, columns() - START_BUTTON.length - 1),
+    height: 1,
+  };
+  paintedTabRects = paintShellTabStrip(frameSurface(frame), strip, tabs, {
+    activeTab: { foreground: DESKTOP.chromeText, background: DESKTOP.chromeActive },
+    tab: { foreground: DESKTOP.chromeMuted, background: DESKTOP.wallpaperDot },
+    dimmedTab: { foreground: DESKTOP.chromeMuted, background: DESKTOP.wallpaperDot },
+  }, clock.length + 2);
+  paintedTabMinimized = new Map(tabs.map((tab) => [tab.id, tab.dimmed]));
   writeText(frame, Math.max(0, columns() - clock.length - 1), bar.row, clock, {
     foreground: DESKTOP.chromeMuted,
     background: DESKTOP.shelf,
@@ -965,8 +1005,8 @@ function paintBar(frame: VizCell[][]): void {
   const hint = mobileLayout() || !desktopSettings.barHints ? "" : "drag · dbl-click max · tab switch · g tile";
   if (hint.length > 0) {
     const column = columns() - clock.length - hint.length - 4;
-    const lastTab = barTabs().at(-1);
-    if (column > (lastTab ? lastTab.column + lastTab.width + 2 : START_BUTTON.length + 2)) {
+    const lastTab = paintedTabRects.at(-1);
+    if (column > (lastTab ? lastTab.rect.column + lastTab.rect.width + 2 : START_BUTTON.length + 2)) {
       writeText(frame, column, bar.row, hint, { foreground: DESKTOP.chromeMuted, background: DESKTOP.shelf });
     }
   }
@@ -975,8 +1015,15 @@ function paintBar(frame: VizCell[][]): void {
 function paintStartMenu(frame: VizCell[][]): void {
   const layout = startMenuLayout();
   const rect = layout.rect;
-  fillRect(frame, rect, DESKTOP.menu);
-  writeText(frame, rect.column + 1, rect.row, "exotui desktop", {
+  paintShellMenuPanel(frameSurface(frame), rect, [], {
+    panelFill: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+    borderGlyphs: THIN_GLYPHS,
+    borderStyle: { foreground: DESKTOP.accent, background: DESKTOP.menu, bold: true },
+    rowStyle: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+    dangerForeground: DESKTOP.danger,
+  });
+  // The title rides the top border, the way exomux titles its boxes.
+  writeText(frame, rect.column + 2, rect.row, " exotui desktop ", {
     foreground: DESKTOP.accent,
     background: DESKTOP.menu,
   });
@@ -1074,28 +1121,14 @@ function paintDesktop(now: number): void {
   }
   for (const window of projection.floatingWindows) paintWindow(frame, window, now);
   if (projection.switcher) {
-    const items = projection.switcher.items;
-    const width = Math.min(columns() - 4, Math.max(24, 6 + Math.max(...items.map((item) => item.title.length))));
-    const height = items.length + 2;
-    const rect: Rectangle = {
-      column: Math.max(0, Math.floor((columns() - width) / 2)),
-      row: Math.max(0, Math.floor((rows() - height) / 2)),
-      width,
-      height,
-    };
-    fillRect(frame, rect, DESKTOP.menu);
-    writeText(frame, rect.column + 1, rect.row, "windows", { foreground: DESKTOP.accent, background: DESKTOP.menu });
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index]!;
-      const ground = item.selected ? DESKTOP.menuSelected : DESKTOP.menu;
-      if (item.selected) {
-        fillRect(frame, { column: rect.column, row: rect.row + 1 + index, width: rect.width, height: 1 }, ground);
-      }
-      writeText(frame, rect.column + 2, rect.row + 1 + index, item.title.slice(0, rect.width - 4), {
-        foreground: item.state === "minimized" ? DESKTOP.chromeMuted : DESKTOP.chromeText,
-        background: ground,
-      });
-    }
+    paintShellSwitcher(frameSurface(frame), projection.switcher, bodyBounds(), {
+      colors: {
+        panelFill: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+        frame: { foreground: DESKTOP.accent, background: DESKTOP.menu, bold: true },
+        item: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+        selectedItem: { foreground: DESKTOP.chromeText, background: DESKTOP.menuSelected, bold: true },
+      },
+    });
   }
   if (projection.snapPreview) {
     const preview = projection.snapPreview.rect;
@@ -1174,10 +1207,11 @@ host.on("pointerInput", (event: PointerInputEvent) => {
         startMenuSelected = 0;
         return;
       }
-      // The same layout the painter uses, so a click lands on its tab.
-      for (const tab of barTabs()) {
-        if (x >= tab.column && x < tab.column + tab.width) {
-          if (tab.active && !tab.minimized) {
+      // The rects the shell painted are the rects the router trusts.
+      for (const tab of paintedTabRects) {
+        if (contains(tab.rect, x, y)) {
+          const active = windowHost.controller.inspect().activeWindowId === tab.id;
+          if (active && paintedTabMinimized.get(tab.id) !== true) {
             windowHost.execute({ kind: "minimize", id: tab.id }, bodyBounds(), projectionOptions());
           } else presentDemoWindow(tab.id);
           return;

@@ -29,6 +29,7 @@ export * from "./action_policies.ts";
 export * from "./accessibility_tree.ts";
 export * from "./focus_announcements.ts";
 export * from "./workbench_accessibility.ts";
+export * from "./workbench_shell.ts";
 export * from "./calendar.ts";
 export * from "./clipboard.ts";
 export * from "./general_widgets.ts";

@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 15
-- Unique modules: 525
-- Module visits: 1025
-- Unique re-export declarations: 675
-- Re-export declaration visits: 1023
-- Unique symbol declarations: 4879
-- Symbol declaration visits: 9816
-- Documented symbol declarations: 4847
-- Documentation coverage: 99.34%
+- Unique modules: 526
+- Module visits: 1027
+- Unique re-export declarations: 676
+- Re-export declaration visits: 1025
+- Unique symbol declarations: 4903
+- Symbol declaration visits: 9864
+- Documented symbol declarations: 4871
+- Documentation coverage: 99.35%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -21,9 +21,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     435 |    4242 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     436 |    4266 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     345 |    3583 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     346 |    3607 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -44,10 +44,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 435
-- Re-export declarations: 435
-- Exported symbols: 4242
-- Documented symbols: 4242
+- Modules: 436
+- Re-export declarations: 436
+- Exported symbols: 4266
+- Documented symbols: 4266
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -74,10 +74,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 345
-- Re-export declarations: 346
-- Exported symbols: 3583
-- Documented symbols: 3583
+- Modules: 346
+- Re-export declarations: 347
+- Exported symbols: 3607
+- Documented symbols: 3607
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -336,7 +336,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/log_viewer_commands.ts`](#src-app-log-viewer-commands-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/menu_bar_commands.ts`](#src-app-menu-bar-commands-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/metric_series_commands.ts`](#src-app-metric-series-commands-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/mod.ts`](#src-app-mod-ts)                                                             | `.`, `./web`                            |        120 |       0 |          0 |
+| [`src/app/mod.ts`](#src-app-mod-ts)                                                             | `.`, `./web`                            |        121 |       0 |          0 |
 | [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                       | `.`, `./web`                            |          0 |      14 |         14 |
 | [`src/app/navigation_blockers.ts`](#src-app-navigation-blockers-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/navigation_journal.ts`](#src-app-navigation-journal-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
@@ -407,6 +407,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                 | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)     | `.`, `./web`                            |          0 |       8 |          8 |
 | [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                     | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                     | `.`, `./web`                            |          0 |      24 |         24 |
 | [`src/app/workbench_status.ts`](#src-app-workbench-status-ts)                                   | `.`, `./web`                            |          0 |      26 |         26 |
 | [`src/app/workbench_terminal.ts`](#src-app-workbench-terminal-ts)                               | `.`, `./web`                            |          0 |      66 |         66 |
 | [`src/app/workbench_text.ts`](#src-app-workbench-text-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
@@ -2141,6 +2142,7 @@ _Entrypoints: `.`, `./web`_
 | `src/app/accessibility_tree.ts`         | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/focus_announcements.ts`        | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/workbench_accessibility.ts`    | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/workbench_shell.ts`            | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/calendar.ts`                   | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/clipboard.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/general_widgets.ts`            | star  | -                                                                                                                                                                                                                                                                     |
@@ -3522,6 +3524,37 @@ _Entrypoints: `.`, `./web`_
 | `workbenchTabEntriesInto`             | function  | no        | yes   |
 | `WorkbenchTabLayoutOptions`           | interface | yes       | yes   |
 | `WorkbenchTabSource`                  | interface | yes       | yes   |
+
+### src/app/workbench_shell.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `borderBoxOnGround`        | function  | no        | yes   |
+| `fillOnGround`             | function  | no        | yes   |
+| `paintShellMenuPanel`      | function  | no        | yes   |
+| `paintShellSwitcher`       | function  | no        | yes   |
+| `paintShellTabStrip`       | function  | no        | yes   |
+| `paintShellWindowChrome`   | function  | no        | yes   |
+| `ShellBorderGlyphs`        | interface | yes       | yes   |
+| `shellFitSpan`             | function  | no        | yes   |
+| `shellFitText`             | function  | no        | yes   |
+| `shellGlyphColumns`        | function  | no        | yes   |
+| `ShellGround`              | type      | yes       | yes   |
+| `ShellMenuPanelOptions`    | interface | yes       | yes   |
+| `ShellMenuRow`             | interface | yes       | yes   |
+| `ShellRgb`                 | type      | yes       | yes   |
+| `ShellStyle`               | interface | yes       | yes   |
+| `ShellSurface`             | interface | yes       | yes   |
+| `ShellSwitcherColors`      | interface | yes       | yes   |
+| `ShellSwitcherOptions`     | interface | yes       | yes   |
+| `ShellTab`                 | interface | yes       | yes   |
+| `ShellTabRect`             | interface | yes       | yes   |
+| `ShellTabStripColors`      | interface | yes       | yes   |
+| `ShellWindowChromeOptions` | interface | yes       | yes   |
+| `solidGround`              | function  | no        | yes   |
+| `writeOnGround`            | function  | no        | yes   |
 
 ### src/app/workbench_status.ts
 
