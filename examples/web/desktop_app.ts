@@ -645,7 +645,7 @@ const ABOUT_BODY = [
   "the discipline of the hand",
   "──────────────────────────",
   "",
-  "  ⏻ start        every window; begin at the origin",
+  "  ⏻ exowebtui    every window; begin at the origin",
   "  drag titlebar  move · edge-drag snaps · dbl-click max",
   "  g              float ⇄ tile the focused window",
   "  tab            window switcher",
@@ -1125,6 +1125,8 @@ export interface DesktopShaderService {
   setOption(id: string, key: string, value: number): void;
   /** A one-shot Trinitron degauss thump over whatever is on. */
   degauss(): void;
+  /** The live magnetization level, 0..1. */
+  magnetism(): number;
 }
 
 /** The monitor surface the exomonitor window draws through. */
@@ -1198,6 +1200,8 @@ let backgroundField: ShellAnimatedBackground | undefined;
 let backgroundFieldId = "";
 let lastBackgroundAdvance = 0;
 const BACKGROUND_FRAME_MS = 125;
+let backgroundFrameMs = BACKGROUND_FRAME_MS;
+let backgroundAdvanceCount = 0;
 /** The last rasterized field, reused between advances: a simulation that has
  * not moved must not be re-rendered sixty times a second (butterchurn's CPU
  * presets made that lesson vivid). */
@@ -1228,8 +1232,11 @@ function currentBackgroundField(): ShellAnimatedBackground | undefined {
   if (disposable && typeof (disposable as { dispose?: () => void }).dispose === "function") {
     (disposable as { dispose: () => void }).dispose();
   }
-  backgroundField = (SHELL_BACKGROUND_FIELDS.find((entry) => entry.id === id) ??
-    services.extraBackgrounds?.find((entry) => entry.id === id))?.create();
+  const entry = SHELL_BACKGROUND_FIELDS.find((candidate) => candidate.id === id) ??
+    services.extraBackgrounds?.find((candidate) => candidate.id === id);
+  backgroundField = entry?.create();
+  // A field that asks for 60 gets every frame; the calm catalog keeps its 8.
+  backgroundFrameMs = entry?.fps ? 1000 / entry.fps - 1 : BACKGROUND_FRAME_MS;
   backgroundFieldId = id;
   lastBackgroundAdvance = 0;
   return backgroundField;
@@ -1244,6 +1251,18 @@ const mobileLayout = (): boolean => columns() < 72 || rows() < 20;
 
 let startMenuOpen = false;
 let startMenuSelected = 0;
+
+/** Magnetization level past which the picture is annoying to read. */
+const MAGNET_BLINK_THRESHOLD = 0.55;
+const DEGAUSS_CHIP = " ∪ degauss ";
+
+/** The magnet button, bottom-right, floating above everything. */
+function degaussChipRect(): Rectangle | undefined {
+  if (!services.shader) return undefined;
+  const width = DEGAUSS_CHIP.length;
+  if (columns() < width + 2 || rows() < 4) return undefined;
+  return { column: columns() - width - 1, row: rows() - 2, width, height: 1 };
+}
 /** The drawn pointer: tracked for mouse and pen, never for a finger. */
 let cursorPoint: { column: number; row: number } | undefined;
 let cursorVisible = false;
@@ -1475,7 +1494,7 @@ function startMenuLayout(): StartMenuLayout {
   return { rect, itemRects, dense: rowsPerItem === 1 };
 }
 
-const START_BUTTON = " ⏻ start ";
+const START_BUTTON = " ⏻ exowebtui ";
 
 let presentedCount = 0;
 
@@ -1639,15 +1658,13 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
           line[frameX] = { char: " ", foreground: DESKTOP.chromeMuted, background: DESKTOP.chromeIdle };
         }
         for (const span of demoControlSpans(demo, client.width)) {
-          const text = `▌${span.control.label}▐`;
+          // Accent ground with the theme's computed on-accent ink — the same
+          // pair the active title bar reads by, in every theme.
+          const text = ` ${span.control.label} `;
           for (let offset = 0; offset < text.length; offset += 1) {
             const frameX = client.column + span.from + offset;
             if (frameX < 0 || frameX >= line.length) continue;
-            line[frameX] = {
-              char: text[offset]!,
-              foreground: offset === 0 || offset === text.length - 1 ? DESKTOP.chromeMuted : DESKTOP.accent,
-              background: DESKTOP.chromeActive,
-            };
+            line[frameX] = { char: text[offset]!, foreground: ON_ACCENT, background: DESKTOP.accent };
           }
         }
       }
@@ -1830,8 +1847,9 @@ function paintWallpaper(frame: VizCell[][], width: number, height: number, now: 
   if (!field) return;
   const body = bodyBounds();
   let advanced = false;
-  if (now - lastBackgroundAdvance >= BACKGROUND_FRAME_MS) {
+  if (now - lastBackgroundAdvance >= backgroundFrameMs) {
     lastBackgroundAdvance = now;
+    backgroundAdvanceCount += 1;
     const projection = windowHost.project(body, projectionOptions());
     advanced = field.advance({
       bounds: body,
@@ -1923,6 +1941,22 @@ function paintDesktop(now: number): VizCell[][] {
   if (startMenuOpen) paintStartMenu(frame);
   paintContextMenu(frame);
   paintFlyGhosts(frame, now);
+  const chip = degaussChipRect();
+  if (chip && services.shader) {
+    const level = services.shader.magnetism();
+    const alarmed = level >= MAGNET_BLINK_THRESHOLD;
+    const blinkOn = alarmed && Math.floor(now / 380) % 2 === 0;
+    const chipGround = blinkOn ? DESKTOP.danger : alarmed ? DESKTOP.accent : DESKTOP.chromeIdle;
+    const chipInk = blinkOn || alarmed ? ON_ACCENT : DESKTOP.chromeText;
+    const line = frame[chip.row];
+    if (line) {
+      for (let offset = 0; offset < DEGAUSS_CHIP.length; offset += 1) {
+        const x = chip.column + offset;
+        if (x < 0 || x >= line.length) continue;
+        line[x] = { char: DEGAUSS_CHIP[offset]!, foreground: chipInk, background: chipGround };
+      }
+    }
+  }
   // The drawn pointer: the OS cursor is hidden on this page, so the cell
   // cursor IS the pointer — and it rides the shader warp with the picture.
   const cursor = softwareCursorRender(
@@ -1989,6 +2023,13 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     startMenuOpen = false;
     openContextMenu(x, y, contextMenuItemsFor(x, y));
     return;
+  }
+  if (event.kind === "down" && event.button !== 2) {
+    const chip = degaussChipRect();
+    if (chip && contains(chip, x, y)) {
+      services.shader!.degauss();
+      return;
+    }
   }
   // Text selection: a primary drag across ONE window's client area, in that
   // window's own cells. The anchor arms on down; real movement starts the
@@ -2236,6 +2277,8 @@ function handleDesktopKey(event: KeyPressEvent): void {
   pointer: () => lastPointerCell,
   kinds: () => pointerKindCounts,
   preset: () => (backgroundField as { presetIndex?: number } | undefined)?.presetIndex,
+  advances: () => backgroundAdvanceCount,
+  magnet: () => services.shader?.magnetism(),
   field: () => backgroundField?.constructor?.name,
   stats: () => ({
     rows: lastFrame.length,

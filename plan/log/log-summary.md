@@ -3,6 +3,17 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: readable buttons, an honest name, a fluid lava
+
+Four field reports, four fixes. The control-strip buttons were accent-on-chromeActive — the same teal twice in most
+themes, arrows drowned in their own chips — and their half-block caps had just become geometric solids; the strip paints
+as accent chips with the theme's computed on-accent ink now, the exact pair the active title bar reads by. The bar
+button finally says ⏻ exowebtui instead of ⏻ start. Butterchurn stopped being a slideshow: background entries carry a
+preferred fps, the calm catalog keeps its 8, and butterchurn declares 60 — verified at ~53 advances a second in
+headless, every frame the compositor gives. And the coil got a face: a ∪ degauss chip floats bottom-right, quiet on a
+clean tube, alarmed past 0.55 magnetization, blinking danger-and-accent at 380ms when the picture is annoying to read —
+one click thumps the field to 0.02, verified against the layer's newly exposed magnetism().
+
 ## August 22 2026 — exowebtui: unbroken wires, a drawn pointer, and the tap that opens everything
 
 The box-drawing range joined the geometric renderer: light arms, corners, tees and crosses from a URDL bitmask, heavy

@@ -38,6 +38,8 @@ export interface ShellBackgroundEntry {
   readonly id: string;
   readonly label: string;
   readonly create: () => ShellAnimatedBackground;
+  /** Preferred advance rate; hosts default to a calm 8 when absent. */
+  readonly fps?: number;
 }
 
 /** The portable catalog, in exomux's stable cycle order. */

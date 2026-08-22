@@ -217,6 +217,8 @@ export interface CanvasShaderLayer {
   setOption(id: string, key: string, value: number): void;
   /** The Trinitron thump: a one-shot settling wobble over whatever is on. */
   degauss(): void;
+  /** The live magnetization level, 0..1 — what every distortion scales by. */
+  magnetism(): number;
   /**
    * Maps a viewed position to the source position shown there, both in
    * [0,1]² of the canvas — the same forward mapping the CRT pass samples
@@ -508,6 +510,7 @@ export function createCanvasShaderLayer(
       apply();
     },
     option: (id: string, key: string) => values.get(id)?.get(key),
+    magnetism: () => magnetism,
     warpPoint(u: number, v: number): { u: number; v: number } {
       if (!raf) return { u, v };
       const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));

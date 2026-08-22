@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 481,
-    "bytes": 5751293,
+    "bytes": 5751390,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 17576,
@@ -22,7 +22,7 @@
       "src/app/backgrounds/ivy_background.ts": 28783,
       "src/app/backgrounds/jungle_background.ts": 15552,
       "src/app/backgrounds/matrix_background.ts": 21451,
-      "src/app/backgrounds/mod.ts": 2891,
+      "src/app/backgrounds/mod.ts": 2988,
       "src/app/backgrounds/rainy_windows_background.ts": 45302,
       "src/app/backgrounds/skull_background.ts": 30763,
       "src/app/backgrounds/turbulence_background.ts": 25606,
@@ -892,7 +892,7 @@
   },
   "mod.web.ts": {
     "modules": 426,
-    "bytes": 5475877,
+    "bytes": 5476110,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -913,7 +913,7 @@
       "src/app/backgrounds/ivy_background.ts": 28783,
       "src/app/backgrounds/jungle_background.ts": 15552,
       "src/app/backgrounds/matrix_background.ts": 21451,
-      "src/app/backgrounds/mod.ts": 2891,
+      "src/app/backgrounds/mod.ts": 2988,
       "src/app/backgrounds/rainy_windows_background.ts": 45302,
       "src/app/backgrounds/skull_background.ts": 30763,
       "src/app/backgrounds/turbulence_background.ts": 25606,
@@ -1312,7 +1312,7 @@
       "src/view.ts": 746,
       "src/viewport.ts": 9033,
       "src/web/ansi_color.ts": 985,
-      "src/web/canvas_shader.ts": 23635,
+      "src/web/canvas_shader.ts": 23771,
       "src/web/cell_canvas_sink.ts": 16889,
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,

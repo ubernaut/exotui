@@ -65,7 +65,7 @@ Deno.test("the desktop boots and paints its furniture on a fake presenter", asyn
   fire(1033);
   assert(frames.length >= 2, "two frames should have been presented");
   const text = frameText(frames.at(-1)!);
-  assert(text.includes("⏻ start"), "the bar's start button paints");
+  assert(text.includes("⏻ exowebtui"), "the bar's start button paints");
   assert(text.includes("welcome"), "the welcome window paints");
   assert(text.includes("│"), "window borders paint");
   handle.stop();

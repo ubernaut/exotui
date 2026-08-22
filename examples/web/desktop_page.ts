@@ -112,6 +112,7 @@ runShellApp(
         id: "butterchurn",
         label: "butterchurn — the milkdrop lava, audio-reactive",
         create: lazyButterchurn,
+        fps: 60,
       },
     ],
   }),
