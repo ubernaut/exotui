@@ -892,7 +892,7 @@
   },
   "mod.web.ts": {
     "modules": 426,
-    "bytes": 5470675,
+    "bytes": 5475877,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -1313,11 +1313,11 @@
       "src/viewport.ts": 9033,
       "src/web/ansi_color.ts": 985,
       "src/web/canvas_shader.ts": 23635,
-      "src/web/cell_canvas_sink.ts": 11901,
+      "src/web/cell_canvas_sink.ts": 16889,
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,
       "src/web/mod.ts": 283,
-      "src/web/platform.ts": 19782,
+      "src/web/platform.ts": 19996,
       "src/web/remote_terminal.ts": 49112,
       "src/web/web_presenter.ts": 7203
     }

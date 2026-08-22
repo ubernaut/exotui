@@ -62,10 +62,11 @@ const audio = browserAudioSource();
 function lazyButterchurn(): ShellAnimatedBackground {
   let real: ShellAnimatedBackground | undefined;
   let loading = false;
-  return {
-    setPointer: (point, now) => real?.setPointer(point, now),
+  const wrapper = {
+    setPointer: (point: Parameters<ShellAnimatedBackground["setPointer"]>[0], now?: number) =>
+      real?.setPointer(point, now),
     clearPointer: () => real?.clearPointer(),
-    advance(options) {
+    advance(options: Parameters<ShellAnimatedBackground["advance"]>[0]) {
       if (!real && !loading) {
         loading = true;
         const specifier = "./desktop-butterchurn.js";
@@ -79,8 +80,20 @@ function lazyButterchurn(): ShellAnimatedBackground {
       }
       return real?.advance(options) ?? false;
     },
-    rasterizeCells: (bounds, theme) => real?.rasterizeCells(bounds, theme) ?? [],
+    rasterizeCells: (
+      bounds: Parameters<ShellAnimatedBackground["rasterizeCells"]>[0],
+      theme: Parameters<ShellAnimatedBackground["rasterizeCells"]>[1],
+    ) => real?.rasterizeCells(bounds, theme) ?? [],
+    // The field's pick advances to the next shuffled preset; the wrapper must
+    // forward it or the desktop never routes clicks here at all.
+    pick: (column: number, row: number, now?: number) =>
+      (real as { pick?: (column: number, row: number, now?: number) => boolean } | undefined)
+        ?.pick?.(column, row, now) ?? false,
+    get presetIndex(): number | undefined {
+      return (real as { presetIndex?: number } | undefined)?.presetIndex;
+    },
   };
+  return wrapper as unknown as ShellAnimatedBackground;
 }
 // A click anywhere is the user gesture the microphone needs; the synth keeps
 // butterchurn alive until then.

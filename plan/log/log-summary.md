@@ -3,6 +3,19 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: unbroken wires, a drawn pointer, and the tap that opens everything
+
+The box-drawing range joined the geometric renderer: light arms, corners, tees and crosses from a URDL bitmask, heavy
+bars, and the double-line set as hand-placed rails with outer corners long and inner corners short — so the circuit's
+wires run unbroken and window borders are continuous strokes, ending the same font-shortfall gaps the blocks had. The
+desktop draws its own pointer now: the OS cursor is hidden (cursor: none) and the library's softwareCursorRender —
+promoted from exomux — paints the block at the tracked cell, turning into ✥ on title bars and ↔ ↕ ⤡ ⤢ on edges; it rides
+the shader warp with the picture, which the floating DOM cursor never could. That required the web host to emit hover:
+pointermove with no buttons was dropped entirely, which had also quietly kept pointer-following backgrounds drag-only on
+the web. Butterchurn's click-to-advance turned out to be unimplemented in the one place it mattered — the lazy wrapper
+never forwarded pick() — so clicks now jump to a random preset (verified: 38 → 425 → 208), and on a phone a tap on bare
+wallpaper opens the start menu, since a phone has no right-click and its windows fill the screen.
+
 ## August 22 2026 — exowebtui: degauss means degauss
 
 Magnetization stopped being an amplifier and became the level itself: every shader distortion — tape tremor, tracking,

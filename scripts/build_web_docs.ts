@@ -275,6 +275,7 @@ function desktopHtml(): string {
         outline: none;
         touch-action: none;
         user-select: none;
+        cursor: none;
         background: #0a0c14;
       }
 

@@ -248,9 +248,12 @@ export class BrowserInputSource implements InputSource {
   }
 
   #handlePointerMove(event: PointerEvent): void {
-    if (event.buttons === 0) return;
     const position = this.#cellPosition(event);
+    // Hover flows as pointer input — drawn cursors and pointer-following
+    // backgrounds need motion, not only drags. The legacy mouse-press
+    // stream below stays drag-only, as its `drag: true` promises.
     this.#emitPointerInput(event, "move", position);
+    if (event.buttons === 0) return;
     this.#emitter?.emit("mousePress", {
       key: "mouse",
       x: position.x,

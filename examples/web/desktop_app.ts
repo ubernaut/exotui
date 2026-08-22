@@ -52,6 +52,7 @@ import {
 } from "../../src/app/shell_theme.ts";
 import { oklchToRgb, rgbToOklch } from "../../src/theme_oklch.ts";
 import { animatedBackgroundAcceptsPicks, animatedBackgroundHasOverlay } from "../../src/app/animated_background.ts";
+import { softwareCursorRender } from "../../src/app/software_cursor.ts";
 import {
   SHELL_BACKGROUND_FIELDS,
   type ShellAnimatedBackground,
@@ -1243,6 +1244,9 @@ const mobileLayout = (): boolean => columns() < 72 || rows() < 20;
 
 let startMenuOpen = false;
 let startMenuSelected = 0;
+/** The drawn pointer: tracked for mouse and pen, never for a finger. */
+let cursorPoint: { column: number; row: number } | undefined;
+let cursorVisible = false;
 
 /** The right-click menu: desktop-owned, one geometry for paint and hits. */
 interface ContextMenuItem {
@@ -1919,6 +1923,21 @@ function paintDesktop(now: number): VizCell[][] {
   if (startMenuOpen) paintStartMenu(frame);
   paintContextMenu(frame);
   paintFlyGhosts(frame, now);
+  // The drawn pointer: the OS cursor is hidden on this page, so the cell
+  // cursor IS the pointer — and it rides the shader warp with the picture.
+  const cursor = softwareCursorRender(
+    cursorVisible,
+    cursorPoint,
+    windowHost.project(bodyBounds(), projectionOptions()),
+    contextMenu === undefined && !startMenuOpen,
+  );
+  if (cursor) {
+    const line = frame[cursor.row];
+    if (line && cursor.column >= 0 && cursor.column < line.length) {
+      const under = line[cursor.column]!;
+      line[cursor.column] = { char: cursor.glyph, foreground: DESKTOP.accent, background: under.background };
+    }
+  }
   lastFrame = frame;
   return frame;
 }
@@ -1949,6 +1968,13 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   if (!cell) return;
   const { x, y } = cell;
   lastPointerCell = { x, y, kind: `${event.kind}:${event.device}` };
+  if (event.device === "touch" || event.kind === "leave") {
+    cursorVisible = false;
+    cursorPoint = undefined;
+  } else {
+    cursorVisible = true;
+    cursorPoint = { column: x, row: y };
+  }
   pointerKindCounts[`${event.kind}:${event.device}`] = (pointerKindCounts[`${event.kind}:${event.device}`] ?? 0) + 1;
   if (event.kind === "move" && backgroundField) backgroundField.setPointer({ column: x, row: y });
   if (contextMenu) {
@@ -2124,10 +2150,20 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     }
     // Nothing claimed the down: it landed on the wallpaper, and an interactive
     // field (the circuit's nodes light their wires) takes the pick.
-    if (!result.handled && backgroundField && animatedBackgroundAcceptsPicks(backgroundField)) {
+    if (!result.handled) {
       const projection = windowHost.project(bodyBounds(), projectionOptions());
       const overWindow = projection.windows.some((candidate) => contains(candidate.rect, x, y));
-      if (!overWindow && y !== barBounds().row) backgroundField.pick(x, y);
+      const onDesktop = !overWindow && y !== barBounds().row;
+      if (onDesktop && mobileLayout()) {
+        // A phone has no right-click and its windows fill the screen; bare
+        // wallpaper is the one tap target left, so it opens the start menu.
+        startMenuOpen = true;
+        startMenuSelected = 0;
+        return;
+      }
+      if (onDesktop && backgroundField && animatedBackgroundAcceptsPicks(backgroundField)) {
+        backgroundField.pick(x, y);
+      }
     }
   }
 }
@@ -2199,6 +2235,8 @@ function handleDesktopKey(event: KeyPressEvent): void {
   row: (index: number) => (lastFrame[index] ?? []).map((cell) => cell.char).join(""),
   pointer: () => lastPointerCell,
   kinds: () => pointerKindCounts,
+  preset: () => (backgroundField as { presetIndex?: number } | undefined)?.presetIndex,
+  field: () => backgroundField?.constructor?.name,
   stats: () => ({
     rows: lastFrame.length,
     columns: lastFrame[0]?.length ?? -1,

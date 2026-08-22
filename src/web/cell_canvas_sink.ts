@@ -5,6 +5,29 @@ import { stripStyles } from "../utils/strings.ts";
 import { ansi256Color, ansiColor } from "./ansi_color.ts";
 
 const textDecoder = new TextDecoder();
+
+// Light box-drawing glyphs as four half-arms from the centre; bit order URDL.
+const BOX_LIGHT_ARMS: ReadonlyMap<number, number> = new Map([
+  [0x2500, 0b0101], // ─
+  [0x2502, 0b1010], // │
+  [0x250c, 0b0110], // ┌
+  [0x2510, 0b0011], // ┐
+  [0x2514, 0b1100], // └
+  [0x2518, 0b1001], // ┘
+  [0x251c, 0b1110], // ├
+  [0x2524, 0b1011], // ┤
+  [0x252c, 0b0111], // ┬
+  [0x2534, 0b1101], // ┴
+  [0x253c, 0b1111], // ┼
+  [0x256d, 0b0110], // ╭ (square-cornered)
+  [0x256e, 0b0011], // ╮
+  [0x256f, 0b1001], // ╯
+  [0x2570, 0b1100], // ╰
+  [0x2574, 0b0001], // ╴
+  [0x2575, 0b1000], // ╵
+  [0x2576, 0b0100], // ╶
+  [0x2577, 0b0010], // ╷
+]);
 const ESCAPE = String.fromCharCode(27);
 const SGR_PATTERN = new RegExp(`${ESCAPE}\\[([0-9;]*)m`, "g");
 
@@ -156,7 +179,11 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     // cell box exactly, and the shortfall reads as a grid of seams over any
     // shaded background. Halves, eighths, and quadrants become exact rects;
     // shades become alpha fills — full coverage no matter the font metrics.
-    if (text.length === 1 && this.#paintBlockGlyph(text.codePointAt(0)!, x, y, foreground)) return;
+    if (text.length === 1) {
+      const code = text.codePointAt(0)!;
+      if (code >= 0x2500 && code <= 0x257f && this.#paintBoxGlyph(code, x, y, foreground)) return;
+      if (this.#paintBlockGlyph(code, x, y, foreground)) return;
+    }
     this.#context.font = parsed.bold ? `700 ${this.#font}` : this.#font;
     this.#context.fillStyle = foreground;
     // A glyph whose advance exceeds the cell bleeds into the neighbour, and
@@ -173,6 +200,129 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
       return;
     }
     this.#context.fillText(text, x, y);
+  }
+
+  /**
+   * Box-drawing glyphs as geometry: light and heavy arms, square corners,
+   * tees and crosses, and the double-line set. Font glyphs for these rarely
+   * span the full cell, and the shortfall reads as gaps along every wire and
+   * window border; exact rects meet at the cell edges instead.
+   */
+  #paintBoxGlyph(code: number, x: number, y: number, foreground: string): boolean {
+    const context = this.#context;
+    const w = this.#cellWidth;
+    const h = this.#cellHeight;
+    const t = Math.max(1, Math.round(Math.min(w, h) / 8));
+    const heavy = Math.max(2, t * 2);
+    const cx = x + Math.floor((w - t) / 2);
+    const cy = y + Math.floor((h - t) / 2);
+    const hline = (top: number, from: number, to: number, thickness = t) =>
+      context.fillRect(from, top, Math.max(0, to - from), thickness);
+    const vline = (left: number, from: number, to: number, thickness = t) =>
+      context.fillRect(left, from, thickness, Math.max(0, to - from));
+    const arms = code === 0x2501 ? 0b0101 : code === 0x2503 ? 0b1010 : BOX_LIGHT_ARMS.get(code);
+    if (arms !== undefined) {
+      context.fillStyle = foreground;
+      const thickness = code === 0x2501 || code === 0x2503 ? heavy : t;
+      const armCx = x + Math.floor((w - thickness) / 2);
+      const armCy = y + Math.floor((h - thickness) / 2);
+      if (arms & 0b1000) vline(armCx, y, armCy + thickness, thickness);
+      if (arms & 0b0010) vline(armCx, armCy, y + h, thickness);
+      if (arms & 0b0001) hline(armCy, x, armCx + thickness, thickness);
+      if (arms & 0b0100) hline(armCy, armCx, x + w, thickness);
+      return true;
+    }
+    // Doubles: two parallel lines, outer corners long and inner corners short.
+    const d = Math.max(t + 1, Math.round(Math.min(w, h) / 5));
+    const yT = cy - d;
+    const yB = cy + d;
+    const xL = cx - d;
+    const xR = cx + d;
+    context.fillStyle = foreground;
+    switch (code) {
+      case 0x2550: // ═
+        hline(yT, x, x + w);
+        hline(yB, x, x + w);
+        return true;
+      case 0x2551: // ║
+        vline(xL, y, y + h);
+        vline(xR, y, y + h);
+        return true;
+      case 0x2554: // ╔
+        hline(yT, xL, x + w);
+        hline(yB, xR, x + w);
+        vline(xL, yT, y + h);
+        vline(xR, yB, y + h);
+        return true;
+      case 0x2557: // ╗
+        hline(yT, x, xR + t);
+        hline(yB, x, xL + t);
+        vline(xR, yT, y + h);
+        vline(xL, yB, y + h);
+        return true;
+      case 0x255a: // ╚
+        hline(yB, xL, x + w);
+        hline(yT, xR, x + w);
+        vline(xL, y, yB + t);
+        vline(xR, y, yT + t);
+        return true;
+      case 0x255d: // ╝
+        hline(yB, x, xR + t);
+        hline(yT, x, xL + t);
+        vline(xR, y, yB + t);
+        vline(xL, y, yT + t);
+        return true;
+      case 0x2560: // ╠
+        vline(xL, y, y + h);
+        vline(xR, y, yT + t);
+        vline(xR, yB, y + h);
+        hline(yT, xR, x + w);
+        hline(yB, xR, x + w);
+        return true;
+      case 0x2563: // ╣
+        vline(xR, y, y + h);
+        vline(xL, y, yT + t);
+        vline(xL, yB, y + h);
+        hline(yT, x, xL + t);
+        hline(yB, x, xL + t);
+        return true;
+      case 0x2566: // ╦
+        hline(yT, x, x + w);
+        hline(yB, x, xL + t);
+        hline(yB, xR, x + w);
+        vline(xL, yB, y + h);
+        vline(xR, yB, y + h);
+        return true;
+      case 0x2569: // ╩
+        hline(yB, x, x + w);
+        hline(yT, x, xL + t);
+        hline(yT, xR, x + w);
+        vline(xL, y, yT + t);
+        vline(xR, y, yT + t);
+        return true;
+      case 0x256c: // ╬
+        vline(xL, y, yT + t);
+        vline(xR, y, yT + t);
+        vline(xL, yB, y + h);
+        vline(xR, yB, y + h);
+        hline(yT, x, xL + t);
+        hline(yB, x, xL + t);
+        hline(yT, xR, x + w);
+        hline(yB, xR, x + w);
+        return true;
+      case 0x256a: // ╪
+        hline(yT, x, x + w);
+        hline(yB, x, x + w);
+        vline(cx, y, y + h);
+        return true;
+      case 0x256b: // ╫
+        vline(xL, y, y + h);
+        vline(xR, y, y + h);
+        hline(cy, x, x + w);
+        return true;
+      default:
+        return false;
+    }
   }
 
   #paintBlockGlyph(code: number, x: number, y: number, foreground: string): boolean {
