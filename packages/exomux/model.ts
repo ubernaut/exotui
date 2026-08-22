@@ -38,7 +38,7 @@ export type ExomuxBuiltInThemeId =
   | "t2"
   | "templeos"
   | "miami"
-  | "dracula"
+  | "nosferatu"
   | "sabbath";
 
 /**
@@ -988,7 +988,10 @@ export const EXOMUX_MANIFEST: ShowcaseManifest = defineShowcaseManifest({
 
 /** Returns one validated theme, falling back to Midnight Ops. */
 export function exomuxTheme(id: unknown): ExomuxThemeSpec {
-  return exomuxThemeCatalog().find((theme) => theme.id === id) ?? EXOMUX_THEMES[0]!;
+  // The theme once called dracula is nosferatu now; workspaces persisted
+  // under the old id keep their castle.
+  const resolved = id === "dracula" ? "nosferatu" : id;
+  return exomuxThemeCatalog().find((theme) => theme.id === resolved) ?? EXOMUX_THEMES[0]!;
 }
 
 const userThemes = new Map<string, ExomuxThemeSpec>();

@@ -24,6 +24,7 @@ function fakePresenter(store: MemoryStore<unknown>): {
     onResize: () => () => {},
     onKey: () => () => {},
     onPointer: () => () => {},
+    onWheel: () => () => {},
     present: (frame) => frames.push(frame),
     requestFrame: (callback) => {
       pending = callback;
@@ -72,19 +73,19 @@ Deno.test("the desktop boots and paints its furniture on a fake presenter", asyn
 
 Deno.test("a persisted theme is loaded through the presenter's store", async () => {
   const store = new MemoryStore<unknown>();
-  await store.set("settings", { themeId: "dracula", wallpaper: "plain" });
+  await store.set("settings", { themeId: "nosferatu", wallpaper: "plain" });
   const { presenter, frames, fire } = fakePresenter(store);
   const handle = runShellApp(presenter, createDesktopApp({}));
   await new Promise((resolve) => setTimeout(resolve, 10));
   fire(1000);
-  const dracula = SHELL_THEMES.find((theme) => theme.id === "dracula")!;
+  const nosferatu = SHELL_THEMES.find((theme) => theme.id === "nosferatu")!;
   const rendered = frames.at(-1)!;
   // The bar row is painted on the theme's surface — Dracula's, if the store
   // was honoured.
   const barRow = shellCellsToAnsiRow(rendered[0]!);
   assert(
-    barRow.includes(`48;2;${dracula.surface.join(";")}`),
-    "the bar paints on Dracula's surface colour",
+    barRow.includes(`48;2;${nosferatu.surface.join(";")}`),
+    "the bar paints on Nosferatu's surface colour",
   );
   handle.stop();
 });

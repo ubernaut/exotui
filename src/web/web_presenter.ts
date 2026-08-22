@@ -8,7 +8,7 @@
 
 import { Computed, Signal } from "../signals/mod.ts";
 import { TextObject, type TextRectangle } from "../canvas/text.ts";
-import type { KeyPressEvent } from "../input_reader/types.ts";
+import type { KeyPressEvent, MouseScrollEvent } from "../input_reader/types.ts";
 import type { PointerInputEvent } from "../pointer_input.ts";
 import { type AsyncStore, IndexedDbStore, MemoryStore } from "../runtime/storage.ts";
 import type {
@@ -21,6 +21,7 @@ import type {
 } from "../app/shell_presenter.ts";
 import { runShellApp, shellCellsToAnsiRow } from "../app/shell_presenter.ts";
 import { createWebTui, type WebTuiHost, type WebTuiHostOptions } from "./host.ts";
+import { type CanvasShaderLayer, createCanvasShaderLayer } from "./canvas_shader.ts";
 
 /** Options for the browser presenter; sink metrics default to a fitted font. */
 export interface WebPresenterOptions {
@@ -36,6 +37,8 @@ export interface WebPresenterOptions {
 /** A `ShellPresenter` over a browser canvas. Also exposes the underlying host. */
 export interface WebShellPresenter extends ShellPresenter {
   readonly host: WebTuiHost;
+  /** Ghostty-style post shaders over the cell canvas. */
+  readonly shader: CanvasShaderLayer;
 }
 
 /** Creates the browser presenter; the page supplies a mount element. */
@@ -80,10 +83,35 @@ export function webPresenter(options: WebPresenterOptions): WebShellPresenter {
 
   const stores = new Map<string, AsyncStore<unknown>>();
   let disposed = false;
+  const suppressContextMenu = (event: Event) => event.preventDefault();
+  options.root.addEventListener("contextmenu", suppressContextMenu);
+  const shader = createCanvasShaderLayer(options.root, host.element);
+  // With a CRT-style shader on, the picture is displaced but DOM hit-testing
+  // is not; mapping every pointer cell through the same warp keeps clicks
+  // landing on what the eye aims at.
+  const warpCell = (x: number, y: number): { x: number; y: number } => {
+    const size = host.platform.size.peek();
+    const point = shader.warpPoint((x + 0.5) / size.columns, (y + 0.5) / size.rows);
+    return {
+      x: Math.min(size.columns - 1, Math.max(0, Math.floor(point.u * size.columns))),
+      y: Math.min(size.rows - 1, Math.max(0, Math.floor(point.v * size.rows))),
+    };
+  };
+  const warpPointerEvent = (event: PointerInputEvent): PointerInputEvent => {
+    const cell = event.coordinates.cell;
+    if (!cell) return event;
+    const warped = warpCell(cell.x, cell.y);
+    if (warped.x === cell.x && warped.y === cell.y) return event;
+    return {
+      ...event,
+      coordinates: { ...event.coordinates, cell: { ...cell, x: warped.x, y: warped.y } },
+    };
+  };
   host.start();
 
   return {
     host,
+    shader,
     capabilities,
     size: (): ShellPresenterSize => ({ columns: columns(), rows: rows() }),
     onResize(listener) {
@@ -100,9 +128,17 @@ export function webPresenter(options: WebPresenterOptions): WebShellPresenter {
       return () => host.off("keyPress", handler);
     },
     onPointer(listener) {
-      const handler = (event: PointerInputEvent) => listener(event);
+      const handler = (event: PointerInputEvent) => listener(warpPointerEvent(event));
       host.on("pointerInput", handler);
       return () => host.off("pointerInput", handler);
+    },
+    onWheel(listener) {
+      const handler = (event: MouseScrollEvent) => {
+        const warped = warpCell(event.x, event.y);
+        listener(warped.x === event.x && warped.y === event.y ? event : { ...event, x: warped.x, y: warped.y });
+      };
+      host.on("mouseScroll", handler);
+      return () => host.off("mouseScroll", handler);
     },
     present(frame: ShellPresentedFrame) {
       ensureLineSignals();
@@ -134,6 +170,8 @@ export function webPresenter(options: WebPresenterOptions): WebShellPresenter {
     dispose() {
       if (disposed) return;
       disposed = true;
+      options.root.removeEventListener("contextmenu", suppressContextMenu);
+      shader.dispose();
       host.destroy();
     },
   };

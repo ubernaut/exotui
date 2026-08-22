@@ -11,7 +11,7 @@
 // probing. Anything one host cannot supply is absent from the record, and an
 // honest application renders "waiting", never a fake.
 
-import type { KeyPressEvent } from "../input_reader/types.ts";
+import type { KeyPressEvent, MouseScrollEvent } from "../input_reader/types.ts";
 import type { PointerInputEvent } from "../pointer_input.ts";
 import type { AsyncStore } from "../runtime/storage.ts";
 import type { ShellRgb, ShellStyle } from "./workbench_shell.ts";
@@ -52,6 +52,8 @@ export interface ShellPresenter {
   onResize(listener: (size: ShellPresenterSize) => void): () => void;
   onKey(listener: (event: KeyPressEvent) => void): () => void;
   onPointer(listener: (event: PointerInputEvent) => void): () => void;
+  /** Wheel/scroll events, in the same shape both hosts already emit. */
+  onWheel(listener: (event: MouseScrollEvent) => void): () => void;
   /** Shows one composed frame; the presenter owns diffing and output. */
   present(frame: ShellPresentedFrame): void;
   /** Schedules one callback for the next frame; the loop re-arms itself. */
@@ -69,6 +71,7 @@ export interface ShellApp {
   frame(now: number, size: ShellPresenterSize): ShellPresentedFrame;
   key?(event: KeyPressEvent): void;
   pointer?(event: PointerInputEvent): void;
+  wheel?(event: MouseScrollEvent): void;
   resize?(size: ShellPresenterSize): void;
 }
 
@@ -86,6 +89,7 @@ export function runShellApp(presenter: ShellPresenter, app: ShellApp): ShellAppH
   const unsubscribes: Array<() => void> = [];
   if (app.key) unsubscribes.push(presenter.onKey((event) => app.key!(event)));
   if (app.pointer) unsubscribes.push(presenter.onPointer((event) => app.pointer!(event)));
+  if (app.wheel) unsubscribes.push(presenter.onWheel((event) => app.wheel!(event)));
   if (app.resize) unsubscribes.push(presenter.onResize((size) => app.resize!(size)));
   const tick = (now: number): void => {
     if (!running) return;

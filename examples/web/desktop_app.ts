@@ -14,7 +14,7 @@ import {
   type WorkbenchWindowHostProjectionOptions,
 } from "../../src/app/workbench_window_host.ts";
 import type { PointerInputEvent } from "../../src/pointer_input.ts";
-import type { KeyPressEvent } from "../../src/input_reader/types.ts";
+import type { KeyPressEvent, MouseScrollEvent } from "../../src/input_reader/types.ts";
 import type { Rectangle } from "../../src/types.ts";
 import {
   type DataStream,
@@ -35,6 +35,7 @@ import { neonDemosForSection, type NeonSuiteSection, renderNeonSuiteDemo } from 
 import type { NeonDemo } from "../../app/visualizations.ts";
 import { ansiLineToCells } from "./ansi_cells.ts";
 import {
+  borderBoxOnGround,
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellTabStrip,
@@ -50,10 +51,11 @@ import {
   type ShellThemeSpec,
 } from "../../src/app/shell_theme.ts";
 import { oklchToRgb, rgbToOklch } from "../../src/theme_oklch.ts";
-import { animatedBackgroundHasOverlay } from "../../src/app/animated_background.ts";
+import { animatedBackgroundAcceptsPicks, animatedBackgroundHasOverlay } from "../../src/app/animated_background.ts";
 import {
   SHELL_BACKGROUND_FIELDS,
   type ShellAnimatedBackground,
+  type ShellBackgroundEntry,
   type ShellDisposableBackground,
 } from "../../src/app/backgrounds/mod.ts";
 
@@ -83,7 +85,7 @@ interface DesktopTheme {
  * it. `menuSelectedText`/`titleActiveText` follow exomux's contrast-the-bar
  * rule, so light themes hold up.
  */
-let themeSpec: ShellThemeSpec = shellThemeById("midnight");
+let themeSpec: ShellThemeSpec = shellThemeById("section9");
 
 function desktopFromSpec(spec: ShellThemeSpec): DesktopTheme {
   return {
@@ -126,6 +128,8 @@ interface DesktopDemo {
   render(width: number, height: number, now: number): VizFrame;
   onKey?(event: KeyPressEvent): boolean;
   onPointerDown?(column: number, row: number): void;
+  /** Scroll inside the client area; direction 1 is down. */
+  onWheel?(direction: 1 | -1, column: number, row: number): boolean;
 }
 
 function monitorDemo(): DesktopDemo {
@@ -226,7 +230,10 @@ function neonDemo(): DesktopDemo {
 
 function themesDemo(): DesktopDemo {
   let offset = 0;
-  const themeAt = (row: number): ShellThemeSpec => SHELL_THEMES[(row + offset) % SHELL_THEMES.length]!;
+  const clampOffset = (height: number): void => {
+    offset = Math.max(0, Math.min(offset, Math.max(0, SHELL_THEMES.length - height)));
+  };
+  const themeAt = (row: number): ShellThemeSpec | undefined => SHELL_THEMES[row + offset];
   return {
     id: "themes",
     title: "themes",
@@ -234,8 +241,10 @@ function themesDemo(): DesktopDemo {
     window: { width: 46, height: 16, minWidth: 28, minHeight: 7 },
     render(width, height) {
       const frame = clientFrame(width, height);
+      clampOffset(height);
       for (let row = 0; row < height; row += 1) {
         const spec = themeAt(row);
+        if (!spec) break;
         const active = spec.id === themeSpec.id;
         writeCellsText(
           frame[row]!,
@@ -261,22 +270,27 @@ function themesDemo(): DesktopDemo {
       return true;
     },
     onPointerDown(_, row) {
-      applyShellTheme(themeAt(row));
+      const spec = themeAt(row);
+      if (spec) applyShellTheme(spec);
     },
   };
 }
 
-const WALLPAPER_STYLES: readonly { readonly id: string; readonly label: string }[] = [
-  { id: "plain", label: "plain — nothing but the colour" },
-  { id: "dots", label: "dots — a quiet grid of marks" },
-  ...SHELL_BACKGROUND_FIELDS.map((entry) => ({ id: entry.id, label: entry.label })),
-];
+function wallpaperStyles(): readonly { readonly id: string; readonly label: string }[] {
+  return [
+    { id: "plain", label: "plain — nothing but the colour" },
+    { id: "dots", label: "dots — a quiet grid of marks" },
+    ...SHELL_BACKGROUND_FIELDS.map((entry) => ({ id: entry.id, label: entry.label })),
+    ...(services.extraBackgrounds ?? []).map((entry) => ({ id: entry.id, label: entry.label })),
+  ];
+}
 
 function settingsDemo(): DesktopDemo {
+  let scrollTop = 0;
   // Rows are laid out by the same function that hit-tests them.
   interface SettingsRow {
     readonly label: () => string;
-    readonly action: () => void;
+    readonly action: (column?: number) => void;
     readonly heading?: boolean;
   }
   const rowsOf = (): SettingsRow[] => [
@@ -287,7 +301,7 @@ function settingsDemo(): DesktopDemo {
     },
     { label: () => "", action: () => {} },
     { label: () => "BACKGROUND", heading: true, action: () => {} },
-    ...WALLPAPER_STYLES.map((style) => ({
+    ...wallpaperStyles().map((style) => ({
       label: () => `  ${desktopSettings.wallpaper === style.id ? "●" : "○"} ${style.label}`,
       action: () => {
         desktopSettings.wallpaper = style.id;
@@ -303,8 +317,54 @@ function settingsDemo(): DesktopDemo {
         persistDesktop();
       },
     },
+    ...(services.shader
+      ? [
+        { label: () => "", action: () => {} },
+        { label: () => "SHADERS — stack any of them", heading: true, action: () => {} },
+        ...services.shader.list().flatMap((entry): SettingsRow[] => {
+          const shader = services.shader!;
+          const shownValue = (option: DesktopShaderOption): string => {
+            const value = shader.option(entry.id, option.key) ?? 0;
+            return option.step < 0.001 ? value.toFixed(4) : option.step < 1 ? value.toFixed(2) : String(value);
+          };
+          return [
+            {
+              label: () => `  ${shader.enabled().includes(entry.id) ? "☑" : "☐"} ${entry.label}`,
+              action: () => {
+                shader.toggle(entry.id);
+                persistDesktop();
+              },
+            },
+            // A shader's knobs unfold beneath it while it is on; a click on
+            // the left of the value steps down, on the right steps up.
+            ...(shader.enabled().includes(entry.id)
+              ? (entry.options ?? []).map((option): SettingsRow => ({
+                label: () => `      ${option.label.padEnd(14)} ◂ ${shownValue(option)} ▸`,
+                action: (column?: number) => {
+                  const value = shader.option(entry.id, option.key) ?? 0;
+                  const middle = 24 + shownValue(option).length / 2;
+                  const direction = (column ?? middle + 1) < middle ? -1 : 1;
+                  shader.setOption(entry.id, option.key, value + direction * option.step);
+                  persistDesktop();
+                },
+              }))
+              : []),
+          ];
+        }),
+      ]
+      : []),
     { label: () => "", action: () => {} },
     { label: () => "WINDOWS", heading: true, action: () => {} },
+    ...[1, 0.9, 0.8, 0.65].map((opacity) => ({
+      label: () =>
+        `  ${desktopSettings.windowOpacity === opacity ? "●" : "○"} ${
+          opacity === 1 ? "solid windows" : `glass — ${Math.round(opacity * 100)}% opacity`
+        }`,
+      action: () => {
+        desktopSettings.windowOpacity = opacity;
+        persistDesktop();
+      },
+    })),
     {
       label: () => "  recover off-screen windows",
       action: () => {
@@ -316,12 +376,14 @@ function settingsDemo(): DesktopDemo {
     id: "settings",
     title: "settings",
     summary: "Desktop settings: theme, background, the bar.",
-    window: { width: 48, height: 17, minWidth: 26, minHeight: 8 },
+    window: { width: 50, height: 22, minWidth: 26, minHeight: 8 },
     render(width, height) {
       const frame = clientFrame(width, height);
       const rows = rowsOf();
-      for (let row = 0; row < Math.min(rows.length, height); row += 1) {
-        const entry = rows[row]!;
+      scrollTop = Math.max(0, Math.min(scrollTop, Math.max(0, rows.length - height)));
+      for (let row = 0; row < height; row += 1) {
+        const entry = rows[row + scrollTop];
+        if (!entry) break;
         writeCellsText(
           frame[row]!,
           1,
@@ -330,10 +392,23 @@ function settingsDemo(): DesktopDemo {
           DESKTOP.clientGround,
         );
       }
+      if (scrollTop + height < rows.length && height > 1) {
+        writeCellsText(frame[height - 1]!, width - 4, " ▼ ", DESKTOP.chromeMuted, DESKTOP.clientGround);
+      }
       return frame;
     },
-    onPointerDown(_, row) {
-      rowsOf()[row]?.action();
+    onPointerDown(column, row) {
+      rowsOf()[row + scrollTop]?.action(column);
+    },
+    onKey(event) {
+      if (event.key === "down") scrollTop += 1;
+      else if (event.key === "up") scrollTop = Math.max(0, scrollTop - 1);
+      else return false;
+      return true;
+    },
+    onWheel(direction) {
+      scrollTop = Math.max(0, scrollTop + direction * 3);
+      return true;
     },
   };
 }
@@ -453,36 +528,151 @@ function themeBuilderDemo(): DesktopDemo {
   };
 }
 
+const ABOUT_ART = [
+  "                                 ___.    __        .__ ",
+  "  ____ ___  _________  _  __ ____\\_ |___/  |_ __ __|__|",
+  "_/ __ \\\\  \\/  /  _ \\ \\/ \\/ // __ \\| __ \\   __\\  |  \\  |",
+  "\\  ___/ >    <  <_> )     /\\  ___/| \\_\\ \\  | |  |  /  |",
+  " \\___  >__/\\_ \\____/ \\/\\_/  \\___  >___  /__| |____/|__|",
+  "     \\/      \\/                 \\/    \\/              ",
+];
+
+const ABOUT_BODY = [
+  "",
+  "a terminal desktop, wherever cells exist",
+  "════════════════════════════════════════",
+  "",
+  "You are looking at exotui — a TUI library for Deno —",
+  "running in your browser. Not a port, not a lookalike:",
+  "the same application object that draws this desktop also",
+  "runs in a real terminal (`deno task desktop`), through",
+  "one seam with two presenters — console and web —",
+  "underneath. Zero additional code paths.",
+  "",
+  "Everything here is shared library machinery:",
+  "",
+  "  ▪ the window host — the engine the exomux terminal",
+  "    multiplexer ships on: drag, snap, tile (g), minimize,",
+  "    the Tab switcher, double-click to maximize",
+  "  ▪ the shell painters — thin borders, title bars, menus,",
+  "    tabs — one painter for terminal cells and this canvas",
+  "  ▪ seventeen themes, editable live in the theme builder",
+  "    (OKLCH, slot by slot), persisted per host",
+  "  ▪ eleven animated backgrounds — metaballs, matrix, the",
+  "    skull, circuit and friends — simulations that flow",
+  "    around your windows and follow your pointer",
+  "  ▪ the viz layer: twenty-three data visualizations, a live",
+  "    monitor fed by your microphone, Three.js through a",
+  "    WebGPU ASCII pipeline",
+  "",
+  "getting around",
+  "──────────────",
+  "",
+  "  ⏻ start        every window, bottom-left of nowhere",
+  "  drag titlebar  move · edge-drag snaps · double-click max",
+  "  g              float ⇄ tile the focused window",
+  "  tab            window switcher",
+  "  right-click    context menu, desktop or window",
+  "  wheel          scrolls this window; try the themes too",
+  "",
+  "the project",
+  "───────────",
+  "",
+  "exotui is a fork-grown terminal UI library: signals,",
+  "layout, components, a markup layer, theme engines, input",
+  "pipelines, remote rendering, and the exomux terminal",
+  "multiplexer built on top as its flagship. The web build",
+  "you are inside is the same package —",
+  "jsr.io/@ubernaut/exotui — with a browser presenter",
+  "instead of a terminal one.",
+  "",
+  "  jsr.io/@ubernaut/exotui",
+  "  github.com/ubernaut/exotui",
+  "",
+];
+
 function aboutDemo(): DesktopDemo {
-  const lines = [
-    "",
-    "  exotui — a terminal UI library for Deno,",
-    "  and this page is it running in your browser.",
-    "",
-    "  Every window here is the library's own",
-    "  window host, the engine the exomux terminal",
-    "  multiplexer runs on. Drag the title bars,",
-    "  double-click to maximize, minimize to the",
-    "  shelf below.",
-    "",
-    "  ⏻ start, bottom left, launches the rest.",
-    "",
-    "  jsr.io/@ubernaut/exotui",
-    "  github.com/ubernaut/exotui",
-  ];
+  let scrollTop = 0;
+  let scrollLeft = 0;
+  const artWidth = ABOUT_ART.reduce((max, line) => Math.max(max, line.length), 0);
+  const contentWidth = Math.max(artWidth, ABOUT_BODY.reduce((max, line) => Math.max(max, line.length), 0));
+  /** Body lines wrapped to the viewport, computed per width. */
+  const wrapped = (width: number): string[] => {
+    const lines: string[] = [];
+    for (const line of ABOUT_BODY) {
+      if (line.length <= width || width < 12) {
+        lines.push(line);
+        continue;
+      }
+      // Wrap on spaces; indented bullets keep their gutter.
+      const gutter = line.match(/^\s*/)?.[0] ?? "";
+      let rest = line.trimEnd();
+      while (rest.length > width) {
+        let cut = rest.lastIndexOf(" ", width);
+        if (cut <= gutter.length) cut = width;
+        lines.push(rest.slice(0, cut));
+        rest = gutter + "  " + rest.slice(cut).trimStart();
+      }
+      lines.push(rest);
+    }
+    return lines;
+  };
   return {
     id: "about",
     title: "welcome",
-    summary: "What this page is, and where the library lives.",
-    window: { width: 50, height: 16, minWidth: 30, minHeight: 6 },
+    summary: "What this whole thing is. Scroll it.",
+    window: { width: 64, height: 20, minWidth: 30, minHeight: 8 },
     render(width, height) {
       const frame = clientFrame(width, height);
-      for (let row = 0; row < Math.min(lines.length, height); row += 1) {
-        const text = lines[row]!;
-        const accent = text.trimStart().startsWith("jsr.io") || text.trimStart().startsWith("github.com");
-        writeCellsText(frame[row]!, 0, text, accent ? DESKTOP.accent : DESKTOP.chromeText, DESKTOP.clientGround);
+      const body = wrapped(width - 2);
+      const artRows = ABOUT_ART.length;
+      const total = artRows + body.length;
+      scrollTop = Math.max(0, Math.min(scrollTop, Math.max(0, total - height)));
+      const maxLeft = Math.max(0, contentWidth - (width - 2));
+      scrollLeft = Math.max(0, Math.min(scrollLeft, maxLeft));
+      for (let row = 0; row < height; row += 1) {
+        const index = row + scrollTop;
+        if (index < artRows) {
+          const art = ABOUT_ART[index]!.slice(scrollLeft);
+          writeCellsText(frame[row]!, 1, art.slice(0, width - 2), DESKTOP.accent, DESKTOP.clientGround);
+          continue;
+        }
+        const line = body[index - artRows];
+        if (line === undefined) break;
+        const visible = line.slice(scrollLeft, scrollLeft + width - 2);
+        const accent = line.trimStart().startsWith("jsr.io") || line.trimStart().startsWith("github.com");
+        const heading = /^[═─]+$/.test(line.trim()) || line === "a terminal desktop, wherever cells exist" ||
+          line === "getting around" || line === "the project";
+        writeCellsText(
+          frame[row]!,
+          1,
+          visible,
+          accent || heading ? DESKTOP.accent : DESKTOP.chromeText,
+          DESKTOP.clientGround,
+        );
+      }
+      // A quiet scroll hint when there is more below.
+      if (scrollTop + height < total && height > 1) {
+        writeCellsText(frame[height - 1]!, width - 4, " ▼ ", DESKTOP.chromeMuted, DESKTOP.clientGround);
       }
       return frame;
+    },
+    onKey(event) {
+      if (event.key === "down") scrollTop += 1;
+      else if (event.key === "up") scrollTop = Math.max(0, scrollTop - 1);
+      else if (event.key === "pagedown" || event.key === "space") scrollTop += 8;
+      else if (event.key === "pageup") scrollTop = Math.max(0, scrollTop - 8);
+      else if (event.key === "right") scrollLeft += 4;
+      else if (event.key === "left") scrollLeft = Math.max(0, scrollLeft - 4);
+      else if (event.key === "home") {
+        scrollTop = 0;
+        scrollLeft = 0;
+      } else return false;
+      return true;
+    },
+    onWheel(direction) {
+      scrollTop = Math.max(0, scrollTop + direction * 3);
+      return true;
     },
   };
 }
@@ -811,6 +1001,33 @@ export interface DesktopServices {
   readonly createMonitor?: () => DesktopMonitor;
   /** The WebGPU three-ascii overlay host, where a canvas exists. */
   readonly threeOverlay?: DesktopThreeOverlayService;
+  /** Host-provided backgrounds joining the shared catalog (butterchurn). */
+  readonly extraBackgrounds?: readonly ShellBackgroundEntry[];
+  /** Copies selected text to the host clipboard. */
+  readonly copyText?: (text: string) => void;
+  /** Ghostty-style post shaders, where the host renders through a canvas. */
+  readonly shader?: DesktopShaderService;
+}
+
+/** One knob a post shader exposes; values live in the layer. */
+export interface DesktopShaderOption {
+  readonly key: string;
+  readonly label: string;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+}
+
+/** Stacked post shaders: any subset runs as a chain, each with its knobs. */
+export interface DesktopShaderService {
+  list(): readonly { readonly id: string; readonly label: string; readonly options?: readonly DesktopShaderOption[] }[];
+  enabled(): readonly string[];
+  toggle(id: string): void;
+  setEnabled(ids: readonly string[]): void;
+  option(id: string, key: string): number | undefined;
+  setOption(id: string, key: string, value: number): void;
+  /** A one-shot Trinitron degauss thump over whatever is on. */
+  degauss(): void;
 }
 
 /** The monitor surface the exomonitor window draws through. */
@@ -870,8 +1087,10 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
 /** Desktop-wide settings the settings window edits and the painter honors. */
 const desktopSettings = {
   /** "plain", "dots", or any id from the shared background catalog. */
-  wallpaper: "metaballs",
+  wallpaper: "circuit",
   barHints: true,
+  /** Window body opacity over the backdrop; 1 is solid. */
+  windowOpacity: 0.9,
 };
 
 /**
@@ -882,6 +1101,28 @@ let backgroundField: ShellAnimatedBackground | undefined;
 let backgroundFieldId = "";
 let lastBackgroundAdvance = 0;
 const BACKGROUND_FRAME_MS = 125;
+/** The last rasterized field, reused between advances: a simulation that has
+ * not moved must not be re-rendered sixty times a second (butterchurn's CPU
+ * presets made that lesson vivid). */
+let backgroundCells: ReturnType<ShellAnimatedBackground["rasterizeCells"]> | undefined;
+let backgroundCellsKey = "";
+
+function mixRgb(from: Rgb, to: Rgb, amount: number): Rgb {
+  const t = Math.max(0, Math.min(1, amount));
+  return [
+    Math.round(from[0] + (to[0] - from[0]) * t),
+    Math.round(from[1] + (to[1] - from[1]) * t),
+    Math.round(from[2] + (to[2] - from[2]) * t),
+  ];
+}
+
+/** What the wallpaper shows at a cell — what a translucent window blends with. */
+function backdropAt(x: number, y: number): Rgb {
+  const body = bodyBounds();
+  const cell = backgroundCells?.[y - body.row]?.[x - body.column];
+  if (!cell) return DESKTOP.wallpaper;
+  return cell.char === "█" ? cell.foreground as Rgb : mixRgb(DESKTOP.wallpaper, cell.foreground as Rgb, 0.45);
+}
 
 function currentBackgroundField(): ShellAnimatedBackground | undefined {
   const id = desktopSettings.wallpaper;
@@ -890,7 +1131,8 @@ function currentBackgroundField(): ShellAnimatedBackground | undefined {
   if (disposable && typeof (disposable as { dispose?: () => void }).dispose === "function") {
     (disposable as { dispose: () => void }).dispose();
   }
-  backgroundField = SHELL_BACKGROUND_FIELDS.find((entry) => entry.id === id)?.create();
+  backgroundField = (SHELL_BACKGROUND_FIELDS.find((entry) => entry.id === id) ??
+    services.extraBackgrounds?.find((entry) => entry.id === id))?.create();
   backgroundFieldId = id;
   lastBackgroundAdvance = 0;
   return backgroundField;
@@ -905,6 +1147,200 @@ const mobileLayout = (): boolean => columns() < 72 || rows() < 20;
 
 let startMenuOpen = false;
 let startMenuSelected = 0;
+
+/** The right-click menu: desktop-owned, one geometry for paint and hits. */
+interface ContextMenuItem {
+  readonly label: string;
+  readonly danger?: boolean;
+  readonly action: () => void;
+}
+let contextMenu: { rect: Rectangle; items: ContextMenuItem[] } | undefined;
+
+/**
+ * Terminal-style text selection: drag across any window's client area,
+ * release, and the visible characters land on the host clipboard. Linear
+ * ranges, the way a terminal selects — full rows between the endpoints.
+ */
+interface SelectionPoint {
+  readonly x: number;
+  readonly y: number;
+}
+/** A selection lives inside ONE window's client area, in local cells. */
+let selectionAnchor: { readonly windowId: string; readonly local: SelectionPoint } | undefined;
+let selection:
+  | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
+  | undefined;
+let selecting = false;
+
+function orderedSelection(): { windowId: string; from: SelectionPoint; to: SelectionPoint } | undefined {
+  if (!selection) return undefined;
+  const { windowId, from, to } = selection;
+  if (to.y < from.y || (to.y === from.y && to.x < from.x)) return { windowId, from: to, to: from };
+  return { windowId, from, to };
+}
+
+/** The selected window's live client rect, or undefined once it is gone. */
+function selectionClientRect(): Rectangle | undefined {
+  const range = orderedSelection();
+  if (!range) return undefined;
+  const window = windowHost.project(bodyBounds(), projectionOptions()).windows
+    .find((candidate) => candidate.id === range.windowId);
+  return window?.clientRect;
+}
+
+/** True when a client-local cell falls inside the linear range. */
+function selectionCoversLocal(x: number, y: number): boolean {
+  const range = orderedSelection();
+  if (!range) return false;
+  if (y < range.from.y || y > range.to.y) return false;
+  if (y === range.from.y && x < range.from.x) return false;
+  if (y === range.to.y && x > range.to.x) return false;
+  return true;
+}
+
+function selectedText(): string {
+  const range = orderedSelection();
+  const client = selectionClientRect();
+  if (!range || !client) return "";
+  const lines: string[] = [];
+  for (let y = range.from.y; y <= range.to.y; y += 1) {
+    const row = lastFrame[client.row + y] ?? [];
+    const startX = y === range.from.y ? range.from.x : 0;
+    const endX = y === range.to.y ? range.to.x : client.width - 1;
+    let line = "";
+    for (let x = startX; x <= endX && client.column + x < row.length; x += 1) {
+      line += row[client.column + x]?.char ?? " ";
+    }
+    lines.push(line.replace(/\s+$/, ""));
+  }
+  return lines.join("\n");
+}
+
+/** Minimize/restore fly ghosts, the exomux taskbar gesture in miniature. */
+interface FlyGhost {
+  readonly from: Rectangle;
+  readonly to: Rectangle;
+  readonly start: number;
+  readonly duration: number;
+}
+let flyGhosts: FlyGhost[] = [];
+/** Window rects as last painted, for ghosts that start where the eye was. */
+const lastWindowRects = new Map<string, Rectangle>();
+
+function pushFlyGhost(from: Rectangle | undefined, to: Rectangle | undefined, now: number): void {
+  if (!from || !to || from.width <= 0 || to.width <= 0) return;
+  flyGhosts.push({ from, to, start: now, duration: 170 });
+}
+
+function paintFlyGhosts(frame: VizCell[][], now: number): void {
+  flyGhosts = flyGhosts.filter((ghost) => now - ghost.start < ghost.duration);
+  for (const ghost of flyGhosts) {
+    const t = Math.min(1, (now - ghost.start) / ghost.duration);
+    const ease = 1 - Math.pow(1 - t, 3);
+    const lerp = (a: number, b: number) => Math.round(a + (b - a) * ease);
+    const rect: Rectangle = {
+      column: lerp(ghost.from.column, ghost.to.column),
+      row: lerp(ghost.from.row, ghost.to.row),
+      width: Math.max(2, lerp(ghost.from.width, ghost.to.width)),
+      height: Math.max(1, lerp(ghost.from.height, ghost.to.height)),
+    };
+    borderBoxOnGround(
+      frameSurface(frame),
+      rect,
+      THIN_GLYPHS,
+      DESKTOP.accent,
+      (x: number, y: number) => frame[y]?.[x]?.background ?? DESKTOP.wallpaper,
+      true,
+    );
+  }
+}
+
+function openContextMenu(column: number, row: number, items: ContextMenuItem[]): void {
+  const width = Math.min(
+    Math.max(18, items.reduce((max, item) => Math.max(max, item.label.length), 0) + 4),
+    Math.max(10, columns() - column - 1),
+  );
+  const height = items.length + 2;
+  contextMenu = {
+    rect: {
+      column: Math.min(column, Math.max(0, columns() - width)),
+      row: Math.min(row, Math.max(1, rows() - height)),
+      width,
+      height,
+    },
+    items,
+  };
+}
+
+function contextMenuItemsFor(column: number, row: number): ContextMenuItem[] {
+  const projection = windowHost.project(bodyBounds(), projectionOptions());
+  const over = [...projection.windows].reverse().find((window) => contains(window.rect, column, row));
+  if (over) {
+    const id = over.id;
+    const maximized = over.state === "maximized";
+    return [
+      {
+        label: maximized ? "restore" : "maximize",
+        action: () => windowHost.execute({ kind: "toggle-maximize", id }, bodyBounds(), projectionOptions()),
+      },
+      {
+        label: "minimize",
+        action: () => windowHost.execute({ kind: "minimize", id }, bodyBounds(), projectionOptions()),
+      },
+      {
+        label: over.placement === "floating" ? "tile" : "float",
+        action: () => windowHost.execute({ kind: "toggle-placement", id }, bodyBounds(), projectionOptions()),
+      },
+      {
+        label: "close",
+        danger: true,
+        action: () => windowHost.execute({ kind: "close", id }, bodyBounds(), projectionOptions()),
+      },
+    ];
+  }
+  const wallpapers = wallpaperStyles();
+  const at = wallpapers.findIndex((style) => style.id === desktopSettings.wallpaper);
+  return [
+    {
+      label: "next background",
+      action: () => {
+        desktopSettings.wallpaper = wallpapers[(at + 1) % wallpapers.length]!.id;
+        persistDesktop();
+      },
+    },
+    {
+      label: "next theme",
+      action: () => {
+        const index = SHELL_THEMES.findIndex((theme) => theme.id === themeSpec.id);
+        applyShellTheme(SHELL_THEMES[(index + 1) % SHELL_THEMES.length]!);
+      },
+    },
+    ...(services.shader ? [{ label: "degauss", action: () => services.shader!.degauss() }] : []),
+    { label: "settings", action: () => presentDemoWindow("settings") },
+    { label: "help", action: () => presentDemoWindow("help") },
+  ];
+}
+
+function paintContextMenu(frame: VizCell[][]): void {
+  if (!contextMenu) return;
+  const { rect, items } = contextMenu;
+  paintShellMenuPanel(
+    frameSurface(frame),
+    rect,
+    items.map((item, index) => ({
+      rect: { column: rect.column + 1, row: rect.row + 1 + index, width: rect.width - 2, height: 1 },
+      label: ` ${item.label}`,
+      danger: item.danger,
+    })),
+    {
+      panelFill: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+      borderGlyphs: THIN_GLYPHS,
+      borderStyle: { foreground: DESKTOP.accent, background: DESKTOP.menu, bold: true },
+      rowStyle: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+      dangerForeground: DESKTOP.danger,
+    },
+  );
+}
 
 interface StartMenuLayout {
   readonly rect: Rectangle;
@@ -967,6 +1403,11 @@ function autoRectFor(id: string): Rectangle {
 }
 
 function presentDemoWindow(id: string): void {
+  const fromTab = paintedTabRects.find((candidate) => candidate.id === id)?.rect;
+  const wasHidden = (() => {
+    const state = windowHost.controller.inspect().windows.find((window) => window.id === id)?.state;
+    return state === "minimized" || state === "closed";
+  })();
   // The host blocks focusing a window another maximized window hides, so a
   // maximized peer steps down first — the same order exomux presents in.
   const maximizedId = windowHost.controller.inspect().maximizedWindowId;
@@ -988,6 +1429,10 @@ function presentDemoWindow(id: string): void {
     presentedCount += 1;
   }
   windowHost.execute({ kind: "focus", id }, bodyBounds(), projectionOptions());
+  if (wasHidden) {
+    const landed = windowHost.project(bodyBounds(), projectionOptions()).windows.find((window) => window.id === id);
+    pushFlyGhost(fromTab ?? { column: 1, row: 0, width: 8, height: 1 }, landed?.rect, performance.now());
+  }
 }
 
 /**
@@ -1062,6 +1507,48 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
     blitFrame(frame, { column: client.column, row: client.row }, demo.render(client.width, client.height, now));
   } else {
     fillRect(frame, client, DESKTOP.clientGround);
+  }
+  // The selection inverts inside this window's client area, and nowhere else.
+  const range = orderedSelection();
+  if (range && range.windowId === window.id) {
+    for (let localY = range.from.y; localY <= range.to.y; localY += 1) {
+      const y = client.row + localY;
+      const row = frame[y];
+      if (!row || localY < 0 || localY >= client.height) continue;
+      for (let localX = 0; localX < client.width; localX += 1) {
+        if (!selectionCoversLocal(localX, localY)) continue;
+        const x = client.column + localX;
+        if (x < 0 || x >= row.length) continue;
+        const cell = row[x]!;
+        row[x] = {
+          char: cell.char,
+          foreground: cell.background ?? DESKTOP.clientGround,
+          background: cell.foreground ?? DESKTOP.chromeText,
+        };
+      }
+    }
+  }
+  // The glass: exomux's translucency, blended against the live backdrop. The
+  // chrome keeps half the transparency so borders and titles stay legible.
+  const opacity = desktopSettings.windowOpacity;
+  if (opacity < 1) {
+    const chromeOpacity = Math.min(1, opacity + (1 - opacity) / 2);
+    for (let y = window.rect.row; y < window.rect.row + window.rect.height; y += 1) {
+      const line = frame[y];
+      if (!line) continue;
+      const inClientRow = y >= client.row && y < client.row + client.height;
+      for (let x = window.rect.column; x < window.rect.column + window.rect.width; x += 1) {
+        if (x < 0 || x >= line.length) continue;
+        const cell = line[x]!;
+        if (!cell.background) continue;
+        const inClient = inClientRow && x >= client.column && x < client.column + client.width;
+        line[x] = {
+          char: cell.char,
+          foreground: cell.foreground,
+          background: mixRgb(backdropAt(x, y), cell.background as Rgb, inClient ? opacity : chromeOpacity),
+        };
+      }
+    }
   }
 }
 
@@ -1139,7 +1626,7 @@ function paintStartMenu(frame: VizCell[][]): void {
     dangerForeground: DESKTOP.danger,
   });
   // The title rides the top border, the way exomux titles its boxes.
-  writeText(frame, rect.column + 2, rect.row, " exotui desktop ", {
+  writeText(frame, rect.column + 2, rect.row, " exowebtui ", {
     foreground: DESKTOP.accent,
     background: DESKTOP.menu,
   });
@@ -1195,16 +1682,22 @@ function paintWallpaper(frame: VizCell[][], width: number, height: number, now: 
   const field = currentBackgroundField();
   if (!field) return;
   const body = bodyBounds();
+  let advanced = false;
   if (now - lastBackgroundAdvance >= BACKGROUND_FRAME_MS) {
     lastBackgroundAdvance = now;
     const projection = windowHost.project(body, projectionOptions());
-    field.advance({
+    advanced = field.advance({
       bounds: body,
       obstacles: projection.windows.map((window) => window.rect),
       now,
     });
   }
-  const cells = field.rasterizeCells(body, themeSpec);
+  const key = `${backgroundFieldId}|${themeSpec.id}|${body.width}x${body.height}`;
+  if (advanced || !backgroundCells || backgroundCellsKey !== key) {
+    backgroundCells = field.rasterizeCells(body, themeSpec);
+    backgroundCellsKey = key;
+  }
+  const cells = backgroundCells;
   for (let row = 0; row < cells.length; row += 1) {
     const line = cells[row];
     if (!line) continue;
@@ -1223,6 +1716,7 @@ function paintWallpaper(frame: VizCell[][], width: number, height: number, now: 
 }
 
 let lastFrame: VizCell[][] = [];
+let lastPointerCell: { x: number; y: number; kind: string } | undefined;
 
 function paintDesktop(now: number): VizCell[][] {
   const width = columns();
@@ -1245,6 +1739,8 @@ function paintDesktop(now: number): VizCell[][] {
     }
   }
   for (const window of projection.floatingWindows) paintWindow(frame, window, now);
+  lastWindowRects.clear();
+  for (const window of projection.windows) lastWindowRects.set(window.id, window.rect);
   if (projection.switcher) {
     paintShellSwitcher(frameSurface(frame), projection.switcher, bodyBounds(), {
       colors: {
@@ -1277,6 +1773,8 @@ function paintDesktop(now: number): VizCell[][] {
   }
   paintBar(frame);
   if (startMenuOpen) paintStartMenu(frame);
+  paintContextMenu(frame);
+  paintFlyGhosts(frame, now);
   lastFrame = frame;
   return frame;
 }
@@ -1306,7 +1804,68 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   const cell = event.coordinates.cell;
   if (!cell) return;
   const { x, y } = cell;
+  lastPointerCell = { x, y, kind: event.kind };
   if (event.kind === "move" && backgroundField) backgroundField.setPointer({ column: x, row: y });
+  if (contextMenu) {
+    if (event.kind !== "down") return;
+    const { rect, items } = contextMenu;
+    const index = y - rect.row - 1;
+    contextMenu = undefined;
+    if (contains(rect, x, y) && index >= 0 && index < items.length) items[index]!.action();
+    return;
+  }
+  if (event.kind === "down" && event.button === 2) {
+    startMenuOpen = false;
+    openContextMenu(x, y, contextMenuItemsFor(x, y));
+    return;
+  }
+  // Text selection: a primary drag across ONE window's client area, in that
+  // window's own cells. The anchor arms on down; real movement starts the
+  // selection — at which point the host's in-flight gesture is cancelled so
+  // its press/drag state machine resolves and nothing wanders.
+  if (event.kind === "down" && event.button !== 2) {
+    const projection = windowHost.project(bodyBounds(), projectionOptions());
+    // The TOPMOST window under the pointer owns the down. Only when the point
+    // is inside that window's CLIENT does a selection arm — its title bar,
+    // borders, and any window beneath it belong to the host's gestures.
+    const top = [...projection.windows].reverse().find((candidate) => contains(candidate.rect, x, y));
+    selectionAnchor = top && contains(top.clientRect, x, y)
+      ? { windowId: top.id, local: { x: x - top.clientRect.column, y: y - top.clientRect.row } }
+      : undefined;
+    if (selection) selection = undefined;
+  } else if (event.kind === "move" && selectionAnchor) {
+    const projection = windowHost.project(bodyBounds(), projectionOptions());
+    const owner = projection.windows.find((candidate) => candidate.id === selectionAnchor!.windowId);
+    if (!owner) {
+      selectionAnchor = undefined;
+      selecting = false;
+    } else {
+      const local = {
+        x: Math.max(0, Math.min(owner.clientRect.width - 1, x - owner.clientRect.column)),
+        y: Math.max(0, Math.min(owner.clientRect.height - 1, y - owner.clientRect.row)),
+      };
+      const drift = Math.abs(local.x - selectionAnchor.local.x) + Math.abs(local.y - selectionAnchor.local.y);
+      if (selecting || drift >= 2) {
+        if (!selecting) {
+          // Resolve whatever the host began on the down before taking over.
+          windowHost.handlePointer({ ...event, kind: "cancel" }, bodyBounds(), projectionOptions());
+        }
+        selecting = true;
+        selection = { windowId: selectionAnchor.windowId, from: selectionAnchor.local, to: local };
+        return;
+      }
+    }
+  } else if (event.kind === "up" || event.kind === "cancel") {
+    if (selecting && selection) {
+      const text = selectedText();
+      if (text.trim().length > 0) services.copyText?.(text);
+      selecting = false;
+      selectionAnchor = undefined;
+      return;
+    }
+    selecting = false;
+    selectionAnchor = undefined;
+  }
   if (startMenuOpen && event.kind === "move") {
     // Mouse hover follows the pointer; touch sends no hover and loses nothing,
     // because activation only ever happens on a down.
@@ -1337,6 +1896,7 @@ function handleDesktopPointer(event: PointerInputEvent): void {
         if (contains(tab.rect, x, y)) {
           const active = windowHost.controller.inspect().activeWindowId === tab.id;
           if (active && paintedTabMinimized.get(tab.id) !== true) {
+            pushFlyGhost(lastWindowRects.get(tab.id), tab.rect, performance.now());
             windowHost.execute({ kind: "minimize", id: tab.id }, bodyBounds(), projectionOptions());
           } else presentDemoWindow(tab.id);
           return;
@@ -1345,7 +1905,20 @@ function handleDesktopPointer(event: PointerInputEvent): void {
       return;
     }
   }
+  const before = new Map(lastWindowRects);
   const result = windowHost.handlePointer(event, bodyBounds(), projectionOptions());
+  if (
+    event.kind === "down" && (result.interaction !== undefined || (result.command && result.command.kind !== "focus"))
+  ) {
+    // The host began a drag, resize, or chrome action on this down; the
+    // selection must never fight it.
+    selectionAnchor = undefined;
+  }
+  if (result.command?.kind === "minimize") {
+    const id = result.command.id;
+    const tab = paintedTabRects.find((candidate) => candidate.id === id);
+    if (id) pushFlyGhost(before.get(id), tab?.rect, performance.now());
+  }
   if (event.kind === "down") {
     const window = activeDemoWindow();
     // A down inside the client belongs to the demo unless chrome claimed it —
@@ -1354,7 +1927,29 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     const chromeClaimed = result.command !== undefined && result.command.kind !== "focus";
     if (window && contains(window.clientRect, x, y) && !chromeClaimed) {
       demoById.get(window.id)?.onPointerDown?.(x - window.clientRect.column, y - window.clientRect.row);
+      return;
     }
+    // Nothing claimed the down: it landed on the wallpaper, and an interactive
+    // field (the circuit's nodes light their wires) takes the pick.
+    if (!result.handled && backgroundField && animatedBackgroundAcceptsPicks(backgroundField)) {
+      const projection = windowHost.project(bodyBounds(), projectionOptions());
+      const overWindow = projection.windows.some((candidate) => contains(candidate.rect, x, y));
+      if (!overWindow && y !== barBounds().row) backgroundField.pick(x, y);
+    }
+  }
+}
+
+function handleDesktopWheel(event: MouseScrollEvent): void {
+  const direction: 1 | -1 = event.scroll >= 0 ? 1 : -1;
+  const { x, y } = event;
+  if (startMenuOpen) {
+    startMenuSelected = (startMenuSelected + direction + START_MENU_ITEMS.length) % START_MENU_ITEMS.length;
+    return;
+  }
+  const projection = windowHost.project(bodyBounds(), projectionOptions());
+  const over = [...projection.windows].reverse().find((window) => contains(window.clientRect, x, y));
+  if (over) {
+    demoById.get(over.id)?.onWheel?.(direction, x - over.clientRect.column, y - over.clientRect.row);
   }
 }
 
@@ -1368,6 +1963,14 @@ function handleDesktopKey(event: KeyPressEvent): void {
       const item = START_MENU_ITEMS[startMenuSelected];
       if (item) activateStartMenuItem(item);
     }
+    return;
+  }
+  if (contextMenu && event.key === "escape") {
+    contextMenu = undefined;
+    return;
+  }
+  if (selection && event.key === "escape") {
+    selection = undefined;
     return;
   }
   const switcherOpen = windowHost.project(bodyBounds(), projectionOptions()).switcher !== undefined;
@@ -1401,6 +2004,7 @@ function handleDesktopKey(event: KeyPressEvent): void {
       }@r${window.rect.row}+${window.rect.height}c${window.rect.column}+${window.rect.width} client r${window.clientRect.row}+${window.clientRect.height}`
     ),
   row: (index: number) => (lastFrame[index] ?? []).map((cell) => cell.char).join(""),
+  pointer: () => lastPointerCell,
   separators: () =>
     windowHost.project(bodyBounds(), projectionOptions()).separators.map((separator) =>
       `${separator.axis}@r${separator.rect.row}+${separator.rect.height}c${separator.rect.column}+${separator.rect.width}`
@@ -1412,6 +2016,23 @@ interface DesktopPersisted {
   readonly themeId?: string;
   readonly wallpaper?: string;
   readonly barHints?: boolean;
+  /** Legacy single-shader field, still honoured when `shaders` is absent. */
+  readonly shader?: string;
+  readonly shaders?: readonly string[];
+  readonly shaderTuning?: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  readonly windowOpacity?: number;
+}
+
+function shaderTuningSnapshot(shader: DesktopShaderService): Record<string, Record<string, number>> {
+  const snapshot: Record<string, Record<string, number>> = {};
+  for (const entry of shader.list()) {
+    for (const option of entry.options ?? []) {
+      const value = shader.option(entry.id, option.key);
+      if (value === undefined) continue;
+      (snapshot[entry.id] ??= {})[option.key] = value;
+    }
+  }
+  return snapshot;
 }
 
 let persist: (() => void) | undefined;
@@ -1440,6 +2061,16 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
         }
         if (saved?.wallpaper) desktopSettings.wallpaper = saved.wallpaper;
         if (saved?.barHints !== undefined) desktopSettings.barHints = saved.barHints;
+        if (services.shader) {
+          if (saved?.shaders) services.shader.setEnabled(saved.shaders);
+          else if (saved?.shader && saved.shader !== "none") services.shader.setEnabled([saved.shader]);
+          for (const [id, tuning] of Object.entries(saved?.shaderTuning ?? {})) {
+            for (const [key, value] of Object.entries(tuning)) {
+              if (typeof value === "number") services.shader.setOption(id, key, value);
+            }
+          }
+        }
+        if (typeof saved?.windowOpacity === "number") desktopSettings.windowOpacity = saved.windowOpacity;
       } catch {
         // A broken store never blocks boot; defaults stand.
       }
@@ -1448,6 +2079,10 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
           themeId: themeSpec.id,
           wallpaper: desktopSettings.wallpaper,
           barHints: desktopSettings.barHints,
+          ...(services.shader
+            ? { shaders: [...services.shader.enabled()], shaderTuning: shaderTuningSnapshot(services.shader) }
+            : {}),
+          windowOpacity: desktopSettings.windowOpacity,
         }).catch(() => {});
       };
       // The first window sizes for the actual screen at boot — phone or desktop.
@@ -1467,6 +2102,7 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
     },
     key: handleDesktopKey,
     pointer: handleDesktopPointer,
+    wheel: handleDesktopWheel,
     resize(size) {
       presentedSize = size;
       fitWindowsToViewport();

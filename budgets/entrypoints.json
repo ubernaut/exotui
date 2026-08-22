@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 481,
-    "bytes": 5750750,
+    "bytes": 5751293,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 17576,
@@ -118,8 +118,8 @@
       "src/app/settings.ts": 7600,
       "src/app/settings_bindings.ts": 25344,
       "src/app/shell_background.ts": 17258,
-      "src/app/shell_presenter.ts": 5291,
-      "src/app/shell_theme.ts": 9792,
+      "src/app/shell_presenter.ts": 5576,
+      "src/app/shell_theme.ts": 9795,
       "src/app/software_cursor.ts": 6547,
       "src/app/split_pane_commands.ts": 6019,
       "src/app/structure_inspector.ts": 6011,
@@ -308,7 +308,7 @@
       "src/runtime/cell_screen.ts": 6006,
       "src/runtime/clock.ts": 20882,
       "src/runtime/conflict_resolvers.ts": 5008,
-      "src/runtime/console_presenter.ts": 6811,
+      "src/runtime/console_presenter.ts": 7066,
       "src/runtime/core_metrics.ts": 4554,
       "src/runtime/data_pipeline.ts": 10448,
       "src/runtime/data_pipeline_bindings.ts": 3792,
@@ -891,8 +891,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 425,
-    "bytes": 5442110,
+    "modules": 426,
+    "bytes": 5464954,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 17576,
@@ -1009,8 +1009,8 @@
       "src/app/settings.ts": 7600,
       "src/app/settings_bindings.ts": 25344,
       "src/app/shell_background.ts": 17258,
-      "src/app/shell_presenter.ts": 5291,
-      "src/app/shell_theme.ts": 9792,
+      "src/app/shell_presenter.ts": 5576,
+      "src/app/shell_theme.ts": 9795,
       "src/app/software_cursor.ts": 6547,
       "src/app/split_pane_commands.ts": 6019,
       "src/app/structure_inspector.ts": 6011,
@@ -1312,13 +1312,14 @@
       "src/view.ts": 746,
       "src/viewport.ts": 9033,
       "src/web/ansi_color.ts": 985,
-      "src/web/cell_canvas_sink.ts": 9852,
+      "src/web/canvas_shader.ts": 18607,
+      "src/web/cell_canvas_sink.ts": 11901,
       "src/web/dom_renderer.ts": 5761,
       "src/web/host.ts": 4250,
-      "src/web/mod.ts": 247,
+      "src/web/mod.ts": 283,
       "src/web/platform.ts": 19089,
       "src/web/remote_terminal.ts": 49112,
-      "src/web/web_presenter.ts": 5339
+      "src/web/web_presenter.ts": 7203
     }
   }
 }

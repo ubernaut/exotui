@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 15
-- Unique modules: 544
-- Module visits: 1062
-- Unique re-export declarations: 695
-- Re-export declaration visits: 1062
-- Unique symbol declarations: 4989
-- Symbol declaration visits: 10032
-- Documented symbol declarations: 4957
+- Unique modules: 545
+- Module visits: 1063
+- Unique re-export declarations: 696
+- Re-export declaration visits: 1063
+- Unique symbol declarations: 4994
+- Symbol declaration visits: 10037
+- Documented symbol declarations: 4962
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -23,7 +23,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
 | `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     363 |    3690 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     364 |    3695 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -74,10 +74,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 363
-- Re-export declarations: 365
-- Exported symbols: 3690
-- Documented symbols: 3690
+- Modules: 364
+- Re-export declarations: 366
+- Exported symbols: 3695
+- Documented symbols: 3695
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -803,10 +803,11 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/viz/three/scenes.ts`](#src-viz-three-scenes-ts)                                                 | `./viz/three`                           |          0 |       3 |          3 |
 | [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                               | `./viz`                                 |          0 |      13 |          8 |
 | [`src/viz/view.ts`](#src-viz-view-ts)                                                                 | `./viz`                                 |          0 |       4 |          2 |
+| [`src/web/canvas_shader.ts`](#src-web-canvas-shader-ts)                                               | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                         | `./web`                                 |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                                 | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                                 | `./web`                                 |          0 |       5 |          5 |
-| [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                 |          6 |       0 |          0 |
+| [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                 |          7 |       0 |          0 |
 | [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                 |          0 |       7 |          7 |
 | [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                     |          0 |      33 |         33 |
 | [`src/web/web_presenter.ts`](#src-web-web-presenter-ts)                                               | `./web`                                 |          0 |       4 |          4 |
@@ -10261,6 +10262,18 @@ _Entrypoints: `./viz`_
 | `VisualizationViewOptions` | interface | yes       | no    |
 | `VizRun`                   | interface | yes       | yes   |
 
+### src/web/canvas_shader.ts
+
+_Entrypoints: `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `CANVAS_SHADERS`          | const     | no        | yes   |
+| `CanvasShaderDefinition`  | interface | yes       | yes   |
+| `CanvasShaderLayer`       | interface | yes       | yes   |
+| `CanvasShaderOption`      | interface | yes       | yes   |
+| `createCanvasShaderLayer` | function  | no        | yes   |
+
 ### src/web/cell_canvas_sink.ts
 
 _Entrypoints: `./web`_
@@ -10311,6 +10324,7 @@ _Entrypoints: `./web`_
 | `src/web/platform.ts`         | star | -     |
 | `src/web/remote_terminal.ts`  | star | -     |
 | `src/web/web_presenter.ts`    | star | -     |
+| `src/web/canvas_shader.ts`    | star | -     |
 
 _No direct exported symbols._
 

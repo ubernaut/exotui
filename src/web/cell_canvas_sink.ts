@@ -35,6 +35,7 @@ interface CellCanvasContext {
   fillStyle: string | CanvasGradient | CanvasPattern;
   font: string;
   textBaseline: CanvasTextBaseline;
+  globalAlpha?: number;
   fillRect(x: number, y: number, width: number, height: number): void;
   fillText(text: string, x: number, y: number): void;
   scale(x: number, y: number): void;
@@ -148,9 +149,16 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
 
     const text = parsed.text || stripStyles(value) || " ";
     if (text.trim().length === 0) return;
+    const foreground = parsed.dim
+      ? dimColor(parsed.foreground ?? this.#foreground)
+      : parsed.foreground ?? this.#foreground;
+    // Block elements never go through the font: no monospace face fills its
+    // cell box exactly, and the shortfall reads as a grid of seams over any
+    // shaded background. Halves, eighths, and quadrants become exact rects;
+    // shades become alpha fills — full coverage no matter the font metrics.
+    if (text.length === 1 && this.#paintBlockGlyph(text.codePointAt(0)!, x, y, foreground)) return;
     this.#context.font = parsed.bold ? `700 ${this.#font}` : this.#font;
-    this.#context.fillStyle = parsed.dim ? dimColor(parsed.foreground ?? this.#foreground) : parsed.foreground ??
-      this.#foreground;
+    this.#context.fillStyle = foreground;
     // A glyph whose advance exceeds the cell bleeds into the neighbour, and
     // when the neighbour never repaints the residue reads as a trail — the
     // whole reason animated charts smeared. Wide glyphs are clipped to their
@@ -165,6 +173,42 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
       return;
     }
     this.#context.fillText(text, x, y);
+  }
+
+  #paintBlockGlyph(code: number, x: number, y: number, foreground: string): boolean {
+    if (code < 0x2580 || code > 0x259f) return false;
+    const context = this.#context;
+    const w = this.#cellWidth;
+    const h = this.#cellHeight;
+    context.fillStyle = foreground;
+    if (code === 0x2580) {
+      context.fillRect(x, y, w, h / 2);
+    } else if (code >= 0x2581 && code <= 0x2588) {
+      const rise = h * (code - 0x2580) / 8;
+      context.fillRect(x, y + h - rise, w, rise);
+    } else if (code >= 0x2589 && code <= 0x258f) {
+      context.fillRect(x, y, w * (0x2590 - code) / 8, h);
+    } else if (code === 0x2590) {
+      context.fillRect(x + w / 2, y, w / 2, h);
+    } else if (code >= 0x2591 && code <= 0x2593) {
+      const alpha = [0.25, 0.5, 0.75][code - 0x2591]!;
+      const previous = context.globalAlpha ?? 1;
+      context.globalAlpha = previous * alpha;
+      context.fillRect(x, y, w, h);
+      context.globalAlpha = previous;
+    } else if (code === 0x2594) {
+      context.fillRect(x, y, w, h / 8);
+    } else if (code === 0x2595) {
+      context.fillRect(x + w * 7 / 8, y, w / 8, h);
+    } else {
+      // Quadrants ▖▗▘▙▚▛▜▝▞▟ as bitmasks: 1=UL, 2=UR, 4=LL, 8=LR.
+      const mask = [4, 8, 1, 13, 9, 7, 11, 2, 6, 14][code - 0x2596]!;
+      if (mask & 1) context.fillRect(x, y, w / 2, h / 2);
+      if (mask & 2) context.fillRect(x + w / 2, y, w / 2, h / 2);
+      if (mask & 4) context.fillRect(x, y + h / 2, w / 2, h / 2);
+      if (mask & 8) context.fillRect(x + w / 2, y + h / 2, w / 2, h / 2);
+    }
+    return true;
   }
 
   #glyphOverflows(text: string, bold: boolean): boolean {

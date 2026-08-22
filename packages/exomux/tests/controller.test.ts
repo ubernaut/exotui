@@ -45,7 +45,7 @@ Deno.test("Exomux includes every Workbench theme and its six-family T2 palette",
     "t2",
     "templeos",
     "miami",
-    "dracula",
+    "nosferatu",
     "sabbath",
   ]);
   assertEquals(new Set(EXOMUX_THEMES.map((theme) => theme.id)).size, EXOMUX_THEMES.length);

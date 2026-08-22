@@ -96,7 +96,10 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
     for (const listener of pointerListeners) listener(pointer);
   };
   emitter.on("mousePress", emitPointer);
-  emitter.on("mouseScroll", emitPointer);
+  const wheelListeners = new Set<(event: MouseScrollEvent) => void>();
+  emitter.on("mouseScroll", (event) => {
+    for (const listener of wheelListeners) listener(event);
+  });
 
   const stores = new Map<string, AsyncStore<unknown>>();
   const storeDirectory = options.storeDirectory ??
@@ -124,6 +127,10 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
     onPointer(listener) {
       pointerListeners.add(listener);
       return () => pointerListeners.delete(listener);
+    },
+    onWheel(listener) {
+      wheelListeners.add(listener);
+      return () => wheelListeners.delete(listener);
     },
     present(frame: ShellPresentedFrame) {
       const rows: (string[] | undefined)[] = [];

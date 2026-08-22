@@ -3,6 +3,45 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — exowebtui: live feedback, answered live
+
+The user drove the page while the fixes landed. Selection had been arming through overlapping windows — a titlebar drag
+or a corner resize over a lower window's client turned into a text selection — so arming now belongs to the topmost
+window under the pointer, only inside its client, and a down the host claims as drag/resize disarms it. The block
+elements (U+2580–U+259F) stopped going through the font: halves, eighths, and quadrants are exact rects, shades are
+alpha fills, and the grid of seams over every shaded background vanished with them. Shaders became a stack — checkboxes,
+not radios — run as a multi-pass ping-pong chain in catalog order, each with its knobs unfolding beneath it (curvature,
+vignette, fringe, glow, scanline strength and spacing) as `u_*` uniforms with ◂ value ▸ rows. And degauss joined the
+catalog as the Trinitron simulation it deserved: enabled, the tube magnetizes at a drift rate — iMagnet creeps toward 1,
+amplifying every other shader's distortion and staining the corners green and purple — until the right-click menu's
+degauss button thumps the field back to near zero in a settling wobble of chroma and colour blotch. The stack and every
+knob persist; the proof of all of it was the user's own IndexedDB record, mid-session: three shaders enabled, five
+values off their defaults. Then the user named the deeper drag problem: the CRT warp displaces the picture while input
+stays linear, so you aim at what you see and miss what is there. The curvature was renormalised to be tangent at the
+edge midpoints — distortion vanishes where the eye lines rows up, only the corners pull in — and the presenter now maps
+every pointer and wheel cell through the same forward warp the shader samples with, magnetism included. Verified by
+aiming a synthetic click at the start button's displaced visual position under curvature 0.12: the app received the
+button's true cell and the menu opened.
+
+## August 22 2026 — exowebtui: the bug list becomes the feature list
+
+One goal message carried a dozen asks; all of them landed. The renames went across the board — Dracula is Nosferatu (id
+and label, with persisted "dracula" workspaces mapped forward), Black Sabbath is Sabbath — and the web defaults are
+Section 9 over the circuit board, under a start menu that finally says exowebtui. The theme picker stopped wrapping its
+catalog into an illusion of infinity. The welcome window got the graffiti figlet art, the full project story wrapped to
+its width, and both axes of scrolling; the settings window scrolls too, because the night kept adding sections to it:
+SHADER (a WebGL layer over the cell canvas — Shadertoy-style CRT curvature, phosphor glow, scanlines — the ghostty look
+for a host with no ghostty) and WINDOWS (glass: per-cell blending of every window against the live backdrop, exomux's
+translucency with the chrome kept at half transparency for legibility).
+
+Input grew up the same night: right-click context menus (window verbs on a window, desktop verbs on the wallpaper),
+wheel routing through the seam to whatever window is under the pointer, terminal-style drag selection that lands on the
+clipboard through a host service, minimize/restore fly ghosts, and picks reaching interactive backgrounds — the
+circuit's nodes light their wires on the web now. Butterchurn arrived as the thirteenth background: the preset catalog
+is megabytes, so it lazy-loads like the three renderer, fed by a browser AnalyserNode implementing exomux's pull-based
+audio contract (synth until the mic is granted). One performance lesson got a cache: rasterize a background once per
+advance, not once per frame — butterchurn's CPU presets froze a tab teaching it.
+
 ## August 22 2026 — one application, two presentations: 045 built
 
 The presenter seam landed whole. `ShellPresenter` (src/app/shell_presenter.ts) owns what both hosts already provided

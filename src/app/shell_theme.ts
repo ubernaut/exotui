@@ -177,12 +177,12 @@ export const SHELL_THEMES: readonly ShellThemeSpec[] = [
     danger: [186, 16, 44],
   },
   {
-    // Dracula: the castle, not the popular palette of the same name — blacks,
+    // Nosferatu: the castle, not the popular palette of a similar name — blacks,
     // dark greys, and red as the single voice. Success stays a desaturated
     // moss and warning an old gold, quiet enough not to compete: in this room
     // red is the only thing allowed to bleed.
-    id: "dracula",
-    label: "Dracula",
+    id: "nosferatu",
+    label: "Nosferatu",
     background: [9, 7, 8],
     surface: [19, 16, 17],
     surfaceStrong: [35, 29, 31],
@@ -201,13 +201,13 @@ export const SHELL_THEMES: readonly ShellThemeSpec[] = [
     // album covers. The same discipline as Dracula with the hue swapped:
     // purple carries focus and identity, everything else keeps to the greys.
     id: "sabbath",
-    label: "Black Sabbath",
+    label: "Sabbath",
     background: [8, 7, 12],
     surface: [17, 15, 24],
     surfaceStrong: [31, 27, 44],
     border: [104, 78, 148],
     text: [228, 223, 238],
-    // As in Dracula: the purple accent picks white on-accent text, so the
+    // As in Nosferatu: the purple accent picks white on-accent text, so the
     // muted row has to hold white at AA.
     muted: [104, 96, 122],
     accent: [178, 110, 255],
