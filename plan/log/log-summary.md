@@ -3,6 +3,15 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 22 2026 — release 0.6.0 / exomux 0.3.0: the seam ships
+
+The merge to main became a release. exotui 0.6.0 carries the presenter seam and its two hosts, the shell painters, the
+shared theme and background catalogs, the browser shader layer with the degauss simulation and warp-corrected input,
+geometric glyph rendering, and hover pointer input; exomux 0.3.0 consumes all of it, maps dracula forward to nosferatu,
+cleans up a killed child's kitty graphics, and carries butterchurn's ink across resizes. Same shape as 0.5.0: changelog
+section, version bumps with the dependency constraint moved to ^0.6.0, one release commit, the v0.6.0 tag for the binary
+build, and CI publishing exotui before exomux so the constraint resolves.
+
 ## August 22 2026 — exowebtui: the welcome flows, the lava survives a resize
 
 The welcome page's text was stored pre-wrapped at 56 columns, so every other width re-wrapped the fragments into ragged

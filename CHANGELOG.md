@@ -6,6 +6,69 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.6.0 — 2026-08-22
+
+### Added
+
+- **The presenter seam** — `ShellPresenter` (`src/app/shell_presenter.ts`): one interface between a cell-composed
+  application and whatever shows the cells — a live grid size, the key/pointer/wheel event streams both hosts already
+  emit, one-shot frame scheduling, a named durable `AsyncStore` factory, and a probed capability record.
+  `runShellApp(presenter, app)` is the entire loop. Two implementations ship: the browser presenter
+  (`src/web/web_presenter.ts` — line signals, cells-to-ANSI, IndexedDB stores, the shader layer) and the console
+  presenter (`src/runtime/console_presenter.ts` — alt screen, diffing ANSI painter, terminal mouse adaption, SIGWINCH,
+  file stores). An application written against the seam runs in both with zero additional code paths; the exowebtui
+  desktop that now fronts the docs is the reference application, and the same object runs under `deno task desktop` in a
+  terminal.
+
+- **The shell painters** — `src/app/workbench_shell.ts`: `ShellSurface`, grounds, border boxes, fitted text, window
+  chrome, the switcher, menu panels and tab strips as host-neutral painters over plain cells. exomux draws with them
+  now; its 546 tests kept their goldens through the adoption.
+
+- **The shared theme catalog** — `src/app/shell_theme.ts`: seventeen `ShellThemeSpec`s (the exomux natives, the
+  Workbench palettes, T2, TempleOS, Miami, Nosferatu, Sabbath) with control colours and the computed on-accent title-bar
+  foreground. exomux re-derives its themes from it.
+
+- **The shared background catalog** — `src/app/backgrounds/`: ten animated fields (matrix, circuit, fire, ivy, jungle,
+  biomech, skull, turbulence, vaporwave, rainy windows) plus the metaball adapter, behind one `AnimatedBackground`
+  contract with pick/overlay/preset capability predicates. Entries carry a preferred `fps` (the calm catalog runs at 8;
+  a video-like field can ask for 60). exomux's field files are re-export shims.
+
+- **Ghostty-style post shaders for the browser** — `src/web/canvas_shader.ts`: a WebGL2 overlay running any subset of
+  the catalog (vhs, crt, phosphor, scanlines, degauss) as a multi-pass ping-pong chain, each shader with tunable
+  uniforms. The degauss pass is a Trinitron simulation: magnetization creeps at a drift rate, scales every other
+  shader's distortion, stains the corners, and the `degauss()` thump — with a synthesized coil sound — resets the field
+  to near zero. The CRT curvature is tangent at the edge midpoints, and `warpPoint` exposes the exact forward mapping so
+  the web presenter routes every pointer and wheel cell through the displayed geometry, magnetization and settling
+  wobble included.
+
+- **Geometric glyphs in the browser sink** — block elements (U+2580–U+259F) and the box-drawing set (light arms,
+  corners, tees, crosses, heavy bars, double-line rails) render as exact rects instead of font glyphs, ending the seams
+  fonts leave along shaded backgrounds, wires and window borders.
+
+- **Hover pointer input on the web** — the browser input source emits `move` pointer events without buttons held, so
+  drawn cursors and pointer-following backgrounds work outside drags.
+
+### Changed
+
+- **Dracula is Nosferatu.** The theme id and label changed; exomux maps persisted `"dracula"` workspaces forward. Black
+  Sabbath's label is now Sabbath (id unchanged).
+
+### Fixed
+
+- `setPointerCapture` failures (a pointer already gone, a synthetic event) no longer swallow the pointerdown; the
+  capture may fail while the event still flows.
+- Glyphs wider than their cell are clipped to it, ending residue trails under animated charts.
+
+### exomux 0.3.0
+
+- Draws through the shared shell painters, themes and backgrounds above.
+- A killed session takes its relayed kitty graphics with it: runtime removal stashes the relay's delete emissions in an
+  orphan list the compositor drains every flush, and leaving exomux sweeps every displayed session — alt-screen restore
+  does not delete kitty images, so exomux does it itself.
+- Butterchurn survives live resizes: the ink buffers are carried across nearest-neighbour instead of zeroed, so a
+  drag-resize no longer leaves dead black regions. `ExomuxButterchurnField` accepts an injected `audio` source and
+  exposes `presetIndex`; `pick()` advances to the next shuffled preset.
+
 ## 0.5.0 — 2026-08-21
 
 ### Added
