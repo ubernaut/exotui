@@ -3,6 +3,23 @@
 The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
 details behind it. Newest first.
 
+## August 21 2026 — everything the desktop is made of becomes portable
+
+"Port all of the backgrounds… same goes for the themes." The port turned out to be mostly recognition: the
+animated-background contract had already been promoted to the library (WS-009) and every field imports exactly three
+things — Rectangle, that contract, and the theme spec. So the theme catalog moved first (`ShellThemeSpec`,
+`SHELL_THEMES` — one catalog, exomux narrowing by cast), and the eleven pure simulations followed mechanically, each
+exomux file left behind as a re-export shim so not one import site or test changed. The WebGPU device acquisition moved
+with them behind a pluggable logger; `navigator.gpu` is the same door on Deno and the browser. The one honest adapter
+written by hand was the metaball field's — it was raw simulation, and the cast that pretended otherwise blanked the page
+until it got the palette-and-levels adapter exomux's compositor had kept to itself.
+
+The result on screen: exomux's metaballs as the web desktop's default wallpaper, window-averse and pointer-attracted;
+the full seventeen-theme catalog in the themes window; Dracula applied re-deriving the metaball gradient to red-and-moss
+by the same vivid-pair rule; and the theme builder — the goal's named artifact — editing the live spec slot by slot in
+OKLCH, with the desktop and the background both following each nudge. Solid fills paint as backgrounds rather than block
+glyphs, because a 14px "█" in a 9px cell leaves seams the way the 16px font left trails.
+
 ## August 21 2026 — the shell extracted, and the trails were the font
 
 The one-big-go the maintainer asked for, on the `desktop-shell` branch with Pages following it. The extraction line held

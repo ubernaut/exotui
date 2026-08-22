@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 15
-- Unique modules: 526
-- Module visits: 1027
-- Unique re-export declarations: 676
-- Re-export declaration visits: 1025
-- Unique symbol declarations: 4903
-- Symbol declaration visits: 9864
-- Documented symbol declarations: 4871
-- Documentation coverage: 99.35%
+- Unique modules: 541
+- Module visits: 1057
+- Unique re-export declarations: 692
+- Re-export declaration visits: 1057
+- Unique symbol declarations: 4972
+- Symbol declaration visits: 10002
+- Documented symbol declarations: 4940
+- Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -21,9 +21,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     436 |    4266 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     451 |    4335 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     346 |    3607 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     361 |    3676 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -44,10 +44,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 436
-- Re-export declarations: 436
-- Exported symbols: 4266
-- Documented symbols: 4266
+- Modules: 451
+- Re-export declarations: 452
+- Exported symbols: 4335
+- Documented symbols: 4335
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -74,10 +74,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 346
-- Re-export declarations: 347
-- Exported symbols: 3607
-- Documented symbols: 3607
+- Modules: 361
+- Re-export declarations: 363
+- Exported symbols: 3676
+- Documented symbols: 3676
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -264,534 +264,549 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 
 ## Module Catalog
 
-| Module                                                                                          | Entrypoints                             | Re-exports | Symbols | Documented |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------- | ---------: | ------: | ---------: |
-| [`mod.app.ts`](#mod-app-ts)                                                                     | `./app`                                 |         53 |       0 |          0 |
-| [`mod.remote.ts`](#mod-remote-ts)                                                               | `./remote`                              |         13 |       0 |          0 |
-| [`mod.runtime.ts`](#mod-runtime-ts)                                                             | `./runtime`                             |          1 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                           | `./terminal`                            |         17 |       0 |          0 |
-| [`mod.testing.ts`](#mod-testing-ts)                                                             | `./testing`                             |         15 |       0 |          0 |
-| [`mod.theme.ts`](#mod-theme-ts)                                                                 | `./theme`                               |         15 |       0 |          0 |
-| [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                     | `./three-ascii`                         |          3 |       0 |          0 |
-| [`mod.ts`](#mod-ts)                                                                             | `.`                                     |         66 |       0 |          0 |
-| [`mod.web.ts`](#mod-web-ts)                                                                     | `./web`                                 |         83 |       0 |          0 |
-| [`src/api_stability.ts`](#src-api-stability-ts)                                                 | `.`, `./web`                            |          0 |      14 |         14 |
-| [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)               | `.`, `./web`                            |          0 |      24 |         24 |
-| [`src/app/action_journal_retention.ts`](#src-app-action-journal-retention-ts)                   | `.`, `./web`                            |          0 |      21 |         21 |
-| [`src/app/action_journal.ts`](#src-app-action-journal-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
-| [`src/app/action_policies.ts`](#src-app-action-policies-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/actions.ts`](#src-app-actions-ts)                                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
-| [`src/app/animated_background.ts`](#src-app-animated-background-ts)                             | `.`, `./web`                            |          0 |      16 |         16 |
-| [`src/app/app.ts`](#src-app-app-ts)                                                             | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/app/background_jobs.ts`](#src-app-background-jobs-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/browser_editing.ts`](#src-app-browser-editing-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/calendar.ts`](#src-app-calendar-ts)                                                   | `.`, `./web`                            |          0 |      12 |         12 |
-| [`src/app/clipboard.ts`](#src-app-clipboard-ts)                                                 | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/code_view.ts`](#src-app-code-view-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/command_aliases.ts`](#src-app-command-aliases-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/command_arguments.ts`](#src-app-command-arguments-ts)                                 | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/command_bindings.ts`](#src-app-command-bindings-ts)                                   | `.`, `./web`                            |          0 |      26 |         26 |
-| [`src/app/command_history.ts`](#src-app-command-history-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/command_macros.ts`](#src-app-command-macros-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/command_pipelines.ts`](#src-app-command-pipelines-ts)                                 | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/command_preview.ts`](#src-app-command-preview-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/command_progress.ts`](#src-app-command-progress-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/command_search_index.ts`](#src-app-command-search-index-ts)                           | `.`, `./web`                            |          0 |      11 |         11 |
-| [`src/app/commands.ts`](#src-app-commands-ts)                                                   | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
-| [`src/app/component_commands.ts`](#src-app-component-commands-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/compose_sequences.ts`](#src-app-compose-sequences-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/composition.ts`](#src-app-composition-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/content_integrity.ts`](#src-app-content-integrity-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/crash_recovery.ts`](#src-app-crash-recovery-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/data_query_commands.ts`](#src-app-data-query-commands-ts)                             | `.`, `./web`                            |          0 |      24 |         24 |
-| [`src/app/data_table_commands.ts`](#src-app-data-table-commands-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/diff_view.ts`](#src-app-diff-view-ts)                                                 | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/disposables.ts`](#src-app-disposables-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/drag_drop.ts`](#src-app-drag-drop-ts)                                                 | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/event_timeline.ts`](#src-app-event-timeline-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/focus_announcements.ts`](#src-app-focus-announcements-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/focus_commands.ts`](#src-app-focus-commands-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/form_async_validation.ts`](#src-app-form-async-validation-ts)                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/form_checkpoints.ts`](#src-app-form-checkpoints-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/form_commands.ts`](#src-app-form-commands-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/form_dependencies.ts`](#src-app-form-dependencies-ts)                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/form_drafts.ts`](#src-app-form-drafts-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/form_paths.ts`](#src-app-form-paths-ts)                                               | `.`, `./web`                            |          0 |      23 |         23 |
-| [`src/app/form_schema.ts`](#src-app-form-schema-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/form_server_errors.ts`](#src-app-form-server-errors-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/form_submission.ts`](#src-app-form-submission-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/form_validation_timing.ts`](#src-app-form-validation-timing-ts)                       | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/forms.ts`](#src-app-forms-ts)                                                         | `.`, `./web`                            |          0 |      35 |         35 |
-| [`src/app/general_widgets.ts`](#src-app-general-widgets-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/gestures.ts`](#src-app-gestures-ts)                                                   | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/hex_viewer.ts`](#src-app-hex-viewer-ts)                                               | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/history_branches.ts`](#src-app-history-branches-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/history.ts`](#src-app-history-ts)                                                     | `.`, `./web`                            |          0 |      37 |         37 |
-| [`src/app/hit_targets.ts`](#src-app-hit-targets-ts)                                             | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/input_commands.ts`](#src-app-input-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/journal_store.ts`](#src-app-journal-store-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/kanban.ts`](#src-app-kanban-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/list_commands.ts`](#src-app-list-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/log_viewer_commands.ts`](#src-app-log-viewer-commands-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/menu_bar_commands.ts`](#src-app-menu-bar-commands-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/metric_series_commands.ts`](#src-app-metric-series-commands-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/mod.ts`](#src-app-mod-ts)                                                             | `.`, `./web`                            |        121 |       0 |          0 |
-| [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                       | `.`, `./web`                            |          0 |      14 |         14 |
-| [`src/app/navigation_blockers.ts`](#src-app-navigation-blockers-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/navigation_journal.ts`](#src-app-navigation-journal-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/pad_commands.ts`](#src-app-pad-commands-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/paste_stream.ts`](#src-app-paste-stream-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/plugin_activation.ts`](#src-app-plugin-activation-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/plugin_capabilities.ts`](#src-app-plugin-capabilities-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/plugin_catalog.ts`](#src-app-plugin-catalog-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/plugin_compat.ts`](#src-app-plugin-compat-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/plugin_dependencies.ts`](#src-app-plugin-dependencies-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/plugin_lifecycle.ts`](#src-app-plugin-lifecycle-ts)                                   | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/app/plugin_manifest.ts`](#src-app-plugin-manifest-ts)                                     | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/app/plugin_permission_diff.ts`](#src-app-plugin-permission-diff-ts)                       | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/plugin_rpc_proxies.ts`](#src-app-plugin-rpc-proxies-ts)                               | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/app/plugin_slot_adapters.ts`](#src-app-plugin-slot-adapters-ts)                           | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/app/plugin_slots.ts`](#src-app-plugin-slots-ts)                                           | `.`, `./web`                            |          0 |      17 |         17 |
-| [`src/app/plugin_state_migration.ts`](#src-app-plugin-state-migration-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/plugins.ts`](#src-app-plugins-ts)                                                     | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
-| [`src/app/pointer_gestures.ts`](#src-app-pointer-gestures-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/preedit_provider.ts`](#src-app-preedit-provider-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/property_grid.ts`](#src-app-property-grid-ts)                                         | `.`, `./web`                            |          0 |      11 |         11 |
-| [`src/app/route_anchors.ts`](#src-app-route-anchors-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/route_boundaries.ts`](#src-app-route-boundaries-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/route_guards.ts`](#src-app-route-guards-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/route_loaders.ts`](#src-app-route-loaders-ts)                                         | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/route_outlets.ts`](#src-app-route-outlets-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/route_patterns.ts`](#src-app-route-patterns-ts)                                       | `.`, `./web`                            |          0 |      23 |         23 |
-| [`src/app/route_prefetch.ts`](#src-app-route-prefetch-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/router.ts`](#src-app-router-ts)                                                       | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
-| [`src/app/runtime_commands.ts`](#src-app-runtime-commands-ts)                                   | `.`, `./web`                            |          0 |      25 |         25 |
-| [`src/app/screen_persistence.ts`](#src-app-screen-persistence-ts)                               | `.`, `./web`                            |          0 |      19 |         19 |
-| [`src/app/screen_router.ts`](#src-app-screen-router-ts)                                         | `.`, `./web`                            |          0 |      16 |         16 |
-| [`src/app/screens.ts`](#src-app-screens-ts)                                                     | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/app/scroll_area_commands.ts`](#src-app-scroll-area-commands-ts)                           | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/selection_bindings.ts`](#src-app-selection-bindings-ts)                               | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/app/settings_bindings.ts`](#src-app-settings-bindings-ts)                                 | `.`, `./web`                            |          0 |      21 |         21 |
-| [`src/app/settings.ts`](#src-app-settings-ts)                                                   | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/software_cursor.ts`](#src-app-software-cursor-ts)                                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/split_pane_commands.ts`](#src-app-split-pane-commands-ts)                             | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/structure_inspector.ts`](#src-app-structure-inspector-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/surface_transitions.ts`](#src-app-surface-transitions-ts)                             | `./app`                                 |          0 |       9 |          7 |
-| [`src/app/syntax_service.ts`](#src-app-syntax-service-ts)                                       | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/app/table_commands.ts`](#src-app-table-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                           | `./app`                                 |          0 |       6 |          6 |
-| [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                 | `.`, `./web`                            |          0 |      29 |         29 |
-| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
-| [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                       | `.`, `./web`                            |          0 |      24 |         24 |
-| [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                           | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                           | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/app/time_picker.ts`](#src-app-time-picker-ts)                                             | `.`, `./web`                            |          0 |      11 |         11 |
-| [`src/app/toast_commands.ts`](#src-app-toast-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/token_editor.ts`](#src-app-token-editor-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/transfer_list.ts`](#src-app-transfer-list-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/tree_commands.ts`](#src-app-tree-commands-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/tree_grid.ts`](#src-app-tree-grid-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/typed_commands.ts`](#src-app-typed-commands-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/app/widget_commands.ts`](#src-app-widget-commands-ts)                                     | `.`, `./web`                            |          0 |      48 |         48 |
-| [`src/app/widget_surface.ts`](#src-app-widget-surface-ts)                                       | `./app`                                 |          0 |       4 |          4 |
-| [`src/app/window_manager_commands.ts`](#src-app-window-manager-commands-ts)                     | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/app/workbench_accessibility.ts`](#src-app-workbench-accessibility-ts)                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/workbench_ansi_screen.ts`](#src-app-workbench-ansi-screen-ts)                         | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/workbench_button_style.ts`](#src-app-workbench-button-style-ts)                       | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/workbench_control_layout.ts`](#src-app-workbench-control-layout-ts)                   | `.`, `./web`                            |          0 |      17 |         17 |
-| [`src/app/workbench_frame.ts`](#src-app-workbench-frame-ts)                                     | `.`, `./web`                            |          0 |      30 |         30 |
-| [`src/app/workbench_layout.ts`](#src-app-workbench-layout-ts)                                   | `.`, `./web`                            |          0 |      35 |         35 |
-| [`src/app/workbench_menu.ts`](#src-app-workbench-menu-ts)                                       | `.`, `./web`                            |          0 |      39 |         39 |
-| [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                 | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)     | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                     | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                     | `.`, `./web`                            |          0 |      24 |         24 |
-| [`src/app/workbench_status.ts`](#src-app-workbench-status-ts)                                   | `.`, `./web`                            |          0 |      26 |         26 |
-| [`src/app/workbench_terminal.ts`](#src-app-workbench-terminal-ts)                               | `.`, `./web`                            |          0 |      66 |         66 |
-| [`src/app/workbench_text.ts`](#src-app-workbench-text-ts)                                       | `.`, `./web`                            |          0 |      17 |         17 |
-| [`src/app/workbench_three_terminal_pressure.ts`](#src-app-workbench-three-terminal-pressure-ts) | `.`, `./web`                            |          0 |      25 |         25 |
-| [`src/app/workbench_titlebar.ts`](#src-app-workbench-titlebar-ts)                               | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/workbench_window_host.ts`](#src-app-workbench-window-host-ts)                         | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
-| [`src/app/workbench_window_registry.ts`](#src-app-workbench-window-registry-ts)                 | `.`, `./web`                            |          0 |      27 |         27 |
-| [`src/app/workbench_workspace_store.ts`](#src-app-workbench-workspace-store-ts)                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/workbench_workspace.ts`](#src-app-workbench-workspace-ts)                             | `.`, `./web`                            |          0 |      19 |         19 |
-| [`src/app/workbench/mod.ts`](#src-app-workbench-mod-ts)                                         | `.`, `./web`                            |         19 |       0 |          0 |
-| [`src/app/worker_plugin_host.ts`](#src-app-worker-plugin-host-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/canvas/box.ts`](#src-canvas-box-ts)                                                       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/canvas/canvas.ts`](#src-canvas-canvas-ts)                                                 | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/canvas/dirty_region.ts`](#src-canvas-dirty-region-ts)                                     | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                       | `.`, `./web`                            |          8 |       0 |          0 |
-| [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                 | `.`, `./web`                            |          0 |      19 |         19 |
-| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                     | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                   | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/canvas/text.ts`](#src-canvas-text-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                       | `./web`, `./three-ascii`                |          0 |       6 |          6 |
-| [`src/component.ts`](#src-component-ts)                                                         | `.`                                     |          0 |       4 |          4 |
-| [`src/components/box.ts`](#src-components-box-ts)                                               | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/components/breadcrumbs.ts`](#src-components-breadcrumbs-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/components/button.ts`](#src-components-button-ts)                                         | `.`, `./app`, `./web`                   |          0 |       5 |          5 |
-| [`src/components/catalog.ts`](#src-components-catalog-ts)                                       | `.`, `./web`                            |          0 |      19 |         19 |
-| [`src/components/chart.ts`](#src-components-chart-ts)                                           | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/components/checkbox.ts`](#src-components-checkbox-ts)                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
-| [`src/components/color_picker.ts`](#src-components-color-picker-ts)                             | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/components/combobox.ts`](#src-components-combobox-ts)                                     | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
-| [`src/components/command_palette.ts`](#src-components-command-palette-ts)                       | `.`, `./app`, `./web`                   |          0 |      12 |         12 |
-| [`src/components/context_menu.ts`](#src-components-context-menu-ts)                             | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/components/cycler.ts`](#src-components-cycler-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/components/data_table.ts`](#src-components-data-table-ts)                                 | `.`, `./web`                            |          0 |      16 |         16 |
-| [`src/components/empty_state.ts`](#src-components-empty-state-ts)                               | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/components/file_explorer.ts`](#src-components-file-explorer-ts)                           | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/components/frame.ts`](#src-components-frame-ts)                                           | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
-| [`src/components/gauge.ts`](#src-components-gauge-ts)                                           | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/components/input.ts`](#src-components-input-ts)                                           | `.`, `./app`, `./web`                   |          0 |       8 |          8 |
-| [`src/components/interaction.ts`](#src-components-interaction-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/components/key_help.ts`](#src-components-key-help-ts)                                     | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/components/label.ts`](#src-components-label-ts)                                           | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
-| [`src/components/list.ts`](#src-components-list-ts)                                             | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
-| [`src/components/log_viewer.ts`](#src-components-log-viewer-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/components/markdown.ts`](#src-components-markdown-ts)                                     | `./app`                                 |          0 |       9 |          9 |
-| [`src/components/menu_bar.ts`](#src-components-menu-bar-ts)                                     | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/components/metric_series.ts`](#src-components-metric-series-ts)                           | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/components/mod.ts`](#src-components-mod-ts)                                               | `.`, `./web`                            |         45 |       0 |          0 |
-| [`src/components/modal.ts`](#src-components-modal-ts)                                           | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/components/pad.ts`](#src-components-pad-ts)                                               | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/components/progressbar.ts`](#src-components-progressbar-ts)                               | `.`, `./app`, `./web`                   |          0 |      15 |         15 |
-| [`src/components/radio_group.ts`](#src-components-radio-group-ts)                               | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
-| [`src/components/scroll_area.ts`](#src-components-scroll-area-ts)                               | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/components/scroll_box_parity.ts`](#src-components-scroll-box-parity-ts)                   | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/components/slider.ts`](#src-components-slider-ts)                                         | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
-| [`src/components/sparkline.ts`](#src-components-sparkline-ts)                                   | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/components/spinner.ts`](#src-components-spinner-ts)                                       | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
-| [`src/components/statusbar.ts`](#src-components-statusbar-ts)                                   | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
-| [`src/components/stepper.ts`](#src-components-stepper-ts)                                       | `.`, `./web`                            |          0 |      11 |         11 |
-| [`src/components/table.ts`](#src-components-table-ts)                                           | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/components/tabs.ts`](#src-components-tabs-ts)                                             | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
-| [`src/components/terminal_output.ts`](#src-components-terminal-output-ts)                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/components/terminal_screen.ts`](#src-components-terminal-screen-ts)                       | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/components/text_area.ts`](#src-components-text-area-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/components/text.ts`](#src-components-text-ts)                                             | `.`, `./app`, `./web`                   |          0 |       2 |          2 |
-| [`src/components/textbox.ts`](#src-components-textbox-ts)                                       | `.`, `./app`, `./web`                   |          0 |      23 |         23 |
-| [`src/components/three_ascii.ts`](#src-components-three-ascii-ts)                               | `./three-ascii`                         |          0 |       2 |          2 |
-| [`src/components/toast.ts`](#src-components-toast-ts)                                           | `.`, `./app`, `./web`                   |          0 |       8 |          8 |
-| [`src/components/tree.ts`](#src-components-tree-ts)                                             | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/components/virtual_list.ts`](#src-components-virtual-list-ts)                             | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
-| [`src/content/markdown.ts`](#src-content-markdown-ts)                                           | `./app`                                 |          0 |      14 |         14 |
-| [`src/controls.ts`](#src-controls-ts)                                                           | `.`                                     |          0 |       2 |          2 |
-| [`src/event_emitter.ts`](#src-event-emitter-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/focus.ts`](#src-focus-ts)                                                                 | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/grwizard_themes.ts`](#src-grwizard-themes-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       5 |          5 |
-| [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/i18n/locale.ts`](#src-i18n-locale-ts)                                                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/i18n/message_format.ts`](#src-i18n-message-format-ts)                                     | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/i18n/message_lint.ts`](#src-i18n-message-lint-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/i18n/messages.ts`](#src-i18n-messages-ts)                                                 | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/i18n/missing_translation_telemetry.ts`](#src-i18n-missing-translation-telemetry-ts)       | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/i18n/mod.ts`](#src-i18n-mod-ts)                                                           | `.`, `./web`                            |         10 |       0 |          0 |
-| [`src/i18n/pseudo_locales.ts`](#src-i18n-pseudo-locales-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/i18n/reactive_locale.ts`](#src-i18n-reactive-locale-ts)                                   | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/i18n/width_variants.ts`](#src-i18n-width-variants-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/input_envelope.ts`](#src-input-envelope-ts)                                               | `.`, `./web`                            |          0 |      28 |         28 |
-| [`src/input_lifecycle.ts`](#src-input-lifecycle-ts)                                             | `.`                                     |          0 |      24 |         24 |
-| [`src/input_reader/mod.ts`](#src-input-reader-mod-ts)                                           | `.`, `./terminal`                       |          1 |       2 |          2 |
-| [`src/input_reader/types.ts`](#src-input-reader-types-ts)                                       | `.`, `./remote`, `./terminal`           |          0 |      12 |         12 |
-| [`src/input.ts`](#src-input-ts)                                                                 | `.`                                     |          0 |       1 |          1 |
-| [`src/key_sequences.ts`](#src-key-sequences-ts)                                                 | `.`, `./web`                            |          0 |      24 |         24 |
-| [`src/keymap_layers.ts`](#src-keymap-layers-ts)                                                 | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/keymap.ts`](#src-keymap-ts)                                                               | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/layout/capabilities.ts`](#src-layout-capabilities-ts)                                     | `.`, `./web`                            |          0 |      26 |         26 |
-| [`src/layout/engine.ts`](#src-layout-engine-ts)                                                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/layout/errors.ts`](#src-layout-errors-ts)                                                 | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/layout/flex_layout.ts`](#src-layout-flex-layout-ts)                                       | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/layout/grid_layout.ts`](#src-layout-grid-layout-ts)                                       | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
-| [`src/layout/horizontal_layout.ts`](#src-layout-horizontal-layout-ts)                           | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/layout/measurement.ts`](#src-layout-measurement-ts)                                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/layout/mod.ts`](#src-layout-mod-ts)                                                       | `.`, `./web`                            |         18 |       0 |          0 |
-| [`src/layout/overlay.ts`](#src-layout-overlay-ts)                                               | `.`, `./web`                            |          0 |      21 |         21 |
-| [`src/layout/recipe.ts`](#src-layout-recipe-ts)                                                 | `.`, `./web`                            |          0 |      18 |         18 |
-| [`src/layout/responsive.ts`](#src-layout-responsive-ts)                                         | `.`, `./web`                            |          0 |      14 |         14 |
-| [`src/layout/solver.ts`](#src-layout-solver-ts)                                                 | `.`, `./web`                            |          0 |      13 |         13 |
-| [`src/layout/solvers/simple.ts`](#src-layout-solvers-simple-ts)                                 | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/layout/solvers/taffy_wasm.ts`](#src-layout-solvers-taffy-wasm-ts)                         | `./layout/taffy-wasm`                   |          0 |       2 |          2 |
-| [`src/layout/solvers/taffy.ts`](#src-layout-solvers-taffy-ts)                                   | `./layout/taffy`                        |          0 |      24 |         24 |
-| [`src/layout/solvers/yoga.ts`](#src-layout-solvers-yoga-ts)                                     | `./layout/yoga`                         |          0 |       4 |          4 |
-| [`src/layout/split_pane.ts`](#src-layout-split-pane-ts)                                         | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
-| [`src/layout/style.ts`](#src-layout-style-ts)                                                   | `.`, `./web`                            |          0 |      55 |         55 |
-| [`src/layout/taffy.ts`](#src-layout-taffy-ts)                                                   | `./layout/taffy`                        |          1 |       0 |          0 |
-| [`src/layout/tiled_workspace.ts`](#src-layout-tiled-workspace-ts)                               | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
-| [`src/layout/types.ts`](#src-layout-types-ts)                                                   | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/layout/vertical_layout.ts`](#src-layout-vertical-layout-ts)                               | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/layout/window_manager.ts`](#src-layout-window-manager-ts)                                 | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/markup/cascade.ts`](#src-markup-cascade-ts)                                               | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/markup/css.ts`](#src-markup-css-ts)                                                       | `.`, `./web`                            |          0 |      11 |         11 |
-| [`src/markup/demo_fixtures.ts`](#src-markup-demo-fixtures-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/markup/hot_reload.ts`](#src-markup-hot-reload-ts)                                         | `.`, `./web`                            |          0 |      12 |         12 |
-| [`src/markup/html.ts`](#src-markup-html-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/markup/hydrate.ts`](#src-markup-hydrate-ts)                                               | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/markup/jsx.ts`](#src-markup-jsx-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/markup/layout_worker.ts`](#src-markup-layout-worker-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/markup/live_dispatch.ts`](#src-markup-live-dispatch-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/markup/live_host.ts`](#src-markup-live-host-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/markup/live_invalidation.ts`](#src-markup-live-invalidation-ts)                           | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/markup/live_styling.ts`](#src-markup-live-styling-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/markup/live_tree.ts`](#src-markup-live-tree-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/markup/mod.ts`](#src-markup-mod-ts)                                                       | `.`, `./web`                            |         19 |       0 |          0 |
-| [`src/markup/rehydrate.ts`](#src-markup-rehydrate-ts)                                           | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/markup/support.ts`](#src-markup-support-ts)                                               | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/markup/widgets.ts`](#src-markup-widgets-ts)                                               | `.`, `./web`                            |          0 |      16 |         16 |
-| [`src/markup/window_history.ts`](#src-markup-window-history-ts)                                 | `.`, `./web`                            |          0 |      12 |         12 |
-| [`src/markup/window_interactions.ts`](#src-markup-window-interactions-ts)                       | `.`, `./web`                            |          0 |      14 |         14 |
-| [`src/markup/windows.ts`](#src-markup-windows-ts)                                               | `.`, `./web`                            |          0 |      33 |         33 |
-| [`src/perf/benchmark.ts`](#src-perf-benchmark-ts)                                               | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/perf/cache_budget.ts`](#src-perf-cache-budget-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/perf/diff_planner.ts`](#src-perf-diff-planner-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/perf/entrypoint_budget.ts`](#src-perf-entrypoint-budget-ts)                               | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/perf/frame_cadence.ts`](#src-perf-frame-cadence-ts)                                       | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)               | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                               | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/perf/pools.ts`](#src-perf-pools-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/perf/write_coalescer.ts`](#src-perf-write-coalescer-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/permissions.ts`](#src-permissions-ts)                                                     | `.`, `./web`                            |          0 |      23 |         23 |
-| [`src/platform/types.ts`](#src-platform-types-ts)                                               | `./web`                                 |          0 |      10 |         10 |
-| [`src/pointer_input.ts`](#src-pointer-input-ts)                                                 | `.`, `./web`                            |          0 |      40 |         40 |
-| [`src/remote/adaptive_quality.ts`](#src-remote-adaptive-quality-ts)                             | `./remote`                              |          0 |       9 |          9 |
-| [`src/remote/frame_codec.ts`](#src-remote-frame-codec-ts)                                       | `./remote`                              |          0 |      14 |         13 |
-| [`src/remote/frame_flow.ts`](#src-remote-frame-flow-ts)                                         | `./remote`                              |          0 |       4 |          4 |
-| [`src/remote/handshake.ts`](#src-remote-handshake-ts)                                           | `./web`, `./remote`                     |          0 |      28 |         28 |
-| [`src/remote/input_sequencing.ts`](#src-remote-input-sequencing-ts)                             | `./remote`                              |          0 |       5 |          5 |
-| [`src/remote/multi_client.ts`](#src-remote-multi-client-ts)                                     | `./remote`                              |          0 |       5 |          5 |
-| [`src/remote/session_auth.ts`](#src-remote-session-auth-ts)                                     | `./remote`                              |          0 |       7 |          7 |
-| [`src/remote/session_lifecycle.ts`](#src-remote-session-lifecycle-ts)                           | `./remote`                              |          0 |       6 |          6 |
-| [`src/remote/session_resume.ts`](#src-remote-session-resume-ts)                                 | `./remote`                              |          0 |       4 |          4 |
-| [`src/remote/transport_policy.ts`](#src-remote-transport-policy-ts)                             | `./remote`                              |          0 |       6 |          6 |
-| [`src/runtime/async_channel.ts`](#src-runtime-async-channel-ts)                                 | `.`, `./runtime`                        |          0 |      23 |         23 |
-| [`src/runtime/async_iterable.ts`](#src-runtime-async-iterable-ts)                               | `.`, `./web`, `./runtime`               |          0 |      31 |         31 |
-| [`src/runtime/cache_tags.ts`](#src-runtime-cache-tags-ts)                                       | `.`, `./runtime`                        |          0 |       3 |          3 |
-| [`src/runtime/capabilities.ts`](#src-runtime-capabilities-ts)                                   | `.`, `./web`, `./runtime`               |          0 |      16 |         16 |
-| [`src/runtime/cell_screen.ts`](#src-runtime-cell-screen-ts)                                     | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/clock.ts`](#src-runtime-clock-ts)                                                 | `.`, `./web`, `./runtime`               |          0 |      23 |         23 |
-| [`src/runtime/conflict_resolvers.ts`](#src-runtime-conflict-resolvers-ts)                       | `.`, `./runtime`                        |          0 |       9 |          9 |
-| [`src/runtime/core_metrics.ts`](#src-runtime-core-metrics-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/data_pipeline_bindings.ts`](#src-runtime-data-pipeline-bindings-ts)               | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
-| [`src/runtime/data_pipeline.ts`](#src-runtime-data-pipeline-ts)                                 | `.`, `./web`, `./runtime`               |          0 |      19 |         19 |
-| [`src/runtime/data_query.ts`](#src-runtime-data-query-ts)                                       | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
-| [`src/runtime/deadline.ts`](#src-runtime-deadline-ts)                                           | `.`, `./runtime`                        |          0 |      12 |         12 |
-| [`src/runtime/diagnostics.ts`](#src-runtime-diagnostics-ts)                                     | `.`, `./runtime`                        |          0 |      12 |         12 |
-| [`src/runtime/graphics_surface.ts`](#src-runtime-graphics-surface-ts)                           | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
-| [`src/runtime/health_snapshot.ts`](#src-runtime-health-snapshot-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                               | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/kitty_graphics.ts`](#src-runtime-kitty-graphics-ts)                               | `.`, `./web`, `./runtime`               |          0 |      25 |         25 |
-| [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                               | `.`, `./runtime`                        |          0 |       9 |          9 |
-| [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                         | `.`, `./runtime`                        |          0 |       8 |          8 |
-| [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                     | `.`, `./runtime`                        |         79 |       0 |          0 |
-| [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                         | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                 | `.`, `./runtime`                        |          0 |       3 |          3 |
-| [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                 | `.`, `./runtime`                        |          0 |      15 |         15 |
-| [`src/runtime/offline_queue.ts`](#src-runtime-offline-queue-ts)                                 | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/offscreen_surface.ts`](#src-runtime-offscreen-surface-ts)                         | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/permission_adapters.ts`](#src-runtime-permission-adapters-ts)                     | `.`, `./runtime`                        |          0 |      11 |         11 |
-| [`src/runtime/priority_scheduler.ts`](#src-runtime-priority-scheduler-ts)                       | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/process_session.ts`](#src-runtime-process-session-ts)                             | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
-| [`src/runtime/profiles.ts`](#src-runtime-profiles-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
-| [`src/runtime/pty_backend.ts`](#src-runtime-pty-backend-ts)                                     | `.`, `./runtime`, `./terminal`          |          0 |      12 |         12 |
-| [`src/runtime/rate_limiter.ts`](#src-runtime-rate-limiter-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/reflow_screen.ts`](#src-runtime-reflow-screen-ts)                                 | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/render_accounting.ts`](#src-runtime-render-accounting-ts)                         | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/render_loop.ts`](#src-runtime-render-loop-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
-| [`src/runtime/renderer_backends.ts`](#src-runtime-renderer-backends-ts)                         | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
-| [`src/runtime/resource_bindings.ts`](#src-runtime-resource-bindings-ts)                         | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
-| [`src/runtime/resource_cache_policy.ts`](#src-runtime-resource-cache-policy-ts)                 | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
-| [`src/runtime/resource_cache.ts`](#src-runtime-resource-cache-ts)                               | `.`, `./web`, `./runtime`               |          1 |      28 |         28 |
-| [`src/runtime/resource_limits.ts`](#src-runtime-resource-limits-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/resource_loads.ts`](#src-runtime-resource-loads-ts)                               | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
-| [`src/runtime/resource.ts`](#src-runtime-resource-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
-| [`src/runtime/retry_policy.ts`](#src-runtime-retry-policy-ts)                                   | `.`, `./runtime`                        |          0 |      10 |         10 |
-| [`src/runtime/scheduler.ts`](#src-runtime-scheduler-ts)                                         | `.`, `./web`, `./runtime`               |          0 |      13 |         13 |
-| [`src/runtime/screen_mode_policy.ts`](#src-runtime-screen-mode-policy-ts)                       | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/selective_erase.ts`](#src-runtime-selective-erase-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/signal_exporters.ts`](#src-runtime-signal-exporters-ts)                           | `.`, `./runtime`                        |          0 |       9 |          9 |
-| [`src/runtime/signal_redaction.ts`](#src-runtime-signal-redaction-ts)                           | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/span_instrumentation.ts`](#src-runtime-span-instrumentation-ts)                   | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/storage.ts`](#src-runtime-storage-ts)                                             | `.`, `./web`, `./runtime`               |          0 |      10 |         10 |
-| [`src/runtime/stream_ownership.ts`](#src-runtime-stream-ownership-ts)                           | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/stream_resource.ts`](#src-runtime-stream-resource-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/structured_logs.ts`](#src-runtime-structured-logs-ts)                             | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/supervisor.ts`](#src-runtime-supervisor-ts)                                       | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/support_bundle.ts`](#src-runtime-support-bundle-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/task_context.ts`](#src-runtime-task-context-ts)                                   | `.`, `./runtime`                        |          0 |       3 |          3 |
-| [`src/runtime/task_group.ts`](#src-runtime-task-group-ts)                                       | `.`, `./runtime`                        |          0 |      35 |         35 |
-| [`src/runtime/telemetry.ts`](#src-runtime-telemetry-ts)                                         | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
-| [`src/runtime/terminal_backend_registry.ts`](#src-runtime-terminal-backend-registry-ts)         | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
-| [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                           | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
-| [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                 | `.`, `./runtime`, `./terminal`          |          0 |      27 |         27 |
-| [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                               | `./terminal`                            |          0 |       4 |          3 |
-| [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                           | `.`, `./runtime`                        |          0 |       2 |          2 |
-| [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                     | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                           | `.`, `./runtime`, `./terminal`          |          0 |       8 |          8 |
-| [`src/runtime/terminal_parser.ts`](#src-runtime-terminal-parser-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                   | `.`, `./runtime`                        |          0 |      11 |         11 |
-| [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                           | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                       | `.`, `./runtime`                        |          0 |       4 |          4 |
-| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                             | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
-| [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                     | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
-| [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                       | `./terminal`                            |          0 |       3 |          3 |
-| [`src/runtime/terminal_services.ts`](#src-runtime-terminal-services-ts)                         | `.`, `./runtime`                        |          0 |      32 |         32 |
-| [`src/runtime/terminal_session.ts`](#src-runtime-terminal-session-ts)                           | `.`, `./runtime`, `./terminal`          |          0 |       8 |          8 |
-| [`src/runtime/terminal_shell_workspace.ts`](#src-runtime-terminal-shell-workspace-ts)           | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/runtime/terminal_shell.ts`](#src-runtime-terminal-shell-ts)                               | `.`, `./runtime`, `./terminal`          |          0 |       3 |          3 |
-| [`src/runtime/terminal_status.ts`](#src-runtime-terminal-status-ts)                             | `.`, `./runtime`, `./terminal`          |          0 |      18 |         18 |
-| [`src/runtime/terminal_templates.ts`](#src-runtime-terminal-templates-ts)                       | `.`, `./runtime`, `./terminal`          |          0 |      22 |         22 |
-| [`src/runtime/terminal_workspace.ts`](#src-runtime-terminal-workspace-ts)                       | `.`, `./web`, `./runtime`, `./terminal` |          0 |      24 |         24 |
-| [`src/runtime/timeline.ts`](#src-runtime-timeline-ts)                                           | `.`, `./runtime`                        |          0 |       7 |          7 |
-| [`src/runtime/trace_sampling.ts`](#src-runtime-trace-sampling-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
-| [`src/runtime/worker_pool.ts`](#src-runtime-worker-pool-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      12 |         12 |
-| [`src/runtime/worker_protocol.ts`](#src-runtime-worker-protocol-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
-| [`src/secrets.ts`](#src-secrets-ts)                                                             | `.`                                     |          0 |      22 |         22 |
-| [`src/selection.ts`](#src-selection-ts)                                                         | `.`, `./web`                            |          0 |      16 |         16 |
-| [`src/showcase/kernel.ts`](#src-showcase-kernel-ts)                                             | `./showcase`                            |          0 |       4 |          3 |
-| [`src/showcase/manifest.ts`](#src-showcase-manifest-ts)                                         | `./showcase`                            |          0 |       9 |          9 |
-| [`src/showcase/mod.ts`](#src-showcase-mod-ts)                                                   | `./showcase`                            |          5 |       0 |          0 |
-| [`src/showcase/provider.ts`](#src-showcase-provider-ts)                                         | `./showcase`                            |          0 |      10 |         10 |
-| [`src/showcase/session.ts`](#src-showcase-session-ts)                                           | `./showcase`                            |          0 |      15 |         15 |
-| [`src/showcase/terminal_store.ts`](#src-showcase-terminal-store-ts)                             | `./showcase`                            |          0 |      15 |         15 |
-| [`src/signals/computed.ts`](#src-signals-computed-ts)                                           | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
-| [`src/signals/dependency_tracking.ts`](#src-signals-dependency-tracking-ts)                     | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
-| [`src/signals/effect.ts`](#src-signals-effect-ts)                                               | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
-| [`src/signals/flusher.ts`](#src-signals-flusher-ts)                                             | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/signals/lazy_computed.ts`](#src-signals-lazy-computed-ts)                                 | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/signals/lazy_effect.ts`](#src-signals-lazy-effect-ts)                                     | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
-| [`src/signals/mod.ts`](#src-signals-mod-ts)                                                     | `.`, `./app`, `./web`                   |          9 |       0 |          0 |
-| [`src/signals/reactivity.ts`](#src-signals-reactivity-ts)                                       | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
-| [`src/signals/signal.ts`](#src-signals-signal-ts)                                               | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
-| [`src/signals/types.ts`](#src-signals-types-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
-| [`src/surface_animation.ts`](#src-surface-animation-ts)                                         | `.`, `./web`                            |          0 |      14 |         14 |
-| [`src/testing/app.ts`](#src-testing-app-ts)                                                     | `./testing`                             |          0 |      11 |         11 |
-| [`src/testing/aria_apg_suites.ts`](#src-testing-aria-apg-suites-ts)                             | `./testing`                             |          0 |       4 |          4 |
-| [`src/testing/contract_tests.ts`](#src-testing-contract-tests-ts)                               | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/differential_terminal.ts`](#src-testing-differential-terminal-ts)                 | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/fault_injection.ts`](#src-testing-fault-injection-ts)                             | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/flake_detection.ts`](#src-testing-flake-detection-ts)                             | `./testing`                             |          0 |       7 |          7 |
-| [`src/testing/input.ts`](#src-testing-input-ts)                                                 | `.`, `./testing`                        |          0 |       7 |          7 |
-| [`src/testing/matrix.ts`](#src-testing-matrix-ts)                                               | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/model_testing.ts`](#src-testing-model-testing-ts)                                 | `./testing`                             |          0 |       8 |          8 |
-| [`src/testing/mutation_testing.ts`](#src-testing-mutation-testing-ts)                           | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/plugin_test_host.ts`](#src-testing-plugin-test-host-ts)                           | `./testing`                             |          0 |       6 |          6 |
-| [`src/testing/record_replay.ts`](#src-testing-record-replay-ts)                                 | `./testing`                             |          0 |       7 |          7 |
-| [`src/testing/scene.ts`](#src-testing-scene-ts)                                                 | `./testing`                             |          0 |       8 |          8 |
-| [`src/testing/snapshot.ts`](#src-testing-snapshot-ts)                                           | `.`, `./testing`                        |          0 |      15 |         15 |
-| [`src/testing/visual_report.ts`](#src-testing-visual-report-ts)                                 | `./testing`                             |          0 |       6 |          6 |
-| [`src/theme_binding.ts`](#src-theme-binding-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |       8 |          8 |
-| [`src/theme_contrast.ts`](#src-theme-contrast-ts)                                               | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
-| [`src/theme_controls.ts`](#src-theme-controls-ts)                                               | `./theme`                               |          0 |      13 |         13 |
-| [`src/theme_density.ts`](#src-theme-density-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/theme_editor_model.ts`](#src-theme-editor-model-ts)                                       | `./theme`                               |          0 |      21 |         21 |
-| [`src/theme_engine_cache.ts`](#src-theme-engine-cache-ts)                                       | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
-| [`src/theme_engine_factory.ts`](#src-theme-engine-factory-ts)                                   | `.`, `./web`, `./theme`                 |          0 |      19 |         19 |
-| [`src/theme_engine_pipeline.ts`](#src-theme-engine-pipeline-ts)                                 | `.`, `./web`, `./theme`                 |          0 |      12 |         12 |
-| [`src/theme_expressions.ts`](#src-theme-expressions-ts)                                         | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
-| [`src/theme_gallery.ts`](#src-theme-gallery-ts)                                                 | `.`, `./web`, `./theme`                 |          0 |      11 |         11 |
-| [`src/theme_icons.ts`](#src-theme-icons-ts)                                                     | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/theme_interchange.ts`](#src-theme-interchange-ts)                                         | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
-| [`src/theme_motion.ts`](#src-theme-motion-ts)                                                   | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/theme_oklch.ts`](#src-theme-oklch-ts)                                                     | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
-| [`src/theme_quantize.ts`](#src-theme-quantize-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/theme_resolver.ts`](#src-theme-resolver-ts)                                               | `.`, `./web`, `./theme`                 |          0 |      15 |         15 |
-| [`src/theme_token_schemas.ts`](#src-theme-token-schemas-ts)                                     | `.`, `./web`                            |          0 |       7 |          7 |
-| [`src/theme_tokens.ts`](#src-theme-tokens-ts)                                                   | `.`                                     |          0 |       6 |          6 |
-| [`src/theme_workspace.ts`](#src-theme-workspace-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
-| [`src/theme.ts`](#src-theme-ts)                                                                 | `.`, `./app`, `./web`, `./theme`        |          0 |     116 |        116 |
-| [`src/three_ascii/AcerolaAsciiNode.ts`](#src-three-ascii-acerolaasciinode-ts)                   | `./web`, `./three-ascii`                |          0 |       3 |          3 |
-| [`src/three_ascii/demo_presets.ts`](#src-three-ascii-demo-presets-ts)                           | `./web`, `./three-ascii`                |          0 |      14 |         14 |
-| [`src/three_ascii/frame_options.ts`](#src-three-ascii-frame-options-ts)                         | `./web`, `./three-ascii`                |          0 |       1 |          1 |
-| [`src/three_ascii/glyphs.ts`](#src-three-ascii-glyphs-ts)                                       | `./web`, `./three-ascii`                |          0 |      13 |         13 |
-| [`src/three_ascii/mod.ts`](#src-three-ascii-mod-ts)                                             | `./web`, `./three-ascii`                |          7 |       0 |          0 |
-| [`src/three_ascii/options.ts`](#src-three-ascii-options-ts)                                     | `./web`, `./three-ascii`                |          0 |      15 |         15 |
-| [`src/three_ascii/performance.ts`](#src-three-ascii-performance-ts)                             | `./web`, `./three-ascii`                |          0 |       1 |          1 |
-| [`src/three_ascii/render_profile.ts`](#src-three-ascii-render-profile-ts)                       | `./web`, `./three-ascii`                |          0 |       3 |          3 |
-| [`src/three_ascii/renderer.ts`](#src-three-ascii-renderer-ts)                                   | `./web`, `./three-ascii`                |          2 |      22 |         22 |
-| [`src/three_ascii/webgpu_compat.ts`](#src-three-ascii-webgpu-compat-ts)                         | `./web`, `./three-ascii`                |          0 |       3 |          3 |
-| [`src/tooling/attestations.ts`](#src-tooling-attestations-ts)                                   | `.`                                     |          0 |       8 |          8 |
-| [`src/tooling/codemods.ts`](#src-tooling-codemods-ts)                                           | `.`                                     |          0 |       5 |          5 |
-| [`src/tooling/devtools.ts`](#src-tooling-devtools-ts)                                           | `.`                                     |          0 |       9 |          9 |
-| [`src/tooling/diagnostics_hub.ts`](#src-tooling-diagnostics-hub-ts)                             | `.`                                     |          0 |       7 |          7 |
-| [`src/tooling/example_registry.ts`](#src-tooling-example-registry-ts)                           | `.`                                     |          0 |       4 |          4 |
-| [`src/tooling/generators.ts`](#src-tooling-generators-ts)                                       | `.`                                     |          0 |       7 |          7 |
-| [`src/tooling/init_templates.ts`](#src-tooling-init-templates-ts)                               | `.`                                     |          0 |       5 |          5 |
-| [`src/tooling/launcher_template.ts`](#src-tooling-launcher-template-ts)                         | `.`                                     |          0 |       1 |          1 |
-| [`src/tooling/mod.ts`](#src-tooling-mod-ts)                                                     | `.`                                     |          9 |       0 |          0 |
-| [`src/tooling/release_channels.ts`](#src-tooling-release-channels-ts)                           | `.`                                     |          0 |       7 |          7 |
-| [`src/tui.ts`](#src-tui-ts)                                                                     | `.`, `./app`                            |          0 |       3 |          3 |
-| [`src/types.ts`](#src-types-ts)                                                                 | `.`, `./app`, `./remote`                |          0 |       8 |          8 |
-| [`src/unicode/bidi.ts`](#src-unicode-bidi-ts)                                                   | `.`                                     |          0 |       5 |          5 |
-| [`src/unicode/builtin.ts`](#src-unicode-builtin-ts)                                             | `.`                                     |          0 |       4 |          4 |
-| [`src/unicode/conformance.ts`](#src-unicode-conformance-ts)                                     | `.`                                     |          0 |       8 |          8 |
-| [`src/unicode/confusables.ts`](#src-unicode-confusables-ts)                                     | `.`                                     |          0 |       6 |          6 |
-| [`src/unicode/controls.ts`](#src-unicode-controls-ts)                                           | `.`                                     |          0 |       7 |          7 |
-| [`src/unicode/data_pack.ts`](#src-unicode-data-pack-ts)                                         | `.`                                     |          0 |      26 |         26 |
-| [`src/unicode/emoji.ts`](#src-unicode-emoji-ts)                                                 | `.`                                     |          0 |       6 |          6 |
-| [`src/unicode/grapheme.ts`](#src-unicode-grapheme-ts)                                           | `.`                                     |          0 |      21 |         21 |
-| [`src/unicode/hyphenation.ts`](#src-unicode-hyphenation-ts)                                     | `.`                                     |          0 |       7 |          7 |
-| [`src/unicode/line_break.ts`](#src-unicode-line-break-ts)                                       | `.`                                     |          0 |       8 |          8 |
-| [`src/unicode/mod.ts`](#src-unicode-mod-ts)                                                     | `.`                                     |         13 |       0 |          0 |
-| [`src/unicode/source_display.ts`](#src-unicode-source-display-ts)                               | `.`                                     |          0 |       5 |          5 |
-| [`src/unicode/text_index.ts`](#src-unicode-text-index-ts)                                       | `.`                                     |          0 |       6 |          6 |
-| [`src/unicode/width.ts`](#src-unicode-width-ts)                                                 | `.`, `./web`, `./terminal`              |          0 |      21 |         21 |
-| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                           | `.`                                     |          0 |      12 |         12 |
-| [`src/utils/async.ts`](#src-utils-async-ts)                                                     | `.`, `./web`                            |          0 |       1 |          1 |
-| [`src/utils/component.ts`](#src-utils-component-ts)                                             | `.`                                     |          0 |       2 |          2 |
-| [`src/utils/mod.ts`](#src-utils-mod-ts)                                                         | `.`                                     |          7 |       0 |          0 |
-| [`src/utils/numbers.ts`](#src-utils-numbers-ts)                                                 | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/utils/signals.ts`](#src-utils-signals-ts)                                                 | `.`                                     |          0 |       1 |          1 |
-| [`src/utils/sorted_array.ts`](#src-utils-sorted-array-ts)                                       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/utils/strings.ts`](#src-utils-strings-ts)                                                 | `.`, `./web`                            |          0 |       9 |          9 |
-| [`src/view.ts`](#src-view-ts)                                                                   | `.`, `./web`                            |          0 |       1 |          1 |
-| [`src/viewport.ts`](#src-viewport-ts)                                                           | `.`, `./web`                            |          0 |      18 |         18 |
-| [`src/visual/annotations.ts`](#src-visual-annotations-ts)                                       | `.`                                     |          0 |       4 |          4 |
-| [`src/visual/axes.ts`](#src-visual-axes-ts)                                                     | `.`                                     |          0 |       4 |          4 |
-| [`src/visual/chart_export.ts`](#src-visual-chart-export-ts)                                     | `.`                                     |          0 |       7 |          7 |
-| [`src/visual/downsample.ts`](#src-visual-downsample-ts)                                         | `.`, `./viz`                            |          0 |       6 |          6 |
-| [`src/visual/heatmap.ts`](#src-visual-heatmap-ts)                                               | `.`                                     |          0 |       6 |          6 |
-| [`src/visual/interactions.ts`](#src-visual-interactions-ts)                                     | `.`                                     |          0 |       5 |          5 |
-| [`src/visual/linked_charts.ts`](#src-visual-linked-charts-ts)                                   | `.`                                     |          0 |       4 |          4 |
-| [`src/visual/marks.ts`](#src-visual-marks-ts)                                                   | `.`                                     |          0 |       7 |          7 |
-| [`src/visual/mod.ts`](#src-visual-mod-ts)                                                       | `.`                                     |         11 |       0 |          0 |
-| [`src/visual/raster.ts`](#src-visual-raster-ts)                                                 | `.`                                     |          0 |       3 |          3 |
-| [`src/visual/scales.ts`](#src-visual-scales-ts)                                                 | `.`                                     |          0 |      11 |         11 |
-| [`src/visual/series.ts`](#src-visual-series-ts)                                                 | `.`                                     |          0 |       5 |          5 |
-| [`src/viz/axes.ts`](#src-viz-axes-ts)                                                           | `./viz`                                 |          0 |       8 |          5 |
-| [`src/viz/dashboard.ts`](#src-viz-dashboard-ts)                                                 | `./viz`                                 |          0 |       6 |          4 |
-| [`src/viz/data.ts`](#src-viz-data-ts)                                                           | `./viz`                                 |          0 |      17 |         16 |
-| [`src/viz/draw.ts`](#src-viz-draw-ts)                                                           | `./viz`                                 |          0 |      12 |         10 |
-| [`src/viz/fit.ts`](#src-viz-fit-ts)                                                             | `./viz`                                 |          0 |       5 |          5 |
-| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                             | `./viz`                                 |         17 |       0 |          0 |
-| [`src/viz/project.ts`](#src-viz-project-ts)                                                     | `./viz`                                 |          0 |       7 |          3 |
-| [`src/viz/registry.ts`](#src-viz-registry-ts)                                                   | `./viz`                                 |          0 |       6 |          5 |
-| [`src/viz/render.ts`](#src-viz-render-ts)                                                       | `./viz`                                 |          0 |      10 |          8 |
-| [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                   | `./viz`                                 |          0 |       6 |          5 |
-| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                   | `./viz`                                 |          0 |      10 |         10 |
-| [`src/viz/renderers_spatial.ts`](#src-viz-renderers-spatial-ts)                                 | `./viz`                                 |          0 |       5 |          5 |
-| [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                   | `./viz`                                 |          0 |       7 |          6 |
-| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                         | `./viz`                                 |          1 |       7 |          6 |
-| [`src/viz/stream.ts`](#src-viz-stream-ts)                                                       | `./viz`                                 |          0 |       7 |          6 |
-| [`src/viz/theme.ts`](#src-viz-theme-ts)                                                         | `./viz`                                 |          0 |       6 |          6 |
-| [`src/viz/three/mod.ts`](#src-viz-three-mod-ts)                                                 | `./viz/three`                           |          2 |       0 |          0 |
-| [`src/viz/three/scene.ts`](#src-viz-three-scene-ts)                                             | `./viz/three`                           |          0 |       7 |          6 |
-| [`src/viz/three/scenes.ts`](#src-viz-three-scenes-ts)                                           | `./viz/three`                           |          0 |       3 |          3 |
-| [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                         | `./viz`                                 |          0 |      13 |          8 |
-| [`src/viz/view.ts`](#src-viz-view-ts)                                                           | `./viz`                                 |          0 |       4 |          2 |
-| [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                   | `./web`                                 |          0 |       5 |          5 |
-| [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                           | `./web`                                 |          0 |       7 |          7 |
-| [`src/web/host.ts`](#src-web-host-ts)                                                           | `./web`                                 |          0 |       5 |          5 |
-| [`src/web/mod.ts`](#src-web-mod-ts)                                                             | `./web`                                 |          5 |       0 |          0 |
-| [`src/web/platform.ts`](#src-web-platform-ts)                                                   | `./web`                                 |          0 |       7 |          7 |
-| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                     | `./web`, `./remote`                     |          0 |      33 |         33 |
+| Module                                                                                                | Entrypoints                             | Re-exports | Symbols | Documented |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------: | ------: | ---------: |
+| [`mod.app.ts`](#mod-app-ts)                                                                           | `./app`                                 |         53 |       0 |          0 |
+| [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                              |         13 |       0 |          0 |
+| [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                             |          1 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                            |         17 |       0 |          0 |
+| [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                             |         15 |       0 |          0 |
+| [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                               |         15 |       0 |          0 |
+| [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                           | `./three-ascii`                         |          3 |       0 |          0 |
+| [`mod.ts`](#mod-ts)                                                                                   | `.`                                     |         66 |       0 |          0 |
+| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                 |         83 |       0 |          0 |
+| [`src/api_stability.ts`](#src-api-stability-ts)                                                       | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)                     | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/action_journal_retention.ts`](#src-app-action-journal-retention-ts)                         | `.`, `./web`                            |          0 |      21 |         21 |
+| [`src/app/action_journal.ts`](#src-app-action-journal-ts)                                             | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/action_policies.ts`](#src-app-action-policies-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/actions.ts`](#src-app-actions-ts)                                                           | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
+| [`src/app/animated_background.ts`](#src-app-animated-background-ts)                                   | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/app/app.ts`](#src-app-app-ts)                                                                   | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/background_jobs.ts`](#src-app-background-jobs-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/backgrounds/biomech_background.ts`](#src-app-backgrounds-biomech-background-ts)             | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/app/backgrounds/circuit_background.ts`](#src-app-backgrounds-circuit-background-ts)             | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/backgrounds/contract.ts`](#src-app-backgrounds-contract-ts)                                 | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/backgrounds/fire_background.ts`](#src-app-backgrounds-fire-background-ts)                   | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/backgrounds/gpu_device.ts`](#src-app-backgrounds-gpu-device-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/backgrounds/ivy_background.ts`](#src-app-backgrounds-ivy-background-ts)                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/backgrounds/jungle_background.ts`](#src-app-backgrounds-jungle-background-ts)               | `.`, `./web`                            |          0 |       1 |          1 |
+| [`src/app/backgrounds/matrix_background.ts`](#src-app-backgrounds-matrix-background-ts)               | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/backgrounds/mod.ts`](#src-app-backgrounds-mod-ts)                                           | `.`, `./web`                            |         12 |       2 |          2 |
+| [`src/app/backgrounds/rainy_windows_background.ts`](#src-app-backgrounds-rainy-windows-background-ts) | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/app/backgrounds/skull_background.ts`](#src-app-backgrounds-skull-background-ts)                 | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/backgrounds/turbulence_background.ts`](#src-app-backgrounds-turbulence-background-ts)       | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/app/backgrounds/vaporwave_background.ts`](#src-app-backgrounds-vaporwave-background-ts)         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/browser_editing.ts`](#src-app-browser-editing-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/calendar.ts`](#src-app-calendar-ts)                                                         | `.`, `./web`                            |          0 |      12 |         12 |
+| [`src/app/clipboard.ts`](#src-app-clipboard-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/code_view.ts`](#src-app-code-view-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/command_aliases.ts`](#src-app-command-aliases-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_arguments.ts`](#src-app-command-arguments-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_bindings.ts`](#src-app-command-bindings-ts)                                         | `.`, `./web`                            |          0 |      26 |         26 |
+| [`src/app/command_history.ts`](#src-app-command-history-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_macros.ts`](#src-app-command-macros-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/command_pipelines.ts`](#src-app-command-pipelines-ts)                                       | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/command_preview.ts`](#src-app-command-preview-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/command_progress.ts`](#src-app-command-progress-ts)                                         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/command_search_index.ts`](#src-app-command-search-index-ts)                                 | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/app/commands.ts`](#src-app-commands-ts)                                                         | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
+| [`src/app/component_commands.ts`](#src-app-component-commands-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/compose_sequences.ts`](#src-app-compose-sequences-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/composition.ts`](#src-app-composition-ts)                                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/content_integrity.ts`](#src-app-content-integrity-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/crash_recovery.ts`](#src-app-crash-recovery-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/data_query_commands.ts`](#src-app-data-query-commands-ts)                                   | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/data_table_commands.ts`](#src-app-data-table-commands-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/diff_view.ts`](#src-app-diff-view-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/disposables.ts`](#src-app-disposables-ts)                                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/drag_drop.ts`](#src-app-drag-drop-ts)                                                       | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/event_timeline.ts`](#src-app-event-timeline-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/focus_announcements.ts`](#src-app-focus-announcements-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/focus_commands.ts`](#src-app-focus-commands-ts)                                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/form_async_validation.ts`](#src-app-form-async-validation-ts)                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_checkpoints.ts`](#src-app-form-checkpoints-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/form_commands.ts`](#src-app-form-commands-ts)                                               | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/form_dependencies.ts`](#src-app-form-dependencies-ts)                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/form_drafts.ts`](#src-app-form-drafts-ts)                                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/form_paths.ts`](#src-app-form-paths-ts)                                                     | `.`, `./web`                            |          0 |      23 |         23 |
+| [`src/app/form_schema.ts`](#src-app-form-schema-ts)                                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_server_errors.ts`](#src-app-form-server-errors-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/form_submission.ts`](#src-app-form-submission-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/form_validation_timing.ts`](#src-app-form-validation-timing-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/forms.ts`](#src-app-forms-ts)                                                               | `.`, `./web`                            |          0 |      35 |         35 |
+| [`src/app/general_widgets.ts`](#src-app-general-widgets-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/gestures.ts`](#src-app-gestures-ts)                                                         | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/hex_viewer.ts`](#src-app-hex-viewer-ts)                                                     | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/history_branches.ts`](#src-app-history-branches-ts)                                         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/history.ts`](#src-app-history-ts)                                                           | `.`, `./web`                            |          0 |      37 |         37 |
+| [`src/app/hit_targets.ts`](#src-app-hit-targets-ts)                                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/input_commands.ts`](#src-app-input-commands-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/journal_store.ts`](#src-app-journal-store-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/kanban.ts`](#src-app-kanban-ts)                                                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/list_commands.ts`](#src-app-list-commands-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/log_viewer_commands.ts`](#src-app-log-viewer-commands-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/menu_bar_commands.ts`](#src-app-menu-bar-commands-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/metric_series_commands.ts`](#src-app-metric-series-commands-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/mod.ts`](#src-app-mod-ts)                                                                   | `.`, `./web`                            |        124 |       0 |          0 |
+| [`src/app/mouse_bindings.ts`](#src-app-mouse-bindings-ts)                                             | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/app/navigation_blockers.ts`](#src-app-navigation-blockers-ts)                                   | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/navigation_journal.ts`](#src-app-navigation-journal-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/pad_commands.ts`](#src-app-pad-commands-ts)                                                 | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/paste_stream.ts`](#src-app-paste-stream-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_activation.ts`](#src-app-plugin-activation-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/plugin_capabilities.ts`](#src-app-plugin-capabilities-ts)                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_catalog.ts`](#src-app-plugin-catalog-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/plugin_compat.ts`](#src-app-plugin-compat-ts)                                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_dependencies.ts`](#src-app-plugin-dependencies-ts)                                   | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/plugin_lifecycle.ts`](#src-app-plugin-lifecycle-ts)                                         | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/app/plugin_manifest.ts`](#src-app-plugin-manifest-ts)                                           | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/plugin_permission_diff.ts`](#src-app-plugin-permission-diff-ts)                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/plugin_rpc_proxies.ts`](#src-app-plugin-rpc-proxies-ts)                                     | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/app/plugin_slot_adapters.ts`](#src-app-plugin-slot-adapters-ts)                                 | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/app/plugin_slots.ts`](#src-app-plugin-slots-ts)                                                 | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/plugin_state_migration.ts`](#src-app-plugin-state-migration-ts)                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/plugins.ts`](#src-app-plugins-ts)                                                           | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
+| [`src/app/pointer_gestures.ts`](#src-app-pointer-gestures-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/preedit_provider.ts`](#src-app-preedit-provider-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/property_grid.ts`](#src-app-property-grid-ts)                                               | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/app/route_anchors.ts`](#src-app-route-anchors-ts)                                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/route_boundaries.ts`](#src-app-route-boundaries-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/route_guards.ts`](#src-app-route-guards-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/route_loaders.ts`](#src-app-route-loaders-ts)                                               | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/route_outlets.ts`](#src-app-route-outlets-ts)                                               | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/route_patterns.ts`](#src-app-route-patterns-ts)                                             | `.`, `./web`                            |          0 |      23 |         23 |
+| [`src/app/route_prefetch.ts`](#src-app-route-prefetch-ts)                                             | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/router.ts`](#src-app-router-ts)                                                             | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
+| [`src/app/runtime_commands.ts`](#src-app-runtime-commands-ts)                                         | `.`, `./web`                            |          0 |      25 |         25 |
+| [`src/app/screen_persistence.ts`](#src-app-screen-persistence-ts)                                     | `.`, `./web`                            |          0 |      19 |         19 |
+| [`src/app/screen_router.ts`](#src-app-screen-router-ts)                                               | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/app/screens.ts`](#src-app-screens-ts)                                                           | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/scroll_area_commands.ts`](#src-app-scroll-area-commands-ts)                                 | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/selection_bindings.ts`](#src-app-selection-bindings-ts)                                     | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/settings_bindings.ts`](#src-app-settings-bindings-ts)                                       | `.`, `./web`                            |          0 |      21 |         21 |
+| [`src/app/settings.ts`](#src-app-settings-ts)                                                         | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/shell_background.ts`](#src-app-shell-background-ts)                                         | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/shell_theme.ts`](#src-app-shell-theme-ts)                                                   | `.`, `./web`                            |          1 |       8 |          8 |
+| [`src/app/software_cursor.ts`](#src-app-software-cursor-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/split_pane_commands.ts`](#src-app-split-pane-commands-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/structure_inspector.ts`](#src-app-structure-inspector-ts)                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/surface_transitions.ts`](#src-app-surface-transitions-ts)                                   | `./app`                                 |          0 |       9 |          7 |
+| [`src/app/syntax_service.ts`](#src-app-syntax-service-ts)                                             | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/app/table_commands.ts`](#src-app-table-commands-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                                 | `./app`                                 |          0 |       6 |          6 |
+| [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                       | `.`, `./web`                            |          0 |      29 |         29 |
+| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                             | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                                 | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                                 | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/time_picker.ts`](#src-app-time-picker-ts)                                                   | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/app/toast_commands.ts`](#src-app-toast-commands-ts)                                             | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/token_editor.ts`](#src-app-token-editor-ts)                                                 | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/transfer_list.ts`](#src-app-transfer-list-ts)                                               | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/tree_commands.ts`](#src-app-tree-commands-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/tree_grid.ts`](#src-app-tree-grid-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/app/typed_commands.ts`](#src-app-typed-commands-ts)                                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/app/widget_commands.ts`](#src-app-widget-commands-ts)                                           | `.`, `./web`                            |          0 |      48 |         48 |
+| [`src/app/widget_surface.ts`](#src-app-widget-surface-ts)                                             | `./app`                                 |          0 |       4 |          4 |
+| [`src/app/window_manager_commands.ts`](#src-app-window-manager-commands-ts)                           | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/workbench_accessibility.ts`](#src-app-workbench-accessibility-ts)                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/app/workbench_ansi_screen.ts`](#src-app-workbench-ansi-screen-ts)                               | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/workbench_button_style.ts`](#src-app-workbench-button-style-ts)                             | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/workbench_control_layout.ts`](#src-app-workbench-control-layout-ts)                         | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/workbench_frame.ts`](#src-app-workbench-frame-ts)                                           | `.`, `./web`                            |          0 |      30 |         30 |
+| [`src/app/workbench_layout.ts`](#src-app-workbench-layout-ts)                                         | `.`, `./web`                            |          0 |      35 |         35 |
+| [`src/app/workbench_menu.ts`](#src-app-workbench-menu-ts)                                             | `.`, `./web`                            |          0 |      39 |         39 |
+| [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                       | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)           | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                           | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                           | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/workbench_status.ts`](#src-app-workbench-status-ts)                                         | `.`, `./web`                            |          0 |      26 |         26 |
+| [`src/app/workbench_terminal.ts`](#src-app-workbench-terminal-ts)                                     | `.`, `./web`                            |          0 |      66 |         66 |
+| [`src/app/workbench_text.ts`](#src-app-workbench-text-ts)                                             | `.`, `./web`                            |          0 |      17 |         17 |
+| [`src/app/workbench_three_terminal_pressure.ts`](#src-app-workbench-three-terminal-pressure-ts)       | `.`, `./web`                            |          0 |      25 |         25 |
+| [`src/app/workbench_titlebar.ts`](#src-app-workbench-titlebar-ts)                                     | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/app/workbench_window_host.ts`](#src-app-workbench-window-host-ts)                               | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
+| [`src/app/workbench_window_registry.ts`](#src-app-workbench-window-registry-ts)                       | `.`, `./web`                            |          0 |      27 |         27 |
+| [`src/app/workbench_workspace_store.ts`](#src-app-workbench-workspace-store-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/app/workbench_workspace.ts`](#src-app-workbench-workspace-ts)                                   | `.`, `./web`                            |          0 |      19 |         19 |
+| [`src/app/workbench/mod.ts`](#src-app-workbench-mod-ts)                                               | `.`, `./web`                            |         19 |       0 |          0 |
+| [`src/app/worker_plugin_host.ts`](#src-app-worker-plugin-host-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/canvas/box.ts`](#src-canvas-box-ts)                                                             | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/canvas/canvas.ts`](#src-canvas-canvas-ts)                                                       | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/canvas/dirty_region.ts`](#src-canvas-dirty-region-ts)                                           | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                             | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                             | `.`, `./web`                            |          8 |       0 |          0 |
+| [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                       | `.`, `./web`                            |          0 |      19 |         19 |
+| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                           | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                         | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/canvas/text.ts`](#src-canvas-text-ts)                                                           | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                             | `./web`, `./three-ascii`                |          0 |       6 |          6 |
+| [`src/component.ts`](#src-component-ts)                                                               | `.`                                     |          0 |       4 |          4 |
+| [`src/components/box.ts`](#src-components-box-ts)                                                     | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/components/breadcrumbs.ts`](#src-components-breadcrumbs-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/components/button.ts`](#src-components-button-ts)                                               | `.`, `./app`, `./web`                   |          0 |       5 |          5 |
+| [`src/components/catalog.ts`](#src-components-catalog-ts)                                             | `.`, `./web`                            |          0 |      19 |         19 |
+| [`src/components/chart.ts`](#src-components-chart-ts)                                                 | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/checkbox.ts`](#src-components-checkbox-ts)                                           | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
+| [`src/components/color_picker.ts`](#src-components-color-picker-ts)                                   | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/components/combobox.ts`](#src-components-combobox-ts)                                           | `.`, `./app`, `./web`                   |          0 |       7 |          7 |
+| [`src/components/command_palette.ts`](#src-components-command-palette-ts)                             | `.`, `./app`, `./web`                   |          0 |      12 |         12 |
+| [`src/components/context_menu.ts`](#src-components-context-menu-ts)                                   | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/cycler.ts`](#src-components-cycler-ts)                                               | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/components/data_table.ts`](#src-components-data-table-ts)                                       | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/components/empty_state.ts`](#src-components-empty-state-ts)                                     | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/components/file_explorer.ts`](#src-components-file-explorer-ts)                                 | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/components/frame.ts`](#src-components-frame-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
+| [`src/components/gauge.ts`](#src-components-gauge-ts)                                                 | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/input.ts`](#src-components-input-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       8 |          8 |
+| [`src/components/interaction.ts`](#src-components-interaction-ts)                                     | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/components/key_help.ts`](#src-components-key-help-ts)                                           | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/label.ts`](#src-components-label-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
+| [`src/components/list.ts`](#src-components-list-ts)                                                   | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
+| [`src/components/log_viewer.ts`](#src-components-log-viewer-ts)                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/components/markdown.ts`](#src-components-markdown-ts)                                           | `./app`                                 |          0 |       9 |          9 |
+| [`src/components/menu_bar.ts`](#src-components-menu-bar-ts)                                           | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/components/metric_series.ts`](#src-components-metric-series-ts)                                 | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/components/mod.ts`](#src-components-mod-ts)                                                     | `.`, `./web`                            |         45 |       0 |          0 |
+| [`src/components/modal.ts`](#src-components-modal-ts)                                                 | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/pad.ts`](#src-components-pad-ts)                                                     | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/components/progressbar.ts`](#src-components-progressbar-ts)                                     | `.`, `./app`, `./web`                   |          0 |      15 |         15 |
+| [`src/components/radio_group.ts`](#src-components-radio-group-ts)                                     | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
+| [`src/components/scroll_area.ts`](#src-components-scroll-area-ts)                                     | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/scroll_box_parity.ts`](#src-components-scroll-box-parity-ts)                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/components/slider.ts`](#src-components-slider-ts)                                               | `.`, `./app`, `./web`                   |          0 |      14 |         14 |
+| [`src/components/sparkline.ts`](#src-components-sparkline-ts)                                         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/spinner.ts`](#src-components-spinner-ts)                                             | `.`, `./app`, `./web`                   |          0 |       6 |          6 |
+| [`src/components/statusbar.ts`](#src-components-statusbar-ts)                                         | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
+| [`src/components/stepper.ts`](#src-components-stepper-ts)                                             | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/components/table.ts`](#src-components-table-ts)                                                 | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/tabs.ts`](#src-components-tabs-ts)                                                   | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
+| [`src/components/terminal_output.ts`](#src-components-terminal-output-ts)                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/components/terminal_screen.ts`](#src-components-terminal-screen-ts)                             | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/components/text_area.ts`](#src-components-text-area-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/components/text.ts`](#src-components-text-ts)                                                   | `.`, `./app`, `./web`                   |          0 |       2 |          2 |
+| [`src/components/textbox.ts`](#src-components-textbox-ts)                                             | `.`, `./app`, `./web`                   |          0 |      23 |         23 |
+| [`src/components/three_ascii.ts`](#src-components-three-ascii-ts)                                     | `./three-ascii`                         |          0 |       2 |          2 |
+| [`src/components/toast.ts`](#src-components-toast-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       8 |          8 |
+| [`src/components/tree.ts`](#src-components-tree-ts)                                                   | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/components/virtual_list.ts`](#src-components-virtual-list-ts)                                   | `.`, `./app`, `./web`                   |          0 |       9 |          9 |
+| [`src/content/markdown.ts`](#src-content-markdown-ts)                                                 | `./app`                                 |          0 |      14 |         14 |
+| [`src/controls.ts`](#src-controls-ts)                                                                 | `.`                                     |          0 |       2 |          2 |
+| [`src/event_emitter.ts`](#src-event-emitter-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/focus.ts`](#src-focus-ts)                                                                       | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/grwizard_themes.ts`](#src-grwizard-themes-ts)                                                   | `.`, `./web`, `./theme`                 |          0 |       5 |          5 |
+| [`src/i18n/formatters.ts`](#src-i18n-formatters-ts)                                                   | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/locale_scopes.ts`](#src-i18n-locale-scopes-ts)                                             | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/i18n/locale.ts`](#src-i18n-locale-ts)                                                           | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/i18n/message_format.ts`](#src-i18n-message-format-ts)                                           | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/i18n/message_lint.ts`](#src-i18n-message-lint-ts)                                               | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/messages.ts`](#src-i18n-messages-ts)                                                       | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/i18n/missing_translation_telemetry.ts`](#src-i18n-missing-translation-telemetry-ts)             | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/i18n/mod.ts`](#src-i18n-mod-ts)                                                                 | `.`, `./web`                            |         10 |       0 |          0 |
+| [`src/i18n/pseudo_locales.ts`](#src-i18n-pseudo-locales-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/i18n/reactive_locale.ts`](#src-i18n-reactive-locale-ts)                                         | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/i18n/width_variants.ts`](#src-i18n-width-variants-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/input_envelope.ts`](#src-input-envelope-ts)                                                     | `.`, `./web`                            |          0 |      28 |         28 |
+| [`src/input_lifecycle.ts`](#src-input-lifecycle-ts)                                                   | `.`                                     |          0 |      24 |         24 |
+| [`src/input_reader/mod.ts`](#src-input-reader-mod-ts)                                                 | `.`, `./terminal`                       |          1 |       2 |          2 |
+| [`src/input_reader/types.ts`](#src-input-reader-types-ts)                                             | `.`, `./remote`, `./terminal`           |          0 |      12 |         12 |
+| [`src/input.ts`](#src-input-ts)                                                                       | `.`                                     |          0 |       1 |          1 |
+| [`src/key_sequences.ts`](#src-key-sequences-ts)                                                       | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/keymap_layers.ts`](#src-keymap-layers-ts)                                                       | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/keymap.ts`](#src-keymap-ts)                                                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/layout/capabilities.ts`](#src-layout-capabilities-ts)                                           | `.`, `./web`                            |          0 |      26 |         26 |
+| [`src/layout/engine.ts`](#src-layout-engine-ts)                                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/layout/errors.ts`](#src-layout-errors-ts)                                                       | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/layout/flex_layout.ts`](#src-layout-flex-layout-ts)                                             | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/layout/grid_layout.ts`](#src-layout-grid-layout-ts)                                             | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
+| [`src/layout/horizontal_layout.ts`](#src-layout-horizontal-layout-ts)                                 | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/layout/measurement.ts`](#src-layout-measurement-ts)                                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/layout/mod.ts`](#src-layout-mod-ts)                                                             | `.`, `./web`                            |         18 |       0 |          0 |
+| [`src/layout/overlay.ts`](#src-layout-overlay-ts)                                                     | `.`, `./web`                            |          0 |      21 |         21 |
+| [`src/layout/recipe.ts`](#src-layout-recipe-ts)                                                       | `.`, `./web`                            |          0 |      18 |         18 |
+| [`src/layout/responsive.ts`](#src-layout-responsive-ts)                                               | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/layout/solver.ts`](#src-layout-solver-ts)                                                       | `.`, `./web`                            |          0 |      13 |         13 |
+| [`src/layout/solvers/simple.ts`](#src-layout-solvers-simple-ts)                                       | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/layout/solvers/taffy_wasm.ts`](#src-layout-solvers-taffy-wasm-ts)                               | `./layout/taffy-wasm`                   |          0 |       2 |          2 |
+| [`src/layout/solvers/taffy.ts`](#src-layout-solvers-taffy-ts)                                         | `./layout/taffy`                        |          0 |      24 |         24 |
+| [`src/layout/solvers/yoga.ts`](#src-layout-solvers-yoga-ts)                                           | `./layout/yoga`                         |          0 |       4 |          4 |
+| [`src/layout/split_pane.ts`](#src-layout-split-pane-ts)                                               | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
+| [`src/layout/style.ts`](#src-layout-style-ts)                                                         | `.`, `./web`                            |          0 |      55 |         55 |
+| [`src/layout/taffy.ts`](#src-layout-taffy-ts)                                                         | `./layout/taffy`                        |          1 |       0 |          0 |
+| [`src/layout/tiled_workspace.ts`](#src-layout-tiled-workspace-ts)                                     | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
+| [`src/layout/types.ts`](#src-layout-types-ts)                                                         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/layout/vertical_layout.ts`](#src-layout-vertical-layout-ts)                                     | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/layout/window_manager.ts`](#src-layout-window-manager-ts)                                       | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/markup/cascade.ts`](#src-markup-cascade-ts)                                                     | `.`, `./web`                            |          0 |      10 |         10 |
+| [`src/markup/css.ts`](#src-markup-css-ts)                                                             | `.`, `./web`                            |          0 |      11 |         11 |
+| [`src/markup/demo_fixtures.ts`](#src-markup-demo-fixtures-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/markup/hot_reload.ts`](#src-markup-hot-reload-ts)                                               | `.`, `./web`                            |          0 |      12 |         12 |
+| [`src/markup/html.ts`](#src-markup-html-ts)                                                           | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/markup/hydrate.ts`](#src-markup-hydrate-ts)                                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/jsx.ts`](#src-markup-jsx-ts)                                                             | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/markup/layout_worker.ts`](#src-markup-layout-worker-ts)                                         | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/markup/live_dispatch.ts`](#src-markup-live-dispatch-ts)                                         | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/markup/live_host.ts`](#src-markup-live-host-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/live_invalidation.ts`](#src-markup-live-invalidation-ts)                                 | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/markup/live_styling.ts`](#src-markup-live-styling-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/markup/live_tree.ts`](#src-markup-live-tree-ts)                                                 | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/markup/mod.ts`](#src-markup-mod-ts)                                                             | `.`, `./web`                            |         19 |       0 |          0 |
+| [`src/markup/rehydrate.ts`](#src-markup-rehydrate-ts)                                                 | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/markup/support.ts`](#src-markup-support-ts)                                                     | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/markup/widgets.ts`](#src-markup-widgets-ts)                                                     | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/markup/window_history.ts`](#src-markup-window-history-ts)                                       | `.`, `./web`                            |          0 |      12 |         12 |
+| [`src/markup/window_interactions.ts`](#src-markup-window-interactions-ts)                             | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/markup/windows.ts`](#src-markup-windows-ts)                                                     | `.`, `./web`                            |          0 |      33 |         33 |
+| [`src/perf/benchmark.ts`](#src-perf-benchmark-ts)                                                     | `.`, `./web`                            |          0 |      20 |         20 |
+| [`src/perf/cache_budget.ts`](#src-perf-cache-budget-ts)                                               | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/diff_planner.ts`](#src-perf-diff-planner-ts)                                               | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/entrypoint_budget.ts`](#src-perf-entrypoint-budget-ts)                                     | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/perf/frame_cadence.ts`](#src-perf-frame-cadence-ts)                                             | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                                     | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/pools.ts`](#src-perf-pools-ts)                                                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                             | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/perf/write_coalescer.ts`](#src-perf-write-coalescer-ts)                                         | `.`, `./web`                            |          0 |       4 |          4 |
+| [`src/permissions.ts`](#src-permissions-ts)                                                           | `.`, `./web`                            |          0 |      23 |         23 |
+| [`src/platform/types.ts`](#src-platform-types-ts)                                                     | `./web`                                 |          0 |      10 |         10 |
+| [`src/pointer_input.ts`](#src-pointer-input-ts)                                                       | `.`, `./web`                            |          0 |      40 |         40 |
+| [`src/remote/adaptive_quality.ts`](#src-remote-adaptive-quality-ts)                                   | `./remote`                              |          0 |       9 |          9 |
+| [`src/remote/frame_codec.ts`](#src-remote-frame-codec-ts)                                             | `./remote`                              |          0 |      14 |         13 |
+| [`src/remote/frame_flow.ts`](#src-remote-frame-flow-ts)                                               | `./remote`                              |          0 |       4 |          4 |
+| [`src/remote/handshake.ts`](#src-remote-handshake-ts)                                                 | `./web`, `./remote`                     |          0 |      28 |         28 |
+| [`src/remote/input_sequencing.ts`](#src-remote-input-sequencing-ts)                                   | `./remote`                              |          0 |       5 |          5 |
+| [`src/remote/multi_client.ts`](#src-remote-multi-client-ts)                                           | `./remote`                              |          0 |       5 |          5 |
+| [`src/remote/session_auth.ts`](#src-remote-session-auth-ts)                                           | `./remote`                              |          0 |       7 |          7 |
+| [`src/remote/session_lifecycle.ts`](#src-remote-session-lifecycle-ts)                                 | `./remote`                              |          0 |       6 |          6 |
+| [`src/remote/session_resume.ts`](#src-remote-session-resume-ts)                                       | `./remote`                              |          0 |       4 |          4 |
+| [`src/remote/transport_policy.ts`](#src-remote-transport-policy-ts)                                   | `./remote`                              |          0 |       6 |          6 |
+| [`src/runtime/async_channel.ts`](#src-runtime-async-channel-ts)                                       | `.`, `./runtime`                        |          0 |      23 |         23 |
+| [`src/runtime/async_iterable.ts`](#src-runtime-async-iterable-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      31 |         31 |
+| [`src/runtime/cache_tags.ts`](#src-runtime-cache-tags-ts)                                             | `.`, `./runtime`                        |          0 |       3 |          3 |
+| [`src/runtime/capabilities.ts`](#src-runtime-capabilities-ts)                                         | `.`, `./web`, `./runtime`               |          0 |      16 |         16 |
+| [`src/runtime/cell_screen.ts`](#src-runtime-cell-screen-ts)                                           | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/clock.ts`](#src-runtime-clock-ts)                                                       | `.`, `./web`, `./runtime`               |          0 |      23 |         23 |
+| [`src/runtime/conflict_resolvers.ts`](#src-runtime-conflict-resolvers-ts)                             | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/core_metrics.ts`](#src-runtime-core-metrics-ts)                                         | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/data_pipeline_bindings.ts`](#src-runtime-data-pipeline-bindings-ts)                     | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
+| [`src/runtime/data_pipeline.ts`](#src-runtime-data-pipeline-ts)                                       | `.`, `./web`, `./runtime`               |          0 |      19 |         19 |
+| [`src/runtime/data_query.ts`](#src-runtime-data-query-ts)                                             | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
+| [`src/runtime/deadline.ts`](#src-runtime-deadline-ts)                                                 | `.`, `./runtime`                        |          0 |      12 |         12 |
+| [`src/runtime/diagnostics.ts`](#src-runtime-diagnostics-ts)                                           | `.`, `./runtime`                        |          0 |      12 |         12 |
+| [`src/runtime/graphics_surface.ts`](#src-runtime-graphics-surface-ts)                                 | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
+| [`src/runtime/health_snapshot.ts`](#src-runtime-health-snapshot-ts)                                   | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                                     | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/kitty_graphics.ts`](#src-runtime-kitty-graphics-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      25 |         25 |
+| [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                                     | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                               | `.`, `./runtime`                        |          0 |       8 |          8 |
+| [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                                   | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                        |         79 |       0 |          0 |
+| [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                               | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                       | `.`, `./runtime`                        |          0 |       3 |          3 |
+| [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                       | `.`, `./runtime`                        |          0 |      15 |         15 |
+| [`src/runtime/offline_queue.ts`](#src-runtime-offline-queue-ts)                                       | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/offscreen_surface.ts`](#src-runtime-offscreen-surface-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/permission_adapters.ts`](#src-runtime-permission-adapters-ts)                           | `.`, `./runtime`                        |          0 |      11 |         11 |
+| [`src/runtime/priority_scheduler.ts`](#src-runtime-priority-scheduler-ts)                             | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/process_session.ts`](#src-runtime-process-session-ts)                                   | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
+| [`src/runtime/profiles.ts`](#src-runtime-profiles-ts)                                                 | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
+| [`src/runtime/pty_backend.ts`](#src-runtime-pty-backend-ts)                                           | `.`, `./runtime`, `./terminal`          |          0 |      12 |         12 |
+| [`src/runtime/rate_limiter.ts`](#src-runtime-rate-limiter-ts)                                         | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/reflow_screen.ts`](#src-runtime-reflow-screen-ts)                                       | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/render_accounting.ts`](#src-runtime-render-accounting-ts)                               | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/render_loop.ts`](#src-runtime-render-loop-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
+| [`src/runtime/renderer_backends.ts`](#src-runtime-renderer-backends-ts)                               | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
+| [`src/runtime/resource_bindings.ts`](#src-runtime-resource-bindings-ts)                               | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
+| [`src/runtime/resource_cache_policy.ts`](#src-runtime-resource-cache-policy-ts)                       | `.`, `./web`, `./runtime`               |          0 |       4 |          4 |
+| [`src/runtime/resource_cache.ts`](#src-runtime-resource-cache-ts)                                     | `.`, `./web`, `./runtime`               |          1 |      28 |         28 |
+| [`src/runtime/resource_limits.ts`](#src-runtime-resource-limits-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/resource_loads.ts`](#src-runtime-resource-loads-ts)                                     | `.`, `./web`, `./runtime`               |          0 |      24 |         24 |
+| [`src/runtime/resource.ts`](#src-runtime-resource-ts)                                                 | `.`, `./web`, `./runtime`               |          0 |      14 |         14 |
+| [`src/runtime/retry_policy.ts`](#src-runtime-retry-policy-ts)                                         | `.`, `./runtime`                        |          0 |      10 |         10 |
+| [`src/runtime/scheduler.ts`](#src-runtime-scheduler-ts)                                               | `.`, `./web`, `./runtime`               |          0 |      13 |         13 |
+| [`src/runtime/screen_mode_policy.ts`](#src-runtime-screen-mode-policy-ts)                             | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/selective_erase.ts`](#src-runtime-selective-erase-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/signal_exporters.ts`](#src-runtime-signal-exporters-ts)                                 | `.`, `./runtime`                        |          0 |       9 |          9 |
+| [`src/runtime/signal_redaction.ts`](#src-runtime-signal-redaction-ts)                                 | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/span_instrumentation.ts`](#src-runtime-span-instrumentation-ts)                         | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/storage.ts`](#src-runtime-storage-ts)                                                   | `.`, `./web`, `./runtime`               |          0 |      10 |         10 |
+| [`src/runtime/stream_ownership.ts`](#src-runtime-stream-ownership-ts)                                 | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/stream_resource.ts`](#src-runtime-stream-resource-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/structured_logs.ts`](#src-runtime-structured-logs-ts)                                   | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/supervisor.ts`](#src-runtime-supervisor-ts)                                             | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/support_bundle.ts`](#src-runtime-support-bundle-ts)                                     | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/task_context.ts`](#src-runtime-task-context-ts)                                         | `.`, `./runtime`                        |          0 |       3 |          3 |
+| [`src/runtime/task_group.ts`](#src-runtime-task-group-ts)                                             | `.`, `./runtime`                        |          0 |      35 |         35 |
+| [`src/runtime/telemetry.ts`](#src-runtime-telemetry-ts)                                               | `.`, `./web`, `./runtime`               |          0 |      15 |         15 |
+| [`src/runtime/terminal_backend_registry.ts`](#src-runtime-terminal-backend-registry-ts)               | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
+| [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                                 | `.`, `./runtime`, `./terminal`          |          0 |       9 |          9 |
+| [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                       | `.`, `./runtime`, `./terminal`          |          0 |      27 |         27 |
+| [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                                     | `./terminal`                            |          0 |       4 |          3 |
+| [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                                 | `.`, `./runtime`                        |          0 |       2 |          2 |
+| [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                           | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`          |          0 |       8 |          8 |
+| [`src/runtime/terminal_parser.ts`](#src-runtime-terminal-parser-ts)                                   | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                         | `.`, `./runtime`                        |          0 |      11 |         11 |
+| [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                                 | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                             | `.`, `./runtime`                        |          0 |       4 |          4 |
+| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
+| [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                           | `.`, `./web`, `./runtime`, `./terminal` |          0 |       6 |          6 |
+| [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                             | `./terminal`                            |          0 |       3 |          3 |
+| [`src/runtime/terminal_services.ts`](#src-runtime-terminal-services-ts)                               | `.`, `./runtime`                        |          0 |      32 |         32 |
+| [`src/runtime/terminal_session.ts`](#src-runtime-terminal-session-ts)                                 | `.`, `./runtime`, `./terminal`          |          0 |       8 |          8 |
+| [`src/runtime/terminal_shell_workspace.ts`](#src-runtime-terminal-shell-workspace-ts)                 | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/runtime/terminal_shell.ts`](#src-runtime-terminal-shell-ts)                                     | `.`, `./runtime`, `./terminal`          |          0 |       3 |          3 |
+| [`src/runtime/terminal_status.ts`](#src-runtime-terminal-status-ts)                                   | `.`, `./runtime`, `./terminal`          |          0 |      18 |         18 |
+| [`src/runtime/terminal_templates.ts`](#src-runtime-terminal-templates-ts)                             | `.`, `./runtime`, `./terminal`          |          0 |      22 |         22 |
+| [`src/runtime/terminal_workspace.ts`](#src-runtime-terminal-workspace-ts)                             | `.`, `./web`, `./runtime`, `./terminal` |          0 |      24 |         24 |
+| [`src/runtime/timeline.ts`](#src-runtime-timeline-ts)                                                 | `.`, `./runtime`                        |          0 |       7 |          7 |
+| [`src/runtime/trace_sampling.ts`](#src-runtime-trace-sampling-ts)                                     | `.`, `./runtime`                        |          0 |       6 |          6 |
+| [`src/runtime/worker_pool.ts`](#src-runtime-worker-pool-ts)                                           | `.`, `./web`, `./runtime`               |          0 |      12 |         12 |
+| [`src/runtime/worker_protocol.ts`](#src-runtime-worker-protocol-ts)                                   | `.`, `./runtime`                        |          0 |       5 |          5 |
+| [`src/secrets.ts`](#src-secrets-ts)                                                                   | `.`                                     |          0 |      22 |         22 |
+| [`src/selection.ts`](#src-selection-ts)                                                               | `.`, `./web`                            |          0 |      16 |         16 |
+| [`src/showcase/kernel.ts`](#src-showcase-kernel-ts)                                                   | `./showcase`                            |          0 |       4 |          3 |
+| [`src/showcase/manifest.ts`](#src-showcase-manifest-ts)                                               | `./showcase`                            |          0 |       9 |          9 |
+| [`src/showcase/mod.ts`](#src-showcase-mod-ts)                                                         | `./showcase`                            |          5 |       0 |          0 |
+| [`src/showcase/provider.ts`](#src-showcase-provider-ts)                                               | `./showcase`                            |          0 |      10 |         10 |
+| [`src/showcase/session.ts`](#src-showcase-session-ts)                                                 | `./showcase`                            |          0 |      15 |         15 |
+| [`src/showcase/terminal_store.ts`](#src-showcase-terminal-store-ts)                                   | `./showcase`                            |          0 |      15 |         15 |
+| [`src/signals/computed.ts`](#src-signals-computed-ts)                                                 | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
+| [`src/signals/dependency_tracking.ts`](#src-signals-dependency-tracking-ts)                           | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
+| [`src/signals/effect.ts`](#src-signals-effect-ts)                                                     | `.`, `./app`, `./web`                   |          0 |       3 |          3 |
+| [`src/signals/flusher.ts`](#src-signals-flusher-ts)                                                   | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/signals/lazy_computed.ts`](#src-signals-lazy-computed-ts)                                       | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/signals/lazy_effect.ts`](#src-signals-lazy-effect-ts)                                           | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
+| [`src/signals/mod.ts`](#src-signals-mod-ts)                                                           | `.`, `./app`, `./web`                   |          9 |       0 |          0 |
+| [`src/signals/reactivity.ts`](#src-signals-reactivity-ts)                                             | `.`, `./app`, `./web`                   |          0 |      13 |         13 |
+| [`src/signals/signal.ts`](#src-signals-signal-ts)                                                     | `.`, `./app`, `./web`                   |          0 |      11 |         11 |
+| [`src/signals/types.ts`](#src-signals-types-ts)                                                       | `.`, `./app`, `./web`                   |          0 |       4 |          4 |
+| [`src/surface_animation.ts`](#src-surface-animation-ts)                                               | `.`, `./web`                            |          0 |      14 |         14 |
+| [`src/testing/app.ts`](#src-testing-app-ts)                                                           | `./testing`                             |          0 |      11 |         11 |
+| [`src/testing/aria_apg_suites.ts`](#src-testing-aria-apg-suites-ts)                                   | `./testing`                             |          0 |       4 |          4 |
+| [`src/testing/contract_tests.ts`](#src-testing-contract-tests-ts)                                     | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/differential_terminal.ts`](#src-testing-differential-terminal-ts)                       | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/fault_injection.ts`](#src-testing-fault-injection-ts)                                   | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/flake_detection.ts`](#src-testing-flake-detection-ts)                                   | `./testing`                             |          0 |       7 |          7 |
+| [`src/testing/input.ts`](#src-testing-input-ts)                                                       | `.`, `./testing`                        |          0 |       7 |          7 |
+| [`src/testing/matrix.ts`](#src-testing-matrix-ts)                                                     | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/model_testing.ts`](#src-testing-model-testing-ts)                                       | `./testing`                             |          0 |       8 |          8 |
+| [`src/testing/mutation_testing.ts`](#src-testing-mutation-testing-ts)                                 | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/plugin_test_host.ts`](#src-testing-plugin-test-host-ts)                                 | `./testing`                             |          0 |       6 |          6 |
+| [`src/testing/record_replay.ts`](#src-testing-record-replay-ts)                                       | `./testing`                             |          0 |       7 |          7 |
+| [`src/testing/scene.ts`](#src-testing-scene-ts)                                                       | `./testing`                             |          0 |       8 |          8 |
+| [`src/testing/snapshot.ts`](#src-testing-snapshot-ts)                                                 | `.`, `./testing`                        |          0 |      15 |         15 |
+| [`src/testing/visual_report.ts`](#src-testing-visual-report-ts)                                       | `./testing`                             |          0 |       6 |          6 |
+| [`src/theme_binding.ts`](#src-theme-binding-ts)                                                       | `.`, `./web`, `./theme`                 |          0 |       8 |          8 |
+| [`src/theme_contrast.ts`](#src-theme-contrast-ts)                                                     | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
+| [`src/theme_controls.ts`](#src-theme-controls-ts)                                                     | `./theme`                               |          0 |      13 |         13 |
+| [`src/theme_density.ts`](#src-theme-density-ts)                                                       | `.`, `./web`                            |          0 |       5 |          5 |
+| [`src/theme_editor_model.ts`](#src-theme-editor-model-ts)                                             | `./theme`                               |          0 |      21 |         21 |
+| [`src/theme_engine_cache.ts`](#src-theme-engine-cache-ts)                                             | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
+| [`src/theme_engine_factory.ts`](#src-theme-engine-factory-ts)                                         | `.`, `./web`, `./theme`                 |          0 |      19 |         19 |
+| [`src/theme_engine_pipeline.ts`](#src-theme-engine-pipeline-ts)                                       | `.`, `./web`, `./theme`                 |          0 |      12 |         12 |
+| [`src/theme_expressions.ts`](#src-theme-expressions-ts)                                               | `.`, `./web`, `./theme`                 |          0 |       6 |          6 |
+| [`src/theme_gallery.ts`](#src-theme-gallery-ts)                                                       | `.`, `./web`, `./theme`                 |          0 |      11 |         11 |
+| [`src/theme_icons.ts`](#src-theme-icons-ts)                                                           | `.`, `./web`                            |          0 |       8 |          8 |
+| [`src/theme_interchange.ts`](#src-theme-interchange-ts)                                               | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
+| [`src/theme_motion.ts`](#src-theme-motion-ts)                                                         | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/theme_oklch.ts`](#src-theme-oklch-ts)                                                           | `.`, `./web`, `./theme`                 |          0 |       9 |          9 |
+| [`src/theme_quantize.ts`](#src-theme-quantize-ts)                                                     | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/theme_resolver.ts`](#src-theme-resolver-ts)                                                     | `.`, `./web`, `./theme`                 |          0 |      15 |         15 |
+| [`src/theme_token_schemas.ts`](#src-theme-token-schemas-ts)                                           | `.`, `./web`                            |          0 |       7 |          7 |
+| [`src/theme_tokens.ts`](#src-theme-tokens-ts)                                                         | `.`                                     |          0 |       6 |          6 |
+| [`src/theme_workspace.ts`](#src-theme-workspace-ts)                                                   | `.`, `./web`, `./theme`                 |          0 |       7 |          7 |
+| [`src/theme.ts`](#src-theme-ts)                                                                       | `.`, `./app`, `./web`, `./theme`        |          0 |     116 |        116 |
+| [`src/three_ascii/AcerolaAsciiNode.ts`](#src-three-ascii-acerolaasciinode-ts)                         | `./web`, `./three-ascii`                |          0 |       3 |          3 |
+| [`src/three_ascii/demo_presets.ts`](#src-three-ascii-demo-presets-ts)                                 | `./web`, `./three-ascii`                |          0 |      14 |         14 |
+| [`src/three_ascii/frame_options.ts`](#src-three-ascii-frame-options-ts)                               | `./web`, `./three-ascii`                |          0 |       1 |          1 |
+| [`src/three_ascii/glyphs.ts`](#src-three-ascii-glyphs-ts)                                             | `./web`, `./three-ascii`                |          0 |      13 |         13 |
+| [`src/three_ascii/mod.ts`](#src-three-ascii-mod-ts)                                                   | `./web`, `./three-ascii`                |          7 |       0 |          0 |
+| [`src/three_ascii/options.ts`](#src-three-ascii-options-ts)                                           | `./web`, `./three-ascii`                |          0 |      15 |         15 |
+| [`src/three_ascii/performance.ts`](#src-three-ascii-performance-ts)                                   | `./web`, `./three-ascii`                |          0 |       1 |          1 |
+| [`src/three_ascii/render_profile.ts`](#src-three-ascii-render-profile-ts)                             | `./web`, `./three-ascii`                |          0 |       3 |          3 |
+| [`src/three_ascii/renderer.ts`](#src-three-ascii-renderer-ts)                                         | `./web`, `./three-ascii`                |          2 |      22 |         22 |
+| [`src/three_ascii/webgpu_compat.ts`](#src-three-ascii-webgpu-compat-ts)                               | `./web`, `./three-ascii`                |          0 |       3 |          3 |
+| [`src/tooling/attestations.ts`](#src-tooling-attestations-ts)                                         | `.`                                     |          0 |       8 |          8 |
+| [`src/tooling/codemods.ts`](#src-tooling-codemods-ts)                                                 | `.`                                     |          0 |       5 |          5 |
+| [`src/tooling/devtools.ts`](#src-tooling-devtools-ts)                                                 | `.`                                     |          0 |       9 |          9 |
+| [`src/tooling/diagnostics_hub.ts`](#src-tooling-diagnostics-hub-ts)                                   | `.`                                     |          0 |       7 |          7 |
+| [`src/tooling/example_registry.ts`](#src-tooling-example-registry-ts)                                 | `.`                                     |          0 |       4 |          4 |
+| [`src/tooling/generators.ts`](#src-tooling-generators-ts)                                             | `.`                                     |          0 |       7 |          7 |
+| [`src/tooling/init_templates.ts`](#src-tooling-init-templates-ts)                                     | `.`                                     |          0 |       5 |          5 |
+| [`src/tooling/launcher_template.ts`](#src-tooling-launcher-template-ts)                               | `.`                                     |          0 |       1 |          1 |
+| [`src/tooling/mod.ts`](#src-tooling-mod-ts)                                                           | `.`                                     |          9 |       0 |          0 |
+| [`src/tooling/release_channels.ts`](#src-tooling-release-channels-ts)                                 | `.`                                     |          0 |       7 |          7 |
+| [`src/tui.ts`](#src-tui-ts)                                                                           | `.`, `./app`                            |          0 |       3 |          3 |
+| [`src/types.ts`](#src-types-ts)                                                                       | `.`, `./app`, `./remote`                |          0 |       8 |          8 |
+| [`src/unicode/bidi.ts`](#src-unicode-bidi-ts)                                                         | `.`                                     |          0 |       5 |          5 |
+| [`src/unicode/builtin.ts`](#src-unicode-builtin-ts)                                                   | `.`                                     |          0 |       4 |          4 |
+| [`src/unicode/conformance.ts`](#src-unicode-conformance-ts)                                           | `.`                                     |          0 |       8 |          8 |
+| [`src/unicode/confusables.ts`](#src-unicode-confusables-ts)                                           | `.`                                     |          0 |       6 |          6 |
+| [`src/unicode/controls.ts`](#src-unicode-controls-ts)                                                 | `.`                                     |          0 |       7 |          7 |
+| [`src/unicode/data_pack.ts`](#src-unicode-data-pack-ts)                                               | `.`                                     |          0 |      26 |         26 |
+| [`src/unicode/emoji.ts`](#src-unicode-emoji-ts)                                                       | `.`                                     |          0 |       6 |          6 |
+| [`src/unicode/grapheme.ts`](#src-unicode-grapheme-ts)                                                 | `.`                                     |          0 |      21 |         21 |
+| [`src/unicode/hyphenation.ts`](#src-unicode-hyphenation-ts)                                           | `.`                                     |          0 |       7 |          7 |
+| [`src/unicode/line_break.ts`](#src-unicode-line-break-ts)                                             | `.`                                     |          0 |       8 |          8 |
+| [`src/unicode/mod.ts`](#src-unicode-mod-ts)                                                           | `.`                                     |         13 |       0 |          0 |
+| [`src/unicode/source_display.ts`](#src-unicode-source-display-ts)                                     | `.`                                     |          0 |       5 |          5 |
+| [`src/unicode/text_index.ts`](#src-unicode-text-index-ts)                                             | `.`                                     |          0 |       6 |          6 |
+| [`src/unicode/width.ts`](#src-unicode-width-ts)                                                       | `.`, `./web`, `./terminal`              |          0 |      21 |         21 |
+| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                                 | `.`                                     |          0 |      12 |         12 |
+| [`src/utils/async.ts`](#src-utils-async-ts)                                                           | `.`, `./web`                            |          0 |       1 |          1 |
+| [`src/utils/component.ts`](#src-utils-component-ts)                                                   | `.`                                     |          0 |       2 |          2 |
+| [`src/utils/mod.ts`](#src-utils-mod-ts)                                                               | `.`                                     |          7 |       0 |          0 |
+| [`src/utils/numbers.ts`](#src-utils-numbers-ts)                                                       | `.`, `./web`                            |          0 |       6 |          6 |
+| [`src/utils/signals.ts`](#src-utils-signals-ts)                                                       | `.`                                     |          0 |       1 |          1 |
+| [`src/utils/sorted_array.ts`](#src-utils-sorted-array-ts)                                             | `.`, `./web`                            |          0 |       2 |          2 |
+| [`src/utils/strings.ts`](#src-utils-strings-ts)                                                       | `.`, `./web`                            |          0 |       9 |          9 |
+| [`src/view.ts`](#src-view-ts)                                                                         | `.`, `./web`                            |          0 |       1 |          1 |
+| [`src/viewport.ts`](#src-viewport-ts)                                                                 | `.`, `./web`                            |          0 |      18 |         18 |
+| [`src/visual/annotations.ts`](#src-visual-annotations-ts)                                             | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/axes.ts`](#src-visual-axes-ts)                                                           | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/chart_export.ts`](#src-visual-chart-export-ts)                                           | `.`                                     |          0 |       7 |          7 |
+| [`src/visual/downsample.ts`](#src-visual-downsample-ts)                                               | `.`, `./viz`                            |          0 |       6 |          6 |
+| [`src/visual/heatmap.ts`](#src-visual-heatmap-ts)                                                     | `.`                                     |          0 |       6 |          6 |
+| [`src/visual/interactions.ts`](#src-visual-interactions-ts)                                           | `.`                                     |          0 |       5 |          5 |
+| [`src/visual/linked_charts.ts`](#src-visual-linked-charts-ts)                                         | `.`                                     |          0 |       4 |          4 |
+| [`src/visual/marks.ts`](#src-visual-marks-ts)                                                         | `.`                                     |          0 |       7 |          7 |
+| [`src/visual/mod.ts`](#src-visual-mod-ts)                                                             | `.`                                     |         11 |       0 |          0 |
+| [`src/visual/raster.ts`](#src-visual-raster-ts)                                                       | `.`                                     |          0 |       3 |          3 |
+| [`src/visual/scales.ts`](#src-visual-scales-ts)                                                       | `.`                                     |          0 |      11 |         11 |
+| [`src/visual/series.ts`](#src-visual-series-ts)                                                       | `.`                                     |          0 |       5 |          5 |
+| [`src/viz/axes.ts`](#src-viz-axes-ts)                                                                 | `./viz`                                 |          0 |       8 |          5 |
+| [`src/viz/dashboard.ts`](#src-viz-dashboard-ts)                                                       | `./viz`                                 |          0 |       6 |          4 |
+| [`src/viz/data.ts`](#src-viz-data-ts)                                                                 | `./viz`                                 |          0 |      17 |         16 |
+| [`src/viz/draw.ts`](#src-viz-draw-ts)                                                                 | `./viz`                                 |          0 |      12 |         10 |
+| [`src/viz/fit.ts`](#src-viz-fit-ts)                                                                   | `./viz`                                 |          0 |       5 |          5 |
+| [`src/viz/mod.ts`](#src-viz-mod-ts)                                                                   | `./viz`                                 |         17 |       0 |          0 |
+| [`src/viz/project.ts`](#src-viz-project-ts)                                                           | `./viz`                                 |          0 |       7 |          3 |
+| [`src/viz/registry.ts`](#src-viz-registry-ts)                                                         | `./viz`                                 |          0 |       6 |          5 |
+| [`src/viz/render.ts`](#src-viz-render-ts)                                                             | `./viz`                                 |          0 |      10 |          8 |
+| [`src/viz/renderers_matrix.ts`](#src-viz-renderers-matrix-ts)                                         | `./viz`                                 |          0 |       6 |          5 |
+| [`src/viz/renderers_scalar.ts`](#src-viz-renderers-scalar-ts)                                         | `./viz`                                 |          0 |      10 |         10 |
+| [`src/viz/renderers_spatial.ts`](#src-viz-renderers-spatial-ts)                                       | `./viz`                                 |          0 |       5 |          5 |
+| [`src/viz/renderers_vector.ts`](#src-viz-renderers-vector-ts)                                         | `./viz`                                 |          0 |       7 |          6 |
+| [`src/viz/scale.ts`](#src-viz-scale-ts)                                                               | `./viz`                                 |          1 |       7 |          6 |
+| [`src/viz/stream.ts`](#src-viz-stream-ts)                                                             | `./viz`                                 |          0 |       7 |          6 |
+| [`src/viz/theme.ts`](#src-viz-theme-ts)                                                               | `./viz`                                 |          0 |       6 |          6 |
+| [`src/viz/three/mod.ts`](#src-viz-three-mod-ts)                                                       | `./viz/three`                           |          2 |       0 |          0 |
+| [`src/viz/three/scene.ts`](#src-viz-three-scene-ts)                                                   | `./viz/three`                           |          0 |       7 |          6 |
+| [`src/viz/three/scenes.ts`](#src-viz-three-scenes-ts)                                                 | `./viz/three`                           |          0 |       3 |          3 |
+| [`src/viz/tiles.ts`](#src-viz-tiles-ts)                                                               | `./viz`                                 |          0 |      13 |          8 |
+| [`src/viz/view.ts`](#src-viz-view-ts)                                                                 | `./viz`                                 |          0 |       4 |          2 |
+| [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                         | `./web`                                 |          0 |       5 |          5 |
+| [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                                 | `./web`                                 |          0 |       7 |          7 |
+| [`src/web/host.ts`](#src-web-host-ts)                                                                 | `./web`                                 |          0 |       5 |          5 |
+| [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                 |          5 |       0 |          0 |
+| [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                 |          0 |       7 |          7 |
+| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                     |          0 |      33 |         33 |
 
 ## Module Details
 
@@ -1339,6 +1354,163 @@ _Entrypoints: `.`, `./web`_
 | `BackgroundJobManager`       | class     | no        | yes   |
 | `BackgroundJobState`         | type      | yes       | yes   |
 | `createBackgroundJobManager` | function  | no        | yes   |
+
+### src/app/backgrounds/biomech_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `ShellBiomechField`        | class     | no        | yes   |
+| `ShellBiomechFieldOptions` | interface | yes       | yes   |
+
+### src/app/backgrounds/circuit_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `ShellCircuitChipSnapshot`       | interface | yes       | yes   |
+| `ShellCircuitField`              | class     | no        | yes   |
+| `ShellCircuitFieldOptions`       | interface | yes       | yes   |
+| `ShellCircuitInspection`         | interface | yes       | yes   |
+| `ShellCircuitLedSnapshot`        | interface | yes       | yes   |
+| `ShellCircuitOscillatorSnapshot` | interface | yes       | yes   |
+| `ShellCircuitRailSnapshot`       | interface | yes       | yes   |
+| `ShellCircuitTraceSnapshot`      | interface | yes       | yes   |
+
+### src/app/backgrounds/contract.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                          | Kind     | Type Only | JSDoc |
+| ------------------------------- | -------- | --------- | ----- |
+| `mixShellRgb`                   | function | no        | yes   |
+| `ShellAnimatedBackground`       | type     | yes       | yes   |
+| `ShellBackgroundAdvanceOptions` | type     | yes       | yes   |
+| `ShellBackgroundCell`           | type     | yes       | yes   |
+| `ShellBackgroundPoint`          | type     | yes       | yes   |
+| `ShellDisposableBackground`     | type     | yes       | yes   |
+| `ShellInteractiveBackground`    | type     | yes       | yes   |
+| `ShellOverlayBackground`        | type     | yes       | yes   |
+| `ShellOverlayCell`              | type     | yes       | yes   |
+| `ShellPresetBackground`         | type     | yes       | yes   |
+
+### src/app/backgrounds/fire_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind      | Type Only | JSDoc |
+| ----------------------- | --------- | --------- | ----- |
+| `ShellFireField`        | class     | no        | yes   |
+| `ShellFireFieldOptions` | interface | yes       | yes   |
+| `ShellFireInspection`   | interface | yes       | yes   |
+
+### src/app/backgrounds/gpu_device.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `destroyShellGpuDevice` | function | no        | yes   |
+| `resetShellGpuDevice`   | function | no        | yes   |
+| `setShellGpuLog`        | function | no        | yes   |
+| `shellGpuDevice`        | function | no        | yes   |
+
+### src/app/backgrounds/ivy_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `ShellIvyCellSnapshot`   | interface | yes       | yes   |
+| `ShellIvyField`          | class     | no        | yes   |
+| `ShellIvyFieldOptions`   | interface | yes       | yes   |
+| `ShellIvyInspection`     | interface | yes       | yes   |
+| `ShellIvyOrnament`       | type      | yes       | yes   |
+| `ShellIvyStrandSnapshot` | interface | yes       | yes   |
+
+### src/app/backgrounds/jungle_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol             | Kind  | Type Only | JSDoc |
+| ------------------ | ----- | --------- | ----- |
+| `ShellJungleField` | class | no        | yes   |
+
+### src/app/backgrounds/matrix_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `ShellMatrixRainDropSnapshot` | interface | yes       | yes   |
+| `ShellMatrixRainField`        | class     | no        | yes   |
+| `ShellMatrixRainFieldOptions` | interface | yes       | yes   |
+| `ShellMatrixRainInspection`   | interface | yes       | yes   |
+
+### src/app/backgrounds/mod.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Re-export Target                                  | Kind | Names |
+| ------------------------------------------------- | ---- | ----- |
+| `src/app/backgrounds/contract.ts`                 | star | -     |
+| `src/app/backgrounds/gpu_device.ts`               | star | -     |
+| `src/app/backgrounds/matrix_background.ts`        | star | -     |
+| `src/app/backgrounds/rainy_windows_background.ts` | star | -     |
+| `src/app/backgrounds/circuit_background.ts`       | star | -     |
+| `src/app/backgrounds/biomech_background.ts`       | star | -     |
+| `src/app/backgrounds/jungle_background.ts`        | star | -     |
+| `src/app/backgrounds/vaporwave_background.ts`     | star | -     |
+| `src/app/backgrounds/skull_background.ts`         | star | -     |
+| `src/app/backgrounds/ivy_background.ts`           | star | -     |
+| `src/app/backgrounds/fire_background.ts`          | star | -     |
+| `src/app/backgrounds/turbulence_background.ts`    | star | -     |
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `SHELL_BACKGROUND_FIELDS` | const     | no        | yes   |
+| `ShellBackgroundEntry`    | interface | yes       | yes   |
+
+### src/app/backgrounds/rainy_windows_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `ShellRainyWindowsField`        | class     | no        | yes   |
+| `ShellRainyWindowsFieldOptions` | interface | yes       | yes   |
+
+### src/app/backgrounds/skull_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `ShellSkullEyeInspection` | interface | yes       | yes   |
+| `ShellSkullField`         | class     | no        | yes   |
+| `ShellSkullFieldOptions`  | interface | yes       | yes   |
+| `ShellSkullInspection`    | interface | yes       | yes   |
+
+### src/app/backgrounds/turbulence_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `ShellTurbulenceField`        | class     | no        | yes   |
+| `ShellTurbulenceFieldOptions` | interface | yes       | yes   |
+
+### src/app/backgrounds/vaporwave_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `ShellVaporwaveField`        | class     | no        | yes   |
+| `ShellVaporwaveFieldOptions` | interface | yes       | yes   |
+| `ShellVaporwaveInspection`   | interface | yes       | yes   |
 
 ### src/app/browser_editing.ts
 
@@ -2143,6 +2315,9 @@ _Entrypoints: `.`, `./web`_
 | `src/app/focus_announcements.ts`        | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/workbench_accessibility.ts`    | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/workbench_shell.ts`            | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/shell_background.ts`           | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/shell_theme.ts`                | star  | -                                                                                                                                                                                                                                                                     |
+| `src/app/backgrounds/mod.ts`            | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/calendar.ts`                   | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/clipboard.ts`                  | star  | -                                                                                                                                                                                                                                                                     |
 | `src/app/general_widgets.ts`            | star  | -                                                                                                                                                                                                                                                                     |
@@ -2860,6 +3035,42 @@ _Entrypoints: `.`, `./web`_
 | `SettingsController`           | class     | no        | yes   |
 | `SettingsControllerInspection` | interface | yes       | yes   |
 | `SettingsControllerOptions`    | interface | yes       | yes   |
+
+### src/app/shell_background.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `SHELL_METABALL_FRAME_INTERVAL_MS` | const     | no        | yes   |
+| `SHELL_METABALL_LEVELS`            | const     | no        | yes   |
+| `ShellMetaballAdvanceOptions`      | interface | yes       | yes   |
+| `ShellMetaballBackground`          | class     | no        | yes   |
+| `ShellMetaballField`               | class     | no        | yes   |
+| `ShellMetaballFieldOptions`        | interface | yes       | yes   |
+| `shellMetaballGradientColors`      | function  | no        | yes   |
+| `ShellMetaballInspection`          | interface | yes       | yes   |
+| `shellMetaballPalette`             | function  | no        | yes   |
+| `ShellMetaballPoint`               | interface | yes       | yes   |
+
+### src/app/shell_theme.ts
+
+_Entrypoints: `.`, `./web`_
+
+| Re-export Target             | Kind  | Names           |
+| ---------------------------- | ----- | --------------- |
+| `src/app/workbench_shell.ts` | named | `type ShellRgb` |
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `SHELL_T2_SWATCHES`             | const     | no        | yes   |
+| `SHELL_THEMES`                  | const     | no        | yes   |
+| `shellActiveTitlebarForeground` | function  | no        | yes   |
+| `shellControlColor`             | function  | no        | yes   |
+| `shellRelativeLuminance`        | function  | no        | yes   |
+| `shellThemeById`                | function  | no        | yes   |
+| `ShellThemeSpec`                | interface | yes       | yes   |
+| `ShellWorkbenchThemeId`         | type      | yes       | yes   |
 
 ### src/app/software_cursor.ts
 

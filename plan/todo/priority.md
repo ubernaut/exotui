@@ -179,6 +179,16 @@ gallery themes the desktop chrome on click. Verified by driving real Chrome over
 dumps; the `__desktop` hook in the page is that harness's seam. Still open from the parity ask: window context menus,
 per-window settings, and the workbench inside a window.
 
+**Backgrounds and themes ported (August 21 2026, later that night).** The whole catalog moved: `ShellThemeSpec` +
+`SHELL_THEMES` (all seventeen — natives, the eight Workbench palettes, T2, TempleOS, Miami, Dracula, Sabbath) live in
+`src/app/shell_theme.ts`; all eleven pure background simulations live under `src/app/backgrounds/` behind the
+`AnimatedBackground` contract that was already library code, with `shellGpuDevice()` as the one WebGPU door (turbulence
+included). exomux consumes everything through shims and aliases — its full suite passes untouched, so the port is
+provably behaviour-free. The web desktop dropped its hand palette for the shared specs (Dracula on the web re-derives
+the metaball gradient to red-and-moss, live), grew the background picker with the full catalog, and gained the **theme
+builder** window (slot-wise OKLCH editing of the live theme). Butterchurn and image backgrounds stay exomux-side hosts
+for now. The zero-extra-code-paths architecture is planned in `todo/045-one-app-two-presentations.md`.
+
 **Shell extraction — landed on the `desktop-shell` branch (August 21 2026, night).** `src/app/workbench_shell.ts` holds
 the furniture both desktops painted by hand: surface/ground primitives (`ShellSurface`, `ShellGround`, `fillOnGround`,
 `writeOnGround`, `borderBoxOnGround`), the window-chrome painter, the switcher panel, menu panels, and a tab strip —

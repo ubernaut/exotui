@@ -33,12 +33,11 @@ import {
 } from "../../src/viz/mod.ts";
 import { blitFrame } from "../../src/viz/dashboard.ts";
 import { resolveVisualizationTheme } from "../../src/viz/mod.ts";
-import { grWizardThemePalettes } from "../../src/grwizard_themes.ts";
 import { neonDemosForSection, type NeonSuiteSection, renderNeonSuiteDemo } from "../../app/neon_suite.ts";
 import type { NeonDemo } from "../../app/visualizations.ts";
 import { createBrowserMonitor } from "./browser_monitor.ts";
 import type { ThreeWindowOverlay } from "./desktop_three.ts";
-import { ansiLineToCells, hexToRgb } from "./ansi_cells.ts";
+import { ansiLineToCells } from "./ansi_cells.ts";
 import {
   paintShellMenuPanel,
   paintShellSwitcher,
@@ -48,6 +47,19 @@ import {
   type ShellTabRect,
   solidGround,
 } from "../../src/app/workbench_shell.ts";
+import {
+  SHELL_THEMES,
+  shellActiveTitlebarForeground,
+  shellThemeById,
+  type ShellThemeSpec,
+} from "../../src/app/shell_theme.ts";
+import { oklchToRgb, rgbToOklch } from "../../src/theme_oklch.ts";
+import { animatedBackgroundHasOverlay, mixAnimatedBackgroundRgb } from "../../src/app/animated_background.ts";
+import {
+  SHELL_BACKGROUND_FIELDS,
+  type ShellAnimatedBackground,
+  type ShellDisposableBackground,
+} from "../../src/app/backgrounds/mod.ts";
 
 type Rgb = readonly [number, number, number];
 
@@ -69,40 +81,39 @@ interface DesktopTheme {
   menuSelected: Rgb;
 }
 
-const DEFAULT_DESKTOP: DesktopTheme = {
-  wallpaper: [10, 12, 20],
-  wallpaperDot: [22, 26, 42],
-  chromeActive: [46, 68, 110],
-  chromeIdle: [26, 30, 46],
-  chromeText: [226, 232, 244],
-  chromeMuted: [130, 138, 158],
-  clientGround: [14, 16, 26],
-  accent: [127, 214, 255],
-  danger: [255, 105, 110],
-  shelf: [18, 21, 34],
-  menu: [21, 25, 40],
-  menuSelected: [40, 58, 96],
-};
+/**
+ * The active theme is one of the shared catalog specs — the same objects
+ * exomux paints with — and the flat palette the painters read derives from
+ * it. `menuSelectedText`/`titleActiveText` follow exomux's contrast-the-bar
+ * rule, so light themes hold up.
+ */
+let themeSpec: ShellThemeSpec = shellThemeById("midnight");
 
-let DESKTOP: DesktopTheme = DEFAULT_DESKTOP;
-
-/** Applies a GRWizard palette to the desktop chrome — the theme gallery's click. */
-function applyDesktopPalette(palette: (typeof grWizardThemePalettes)[number]): void {
-  const pick = (hex: string, spare: Rgb): Rgb => hexToRgb(hex) ?? spare;
-  DESKTOP = {
-    wallpaper: pick(palette.bg, DEFAULT_DESKTOP.wallpaper),
-    wallpaperDot: pick(palette.border, DEFAULT_DESKTOP.wallpaperDot),
-    chromeActive: pick(palette.accentDeep, DEFAULT_DESKTOP.chromeActive),
-    chromeIdle: pick(palette.panel, DEFAULT_DESKTOP.chromeIdle),
-    chromeText: pick(palette.text, DEFAULT_DESKTOP.chromeText),
-    chromeMuted: pick(palette.textMuted, DEFAULT_DESKTOP.chromeMuted),
-    clientGround: pick(palette.bgAlt, DEFAULT_DESKTOP.clientGround),
-    accent: pick(palette.accent, DEFAULT_DESKTOP.accent),
-    danger: pick(palette.danger, DEFAULT_DESKTOP.danger),
-    shelf: pick(palette.panel, DEFAULT_DESKTOP.shelf),
-    menu: pick(palette.panelAlt, DEFAULT_DESKTOP.menu),
-    menuSelected: pick(palette.accentDeep, DEFAULT_DESKTOP.menuSelected),
+function desktopFromSpec(spec: ShellThemeSpec): DesktopTheme {
+  return {
+    wallpaper: spec.background,
+    wallpaperDot: spec.surfaceStrong,
+    chromeActive: spec.accent,
+    chromeIdle: spec.surfaceStrong,
+    chromeText: spec.text,
+    chromeMuted: spec.muted,
+    clientGround: spec.surface,
+    accent: spec.accent,
+    danger: spec.danger,
+    shelf: spec.surface,
+    menu: spec.surfaceStrong,
+    menuSelected: spec.accent,
   };
+}
+
+let DESKTOP: DesktopTheme = desktopFromSpec(themeSpec);
+/** Text painted on accent-coloured bars (active titlebar, selected menu row). */
+let ON_ACCENT: Rgb = shellActiveTitlebarForeground(themeSpec);
+
+function applyShellTheme(spec: ShellThemeSpec): void {
+  themeSpec = spec;
+  DESKTOP = desktopFromSpec(spec);
+  ON_ACCENT = shellActiveTitlebarForeground(spec);
 }
 
 // ---------------------------------------------------------------------------
@@ -200,32 +211,30 @@ function neonDemo(): DesktopDemo {
 
 function themesDemo(): DesktopDemo {
   let offset = 0;
+  const themeAt = (row: number): ShellThemeSpec => SHELL_THEMES[(row + offset) % SHELL_THEMES.length]!;
   return {
     id: "themes",
-    title: "theme gallery",
-    summary: "The GRWizard theme palettes, resolved through the viz theme layer.",
+    title: "themes",
+    summary: `The shared catalog — the same ${SHELL_THEMES.length} themes exomux ships. Click to apply.`,
     window: { width: 46, height: 16, minWidth: 28, minHeight: 7 },
     render(width, height) {
       const frame = clientFrame(width, height);
-      const palettes = grWizardThemePalettes;
       for (let row = 0; row < height; row += 1) {
-        const palette = palettes[(row + offset) % palettes.length]!;
-        const swatch = [palette.bg, palette.surface, palette.accent, palette.warm, palette.success, palette.danger]
-          .map(hexToRgb);
+        const spec = themeAt(row);
+        const active = spec.id === themeSpec.id;
         writeCellsText(
           frame[row]!,
           1,
-          palette.label.slice(0, Math.max(4, width - 16)),
-          DESKTOP.chromeText,
+          `${active ? "●" : " "} ${spec.label}`.slice(0, Math.max(4, width - 16)),
+          active ? DESKTOP.accent : DESKTOP.chromeText,
           DESKTOP.clientGround,
         );
+        const swatch = [spec.background, spec.surface, spec.accent, spec.success, spec.warning, spec.danger];
         for (let block = 0; block < swatch.length; block += 1) {
-          const color = swatch[block];
-          if (!color) continue;
           const column = width - 2 - (swatch.length - block) * 2;
           if (column <= 0) continue;
-          frame[row]![column] = { char: "█", foreground: color, background: DESKTOP.clientGround };
-          frame[row]![column + 1] = { char: "█", foreground: color, background: DESKTOP.clientGround };
+          frame[row]![column] = { char: "█", foreground: swatch[block]!, background: DESKTOP.clientGround };
+          frame[row]![column + 1] = { char: "█", foreground: swatch[block]!, background: DESKTOP.clientGround };
         }
       }
       return frame;
@@ -237,18 +246,15 @@ function themesDemo(): DesktopDemo {
       return true;
     },
     onPointerDown(_, row) {
-      // A click on a row applies that palette to the desktop chrome itself.
-      const palette = grWizardThemePalettes[(row + offset) % grWizardThemePalettes.length];
-      if (palette) applyDesktopPalette(palette);
+      applyShellTheme(themeAt(row));
     },
   };
 }
 
-const WALLPAPER_STYLES: readonly { readonly id: WallpaperStyle; readonly label: string }[] = [
-  { id: "dots", label: "dots — a quiet grid of marks" },
+const WALLPAPER_STYLES: readonly { readonly id: string; readonly label: string }[] = [
   { id: "plain", label: "plain — nothing but the colour" },
-  { id: "grid", label: "grid — faint rules every few cells" },
-  { id: "drift", label: "drift — the dots, slowly breathing" },
+  { id: "dots", label: "dots — a quiet grid of marks" },
+  ...SHELL_BACKGROUND_FIELDS.map((entry) => ({ id: entry.id, label: entry.label })),
 ];
 
 function settingsDemo(): DesktopDemo {
@@ -346,6 +352,86 @@ function helpDemo(): DesktopDemo {
         writeCellsText(frame[row]!, 0, text, heading ? DESKTOP.accent : DESKTOP.chromeText, DESKTOP.clientGround);
       }
       return frame;
+    },
+  };
+}
+
+const BUILDER_SLOTS = [
+  "background",
+  "surface",
+  "surfaceStrong",
+  "border",
+  "text",
+  "muted",
+  "accent",
+  "success",
+  "warning",
+  "danger",
+] as const;
+type BuilderSlot = (typeof BUILDER_SLOTS)[number];
+
+function themeBuilderDemo(): DesktopDemo {
+  let selected: number = BUILDER_SLOTS.indexOf("accent");
+  const nudge = (turnHue: number, stepLightness: number): void => {
+    const slot: BuilderSlot = BUILDER_SLOTS[selected]!;
+    const current = themeSpec[slot];
+    const oklch = rgbToOklch([current[0], current[1], current[2]]);
+    const adjusted = oklchToRgb({
+      l: Math.min(1, Math.max(0, oklch.l + stepLightness)),
+      c: oklch.c,
+      h: (oklch.h + turnHue + 360) % 360,
+    });
+    applyShellTheme({
+      ...themeSpec,
+      id: themeSpec.id.endsWith("*") ? themeSpec.id : `${themeSpec.id}*`,
+      label: themeSpec.label.endsWith(" *") ? themeSpec.label : `${themeSpec.label} *`,
+      [slot]: [adjusted[0], adjusted[1], adjusted[2]] as Rgb,
+    });
+  };
+  return {
+    id: "builder",
+    title: "theme builder",
+    summary: "Edit the live theme slot by slot, in OKLCH.",
+    window: { width: 46, height: 15, minWidth: 30, minHeight: 8 },
+    render(width, height) {
+      const frame = clientFrame(width, height);
+      writeCellsText(frame[0]!, 1, `editing ${themeSpec.label}`, DESKTOP.accent, DESKTOP.clientGround);
+      for (let index = 0; index < BUILDER_SLOTS.length; index += 1) {
+        const row = index + 1;
+        if (row >= height - 1) break;
+        const slot = BUILDER_SLOTS[index]!;
+        const color = themeSpec[slot];
+        const oklch = rgbToOklch([color[0], color[1], color[2]]);
+        const marker = index === selected ? ">" : " ";
+        writeCellsText(
+          frame[row]!,
+          1,
+          `${marker} ${slot.padEnd(13)} L${oklch.l.toFixed(2)} H${Math.round(oklch.h).toString().padStart(3)}`,
+          index === selected ? DESKTOP.accent : DESKTOP.chromeText,
+          DESKTOP.clientGround,
+        );
+        for (let column = width - 8; column < width - 2; column += 1) {
+          if (column > 0) frame[row]![column] = { char: " ", background: color };
+        }
+      }
+      const hint = "←→ hue · [ ] light · click row";
+      const hintRow = Math.min(height - 1, BUILDER_SLOTS.length + 1);
+      writeCellsText(frame[hintRow]!, 1, hint.slice(0, width - 2), DESKTOP.chromeMuted, DESKTOP.clientGround);
+      return frame;
+    },
+    onKey(event) {
+      if (event.key === "left") nudge(-12, 0);
+      else if (event.key === "right") nudge(12, 0);
+      else if (event.key === "[") nudge(0, -0.03);
+      else if (event.key === "]") nudge(0, 0.03);
+      else if (event.key === "down") selected = (selected + 1) % BUILDER_SLOTS.length;
+      else if (event.key === "up") selected = (selected + BUILDER_SLOTS.length - 1) % BUILDER_SLOTS.length;
+      else return false;
+      return true;
+    },
+    onPointerDown(_, row) {
+      const index = row - 1;
+      if (index >= 0 && index < BUILDER_SLOTS.length) selected = index;
     },
   };
 }
@@ -643,6 +729,7 @@ const DEMOS: DesktopDemo[] = [
   threeDemo(),
   clockDemo(),
   themesDemo(),
+  themeBuilderDemo(),
   settingsDemo(),
   helpDemo(),
 ];
@@ -655,6 +742,7 @@ const DEMO_GLYPHS: Record<string, string> = {
   three: "◱",
   clock: "◔",
   themes: "▤",
+  builder: "✎",
   settings: "⚙",
   help: "?",
 };
@@ -738,11 +826,33 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
 });
 
 /** Desktop-wide settings the settings window edits and the painter honors. */
-type WallpaperStyle = "dots" | "plain" | "grid" | "drift";
 const desktopSettings = {
-  wallpaper: "dots" as WallpaperStyle,
+  /** "plain", "dots", or any id from the shared background catalog. */
+  wallpaper: "metaballs",
   barHints: true,
 };
+
+/**
+ * The animated-background host: the same fields exomux runs, advancing at
+ * exomux's cadence with the windows as obstacles and the pointer attracting.
+ */
+let backgroundField: ShellAnimatedBackground | undefined;
+let backgroundFieldId = "";
+let lastBackgroundAdvance = 0;
+const BACKGROUND_FRAME_MS = 125;
+
+function currentBackgroundField(): ShellAnimatedBackground | undefined {
+  const id = desktopSettings.wallpaper;
+  if (backgroundFieldId === id) return backgroundField;
+  const disposable = backgroundField as ShellDisposableBackground | undefined;
+  if (disposable && typeof (disposable as { dispose?: () => void }).dispose === "function") {
+    (disposable as { dispose: () => void }).dispose();
+  }
+  backgroundField = SHELL_BACKGROUND_FIELDS.find((entry) => entry.id === id)?.create();
+  backgroundFieldId = id;
+  lastBackgroundAdvance = 0;
+  return backgroundField;
+}
 
 /**
  * The phone question, answered the way exomux answers it: below this there is
@@ -935,10 +1045,10 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
     titleBarGround: solidGround(window.active ? DESKTOP.chromeActive : DESKTOP.chromeIdle),
     titleBarFillForeground: DESKTOP.chromeText,
     titleText: window.title,
-    titleForeground: window.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
+    titleForeground: window.active ? ON_ACCENT : DESKTOP.chromeMuted,
     titleBold: window.active,
     controlBold: (control) => control.tone === "danger" || window.active,
-    controlForeground: window.active ? DESKTOP.chromeText : DESKTOP.chromeMuted,
+    controlForeground: window.active ? ON_ACCENT : DESKTOP.chromeMuted,
   });
   const client = window.clientRect;
   if (client.width <= 0 || client.height <= 0) return;
@@ -993,7 +1103,7 @@ function paintBar(frame: VizCell[][]): void {
     height: 1,
   };
   paintedTabRects = paintShellTabStrip(frameSurface(frame), strip, tabs, {
-    activeTab: { foreground: DESKTOP.chromeText, background: DESKTOP.chromeActive },
+    activeTab: { foreground: ON_ACCENT, background: DESKTOP.chromeActive },
     tab: { foreground: DESKTOP.chromeMuted, background: DESKTOP.wallpaperDot },
     dimmedTab: { foreground: DESKTOP.chromeMuted, background: DESKTOP.wallpaperDot },
   }, clock.length + 2);
@@ -1041,11 +1151,11 @@ function paintStartMenu(frame: VizCell[][]): void {
     const ground = selected ? DESKTOP.menuSelected : DESKTOP.menu;
     if (selected) fillRect(frame, itemRect, DESKTOP.menuSelected);
     writeText(frame, rect.column + 1, itemRect.row, item.glyph.slice(0, 4), {
-      foreground: DESKTOP.accent,
+      foreground: selected ? ON_ACCENT : DESKTOP.accent,
       background: ground,
     });
     writeText(frame, rect.column + 6, itemRect.row, item.title.slice(0, Math.max(0, rect.width - 7)), {
-      foreground: DESKTOP.chromeText,
+      foreground: selected ? ON_ACCENT : DESKTOP.chromeText,
       background: ground,
     });
     if (itemRect.height > 1) {
@@ -1067,34 +1177,41 @@ const WALLPAPER_THEME = resolveVisualizationTheme({});
 function paintWallpaper(frame: VizCell[][], width: number, height: number, now: number): void {
   const style = desktopSettings.wallpaper;
   if (style === "plain") return;
-  if (style === "grid") {
-    for (let row = 4; row < height; row += 4) {
-      for (let column = 0; column < width; column += 1) {
-        frame[row]![column] = { char: "─", foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
-      }
-    }
-    for (let column = 8; column < width; column += 8) {
-      for (let row = 1; row < height; row += 1) {
-        const char = frame[row]![column]!.char === "─" ? "┼" : "│";
-        frame[row]![column] = { char, foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
+  if (style === "dots") {
+    for (let row = 1; row < height; row += 3) {
+      for (let column = row % 2 === 0 ? 2 : 4; column < width; column += 6) {
+        frame[row]![column] = { char: "·", foreground: DESKTOP.wallpaperDot, background: DESKTOP.wallpaper };
       }
     }
     return;
   }
-  // dots, and drift: the same field, drift phases each mark's brightness.
-  const phase = now / 1600;
-  for (let row = 1; row < height; row += 3) {
-    for (let column = row % 2 === 0 ? 2 : 4; column < width; column += 6) {
-      let color = DESKTOP.wallpaperDot;
-      if (style === "drift") {
-        const wave = 0.5 + 0.5 * Math.sin(phase + row * 0.7 + column * 0.13);
-        color = [
-          Math.round(DESKTOP.wallpaper[0] + (DESKTOP.wallpaperDot[0] - DESKTOP.wallpaper[0]) * (0.4 + wave)),
-          Math.round(DESKTOP.wallpaper[1] + (DESKTOP.wallpaperDot[1] - DESKTOP.wallpaper[1]) * (0.4 + wave)),
-          Math.round(DESKTOP.wallpaper[2] + (DESKTOP.wallpaperDot[2] - DESKTOP.wallpaper[2]) * (0.4 + wave)),
-        ];
-      }
-      frame[row]![column] = { char: "·", foreground: color, background: DESKTOP.wallpaper };
+  // A live field from the shared catalog: exomux's simulation, this canvas.
+  const field = currentBackgroundField();
+  if (!field) return;
+  const body = bodyBounds();
+  if (now - lastBackgroundAdvance >= BACKGROUND_FRAME_MS) {
+    lastBackgroundAdvance = now;
+    const projection = windowHost.project(body, projectionOptions());
+    field.advance({
+      bounds: body,
+      obstacles: projection.windows.map((window) => window.rect),
+      now,
+    });
+  }
+  const cells = field.rasterizeCells(body, themeSpec);
+  for (let row = 0; row < cells.length; row += 1) {
+    const line = cells[row];
+    if (!line) continue;
+    for (let column = 0; column < line.length; column += 1) {
+      const cell = line[column];
+      if (!cell) continue;
+      const target = frame[body.row + row];
+      if (!target || body.column + column >= target.length) continue;
+      // A full block is a fill: paint it as background so the glyph's font
+      // metrics can never leave seams between cells.
+      target[body.column + column] = cell.char === "█"
+        ? { char: " ", background: cell.foreground }
+        : { char: cell.char, foreground: cell.foreground, background: DESKTOP.wallpaper };
     }
   }
 }
@@ -1126,7 +1243,7 @@ function paintDesktop(now: number): void {
         panelFill: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
         frame: { foreground: DESKTOP.accent, background: DESKTOP.menu, bold: true },
         item: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
-        selectedItem: { foreground: DESKTOP.chromeText, background: DESKTOP.menuSelected, bold: true },
+        selectedItem: { foreground: ON_ACCENT, background: DESKTOP.menuSelected, bold: true },
       },
     });
   }
@@ -1136,6 +1253,19 @@ function paintDesktop(now: number): void {
       foreground: DESKTOP.accent,
       background: DESKTOP.wallpaper,
     });
+  }
+  if (backgroundField && animatedBackgroundHasOverlay(backgroundField)) {
+    const body = bodyBounds();
+    for (const cell of backgroundField.rasterizeOverlayCells(body, themeSpec)) {
+      const target = frame[body.row + cell.row];
+      if (!target || body.column + cell.column >= target.length) continue;
+      const under = target[body.column + cell.column]!;
+      target[body.column + cell.column] = {
+        char: cell.cell.char,
+        foreground: cell.cell.foreground,
+        background: under.background ?? DESKTOP.wallpaper,
+      };
+    }
   }
   paintBar(frame);
   if (startMenuOpen) paintStartMenu(frame);
@@ -1182,6 +1312,7 @@ host.on("pointerInput", (event: PointerInputEvent) => {
   const cell = event.coordinates.cell;
   if (!cell) return;
   const { x, y } = cell;
+  if (event.kind === "move" && backgroundField) backgroundField.setPointer({ column: x, row: y });
   if (startMenuOpen && event.kind === "move") {
     // Mouse hover follows the pointer; touch sends no hover and loses nothing,
     // because activation only ever happens on a down.
