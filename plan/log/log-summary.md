@@ -1,7 +1,7 @@
 # Project log — summary
 
-The narrative history. Read this to see where things stand; `log-detail.md` has the decisions, dead ends, and repro
-details behind it. Newest first.
+The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
+ends, and repro details behind it. Newest first.
 
 ## August 22 2026 — release 0.6.0 / exomux 0.3.0: the seam ships
 

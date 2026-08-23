@@ -1,10 +1,14 @@
-# Project log — detail
+# Detailed development log: `main`
+
+- **Branch:** `main`
+- **Started:** 2026-08-17
 
 Decisions, dead ends, and reproductions, in enough detail that the same ground is not retrodden. This file is long by
 design: consult it when about to attempt something that may have been tried, rather than reading it start to finish.
 
 Entries begin August 17 2026, when this log was started; earlier history is in the task files under `todo/done/` and in
-`git log`.
+`git log`. From August 23 2026 this file holds only work done on `main`; each branch keeps its own log beside it, named
+by replacing `/` in the branch name with `--`.
 
 ---
 

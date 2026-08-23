@@ -24,7 +24,8 @@ one substitutes what this project actually has.
 
 ## Typical loop
 
-1. **Branch from `main`.** Confirm a clean worktree, fetch, and branch from current `main`.
+1. **Branch from `main`.** Confirm a clean worktree, fetch, and branch from current `main`. Start the branch's log under
+   `../log/detail/` from `_template.md`, named by replacing `/` in the branch name with `--`.
 2. **Develop locally.** Work until the change is complete and the focused tests pass. Keep commits focused.
 3. **Reconcile with upstream.** If `origin/main` has advanced, rebase and re-run the affected checks.
 4. **Test the revision.** See below — there is no deploy target, so this step is the gate list plus, where relevant, a
@@ -32,7 +33,7 @@ one substitutes what this project actually has.
    skimmed.
 5. **Record the evidence in the commit.** Which suites ran, what `deno task health` said, what a human still needs to
    look at, and any tradeoff taken. There is no review thread to carry this, so the commit message and
-   `../log/log-detail.md` are where it lives.
+   `../log/detail/<branch>.md` are where it lives.
 6. **Merge and clean up.** When the gate passes, merge into `main` with `--no-ff`, confirm the trunk is still green, and
    delete the branch. If it fails, fix on the branch and repeat from step 2.
 

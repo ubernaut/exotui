@@ -14,9 +14,9 @@ For every task, read:
 3. The specific task file, when one exists.
 
 Read relevant files from `workflow/`, `arch/`, `test/`, `refs/`, and `log/log-summary.md` as needed. Do not load
-`log/log-detail.md` by default; scan it — with a targeted search rather than a full read — when the current task may
-have been attempted before, or when a subsystem has a history of failed approaches. That reading rule does not make
-detailed logging optional.
+`log/detail/` by default; scan the branch logs there — with a targeted search rather than a full read — when the current
+task may have been attempted before, or when a subsystem has a history of failed approaches. That reading rule does not
+make detailed logging optional.
 
 ## What belongs where
 
@@ -32,9 +32,14 @@ detailed logging optional.
   diagram sources in `arch/diagrams/`.
 - `test/`: the shared test strategy and project-wide completion expectations. Task-specific acceptance checks belong in
   the task file.
-- `log/log-summary.md`: concise durable progress, decisions, and pivots.
-- `log/log-detail.md`: the development record — attempts, failures, pivots, and reproductions, in enough detail that the
-  same ground is not retrodden.
+- `log/log-summary.md`: concise durable progress, decisions, and pivots. Shared across branches, so keep additions short
+  and append at the top.
+- `log/detail/`: one development record per branch — attempts, failures, pivots, and reproductions, in enough detail
+  that the same ground is not retrodden. A branch writes only to its own file, which is why parallel branches never
+  conflict here. The filename is the branch name with `/` replaced by `--`: `feature/exomux-remote` becomes
+  `feature--exomux-remote.md`. Start one from `log/detail/_template.md` when the branch is created. `log/detail/main.md`
+  holds the pre-August-23 2026 history and anything done directly on the trunk. Branch logs are kept after merge as
+  history; their durable outcomes are summarised in `log/log-summary.md`.
 - `workflow/`: how work is done here — the development loop and version control. Keep them practical; add process only
   when it prevents a recurring mistake.
 - `refs/`: reference material that is actually used; link each reference from the plan or task that needs it.
