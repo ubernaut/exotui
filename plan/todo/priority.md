@@ -1,10 +1,17 @@
 # Priority queue
 
-Ordered list of open work. A task not in this list is not expected of anyone. Updated August 19 2026.
+Ordered list of open work. A task not in this list is not expected of anyone. Updated August 23 2026.
 
 ## Active
 
-1. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
+1. **`046` Exomux remote sessions — design proposals, awaiting a call on D1.**
+   [`todo/046-exomux-remote-session.md`](046-exomux-remote-session.md). Full-screen a remote exomux over SSH from a
+   control beside the top-bar `[ ✕ ]`, and paste or drop a local image into a remote `codex`/`claude` so the application
+   actually receives it. Three transport shapes are proposed — nested PTY, an SSH stdio relay speaking the existing v1
+   protocol, and relay-plus-spaces — with the relay recommended as the engine because it is the only one that gives the
+   image transfer an authenticated channel to use. Six open decisions; nothing implemented. Slice 0 is a measurement,
+   not a build: find out what `codex` and `claude` actually accept before designing around a guess.
+2. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
    fitness ranking are in and green; these are the gaps building a real application found and did not close:
    - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
      natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
@@ -16,7 +23,7 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
      repository as the worked example for `./viz`. The standalone `~/projects/exomonitor` checkout is now a second copy
      of the same code; it should be retired rather than kept, because two copies of a thing is the drift this release
      spent a day undoing.
-2. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+3. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
 ## `deno task health` — seven red gates, fixed August 18 2026
