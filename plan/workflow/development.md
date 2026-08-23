@@ -7,7 +7,8 @@ Use the smallest complete loop that moves the project forward without losing imp
 
 1. **Orient.** Read `plan/README.md`, `plan/plan.md`, and `plan/todo/priority.md`, then load only what the work needs.
    Inspect the live repository before trusting documentation — a plan that reads as current can still be stale, and two
-   claims in this one were. Scan `log/log-detail.md` when the area has a history of failed approaches.
+   claims in this one were. Scan the relevant branch log under `log/detail/` when the area has a history of failed
+   approaches.
 2. **Define the outcome.** State what should be observably true when the work is done. Write a task file only when the
    work spans sessions, needs decisions, or needs durable acceptance checks; handle small obvious changes directly.
 3. **Investigate.** Find the affected code, interfaces, tests, and constraints. **Measure before modelling.** Two of
@@ -28,7 +29,7 @@ Use the smallest complete loop that moves the project forward without losing imp
      terminal. See `plan/test/test.md`.
 6. **Reconcile.** Update the planning, architecture, testing, and workflow documents this change made inaccurate, in the
    same change. Add durable outcomes to `log/log-summary.md` and the attempts, failures and reproductions to
-   `log/log-detail.md`.
+   `log/detail/<branch>.md`.
 7. **Integrate.** Follow `version-control.md`. Leave the worktree clean, and report the result, the verification
    actually performed, and anything left undone.
 

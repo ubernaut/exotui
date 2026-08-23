@@ -13,7 +13,7 @@ popular, battle-tested option unless there is a specific reason not to. Do not a
 
 **Fit the change to the architecture.** Before adding functionality, work out where it belongs. A shortcut that adds a
 feature by chaining onto an existing hack costs more than the feature is worth — and this repository has paid that bill
-(see `log/log-detail.md`, pointer input).
+(see `log/detail/main.md`, pointer input).
 
 **Design fractally.** The same patterns and style repeat at every scale: controller plus view, pure model plus thin
 renderer, one authority per concern. A reader who has understood one component should recognise the next.
@@ -40,7 +40,7 @@ These run in `deno task health` and in CI, so they are not optional:
 
 ## Working rules that came from mistakes
 
-Each of these exists because ignoring it cost time. The detail is in `log/log-detail.md`.
+Each of these exists because ignoring it cost time. The detail is in `log/detail/main.md`.
 
 - **Measure before building an abstraction for a problem you have inferred.** A 183-line coordinate-space model was
   written to correct terminal padding that measured, against the real terminal, to exactly zero.
