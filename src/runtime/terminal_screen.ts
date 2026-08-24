@@ -392,11 +392,56 @@ export class TerminalScreenController {
     if (char < " ") return;
 
     const glyph = this.#charsetDecGraphics[this.#activeCharset] ? DEC_SPECIAL_GRAPHICS[char] ?? char : char;
+    // A glyph that measures zero columns is a combining mark: it modifies the
+    // glyph already on screen and owns no cell of its own. `terminalGraphicWidth`
+    // floors every glyph at one column so an unknown character is never
+    // invisible, which is right for a glyph and wrong for a mark.
+    if (textWidth(glyph) === 0) {
+      this.#combineWithPreviousGlyph(glyph);
+      return;
+    }
     const width = terminalGraphicWidth(glyph);
     const cell = this.#styledCell(glyph);
     this.#placeGlyph(cell, width);
     this.#lastPrintableCell = { ...cell };
     this.#lastPrintableWidth = width;
+  }
+
+  /**
+   * Attaches a combining mark to the glyph it modifies.
+   *
+   * The cursor sits just past that glyph, except at the right edge where the
+   * deferred wrap parks it on the glyph itself. A mark with nothing to modify is
+   * dropped rather than given a column, which is what a real terminal does.
+   *
+   * Giving each mark its own cell — what happened before this — costs more than
+   * a wrong column count. The splitter this screen writes through pairs an
+   * astral base with at most one mark, so kitty's Unicode image placeholders
+   * (`U+10EEEE` plus a row and a column diacritic, sometimes a third for the
+   * image id's high byte) arrived as two characters and consumed two columns.
+   * Every image an application drew through a relay came out twice as wide as
+   * the pane holding it, wrapped, and cascaded down the rest of the screen. The
+   * worse half was that a cell holding a bare mark gets painted into the host's
+   * output stream, where it combines with whatever the compositor drew before
+   * it — so the corruption escaped the window's own bounds and took the desktop
+   * with it.
+   */
+  #combineWithPreviousGlyph(mark: string): void {
+    const row = this.#state.cells[this.#state.cursor.row];
+    if (!row) return;
+    let column = this.#pendingWrap ? this.#state.cursor.column : this.#state.cursor.column - 1;
+    // Step back over a wide glyph's continuation to the cell that owns the pair.
+    while (column > 0 && row[column]?.continuation) column -= 1;
+    if (column < 0 || column >= this.#columns) return;
+    const base = row[column];
+    if (!base) return;
+    // Bounded: a stream of marks aimed at one cell must not grow a row without
+    // limit. Three diacritics is the most any placeholder needs.
+    if (base.char.length + mark.length > MAX_CELL_GLYPH_UNITS) return;
+    const combined: TerminalScreenCell = { ...base, char: base.char + mark };
+    row[column] = combined;
+    // REP repeats what is on screen, marks included.
+    if (this.#lastPrintableCell) this.#lastPrintableCell = { ...combined };
   }
 
   #placeGlyph(cell: TerminalScreenCell, width: number): void {
@@ -1160,6 +1205,9 @@ function incompleteTerminalControl(suffix: string): boolean {
   }
   return true;
 }
+
+/** Code units one cell's glyph may hold: a base plus a few combining marks. */
+const MAX_CELL_GLYPH_UNITS = 16;
 
 function terminalGraphicWidth(char: string): number {
   return Math.max(1, Math.min(2, textWidth(char)));

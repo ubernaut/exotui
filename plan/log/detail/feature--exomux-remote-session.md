@@ -57,3 +57,58 @@ capture keybinding, multi-host client shape, the transfer op's form, and whether
 prompt asked for proposals; picking for the user would be answering a question that was not asked.
 
 Nothing is implemented. Next step is D1.
+
+## 2026-08-24 — Kitty Unicode placeholders corrupted the desktop; combining marks fixed
+
+### Prompt
+
+Screen corruption when codex opens a kitty-based split terminal containing a browser — probably not from this branch,
+but fix it here. Follow-up: over a remote session the placeholder characters do not even show, it corrupts the entire
+exomux display.
+
+### Response and strategy
+
+**Reproduced from the live system rather than from the description.** The process tree plus `tmux list-panes` gave the
+chain: Ghostty → exomux client (pts/10) → exomux daemon PTY (pts/22) → `tmux a` → tmux session 0 → pane `0:0.1` running
+terminal-browser's electron. `tmux capture-pane -p -e -t 0:0.1` — read-only, no attach, so the live session was never
+disturbed — returned rows of `F4 8E BB AE` (`U+10EEEE`, kitty's Unicode placeholder) each followed by two combining
+diacritics, the run prefixed with `ESC[38;2;28;239;13m`. That foreground is the image id: kitty encodes it in the cell
+colour, high byte in an optional third diacritic. `allow-passthrough` was `on` per pane, so the data did reach exomux.
+
+**Measured before changing anything.** A five-line probe against `UNICODE_CHAR_REGEXP` and `textWidth`:
+
+```
+base+2  split: ["<base>̅", "̍"]      3 placeholder cells -> 6 chars, want 3
+```
+
+The splitter pairs an **astral** base with at most one combining mark, so the second arrives as its own character, and
+`terminalGraphicWidth` floors every glyph at one column. Each placeholder cell therefore took two columns. That is the
+whole first symptom: an image twice as wide as its pane, wrapping and cascading.
+
+The user's follow-up identified the second symptom and confirmed the mechanism: a cell holding a _bare_ combining mark
+is painted into the host's output stream, where the host terminal combines it with whatever the compositor drew
+immediately before it. The damage escapes the window and takes the desktop with it, which is why over a remote session
+there are no placeholder glyphs to see — just corruption.
+
+**Fixed** in `src/runtime/terminal_screen.ts`: a glyph measuring zero columns attaches to the glyph it modifies and
+never gets a cell. Bounded at 16 code units so a mark flood cannot grow a row. Five tests; four fail without the change
+(the fifth, a wide base with one mark, is a regression guard — the splitter already grouped that case, so it passed
+either way, and it is worth saying so rather than counting it as evidence).
+
+This is a general correctness fix, not a kitty one: any text with two or more combining marks was mislaid identically.
+
+**Also fixed:** the "exomux cannot show them yet" warning fired on the first kitty APC regardless of whether a relay
+existed. With passthrough on it is a lie the status line then keeps. Gated on `!runtime.graphics`.
+
+**Not fixed, filed as `047`.** The image still will not appear. `KittyPassthroughRelay` remaps `i=` into a per-session
+host-id block, but a virtual placement carries its id in the _cell foreground_ too, which the relay cannot reach — so
+the host gets the image under one id and placeholder cells naming another. `U` is not even in the relay's
+`placementKeys`, so `U=1` is rewritten into a real cursor-anchored placement. Three approaches written up; the
+recommendation is to namespace by the id's high byte (the third diacritic) so the foreground never needs touching. After
+this fix the failure mode is a clean grid of blank placeholders instead of a smeared desktop — better, still broken.
+
+**Gates.** Root suite 3682 passed after regenerating `budgets/entrypoints.json` (the module-touching rule again:
+`terminal_screen.ts` grew 2584 bytes, module count unchanged). exomux suite 546 passed.
+
+The maintainer still needs to drive the real thing: `terminal-browser open --split right` inside `tmux a` inside exomux,
+in Ghostty. Headless mounts cannot see any of it.
