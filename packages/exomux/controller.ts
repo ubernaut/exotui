@@ -3599,11 +3599,15 @@ export class ExomuxController {
     runtime.lastSequence = sequence;
     const graphicsBefore = runtime.screen.kittyGraphicsConsumed;
     runtime.screen.write(frameValue.data);
-    if (graphicsBefore === 0 && runtime.screen.kittyGraphicsConsumed > 0) {
+    if (graphicsBefore === 0 && runtime.screen.kittyGraphicsConsumed > 0 && !runtime.graphics) {
       // The application inside believes this terminal draws images — usually
       // because a daemon older than the env sanitiser handed it the host
       // terminal's identity. The screen stays honest (blank where the image
       // would be), so the user gets told why it is blank.
+      //
+      // Only when there is no relay. With passthrough on the images do reach
+      // the host terminal, and telling the user otherwise on the first frame of
+      // a working image is a lie the status line then keeps.
       this.#warn(runtime, "App is sending images (kitty graphics) — exomux cannot show them yet.");
     }
     if (runtime.outputTaps.size > 0) {

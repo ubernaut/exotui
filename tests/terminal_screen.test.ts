@@ -154,6 +154,74 @@ Deno.test("TerminalScreenController writes unicode graphics without splitting su
   assertEquals(screen.inspect().cursor, { column: 5, row: 0 });
 });
 
+Deno.test("TerminalScreenController gives a combining mark no column of its own", () => {
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+
+  // Two marks on one base. The splitter pairs a base with at most one, so the
+  // second arrives as its own character and used to claim a second column.
+  screen.write("e\u0301\u0304x");
+
+  assertEquals(screen.cellRows()[0]![0], { char: "e\u0301\u0304" });
+  assertEquals(screen.cellRows()[0]![1], { char: "x" });
+  assertEquals(screen.inspect().cursor, { column: 2, row: 0 });
+});
+
+Deno.test("TerminalScreenController keeps a kitty unicode placeholder row one cell per placeholder", () => {
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+  // What a browser drawing through a relay actually emits: U+10EEEE carrying a
+  // row diacritic and a column diacritic per cell. Three of them are three
+  // columns, never six — an image twice as wide as its pane wraps and cascades
+  // over everything below it.
+  const placeholder = "\u{10EEEE}";
+  screen.write(
+    `${placeholder}\u0305\u0305${placeholder}\u0305\u030D${placeholder}\u0305\u030E|`,
+  );
+
+  const [row] = screen.cellRows();
+  assertEquals(row![0], { char: `${placeholder}\u0305\u0305` });
+  assertEquals(row![1], { char: `${placeholder}\u0305\u030D` });
+  assertEquals(row![2], { char: `${placeholder}\u0305\u030E` });
+  assertEquals(row![3], { char: "|" });
+  assertEquals(screen.inspect().cursor, { column: 4, row: 0 });
+});
+
+Deno.test("TerminalScreenController never leaves a bare combining mark in a cell", () => {
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+
+  // Nothing to modify: a mark at the start of a line is dropped. A cell holding
+  // only a mark is painted into the host's stream, where it combines with
+  // whatever the compositor drew before it and carries the damage out of the
+  // window.
+  screen.write("\u0301\u0304ok");
+
+  assertEquals(screen.cellRows()[0]![0], { char: "o" });
+  assertEquals(screen.cellRows()[0]![1], { char: "k" });
+  assertEquals(screen.inspect().cursor, { column: 2, row: 0 });
+});
+
+Deno.test("TerminalScreenController attaches a combining mark to a wide glyph, not its continuation", () => {
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+
+  screen.write("\u754c\u0301x");
+
+  const [row] = screen.cellRows();
+  assertEquals(row![0], { char: "\u754c\u0301" });
+  assertEquals(row![1]?.continuation, true);
+  assertEquals(row![2], { char: "x" });
+  assertEquals(screen.inspect().cursor, { column: 3, row: 0 });
+});
+
+Deno.test("TerminalScreenController bounds the marks one cell may accumulate", () => {
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+
+  screen.write("e" + "\u0301".repeat(64) + "x");
+
+  const [row] = screen.cellRows();
+  assertEquals(row![0]!.char.length <= 16, true);
+  assertEquals(row![1], { char: "x" });
+  assertEquals(screen.inspect().cursor, { column: 2, row: 0 });
+});
+
 Deno.test("TerminalScreenController preserves split UTF-8 and control sequences across writes", () => {
   const screen = new TerminalScreenController({ columns: 12, rows: 2 });
   const emoji = new TextEncoder().encode("🙂");
