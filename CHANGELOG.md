@@ -6,6 +6,28 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-24
+
+### Added
+
+- **`./shell` — the shell surface, published.** 0.6.0 shipped the presenter seam and everything around it but left the
+  host-neutral half inside `src/`, so the only application that could compose against it was one living in this
+  repository. The seam's _types_ and `runShellApp` did reach the public surface, but only through `./web`, which is the
+  wrong door for a terminal application; the painters and the theme catalog reached it not at all.
+
+  `./shell` is that surface with a home of its own: `ShellPresenter`, `ShellApp`, `ShellPresentedFrame` and
+  `runShellApp`; the shell painters (`ShellSurface`, `paintShellWindowChrome`, `paintShellSwitcher`,
+  `paintShellMenuPanel`, the ground helpers); the seventeen-entry `SHELL_THEMES` catalog with `shellThemeById` and
+  `shellActiveTitlebarForeground`; the workbench window host; and the animated background fields.
+
+  The presenters keep their existing homes, because they are the host-specific half: `consolePresenter` and
+  `runConsoleShellApp` from `./runtime`, `webPresenter` and `runWebShellApp` from `./web`. Both were already public and
+  are unchanged.
+
+  Nothing moved and nothing broke — this is additive. An application that was reaching into `src/app/` for these can now
+  import them, and one that was importing the seam types from `./web` should move to `./shell`, though `./web` continues
+  to re-export them.
+
 ## 0.6.0 — 2026-08-22
 
 ### Added

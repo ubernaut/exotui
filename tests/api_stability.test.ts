@@ -27,6 +27,7 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
     ".",
     "./app",
     "./web",
+    "./shell",
     "./remote",
     "./three-ascii",
     "./viz",
@@ -62,6 +63,7 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
   assertEquals(filterPackageEntrypoints({ stability: "beta" }).map((entrypoint) => entrypoint.specifier), [
     "./app",
     "./web",
+    "./shell",
     "./viz",
     "./showcase",
     "./theme",
@@ -69,6 +71,8 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
     "./terminal",
     "./testing",
   ]);
+  assertEquals(packageEntrypointFor("./mod.shell.ts")?.specifier, "./shell");
+  assertEquals(formatPackageEntrypointMarkdown().includes("`./shell`"), true);
   assertEquals(formatPackageEntrypointMarkdown().includes("`./web`"), true);
   assertEquals(formatPackageEntrypointMarkdown().includes("`./three-ascii`"), true);
   assertEquals(formatPackageEntrypointMarkdown().includes("`./theme`"), true);
@@ -151,6 +155,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
         ".": "./mod.ts",
         "./app": "./mod.app.ts",
         "./web": "./mod.web.ts",
+        "./shell": "./mod.shell.ts",
         "./remote": "./mod.remote.ts",
         "./three-ascii": "./mod.three_ascii.ts",
         "./viz": "./src/viz/mod.ts",
@@ -200,6 +205,7 @@ Deno.test("package export validation compares deno export maps with the stabilit
   assertEquals(invalid.ok, false);
   assertEquals(invalid.missingExports, [
     "./app",
+    "./shell",
     "./remote",
     "./three-ascii",
     "./viz",

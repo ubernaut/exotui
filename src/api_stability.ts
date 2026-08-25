@@ -12,6 +12,7 @@ export interface PackageEntrypointManifest {
     | "."
     | "./app"
     | "./web"
+    | "./shell"
     | "./remote"
     | "./three-ascii"
     | "./theme"
@@ -28,6 +29,7 @@ export interface PackageEntrypointManifest {
     | "./mod.ts"
     | "./mod.app.ts"
     | "./mod.web.ts"
+    | "./mod.shell.ts"
     | "./mod.remote.ts"
     | "./mod.three_ascii.ts"
     | "./mod.theme.ts"
@@ -132,6 +134,26 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "Three ASCII browser helpers",
     ],
     excludes: ["terminal Tui runtime", "Deno stdio lifecycle"],
+  },
+  {
+    specifier: "./shell",
+    path: "./mod.shell.ts",
+    runtime: "shared",
+    stability: "beta",
+    description:
+      "Host-neutral shell surface: the presenter seam, shell painters, theme catalog, window host, and backgrounds.",
+    includes: [
+      "ShellPresenter seam and runShellApp",
+      "shell painters: chrome, switcher, menu panels, grounds",
+      "the shared ShellThemeSpec catalog",
+      "the workbench window host",
+      "animated background fields",
+    ],
+    excludes: [
+      "the presenters themselves -- consolePresenter is ./runtime, webPresenter is ./web",
+      "terminal-only lifecycle wiring",
+      "browser-only host helpers",
+    ],
   },
   {
     specifier: "./remote",

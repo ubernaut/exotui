@@ -10,6 +10,7 @@
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.6",
     "jsr:@std/path@^1.1.5": "1.1.6",
+    "jsr:@ubernaut/exotui@0.6": "0.6.0",
     "npm:jpeg-js@0.4.4": "0.4.4",
     "npm:markdown-it@15.0.0": "15.0.0"
   },
@@ -53,6 +54,13 @@
       "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
       "dependencies": [
         "jsr:@std/internal"
+      ]
+    },
+    "@ubernaut/exotui@0.6.0": {
+      "integrity": "061aff08d45c9d6fc4e777c32c35b0b755c744536715089bf18413c994b26743",
+      "dependencies": [
+        "jsr:@sigma/pty-ffi",
+        "npm:markdown-it"
       ]
     }
   },
@@ -121,7 +129,7 @@
       "npm:markdown-it@15.0.0"
     ],
     "links": {
-      "jsr:@ubernaut/exotui@0.6.0": {
+      "jsr:@ubernaut/exotui@0.7.0": {
         "dependencies": [
           "jsr:@sigma/pty-ffi@0.42.0",
           "jsr:@std/jsonc@1.0.2",

@@ -10,6 +10,7 @@ Deno export map in `deno.jsonc`, README guidance, and release notes should stay 
 | `.`             | `mod.ts`                     | terminal | stable       | Full Deno terminal apps, reusable widgets, app primitives, themes, runtime helpers, tests, and benchmarks.                     |
 | `./app`         | `mod.app.ts`                 | terminal | beta         | New terminal apps using the opinionated lifecycle, curated widgets, commands, routes, focus, and plugins.                      |
 | `./web`         | `mod.web.ts`                 | browser  | beta         | Standalone browser bundles, GitHub Pages demos, Canvas2D/DOM hosts, browser input, IndexedDB, Workers, and shared controllers. |
+| `./shell`       | `mod.shell.ts`               | shared   | beta         | Host-neutral shell surface: the presenter seam, shell painters, the theme catalog, the window host, and animated backgrounds.  |
 | `./remote`      | `mod.remote.ts`              | remote   | experimental | Browser clients and server bridges that connect transports to hosted terminal session handles.                                 |
 | `./three-ascii` | `mod.three_ascii.ts`         | shared   | experimental | Focused Acerola-style Three.js/WebGPU ASCII renderer APIs, glyph/block/mixed modes, presets, and renderer options.             |
 | `./theme`       | `mod.theme.ts`               | shared   | beta         | Theme engines, semantic tokens, providers, resolvers, galleries, validation, and palette packs.                                |
@@ -24,6 +25,7 @@ Local development imports use relative paths:
 import { createThemeProvider, Tui } from "./mod.ts";
 import { createTerminalApp } from "./mod.app.ts";
 import { createWebTui } from "./mod.web.ts";
+import { runShellApp } from "./mod.shell.ts";
 import { RemoteTerminalClient } from "./mod.remote.ts";
 import { createDefaultAsciiOptions } from "./mod.three_ascii.ts";
 import { createThemeEngine } from "./mod.theme.ts";
@@ -39,6 +41,7 @@ Published package imports should use the same subpaths:
 import { Tui } from "jsr:@ubernaut/exotui";
 import { createTerminalApp } from "jsr:@ubernaut/exotui/app";
 import { createWebTui } from "jsr:@ubernaut/exotui/web";
+import { runShellApp } from "jsr:@ubernaut/exotui/shell";
 import { RemoteTerminalClient } from "jsr:@ubernaut/exotui/remote";
 import { createDefaultAsciiOptions } from "jsr:@ubernaut/exotui/three-ascii";
 import { createThemeEngine } from "jsr:@ubernaut/exotui/theme";
