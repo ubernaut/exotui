@@ -17,7 +17,12 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
    bare mark escapes into the host's stream. The image still does not render: the relay remaps `i=` but a virtual
    placement also carries its id in the cell foreground, which the relay cannot reach, and `U` is not in its vocabulary
    at all. Recommendation is to namespace by the id's high byte so the foreground stays untouched.
-3. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
+3. **`048` The corruption background.** [`todo/048-corruption-background.md`](048-corruption-background.md). The
+   kitty-placeholder glitch fixed on Aug 24 — doubled columns, cascading wrap, lurid id-coloured runs — rebuilt on
+   purpose as an animated field that reclaims idle windows through the existing overgrowth machinery. One hard
+   constraint: it must never emit a real `U+10EEEE` or a bare combining mark, because a terminal that understands the
+   placeholder protocol would bind those cells to whatever image id the foreground happens to encode.
+4. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
    fitness ranking are in and green; these are the gaps building a real application found and did not close:
    - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
      natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
@@ -29,7 +34,7 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
      repository as the worked example for `./viz`. The standalone `~/projects/exomonitor` checkout is now a second copy
      of the same code; it should be retired rather than kept, because two copies of a thing is the drift this release
      spent a day undoing.
-4. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+5. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
 ## `deno task health` — seven red gates, fixed August 18 2026
