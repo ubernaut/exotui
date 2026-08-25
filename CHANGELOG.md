@@ -6,6 +6,16 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+### Fixed
+
+- **`./shell` exports `createTiledWorkspaceController`.** The entrypoint shipped
+  `createWorkbenchWindowHostController` but not the workspace controller its options
+  require, so `./shell` alone could not construct a window host — a caller had to reach for
+  `./app` as well, which is terminal-tagged and wrong for a host-neutral surface. The module
+  was already reachable transitively, so this adds no modules to the entrypoint's budget;
+  only the export declaration changed. Found by moonlab's exomoonlab console, the first
+  outside consumer of the shell surface.
+
 ## 0.7.0 — 2026-08-24
 
 ### Added

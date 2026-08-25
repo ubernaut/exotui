@@ -1324,9 +1324,9 @@
   },
   "mod.shell.ts": {
     "modules": 82,
-    "bytes": 1569107,
+    "bytes": 1569365,
     "paths": {
-      "mod.shell.ts": 1314,
+      "mod.shell.ts": 1572,
       "src/app/actions.ts": 3908,
       "src/app/animated_background.ts": 7146,
       "src/app/backgrounds/biomech_background.ts": 17415,

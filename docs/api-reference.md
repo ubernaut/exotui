@@ -7,11 +7,11 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 - Entrypoints: 16
 - Unique modules: 546
-- Module visits: 1081
-- Unique re-export declarations: 701
-- Re-export declaration visits: 1081
+- Module visits: 1082
+- Unique re-export declarations: 702
+- Re-export declaration visits: 1082
 - Unique symbol declarations: 4994
-- Symbol declaration visits: 10147
+- Symbol declaration visits: 10174
 - Documented symbol declarations: 4962
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
@@ -24,7 +24,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     364 |    3695 | 100.00% |
-| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      18 |     110 | 100.00% |
+| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      19 |     137 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -90,10 +90,10 @@ Host-neutral shell surface: the presenter seam, shell painters, theme catalog, w
 - Path: `./mod.shell.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 18
-- Re-export declarations: 18
-- Exported symbols: 110
-- Documented symbols: 110
+- Modules: 19
+- Re-export declarations: 19
+- Exported symbols: 137
+- Documented symbols: 137
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -285,7 +285,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.app.ts`](#mod-app-ts)                                                                           | `./app`                                 |         53 |       0 |          0 |
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                              |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                             |          1 |       0 |          0 |
-| [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                               |          5 |       0 |          0 |
+| [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                               |          6 |       0 |          0 |
 | [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                            |         17 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                             |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                               |         15 |       0 |          0 |
@@ -554,7 +554,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/layout/split_pane.ts`](#src-layout-split-pane-ts)                                               | `.`, `./app`, `./web`                   |          0 |      10 |         10 |
 | [`src/layout/style.ts`](#src-layout-style-ts)                                                         | `.`, `./web`                            |          0 |      55 |         55 |
 | [`src/layout/taffy.ts`](#src-layout-taffy-ts)                                                         | `./layout/taffy`                        |          1 |       0 |          0 |
-| [`src/layout/tiled_workspace.ts`](#src-layout-tiled-workspace-ts)                                     | `.`, `./app`, `./web`                   |          0 |      27 |         27 |
+| [`src/layout/tiled_workspace.ts`](#src-layout-tiled-workspace-ts)                                     | `.`, `./app`, `./web`, `./shell`        |          0 |      27 |         27 |
 | [`src/layout/types.ts`](#src-layout-types-ts)                                                         | `.`, `./web`                            |          0 |       3 |          3 |
 | [`src/layout/vertical_layout.ts`](#src-layout-vertical-layout-ts)                                     | `.`, `./app`, `./web`                   |          0 |       1 |          1 |
 | [`src/layout/window_manager.ts`](#src-layout-window-manager-ts)                                       | `.`, `./web`                            |          0 |      10 |         10 |
@@ -935,6 +935,7 @@ _Entrypoints: `./shell`_
 | `src/app/workbench_shell.ts`       | star | -     |
 | `src/app/shell_theme.ts`           | star | -     |
 | `src/app/workbench_window_host.ts` | star | -     |
+| `src/layout/tiled_workspace.ts`    | star | -     |
 | `src/app/backgrounds/mod.ts`       | star | -     |
 
 _No direct exported symbols._
@@ -5820,7 +5821,7 @@ _No direct exported symbols._
 
 ### src/layout/tiled_workspace.ts
 
-_Entrypoints: `.`, `./app`, `./web`_
+_Entrypoints: `.`, `./app`, `./web`, `./shell`_
 
 | Symbol                                       | Kind      | Type Only | JSDoc |
 | -------------------------------------------- | --------- | --------- | ----- |

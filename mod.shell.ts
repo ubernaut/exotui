@@ -22,4 +22,8 @@ export * from "./src/app/shell_presenter.ts";
 export * from "./src/app/workbench_shell.ts";
 export * from "./src/app/shell_theme.ts";
 export * from "./src/app/workbench_window_host.ts";
+// The window host cannot be constructed without a workspace controller,
+// so shipping one without the other leaves this entrypoint unusable on
+// its own. `./app` also exports it, for terminal applications.
+export * from "./src/layout/tiled_workspace.ts";
 export * from "./src/app/backgrounds/mod.ts";
