@@ -3136,10 +3136,26 @@ export class ExomuxController {
     const runtime = this.#runtimeRequired(sessionId);
     if (this.pendingKillSessionId.peek() === sessionId) this.pendingKillSessionId.value = undefined;
     const title = runtime.summary.peek().title;
+    let vanished = false;
     const killed = await this.client.kill(sessionId).catch(() => false);
     if (!killed) {
-      this.status.value = "The host did not terminate that session.";
-      return false;
+      // The daemon's list is the authority — the same rule the exit sweep
+      // follows. A kill fails for two unlike reasons and they must not share an
+      // outcome: the daemon still has a live session and refused to end it, or
+      // the session is already gone (the real client throws `session-not-found`
+      // for one it dropped) and there is nothing left to kill.
+      //
+      // Only the first is a refusal. Treating the second as one is what made a
+      // window unclosable: the caller restores the frame whenever this returns
+      // false, so a terminal whose shell had exited while this client was away
+      // survived every close attempt, and restarting exomux was the only way to
+      // be rid of it. A failed list keeps the window, because an unreachable
+      // daemon is not evidence that the session ended.
+      if (await this.#sessionStillListed(sessionId)) {
+        this.status.value = "The host did not terminate that session.";
+        return false;
+      }
+      vanished = true;
     }
     runtime.attachGeneration += 1;
     runtime.attached.value = false;
@@ -3176,8 +3192,24 @@ export class ExomuxController {
     disposeTerminalRuntime(runtime);
     this.#publishSessions();
     this.#persistActiveSession();
-    this.status.value = `Terminated ${title}.`;
+    this.status.value = vanished ? `Closed ${title}; it had already exited.` : `Terminated ${title}.`;
     return true;
+  }
+
+  /**
+   * Whether the daemon still has this session.
+   *
+   * Conservative on failure: an unreachable or unhappy daemon reports "still
+   * there", so a terminal with a live process behind it is never closed on the
+   * strength of a list that did not arrive.
+   */
+  async #sessionStillListed(sessionId: string): Promise<boolean> {
+    try {
+      const listed = normalizeSessionList(await this.client.list());
+      return listed.some((session) => session.id === sessionId);
+    } catch {
+      return true;
+    }
   }
 
   /** Explicitly shuts down the retaining host; unlike UI disposal, this is destructive. */

@@ -220,6 +220,45 @@ Deno.test("Exomux detaches presentation windows without killing and replays on r
   assert(client.detachCalls >= 2);
 });
 
+Deno.test("Exomux closes a window whose session the daemon has already dropped", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("already-exited", "ghost shell");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    assert(controller.runtime(session.id) !== undefined);
+    // The shell exited while this client was away. The daemon terminated the
+    // session and dropped it; no broadcast reached this client, so the runtime
+    // and its window are still here with nothing behind them.
+    host.sessions.delete(session.id);
+
+    // Before this was fixed the kill came back false, the caller restored the
+    // frame, and the window could not be closed without restarting exomux.
+    assertEquals(await controller.killSession(session.id), true);
+    assertEquals(controller.runtime(session.id), undefined);
+    assertStringIncludes(controller.status.peek(), "already exited");
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux keeps the window when the daemon refuses a session it still lists", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("refused-kill", "busy shell");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    client.rejectKill = true;
+    // The distinction that matters: a refusal for a session the daemon still
+    // has is not a session that vanished, and its live PTY keeps its window.
+    assertEquals(await controller.killSession(session.id), false);
+    assertEquals(controller.runtime(session.id) !== undefined, true);
+    assertStringIncludes(controller.status.peek(), "did not terminate");
+  } finally {
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux rejected kill preserves the live attachment generation and output", async () => {
   const host = new FakeExomuxHost();
   const session = host.seed("rejected-kill", "keep streaming");
