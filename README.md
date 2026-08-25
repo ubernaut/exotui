@@ -461,6 +461,7 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | `.`                   | `mod.ts`                           | terminal | stable       |
 | `./app`               | `mod.app.ts`                       | terminal | beta         |
 | `./web`               | `mod.web.ts`                       | browser  | beta         |
+| `./shell`             | `mod.shell.ts`                     | shared   | beta         |
 | `./remote`            | `mod.remote.ts`                    | remote   | experimental |
 | `./three-ascii`       | `mod.three_ascii.ts`               | shared   | experimental |
 | `./showcase`          | `src/showcase/mod.ts`              | shared   | beta         |

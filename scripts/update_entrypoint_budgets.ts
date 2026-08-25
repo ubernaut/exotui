@@ -20,6 +20,7 @@ const ENTRYPOINTS = [
   "mod.terminal.ts",
   "mod.theme.ts",
   "mod.web.ts",
+  "mod.shell.ts",
 ];
 
 const repoRoot = new URL("..", import.meta.url).href.replace(/\/$/, "");

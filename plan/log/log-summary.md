@@ -3,6 +3,26 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## August 24 2026 — `./shell`: the host-neutral surface gets a door of its own
+
+0.6.0 shipped the seam and kept half of it indoors. Probing the published package rather than the working tree showed
+the split was accidental rather than designed: `webPresenter` and `runWebShellApp` were already public through `./web`,
+`consolePresenter` and `runConsoleShellApp` through `./runtime`, and the seam types and window host escaped too — but
+only through `./web`, because one barrel happened to import another. The painters (`workbench_shell.ts`) and the
+seventeen-theme catalog (`shell_theme.ts`) did not escape at all.
+
+`./shell` (0.7.0) is the host-neutral half with a home that says so: the seam and `runShellApp`, the shell painters, the
+theme catalog, the window host, and the animated backgrounds. The presenters stay where they are, because they are the
+host-specific half and the export map should show that split rather than hide it. Additive; nothing moved.
+
+Adding an entrypoint here is seven files, not one — the export map, the closed unions and manifest in
+`api_stability.ts`, the packaging doc, the README table, both fixtures in `api_stability.test.ts`, and the budget
+baseline. Three tests failed until they agreed. `mod.shell.ts` also went into `update_entrypoint_budgets.ts`, whose list
+is hardcoded: without that a brand-new public surface would have arrived with no budget watching it.
+
+Driven by moonlab's exomoonlab console, which is the first outside consumer of the seam and the reason the gap was
+noticed.
+
 ## August 22 2026 — release 0.6.0 / exomux 0.3.0: the seam ships
 
 The merge to main became a release. exotui 0.6.0 carries the presenter seam and its two hosts, the shell painters, the

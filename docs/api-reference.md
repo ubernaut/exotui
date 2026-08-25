@@ -5,13 +5,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 15
-- Unique modules: 545
-- Module visits: 1063
-- Unique re-export declarations: 696
-- Re-export declaration visits: 1063
+- Entrypoints: 16
+- Unique modules: 546
+- Module visits: 1081
+- Unique re-export declarations: 701
+- Re-export declaration visits: 1081
 - Unique symbol declarations: 4994
-- Symbol declaration visits: 10037
+- Symbol declaration visits: 10147
 - Documented symbol declarations: 4962
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
@@ -24,6 +24,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     364 |    3695 | 100.00% |
+| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      18 |     110 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -78,6 +79,21 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Re-export declarations: 366
 - Exported symbols: 3695
 - Documented symbols: 3695
+- Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./shell
+
+Host-neutral shell surface: the presenter seam, shell painters, theme catalog, window host, and backgrounds.
+
+- Path: `./mod.shell.ts`
+- Runtime: shared
+- Stability: beta
+- Modules: 18
+- Re-export declarations: 18
+- Exported symbols: 110
+- Documented symbols: 110
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -269,6 +285,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.app.ts`](#mod-app-ts)                                                                           | `./app`                                 |         53 |       0 |          0 |
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                              |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                             |          1 |       0 |          0 |
+| [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                               |          5 |       0 |          0 |
 | [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                            |         17 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                             |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                               |         15 |       0 |          0 |
@@ -285,19 +302,19 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/animated_background.ts`](#src-app-animated-background-ts)                                   | `.`, `./web`                            |          0 |      16 |         16 |
 | [`src/app/app.ts`](#src-app-app-ts)                                                                   | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/app/background_jobs.ts`](#src-app-background-jobs-ts)                                           | `.`, `./web`                            |          0 |       5 |          5 |
-| [`src/app/backgrounds/biomech_background.ts`](#src-app-backgrounds-biomech-background-ts)             | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/app/backgrounds/circuit_background.ts`](#src-app-backgrounds-circuit-background-ts)             | `.`, `./web`                            |          0 |       8 |          8 |
-| [`src/app/backgrounds/contract.ts`](#src-app-backgrounds-contract-ts)                                 | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/backgrounds/fire_background.ts`](#src-app-backgrounds-fire-background-ts)                   | `.`, `./web`                            |          0 |       3 |          3 |
-| [`src/app/backgrounds/gpu_device.ts`](#src-app-backgrounds-gpu-device-ts)                             | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/backgrounds/ivy_background.ts`](#src-app-backgrounds-ivy-background-ts)                     | `.`, `./web`                            |          0 |       6 |          6 |
-| [`src/app/backgrounds/jungle_background.ts`](#src-app-backgrounds-jungle-background-ts)               | `.`, `./web`                            |          0 |       1 |          1 |
-| [`src/app/backgrounds/matrix_background.ts`](#src-app-backgrounds-matrix-background-ts)               | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/backgrounds/mod.ts`](#src-app-backgrounds-mod-ts)                                           | `.`, `./web`                            |         12 |       2 |          2 |
-| [`src/app/backgrounds/rainy_windows_background.ts`](#src-app-backgrounds-rainy-windows-background-ts) | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/app/backgrounds/skull_background.ts`](#src-app-backgrounds-skull-background-ts)                 | `.`, `./web`                            |          0 |       4 |          4 |
-| [`src/app/backgrounds/turbulence_background.ts`](#src-app-backgrounds-turbulence-background-ts)       | `.`, `./web`                            |          0 |       2 |          2 |
-| [`src/app/backgrounds/vaporwave_background.ts`](#src-app-backgrounds-vaporwave-background-ts)         | `.`, `./web`                            |          0 |       3 |          3 |
+| [`src/app/backgrounds/biomech_background.ts`](#src-app-backgrounds-biomech-background-ts)             | `.`, `./web`, `./shell`                 |          0 |       2 |          2 |
+| [`src/app/backgrounds/circuit_background.ts`](#src-app-backgrounds-circuit-background-ts)             | `.`, `./web`, `./shell`                 |          0 |       8 |          8 |
+| [`src/app/backgrounds/contract.ts`](#src-app-backgrounds-contract-ts)                                 | `.`, `./web`, `./shell`                 |          0 |      10 |         10 |
+| [`src/app/backgrounds/fire_background.ts`](#src-app-backgrounds-fire-background-ts)                   | `.`, `./web`, `./shell`                 |          0 |       3 |          3 |
+| [`src/app/backgrounds/gpu_device.ts`](#src-app-backgrounds-gpu-device-ts)                             | `.`, `./web`, `./shell`                 |          0 |       4 |          4 |
+| [`src/app/backgrounds/ivy_background.ts`](#src-app-backgrounds-ivy-background-ts)                     | `.`, `./web`, `./shell`                 |          0 |       6 |          6 |
+| [`src/app/backgrounds/jungle_background.ts`](#src-app-backgrounds-jungle-background-ts)               | `.`, `./web`, `./shell`                 |          0 |       1 |          1 |
+| [`src/app/backgrounds/matrix_background.ts`](#src-app-backgrounds-matrix-background-ts)               | `.`, `./web`, `./shell`                 |          0 |       4 |          4 |
+| [`src/app/backgrounds/mod.ts`](#src-app-backgrounds-mod-ts)                                           | `.`, `./web`, `./shell`                 |         12 |       2 |          2 |
+| [`src/app/backgrounds/rainy_windows_background.ts`](#src-app-backgrounds-rainy-windows-background-ts) | `.`, `./web`, `./shell`                 |          0 |       2 |          2 |
+| [`src/app/backgrounds/skull_background.ts`](#src-app-backgrounds-skull-background-ts)                 | `.`, `./web`, `./shell`                 |          0 |       4 |          4 |
+| [`src/app/backgrounds/turbulence_background.ts`](#src-app-backgrounds-turbulence-background-ts)       | `.`, `./web`, `./shell`                 |          0 |       2 |          2 |
+| [`src/app/backgrounds/vaporwave_background.ts`](#src-app-backgrounds-vaporwave-background-ts)         | `.`, `./web`, `./shell`                 |          0 |       3 |          3 |
 | [`src/app/browser_editing.ts`](#src-app-browser-editing-ts)                                           | `.`, `./web`                            |          0 |       4 |          4 |
 | [`src/app/calendar.ts`](#src-app-calendar-ts)                                                         | `.`, `./web`                            |          0 |      12 |         12 |
 | [`src/app/clipboard.ts`](#src-app-clipboard-ts)                                                       | `.`, `./web`                            |          0 |       7 |          7 |
@@ -388,8 +405,8 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/settings_bindings.ts`](#src-app-settings-bindings-ts)                                       | `.`, `./web`                            |          0 |      21 |         21 |
 | [`src/app/settings.ts`](#src-app-settings-ts)                                                         | `.`, `./web`                            |          0 |      10 |         10 |
 | [`src/app/shell_background.ts`](#src-app-shell-background-ts)                                         | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/shell_presenter.ts`](#src-app-shell-presenter-ts)                                           | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/shell_theme.ts`](#src-app-shell-theme-ts)                                                   | `.`, `./web`                            |          1 |       8 |          8 |
+| [`src/app/shell_presenter.ts`](#src-app-shell-presenter-ts)                                           | `.`, `./web`, `./shell`                 |          0 |      10 |         10 |
+| [`src/app/shell_theme.ts`](#src-app-shell-theme-ts)                                                   | `.`, `./web`, `./shell`                 |          1 |       8 |          8 |
 | [`src/app/software_cursor.ts`](#src-app-software-cursor-ts)                                           | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/split_pane_commands.ts`](#src-app-split-pane-commands-ts)                                   | `.`, `./web`                            |          0 |       7 |          7 |
 | [`src/app/structure_inspector.ts`](#src-app-structure-inspector-ts)                                   | `.`, `./web`                            |          0 |       5 |          5 |
@@ -423,13 +440,13 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                       | `.`, `./web`                            |          0 |      13 |         13 |
 | [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)           | `.`, `./web`                            |          0 |       8 |          8 |
 | [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                           | `.`, `./web`                            |          0 |      20 |         20 |
-| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                           | `.`, `./web`                            |          0 |      24 |         24 |
+| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                           | `.`, `./web`, `./shell`                 |          0 |      24 |         24 |
 | [`src/app/workbench_status.ts`](#src-app-workbench-status-ts)                                         | `.`, `./web`                            |          0 |      26 |         26 |
 | [`src/app/workbench_terminal.ts`](#src-app-workbench-terminal-ts)                                     | `.`, `./web`                            |          0 |      66 |         66 |
 | [`src/app/workbench_text.ts`](#src-app-workbench-text-ts)                                             | `.`, `./web`                            |          0 |      17 |         17 |
 | [`src/app/workbench_three_terminal_pressure.ts`](#src-app-workbench-three-terminal-pressure-ts)       | `.`, `./web`                            |          0 |      25 |         25 |
 | [`src/app/workbench_titlebar.ts`](#src-app-workbench-titlebar-ts)                                     | `.`, `./web`                            |          0 |      10 |         10 |
-| [`src/app/workbench_window_host.ts`](#src-app-workbench-window-host-ts)                               | `.`, `./app`, `./web`                   |          0 |      17 |         17 |
+| [`src/app/workbench_window_host.ts`](#src-app-workbench-window-host-ts)                               | `.`, `./app`, `./web`, `./shell`        |          0 |      17 |         17 |
 | [`src/app/workbench_window_registry.ts`](#src-app-workbench-window-registry-ts)                       | `.`, `./web`                            |          0 |      27 |         27 |
 | [`src/app/workbench_workspace_store.ts`](#src-app-workbench-workspace-store-ts)                       | `.`, `./web`                            |          0 |       6 |          6 |
 | [`src/app/workbench_workspace.ts`](#src-app-workbench-workspace-ts)                                   | `.`, `./web`                            |          0 |      19 |         19 |
@@ -908,6 +925,20 @@ _Entrypoints: `./runtime`_
 
 _No direct exported symbols._
 
+### mod.shell.ts
+
+_Entrypoints: `./shell`_
+
+| Re-export Target                   | Kind | Names |
+| ---------------------------------- | ---- | ----- |
+| `src/app/shell_presenter.ts`       | star | -     |
+| `src/app/workbench_shell.ts`       | star | -     |
+| `src/app/shell_theme.ts`           | star | -     |
+| `src/app/workbench_window_host.ts` | star | -     |
+| `src/app/backgrounds/mod.ts`       | star | -     |
+
+_No direct exported symbols._
+
 ### mod.terminal.ts
 
 _Entrypoints: `./terminal`_
@@ -1361,7 +1392,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/biomech_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
@@ -1370,7 +1401,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/circuit_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                           | Kind      | Type Only | JSDoc |
 | -------------------------------- | --------- | --------- | ----- |
@@ -1385,7 +1416,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/contract.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                          | Kind     | Type Only | JSDoc |
 | ------------------------------- | -------- | --------- | ----- |
@@ -1402,7 +1433,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/fire_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                  | Kind      | Type Only | JSDoc |
 | ----------------------- | --------- | --------- | ----- |
@@ -1412,7 +1443,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/gpu_device.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                  | Kind     | Type Only | JSDoc |
 | ----------------------- | -------- | --------- | ----- |
@@ -1423,7 +1454,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/ivy_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                   | Kind      | Type Only | JSDoc |
 | ------------------------ | --------- | --------- | ----- |
@@ -1436,7 +1467,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/jungle_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol             | Kind  | Type Only | JSDoc |
 | ------------------ | ----- | --------- | ----- |
@@ -1444,7 +1475,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/matrix_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                        | Kind      | Type Only | JSDoc |
 | ----------------------------- | --------- | --------- | ----- |
@@ -1455,7 +1486,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/mod.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Re-export Target                                  | Kind | Names |
 | ------------------------------------------------- | ---- | ----- |
@@ -1479,7 +1510,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/rainy_windows_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                          | Kind      | Type Only | JSDoc |
 | ------------------------------- | --------- | --------- | ----- |
@@ -1488,7 +1519,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/skull_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                    | Kind      | Type Only | JSDoc |
 | ------------------------- | --------- | --------- | ----- |
@@ -1499,7 +1530,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/turbulence_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                        | Kind      | Type Only | JSDoc |
 | ----------------------------- | --------- | --------- | ----- |
@@ -1508,7 +1539,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/backgrounds/vaporwave_background.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                       | Kind      | Type Only | JSDoc |
 | ---------------------------- | --------- | --------- | ----- |
@@ -3060,7 +3091,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/shell_presenter.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                | Kind      | Type Only | JSDoc |
 | --------------------- | --------- | --------- | ----- |
@@ -3077,7 +3108,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/shell_theme.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Re-export Target             | Kind  | Names           |
 | ---------------------------- | ----- | --------------- |
@@ -3760,7 +3791,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/workbench_shell.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                     | Kind      | Type Only | JSDoc |
 | -------------------------- | --------- | --------- | ----- |
@@ -3970,7 +4001,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/workbench_window_host.ts
 
-_Entrypoints: `.`, `./app`, `./web`_
+_Entrypoints: `.`, `./app`, `./web`, `./shell`_
 
 | Symbol                                 | Kind      | Type Only | JSDoc |
 | -------------------------------------- | --------- | --------- | ----- |
