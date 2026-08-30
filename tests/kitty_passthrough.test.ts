@@ -78,6 +78,19 @@ Deno.test("a chained display transmits without displaying and is placed at its a
   assertEquals(last[1]!.cell, CURSOR, "anchored where the chain opened, not where it closed");
 });
 
+Deno.test("an orphan continuation chunk is dropped, not forwarded", () => {
+  // A truncated replay can resume mid-transmission: chunks whose opener the
+  // relay never saw. Forwarding them invented a phantom image out of a frame
+  // fragment; they carry nothing the relay can account for.
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  assertEquals(relay.ingest("Gm=1;FRAGMENT", CURSOR), []);
+  assertEquals(relay.ingest("Gm=0,q=2;TAIL", CURSOR), []);
+  // The stream is clean afterwards: the next real command parses as its own.
+  const next = relay.ingest("Ga=T,f=100,i=1;OK", CURSOR)[0]!;
+  assertEquals(control(next.data).get("a"), "T");
+  assertEquals(next.cell, CURSOR);
+});
+
 Deno.test("a clip arriving mid-chain waits for the close", () => {
   // The protocol forbids other graphics escapes between chunks; a window
   // dragged while a frame streams must not inject deletes into the chain.

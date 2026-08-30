@@ -192,6 +192,17 @@ export class KittyPassthroughRelay {
     const parsed = parseKittyGraphicsData(data);
     if (!parsed) return [];
 
+    // A continuation chunk with no open chain — a replay resuming
+    // mid-transmission, a child interrupted mid-frame — references data this
+    // relay never saw. Forward nothing: whatever is forwarded must later be
+    // accountable, and a fragment of somebody's frame is not.
+    if (
+      !this.#chainOpen && controlValue(parsed, "m") !== undefined &&
+      parsed.control.every(([key]) => key === "m" || key === "q")
+    ) {
+      return [];
+    }
+
     // Continuation chunks of an open transmission carry only m (and q).
     // They are relayed untouched and position-free: a chained display command
     // never keeps its display action (see #ingestTransmit), so no chunk's

@@ -1978,7 +1978,11 @@ export class ExomuxController {
     if (existing !== undefined) clearTimeout(existing);
     const timer = setTimeout(() => {
       this.#warningTimers.delete(runtime.sessionId);
-      if (this.#disposed || runtime.warning.peek() !== message) return;
+      // The runtime may be gone by now — killed, swept on an exit broadcast,
+      // or dropped by a session refresh — and a disposed signal rejects
+      // writes. A dead runtime's warning needs no retiring; writing anyway
+      // was an uncaught TypeError that took the whole client down.
+      if (this.#disposed || runtime.warning.disposed || runtime.warning.peek() !== message) return;
       runtime.warning.value = undefined;
       runtime.renderRevision.value += 1;
     }, EXOMUX_WARNING_TTL_MS);

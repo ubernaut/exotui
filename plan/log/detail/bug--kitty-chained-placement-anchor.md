@@ -65,3 +65,40 @@ commit. Ranges widened to `^0.7.0` here (required anyway: the new getter is invi
 **What the tests cannot see:** the actual host-terminal behaviour — the maintainer should run tode in a live exomux
 under Ghostty and watch for the transient misplacement on updates while the window is active, plus a drag mid-stream
 (the deferred clip sweep) and a window close mid-stream (the chain-closing release).
+
+## 2026-08-30 — The live test crashed the client: write-after-dispose in the warning timer
+
+### Prompt
+
+The maintainer rebuilt from this branch and reported: "exomux is crashing and it can't reattach anymore", with
+`Uncaught TypeError: Cannot assign to read only property 'value'` at `runtime.warning.value = undefined`
+(`controller.ts:1939`, the warning-retirement timer).
+
+### Response and strategy
+
+**Diagnosis.** `Signal.dispose()` redefines `value` as a read-only data property
+(`Object.defineProperty(this, "value", { value })`, `src/signals/signal.ts` — upstream, 2023). The warning-retirement
+timer guards on the controller being disposed and the message matching, but not on the _runtime_ being disposed — so a
+session killed, swept on an exit broadcast, or dropped by a refresh inside the 6 s warning TTL leaves a live timer that
+throws an uncaught TypeError and kills the whole client. Reattach makes it a loop: a graphics-heavy session always
+truncates its replay buffer, the truncation warning arms the timer on every attach, and the session going away inside
+the TTL crashes the client again.
+
+**Latent, not introduced here** — but surfaced here. `git log -S` dates both the timer and the truncation warning to Aug
+5 (`c4d69998`), well inside the v0.6.0 binary. The write-after-dispose was reachable on main all along; this branch's
+live test is simply the first time the timing lined up on the maintainer's machine. Which disposal path fired in the
+field is not pinned down (kill, sweep, and refresh are all candidates); the mechanism is, by test.
+
+**Fix.**
+
+- `controller.ts`: the retirement timer also returns when `runtime.warning.disposed` — the signal's own flag, so every
+  disposal path is covered no matter which map it left. The only timer in the controller that writes runtime signals;
+  the other two only settle promises.
+- `kitty_passthrough.ts`: a continuation chunk with no open chain (control keys only `m`/`q`) is dropped, not forwarded.
+  A truncated replay can resume mid-transmission; those fragments used to open a phantom `a=t` chain and forward frame
+  fragments to the host as a garbage image.
+
+**Evidence.** New controller test "a warning's retirement timer survives its runtime's disposal" (FakeTime; sequence-gap
+warning, kill, tick past the TTL) — **verified to fail with the guard removed**, reproducing the field crash exactly.
+New relay test "an orphan continuation chunk is dropped, not forwarded". Relay suite 20 passed; exomux suite 549; root
+suite 3685 with the entrypoint budget regenerated again; `deno task health` in the commit message.
