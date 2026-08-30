@@ -90,7 +90,8 @@ export interface KittyRelayEmission {
   /**
    * Where the host cursor must be before this sequence, in the child's own
    * cells — the caller translates by the window's content origin. Absent for
-   * continuation chunks, deletes and queries, which are position-free.
+   * bare transmits, continuation chunks, deletes and queries, which are
+   * position-free.
    */
   readonly cell?: KittyRelayCell;
   /** APC data (`G…`) ready to wrap in `ESC _ … ESC \` for the host. */
@@ -142,8 +143,10 @@ export class KittyPassthroughRelay {
   readonly #queries = new Map<number, string>();
   /** True while a chunked transmission (`m=1`) is open. */
   #chainOpen = false;
-  /** Image whose clipped placements wait for its transmission chain to close. */
-  #pendingClipPlacement: number | undefined;
+  /** Image whose placement waits for its transmission chain to close. */
+  #pendingPlacement: number | undefined;
+  /** The clip changed mid-chain; the re-place sweep waits for the close. */
+  #clipDeltaDeferred = false;
 
   constructor(options: KittyPassthroughRelayOptions) {
     this.#base = options.imageIdBase;
@@ -170,6 +173,15 @@ export class KittyPassthroughRelay {
   }
 
   /**
+   * True while a chunked transmission is open. A caller bounding its emission
+   * queue must not drop entries mid-chain: the host is reassembling those
+   * chunks, and a gap desyncs everything after it.
+   */
+  get chainOpen(): boolean {
+    return this.#chainOpen;
+  }
+
+  /**
    * Ingests one APC's data with the child cursor at its arrival.
    *
    * Returns what to replay to the host. Unknown or malformed sequences return
@@ -181,19 +193,14 @@ export class KittyPassthroughRelay {
     if (!parsed) return [];
 
     // Continuation chunks of an open transmission carry only m (and q).
-    // They are relayed untouched and position-free: kitty anchors a chained
-    // transmission at the command that opened it.
+    // They are relayed untouched and position-free: a chained display command
+    // never keeps its display action (see #ingestTransmit), so no chunk's
+    // arrival position matters — the placement goes out at the close, below.
     if (this.#chainOpen) {
       const more = controlValue(parsed, "m");
       this.#chainOpen = more === "1";
       const relayed: KittyRelayEmission[] = [{ data: serializeKittyGraphicsData(parsed) }];
-      if (!this.#chainOpen && this.#pendingClipPlacement !== undefined) {
-        // The chained transmission is complete: the clipped placements that
-        // were deferred — placing an image mid-transmission references data
-        // the host does not have yet — go out now.
-        relayed.push(...this.#placementsFor(this.#pendingClipPlacement));
-        this.#pendingClipPlacement = undefined;
-      }
+      if (!this.#chainOpen) relayed.push(...this.#closeChain());
       return relayed;
     }
 
@@ -237,6 +244,17 @@ export class KittyPassthroughRelay {
         ...(Number.isFinite(pixelWidth) && pixelWidth > 0 ? { pixelWidth } : {}),
         ...(Number.isFinite(pixelHeight) && pixelHeight > 0 ? { pixelHeight } : {}),
       });
+      // A chained display never keeps its display action, clipped or not.
+      // The protocol displays a chunked transmission at the cursor position
+      // when the *final* chunk arrives — and between this relay's flushes the
+      // host cursor is wherever the compositor's own painting parked it, so a
+      // chain that spans a flush lands the image there instead of at its
+      // anchor. The data goes transmit-only and the placement is emitted
+      // explicitly, cursor-anchored, when the chain closes.
+      if (action === "T" && this.#chainOpen) {
+        this.#pendingPlacement = hostId;
+        return [{ data: serializeKittyGraphicsData(withControl(rewritten, "a", "t")) }];
+      }
       // Under a clip, the child's own display would paint the whole image over
       // whatever occludes the window. Transmissions still go — transmit-only —
       // and the visible pieces are placed explicitly; a display-only command
@@ -245,10 +263,6 @@ export class KittyPassthroughRelay {
       if (this.#regions !== null) {
         if (action === "p") return this.#placementsFor(hostId);
         rewritten = withControl(rewritten, "a", "t");
-        if (this.#chainOpen) {
-          this.#pendingClipPlacement = hostId;
-          return [{ data: serializeKittyGraphicsData(rewritten) }];
-        }
         return [
           { data: serializeKittyGraphicsData(rewritten) },
           ...this.#placementsFor(hostId),
@@ -325,21 +339,23 @@ export class KittyPassthroughRelay {
   }
 
   /**
-   * Sets the window's visible regions, in child cells, and returns the delta.
-   *
-   * The compositor's authority over the host's image plane: every placement is
-   * torn down and the visible pieces are placed again as source-rect crops of
-   * the retained data. No retransmit — which is what makes a window move, a
-   * raise, or a partial overlap cost a few hundred bytes instead of a frame,
-   * and what stops a damage-driven application's image being stranded until it
-   * happens to repaint.
+   * What the host is owed the moment a transmission chain closes: the deferred
+   * clip sweep when the clip changed mid-chain (it re-places every image, the
+   * just-transmitted one included), otherwise the placement the chain's own
+   * display command was holding.
    */
-  setClip(
-    regions: readonly KittyRelayRect[] | null,
-    cellPixels?: { readonly width: number; readonly height: number },
-  ): KittyRelayEmission[] {
-    this.#regions = regions;
-    if (cellPixels) this.#cellPixels = cellPixels;
+  #closeChain(): KittyRelayEmission[] {
+    const pending = this.#pendingPlacement;
+    this.#pendingPlacement = undefined;
+    if (this.#clipDeltaDeferred) {
+      this.#clipDeltaDeferred = false;
+      return this.#clipDelta();
+    }
+    return pending === undefined ? [] : this.#placementsFor(pending);
+  }
+
+  /** One delete-and-re-place sweep of every live image against the regions. */
+  #clipDelta(): KittyRelayEmission[] {
     const emissions: KittyRelayEmission[] = [];
     for (const hostId of this.#live) {
       if (!this.#placements.has(hostId)) continue;
@@ -352,6 +368,33 @@ export class KittyPassthroughRelay {
       emissions.push(...this.#placementsFor(hostId));
     }
     return emissions;
+  }
+
+  /**
+   * Sets the window's visible regions, in child cells, and returns the delta.
+   *
+   * The compositor's authority over the host's image plane: every placement is
+   * torn down and the visible pieces are placed again as source-rect crops of
+   * the retained data. No retransmit — which is what makes a window move, a
+   * raise, or a partial overlap cost a few hundred bytes instead of a frame,
+   * and what stops a damage-driven application's image being stranded until it
+   * happens to repaint.
+   *
+   * Mid-chain the delta is deferred to the close: the protocol forbids other
+   * graphics escapes between chunks, so the old placements stand a frame
+   * longer rather than the stream going illegal.
+   */
+  setClip(
+    regions: readonly KittyRelayRect[] | null,
+    cellPixels?: { readonly width: number; readonly height: number },
+  ): KittyRelayEmission[] {
+    this.#regions = regions;
+    if (cellPixels) this.#cellPixels = cellPixels;
+    if (this.#chainOpen) {
+      this.#clipDeltaDeferred = true;
+      return [];
+    }
+    return this.#clipDelta();
   }
 
   #ingestDelete(parsed: KittyGraphicsData): KittyRelayEmission[] {
@@ -422,6 +465,13 @@ export class KittyPassthroughRelay {
    */
   release(): KittyRelayEmission[] {
     const emissions: KittyRelayEmission[] = [];
+    if (this.#chainOpen) {
+      // A dangling chain would swallow the deletes below as chunk data; an
+      // empty final chunk closes it first. The truncated decode is quiet —
+      // q=2 went out with the chunk that opened the chain.
+      emissions.push({ data: "Gm=0;" });
+      this.#chainOpen = false;
+    }
     for (const hostId of this.#live) {
       emissions.push({
         data: serializeKittyGraphicsData({
@@ -432,8 +482,8 @@ export class KittyPassthroughRelay {
     }
     this.#live.clear();
     this.#placements.clear();
-    this.#chainOpen = false;
-    this.#pendingClipPlacement = undefined;
+    this.#pendingPlacement = undefined;
+    this.#clipDeltaDeferred = false;
     return emissions;
   }
 }

@@ -4152,8 +4152,10 @@ function createTerminalRuntime(
       ? {
         onKittyGraphics: (data, cursor) => {
           // Bounded: a stalled flush must not hold every frame an app ever
-          // streamed. Old emissions are droppable — the app repaints.
-          if (pendingGraphics.length > 512) pendingGraphics.length = 0;
+          // streamed. Only between chains — the host is mid-reassembly of an
+          // open chain's chunks, and a gap desyncs everything after it — and
+          // old emissions are droppable because the app repaints.
+          if (pendingGraphics.length > 512 && !relay.chainOpen) pendingGraphics.length = 0;
           pendingGraphics.push(...relay.ingest(data, cursor));
         },
       }
