@@ -6,6 +6,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+### Added
+
+- **`focus()` on the browser host and presenter.** Browser keys reach an application only once the platform's keyboard
+  target holds focus, and with `textInputMode` on that target is a hidden textarea the platform creates for on-screen
+  keyboards — not the mount the caller passed in. A pointer press already focused it; a page whose whole content is the
+  shell wants it on load too, and had no way to ask. `WebShellPresenter.focus()` and `WebTuiHost.focus()` now do, via an
+  optional `InputSource.focus?()` (optional because a terminal reads stdin and has nothing to focus). Found by moonlab's
+  console, which was reduced to querying `body > textarea` itself.
+
 ### Fixed
 
 - **`./shell` exports `createTiledWorkspaceController`.** The entrypoint shipped `createWorkbenchWindowHostController`

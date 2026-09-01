@@ -366,6 +366,20 @@ export class BrowserInputSource implements InputSource {
     };
   }
 
+  /**
+   * Gives the keyboard target focus.
+   *
+   * Browser keys only reach an application once this element holds focus, and
+   * with `textInputMode` on it is a hidden textarea this platform creates for
+   * on-screen keyboards rather than the mount the caller passed in. A pointer
+   * press already does this; a page whose whole content is the application
+   * wants it on load too, and could not ask for it without reaching into
+   * these internals.
+   */
+  focus(): void {
+    (this.#keyboardTarget ?? this.#target).focus({ preventScroll: true });
+  }
+
   #createKeyboardTarget(): HTMLElement {
     const hidden = this.#textInputMode !== false && this.#textInputMode !== "target"
       ? createHiddenTextInput(this.#target)

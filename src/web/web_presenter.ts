@@ -37,6 +37,13 @@ export interface WebPresenterOptions {
 /** A `ShellPresenter` over a browser canvas. Also exposes the underlying host. */
 export interface WebShellPresenter extends ShellPresenter {
   readonly host: WebTuiHost;
+  /**
+   * Gives the keyboard focus so keys reach the application.
+   *
+   * A page whose whole content is the shell should call this on load;
+   * otherwise a visitor has to click before typing does anything.
+   */
+  focus(): void;
   /** Ghostty-style post shaders over the cell canvas. */
   readonly shader: CanvasShaderLayer;
 }
@@ -112,6 +119,7 @@ export function webPresenter(options: WebPresenterOptions): WebShellPresenter {
   return {
     host,
     shader,
+    focus: () => host.focus(),
     capabilities,
     size: (): ShellPresenterSize => ({ columns: columns(), rows: rows() }),
     onResize(listener) {

@@ -892,7 +892,7 @@
   },
   "mod.web.ts": {
     "modules": 426,
-    "bytes": 5479412,
+    "bytes": 5480866,
     "paths": {
       "mod.web.ts": 4242,
       "src/api_stability.ts": 18294,
@@ -1188,7 +1188,7 @@
       "src/perf/versioned_cache.ts": 4296,
       "src/perf/write_coalescer.ts": 4007,
       "src/permissions.ts": 27807,
-      "src/platform/types.ts": 3244,
+      "src/platform/types.ts": 3526,
       "src/pointer_input.ts": 48537,
       "src/remote/handshake.ts": 34016,
       "src/runtime/async_iterable.ts": 46543,
@@ -1315,11 +1315,11 @@
       "src/web/canvas_shader.ts": 23771,
       "src/web/cell_canvas_sink.ts": 16889,
       "src/web/dom_renderer.ts": 5761,
-      "src/web/host.ts": 4250,
+      "src/web/host.ts": 4596,
       "src/web/mod.ts": 283,
-      "src/web/platform.ts": 19996,
+      "src/web/platform.ts": 20558,
       "src/web/remote_terminal.ts": 49112,
-      "src/web/web_presenter.ts": 7203
+      "src/web/web_presenter.ts": 7467
     }
   },
   "mod.shell.ts": {
