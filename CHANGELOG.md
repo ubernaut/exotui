@@ -6,6 +6,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.7.2 — 2026-09-01
+
+A one-item release, cut for the same reason 0.7.1 was: a real consumer reached past the API. moonlab's console needed an
+application launcher, and `./shell` could paint a menu but not run one.
+
 ### Added
 
 - **`./shell` exports the menu surface.** `paintShellMenuPanel` could draw a menu since 0.7.0, but everything governing
