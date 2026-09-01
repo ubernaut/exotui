@@ -6,6 +6,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+### Added
+
+- **`./shell` exports the menu surface.** `paintShellMenuPanel` could draw a menu since 0.7.0, but everything governing
+  how one _behaves_ — `isWorkbenchMenuActivationKey`, `isWorkbenchMenuCloseKey`, `moveWorkbenchMenuIndex`,
+  `layoutWorkbenchMenuBarHits`, `layoutWorkbenchTopMenuItemRect`, the dropdown-overlay placement helpers — sat in
+  `src/app/workbench_menu.ts`, which was in no entrypoint. A consumer building a launcher had to reimplement the fiddly
+  half: keyboard traversal, wrap-around, hit testing, and where a dropdown may be placed without leaving the screen.
+  Found by moonlab's console building an application launcher.
+
 ## 0.7.1 — 2026-08-26
 
 A completeness release for `./shell`, cut after moonlab's console became the first outside consumer of that surface.
