@@ -6,6 +6,34 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.7.1 — 2026-08-26
+
+A completeness release for `./shell`, cut after moonlab's console became the first outside consumer of that surface.
+Every item was found the same way: by building a real application against the published package and noticing where it
+had to reach past the API. None would have surfaced from reading the module list, which is how `./shell` was assembled
+in 0.7.0.
+
+An eight-lens audit with adversarial verification then looked for anything else the console needs and found nothing —
+every further candidate was either already reachable through a published entrypoint or achievable with the existing API.
+This release is therefore deliberately small.
+
+### Added
+
+- **`focus()` on the browser host and presenter.** Browser keys reach an application only once the platform's keyboard
+  target holds focus, and with `textInputMode` on that target is a hidden textarea the platform creates for on-screen
+  keyboards — not the mount the caller passed in. A pointer press already focused it; a page whose whole content is the
+  shell wants it on load too, and had no way to ask. `WebShellPresenter.focus()` and `WebTuiHost.focus()` now do, via an
+  optional `InputSource.focus?()` (optional because a terminal reads stdin and has nothing to focus). Found by moonlab's
+  console, which was reduced to querying `body > textarea` itself.
+
+### Fixed
+
+- **`./shell` exports `createTiledWorkspaceController`.** The entrypoint shipped `createWorkbenchWindowHostController`
+  but not the workspace controller its options require, so `./shell` alone could not construct a window host — a caller
+  had to reach for `./app` as well, which is terminal-tagged and wrong for a host-neutral surface. The module was
+  already reachable transitively, so this adds no modules to the entrypoint's budget; only the export declaration
+  changed. Found by moonlab's exomoonlab console, the first outside consumer of the shell surface.
+
 ## 0.7.0 — 2026-08-24
 
 ### Added

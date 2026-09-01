@@ -55,6 +55,14 @@ export interface InputSource extends Disposable {
   attach(emitter: PlatformInputEmitter): void;
   detach(): void;
   inspect(): InputSourceInspection;
+  /**
+   * Gives this source's input target focus, where that is meaningful.
+   *
+   * Optional because a terminal reads stdin and has nothing to focus; the
+   * browser source routes keys through an element that must hold focus before
+   * any key arrives.
+   */
+  focus?(): void;
 }
 
 /** Snapshot of input adapter state for tests and diagnostics. */

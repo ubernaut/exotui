@@ -18,8 +18,21 @@
 // produce cells and none of them know which host will show those cells, which
 // is why they live here rather than under `./app` (terminal) or `./web`.
 
+// Types that appear in this entrypoint's own signatures. Without them a caller
+// cannot type a call to `handlePointer`, implement `ShellApp`, or name a
+// `clientRect` -- and would have to reach into `./web` or `./app` for types
+// this surface already uses, which is the door problem the seam was moved out
+// of `./web` to solve.
+export type { Rectangle } from "./src/types.ts";
+export type { PointerInputEvent } from "./src/pointer_input.ts";
+export type { KeyPressEvent, MouseScrollEvent } from "./src/input_reader/types.ts";
+
 export * from "./src/app/shell_presenter.ts";
 export * from "./src/app/workbench_shell.ts";
 export * from "./src/app/shell_theme.ts";
 export * from "./src/app/workbench_window_host.ts";
+// The window host cannot be constructed without a workspace controller,
+// so shipping one without the other leaves this entrypoint unusable on
+// its own. `./app` also exports it, for terminal applications.
+export * from "./src/layout/tiled_workspace.ts";
 export * from "./src/app/backgrounds/mod.ts";

@@ -84,6 +84,17 @@ export class WebTuiHost extends EventEmitter<WebTuiHostEvents> {
     });
   }
 
+  /**
+   * Gives the keyboard focus, so keys reach the application.
+   *
+   * A pointer press does this already. A page whose whole content is the
+   * application also wants it on load, and without this would have to find
+   * and focus the platform's hidden input element itself.
+   */
+  focus(): void {
+    this.platform.input.focus?.();
+  }
+
   start(): void {
     if (this.#running) return;
     this.#running = true;
