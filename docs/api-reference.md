@@ -7,11 +7,11 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 - Entrypoints: 16
 - Unique modules: 546
-- Module visits: 1085
-- Unique re-export declarations: 705
-- Re-export declaration visits: 1085
+- Module visits: 1086
+- Unique re-export declarations: 706
+- Re-export declaration visits: 1086
 - Unique symbol declarations: 4994
-- Symbol declaration visits: 10178
+- Symbol declaration visits: 10217
 - Documented symbol declarations: 4962
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
@@ -24,7 +24,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./web`               | `./mod.web.ts`                       | browser  | beta         |     364 |    3695 | 100.00% |
-| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      22 |     141 | 100.00% |
+| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     180 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
@@ -90,10 +90,10 @@ Host-neutral shell surface: the presenter seam, shell painters, theme catalog, w
 - Path: `./mod.shell.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 22
-- Re-export declarations: 22
-- Exported symbols: 141
-- Documented symbols: 141
+- Modules: 23
+- Re-export declarations: 23
+- Exported symbols: 180
+- Documented symbols: 180
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -285,7 +285,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.app.ts`](#mod-app-ts)                                                                           | `./app`                                  |         53 |       0 |          0 |
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
-| [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |          9 |       0 |          0 |
+| [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
 | [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         17 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                              |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                                |         15 |       0 |          0 |
@@ -436,7 +436,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/workbench_control_layout.ts`](#src-app-workbench-control-layout-ts)                         | `.`, `./web`                             |          0 |      17 |         17 |
 | [`src/app/workbench_frame.ts`](#src-app-workbench-frame-ts)                                           | `.`, `./web`                             |          0 |      30 |         30 |
 | [`src/app/workbench_layout.ts`](#src-app-workbench-layout-ts)                                         | `.`, `./web`                             |          0 |      35 |         35 |
-| [`src/app/workbench_menu.ts`](#src-app-workbench-menu-ts)                                             | `.`, `./web`                             |          0 |      39 |         39 |
+| [`src/app/workbench_menu.ts`](#src-app-workbench-menu-ts)                                             | `.`, `./web`, `./shell`                  |          0 |      39 |         39 |
 | [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                       | `.`, `./web`                             |          0 |      13 |         13 |
 | [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)           | `.`, `./web`                             |          0 |       8 |          8 |
 | [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                           | `.`, `./web`                             |          0 |      20 |         20 |
@@ -938,6 +938,7 @@ _Entrypoints: `./shell`_
 | `src/app/workbench_shell.ts`       | star  | -                                             |
 | `src/app/shell_theme.ts`           | star  | -                                             |
 | `src/app/workbench_window_host.ts` | star  | -                                             |
+| `src/app/workbench_menu.ts`        | star  | -                                             |
 | `src/layout/tiled_workspace.ts`    | star  | -                                             |
 | `src/app/backgrounds/mod.ts`       | star  | -                                             |
 
@@ -3687,7 +3688,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/app/workbench_menu.ts
 
-_Entrypoints: `.`, `./web`_
+_Entrypoints: `.`, `./web`, `./shell`_
 
 | Symbol                                           | Kind      | Type Only | JSDoc |
 | ------------------------------------------------ | --------- | --------- | ----- |

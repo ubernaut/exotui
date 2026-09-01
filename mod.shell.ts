@@ -31,6 +31,11 @@ export * from "./src/app/shell_presenter.ts";
 export * from "./src/app/workbench_shell.ts";
 export * from "./src/app/shell_theme.ts";
 export * from "./src/app/workbench_window_host.ts";
+// Menu behaviour: activation and close keys, index movement, menu-bar hit
+// layout and dropdown placement. `paintShellMenuPanel` above draws a menu;
+// without these a consumer has to reimplement how one *behaves*, which is
+// the half that is fiddly to get right and easy to get subtly wrong.
+export * from "./src/app/workbench_menu.ts";
 // The window host cannot be constructed without a workspace controller,
 // so shipping one without the other leaves this entrypoint unusable on
 // its own. `./app` also exports it, for terminal applications.
