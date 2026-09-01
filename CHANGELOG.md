@@ -6,6 +6,17 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## 0.7.1 — 2026-08-26
+
+A completeness release for `./shell`, cut after moonlab's console became the first outside consumer of that surface.
+Every item was found the same way: by building a real application against the published package and noticing where it
+had to reach past the API. None would have surfaced from reading the module list, which is how `./shell` was assembled
+in 0.7.0.
+
+An eight-lens audit with adversarial verification then looked for anything else the console needs and found nothing —
+every further candidate was either already reachable through a published entrypoint or achievable with the existing API.
+This release is therefore deliberately small.
+
 ### Added
 
 - **`focus()` on the browser host and presenter.** Browser keys reach an application only once the platform's keyboard
