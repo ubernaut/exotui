@@ -53,3 +53,15 @@ Verification and delivery:
 - ICC work dossier persisted under task `exomux-live-disconnect-20260909`; generic unrelated fallback-audit suggestions
   were retained as skipped, not relabeled as passes. Guard diff passed. Logs, binaries, and runtime scripts live outside
   the repository under `/tmp/exomux-reconnect-*` and `/home/cos/.cache/exomux-reconnect/`.
+
+## 2026-09-09 — Release exomux 0.3.1
+
+User explicitly requested committing and publishing another JSR release. The fix was already committed as `8af045b0`.
+Prepare exomux 0.3.1, align its library imports with exotui ^0.7.2, and record the patch release in CHANGELOG.md. Remote
+main remains at `05c6a66d`; local main already includes the prepared library 0.7.1 and 0.7.2 releases. The existing
+GitHub Actions publish workflow publishes current exotui first, then exomux using repository-linked OIDC. No credential
+or browser authorization flow is needed. JSR pages showed exomux 0.3.0 and exotui 0.7.0 before release preparation.
+
+Acceptance for publication: full health on this release candidate with color enabled, clean root release check and
+exomux publish dry run, merge to main, push, observe successful Publish workflow, and verify registry package versions.
+The user's publication request authorizes integration and publication; retain the running daemon and UI throughout.
