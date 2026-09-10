@@ -6,6 +6,18 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exomux 0.3.1 — 2026-09-09
+
+### Fixed
+
+- Automatically reconnect to the existing daemon after a freeze or transport interruption, restoring open terminal views
+  from their last output sequence. Preserve screens and scrollback, request a repaint after truncated replay, and never
+  resend keyboard input across an outage.
+- Report reconnection in the status line and retain WebSocket close codes and reasons for diagnostics. Cancel retries on
+  client disposal and require an explicit reattach if the host generation changes.
+- Align the exotui dependency with the current `0.7.2` library so local tests and published imports use the same
+  version.
+
 ## 0.7.2 — 2026-09-01
 
 A one-item release, cut for the same reason 0.7.1 was: a real consumer reached past the API. moonlab's console needed an

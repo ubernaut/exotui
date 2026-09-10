@@ -679,9 +679,10 @@ class ScriptedExomuxSocket implements ExomuxWebSocketLike {
     this.#emit("open");
   }
 
-  serverClose(): void {
+  serverClose(code?: number, reason?: string): void {
     this.readyState = WebSocket.CLOSED;
-    this.#emit("close");
+    const event = { code, reason } as CloseEvent;
+    for (const listener of this.#listeners.get("close") ?? []) listener(event);
   }
 
   receive(message: ExomuxServerMessage): void {
@@ -815,6 +816,142 @@ async function auditUnhandledRejections(run: () => Promise<void>): Promise<void>
 
 function nextMacrotask(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+Deno.test("Exomux reconnect retains close diagnostics and refuses a replacement host", async () => {
+  const sockets: ScriptedExomuxSocket[] = [];
+  const client = new ExomuxWebSocketClient({
+    ...fakeSocketOptions(new ScriptedExomuxSocket()),
+    reconnectDelayMs: 100,
+    createWebSocket: () => {
+      const socket = new ScriptedExomuxSocket();
+      sockets.push(socket);
+      return socket;
+    },
+  });
+  try {
+    sockets[0]!.open();
+    sockets[0]!.receive({ version: 1, type: "ready", hostId: "original-host" });
+    await client.ready();
+    sockets[0]!.serverClose(1013, "slow-client");
+    assertEquals(client.connected, false);
+    const failure = client.connectionState.error as ExomuxClientError;
+    assertEquals(failure.closeCode, 1013);
+    assertEquals(failure.closeReason, "slow-client");
+    assertEquals(client.connectionState.reconnecting, true);
+    await assertExomuxClientError(client.input("terminal-1", "do not replay"), "connection-closed", "slow-client");
+    await waitFor(() => sockets.length === 2);
+    sockets[1]!.open();
+    sockets[1]!.receive({ version: 1, type: "ready", hostId: "replacement-host" });
+    await assertExomuxClientError(client.ready(), "host-generation-mismatch", "host changed");
+    assertEquals(client.connectionState.reconnecting, false);
+    assertEquals(client.hostId, "original-host");
+  } finally {
+    await client.dispose();
+  }
+});
+
+Deno.test("Exomux reconnect disposal cancels pending retries", async () => {
+  let attempts = 0;
+  const socket = new ScriptedExomuxSocket();
+  const client = new ExomuxWebSocketClient({
+    ...fakeSocketOptions(socket),
+    reconnectDelayMs: 100,
+    createWebSocket: () => {
+      attempts++;
+      return socket;
+    },
+  });
+  socket.open();
+  socket.receive({ version: 1, type: "ready", hostId: "original-host" });
+  await client.ready();
+  socket.serverClose();
+  await client.dispose();
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assertEquals(attempts, 1);
+  assertEquals(client.connectionState.reconnecting, false);
+});
+
+for (const flowControlledReplay of [true, false]) {
+  Deno.test(`Exomux reconnect restores live terminal views (${flowControlledReplay ? "current" : "legacy"} replay)`, async () => {
+    const { createExomuxController } = await import("../controller.ts");
+    const { exomuxWindowId } = await import("../model.ts");
+    const token = createExomuxAuthToken();
+    const backend = new FakeRetainingBackend();
+    const server = serveExomuxHost({ authToken: token, backend, port: 0, limits: { replayEntries: 4 } });
+    const address = await server.address;
+    const sockets: WebSocket[] = [];
+    let attempts = 0;
+    const client = await connectExomuxWebSocket({
+      url: address.url,
+      authToken: token,
+      flowControlledReplay,
+      requestTimeoutMs: 2_000,
+      reconnectDelayMs: 100,
+      createWebSocket: (url) => {
+        // The first recovery attempt fails too, as can happen during resume.
+        if (++attempts === 2) throw new Error("transport unavailable");
+        const socket = new WebSocket(url);
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    let controller: Awaited<ReturnType<typeof createExomuxController>> | undefined;
+    try {
+      const first = await client.spawn({ command: "/bin/fake", columns: 80, rows: 24 });
+      const second = await client.spawn({ command: "/bin/fake", columns: 80, rows: 24 });
+      controller = await createExomuxController({ client, initialSessions: [first, second] });
+      const runtime = controller.runtime(first.id)!;
+      backend.handles[0]!.emit("before-");
+      await waitFor(() => runtime.lastSequence === 1);
+      await controller.writeSession(first.id, "sent-once");
+      sockets[0]!.close(4000, "simulated-freeze");
+      await waitFor(() => !client.connected);
+      assertEquals(controller.inspect().attachedCount, 0);
+      assert(controller.status.peek().includes("Reconnecting"));
+      assertEquals(await controller.writeSession(first.id, "never-send"), false);
+      backend.handles[0]!.emit("during-");
+      controller.windowHost.execute({ kind: "close", id: exomuxWindowId(second.id) }, {
+        column: 0,
+        row: 0,
+        width: 120,
+        height: 36,
+      });
+      await controller.syncWindowVisibility({ column: 0, row: 0, width: 120, height: 36 });
+      await waitFor(() => client.connected && runtime.attached.peek() && runtime.lastSequence === 2, 4_000);
+      assertEquals(controller.runtime(first.id), runtime, "preserve the existing screen and scrollback");
+      assertEquals(controller.runtime(second.id)!.attached.peek(), false, "respect windows closed during the outage");
+      backend.handles[0]!.emit("after");
+      await waitFor(() => runtime.lastSequence === 3);
+      assert(runtime.screen.textRows().join("\n").includes("before-during-after"));
+      assertEquals(backend.handles[0]!.writes, ["sent-once"]);
+      assertEquals(backend.handles[0]!.killCalls, 0);
+      assertEquals(backend.handles[0]!.disposeCalls, 0);
+      // A second disconnect must recover too, without duplicate callbacks.
+      sockets.at(-1)!.close(4000, "second-freeze");
+      await waitFor(() => !client.connected);
+      backend.handles[0]!.emit("-again");
+      await waitFor(() => runtime.attached.peek() && runtime.lastSequence === 4, 4_000);
+      assert(runtime.screen.textRows().join("\n").includes("before-during-after-again"));
+      assertEquals(controller.inspect().attachedCount, 1);
+      // Overflow the daemon replay ring during another outage. Stale pixels
+      // must be cleared and the child asked to repaint through a resize nudge.
+      sockets.at(-1)!.close(4000, "long-freeze");
+      await waitFor(() => !client.connected);
+      const resizeCount = backend.handles[0]!.resizes.length;
+      for (let index = 0; index < 6; index++) backend.handles[0]!.emit(`retained-${index} `);
+      await waitFor(() => runtime.attached.peek() && runtime.lastSequence === 10, 4_000);
+      assert(!runtime.screen.textRows().join("\n").includes("before-"));
+      assert(runtime.screen.textRows().join("\n").includes("retained-5"));
+      await waitFor(() => backend.handles[0]!.resizes.length >= resizeCount + 2);
+      const resizes = backend.handles[0]!.resizes.slice(-2);
+      assert(resizes[0]!.columns !== resizes[1]!.columns || resizes[0]!.rows !== resizes[1]!.rows);
+    } finally {
+      await controller?.dispose();
+      await client.dispose();
+      await server.shutdown();
+    }
+  });
 }
 
 class FakeRetainingBackend implements TerminalBackend {

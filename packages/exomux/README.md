@@ -45,6 +45,13 @@ Settings open from the start menu into an ordinary floating window — drag its 
 from its chrome. Windows default to 85% opacity so the live desktop shows through terminal text, and the butterchurn
 background defaults to 60 Hz; both are knobs in that window.
 
+If a freeze or temporary transport failure interrupts an established connection, the client retries the same host with
+exponential backoff (up to five seconds between attempts) and reattaches open terminal windows from their last received
+output sequence. Screens and scrollback survive; if the daemon's replay ring overflowed, the view clears the incomplete
+screen and requests a child repaint. The status line reports reconnection. Keyboard input is never queued or resent
+across the interruption, and a different host generation requires an explicit reattach. Debug logging records connection
+failures and WebSocket close codes/reasons; `client.connectionState.error` retains the last failure.
+
 ## Sessions
 
 Exomux hosts are named sessions, tmux-style. A bare launch attaches to the one live session, creates the default session

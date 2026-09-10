@@ -347,3 +347,43 @@ Collected from field reports, because these recur:
 - Presets and shipped defaults are a floor to get back to; user work never overwrites them.
 - Say what was actually done, including the parts that were not. A tradeoff stated is fine; a tradeoff implied to be
   complete is not.
+
+## 2026-09-09 — live exomux disconnect after desktop freeze
+
+User requested diagnosis of the existing instance, preserving it. No application source changes, restart, signals,
+terminal input, resize, or attach operations were performed. Independent diagnostic sockets only authenticated and
+listed terminals, then closed themselves. Credentials and terminal contents were not recorded.
+
+Evidence at approximately 17:54–18:03 AKDT:
+
+- UI PID 8138 and daemon PID 8145 were alive, started September 3. UI had no TCP socket in `ss -tnp` or its FD table;
+  remaining UI sockets were Unix sockets. Daemon retained its loopback listener on port 36263 and PTY descriptors.
+- Daemon authenticated new diagnostic connections immediately. Both terminals (`tmux: client` and `deno`) were running
+  with `attachedClients: 0`. Two list requests three seconds apart showed output sequence advances of 92 and 3
+  respectively. This establishes continued PTY ingestion despite the detached UI.
+- Read-only mmap inspection of `/proc/8138/exe` found byte-exact copies of current `packages/exomux/client.ts`,
+  `host.ts`, and `main.ts`. Controller source was not byte-exact, so current whole-controller identity is unproven.
+- `client.ts:208` discards close-event code/reason. `#failConnection` at line 668 latches a permanent terminal error,
+  marks disconnected, rejects pending operations, and clears attachments. No socket replacement/reconnect is wired in
+  the client or main entrypoint. Main reconnects only on explicit session switching. This explains permanent frozen
+  terminal views alongside functioning local window movement, and why relaunching can recover them.
+- Original disconnect trigger is not recoverable from available logging: UI had no debug log FD; discovered logs
+  predated this run, and daemon stdout/stderr point to `/dev/null`. Plausible triggers include host slow-client eviction
+  (five-second transport backpressure deadline / bounded queue) or the embedded Deno WebSocket heartbeat. Embedded
+  runtime sets server idleTimeout to 30 seconds by default and closes on missed ping response; exomux uses
+  `Deno.upgradeWebSocket(request)` without overriding it. These are candidate mechanisms, not observed close reasons.
+- Kernel journal recorded an NVIDIA HDMI FRL link-training warning at 17:52:19 AKDT. Timing may relate to the user's
+  freeze, but it does not establish why exomux's socket closed.
+
+Verification: `deno test -A tests/client.test.ts --filter 'Exomux disconnect'` from `packages/exomux` passed both
+existing disconnect tests. Initial root-directory invocation found no test modules due to package exclusion. Package
+test invocation warned that linked exotui 0.7.2 did not satisfy its ^0.6.0 dependency; these are focused client
+lifecycle checks, not proof of full current-library integration or recovery behavior. No recovery test was claimed. ICC
+initially refused the new work dossier because its index was 136 commits stale; explicit CLI full reindex completed
+successfully, including Git history, and the fresh MCP work dossier succeeded. Unrelated dossier recommendations were
+not pursued.
+
+Follow-up fix direction: explicit disconnect notification with retained close code/reason; reconnect to the existing
+host with bounded retry; restore terminal subscriptions from retained sequence positions and update attachment/UI state;
+regression coverage for disconnect after successful attachment and recovery while PTYs continue. Preserve the current
+instance until the user is ready to recover or restart it. Exact original close trigger remains unknown.
