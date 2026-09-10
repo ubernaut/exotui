@@ -18,10 +18,12 @@ import {
 import type {
   ExomuxAttachResult,
   ExomuxClientPort,
+  ExomuxConnectionState,
   ExomuxOutputFrame,
   ExomuxSessionSummary,
   ExomuxSpawnOptions,
 } from "./model.ts";
+import { exomuxDebugLog } from "./debug_log.ts";
 
 const DESCRIPTOR_SCHEMA_VERSION = 1 as const;
 const DEFAULT_CONNECT_TIMEOUT_MS = 6_000;
@@ -71,6 +73,10 @@ export interface ConnectExomuxWebSocketOptions {
   readonly requestTimeoutMs?: number;
   readonly flowControlledReplay?: boolean;
   readonly sharedWorkspace?: boolean;
+  /** Retry lost transports after authentication; never launches or replaces a daemon. Default: true. */
+  readonly reconnect?: boolean;
+  /** Initial retry delay, doubling up to five seconds. */
+  readonly reconnectDelayMs?: number;
   readonly createWebSocket?: (url: string) => ExomuxWebSocketLike;
 }
 
@@ -131,7 +137,7 @@ export interface ExomuxWorkspaceUpdate {
 }
 
 export class ExomuxClientError extends Error {
-  constructor(readonly code: string, message: string) {
+  constructor(readonly code: string, message: string, readonly closeCode?: number, readonly closeReason?: string) {
     super(message);
     this.name = "ExomuxClientError";
   }
@@ -171,7 +177,13 @@ interface ExomuxAttachmentOptions {
 
 /** Strict request-correlated client for the detached local WebSocket host. */
 export class ExomuxWebSocketClient implements ExomuxClientPort {
-  readonly #socket: ExomuxWebSocketLike;
+  #socket: ExomuxWebSocketLike;
+  readonly #options: ConnectExomuxWebSocketOptions;
+  readonly #reconnectDelayMs: number;
+  readonly #connectionListeners = new Set<(state: ExomuxConnectionState) => void>();
+  #reconnectTimer?: ReturnType<typeof setTimeout>;
+  #reconnectAttempt = 0;
+  #lastDisconnect?: Error;
   readonly #authToken: string;
   readonly #requestTimeoutMs: number;
   readonly #flowControlledReplay: boolean;
@@ -182,7 +194,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   readonly #workspaceListeners = new Set<(state: ExomuxWorkspaceUpdate) => void>();
   readonly #latestSequences = new Map<string, number>();
   /** Authentication completion is a result so late consumers cannot orphan a rejection. */
-  readonly #readyResult: Promise<Error | undefined>;
+  #readyResult!: Promise<Error | undefined>;
   #attachTail: Promise<void> = Promise.resolve();
   #settleReady!: (error?: Error) => void;
   #readyTimer?: ReturnType<typeof setTimeout>;
@@ -205,9 +217,25 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     }
   };
   readonly #onMessage = (event: Event & { data?: unknown }) => this.#acceptMessage(event.data);
-  readonly #onClose = (_event: Event & { data?: unknown }) => {
+  readonly #onClose = (event: Event & { data?: unknown }) => {
     if (this.#disposed) return;
-    this.#failConnection(new ExomuxClientError("connection-closed", "Exomux host connection closed."));
+    const { code, reason } = event as CloseEvent;
+    const detail = code === undefined ? "" : ` (${code}${reason ? `: ${reason.slice(0, 120)}` : ""})`;
+    const error = new ExomuxClientError(
+      "connection-closed",
+      `Exomux host connection closed${detail}.`,
+      code,
+      reason?.slice(0, 120),
+    );
+    // An error event can precede close. Retain the more useful close details
+    // even when that error already started recovery.
+    if (this.#terminalError) {
+      exomuxDebugLog("connection", error.message);
+      if (this.#terminalError instanceof ExomuxClientError && this.#terminalError.code === "connection-error") {
+        this.#lastDisconnect = error;
+        this.#notifyConnection();
+      }
+    } else this.#failConnection(error);
   };
   readonly #onError = (_event: Event & { data?: unknown }) => {
     if (this.#disposed) return;
@@ -221,9 +249,15 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     }
     this.#authToken = options.authToken;
     this.#requestTimeoutMs = normalizeTimeout(options.requestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS);
+    this.#reconnectDelayMs = normalizeTimeout(options.reconnectDelayMs, 250);
     this.#flowControlledReplay = options.flowControlledReplay === true;
     this.#sharedWorkspace = options.sharedWorkspace === true;
+    this.#options = { ...options, url };
     this.#socket = options.createWebSocket?.(url) ?? new WebSocket(url);
+    this.#listen();
+  }
+
+  #listen(): void {
     this.#socket.binaryType = "arraybuffer";
     this.#readyResult = new Promise<Error | undefined>((resolve) => {
       this.#settleReady = resolve;
@@ -243,6 +277,31 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
 
   get hostId(): string | undefined {
     return this.#hostId;
+  }
+
+  get connectionState(): ExomuxConnectionState {
+    return {
+      connected: this.connected,
+      reconnecting: this.#reconnectTimer !== undefined ||
+        (!this.#disposed && this.#hostId !== undefined && !this.#connected && !this.#terminalError),
+      error: this.#lastDisconnect,
+    };
+  }
+
+  subscribeConnection(listener: (state: ExomuxConnectionState) => void): () => void {
+    this.#connectionListeners.add(listener);
+    return () => {
+      this.#connectionListeners.delete(listener);
+    };
+  }
+
+  #notifyConnection(): void {
+    const state = this.connectionState;
+    for (const listener of [...this.#connectionListeners]) {
+      try {
+        listener(state);
+      } catch { /* A consumer cannot stop transport recovery. */ }
+    }
   }
 
   /** Waits until the host has accepted the first-message authentication token. */
@@ -464,6 +523,9 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     if (this.#disposed) return Promise.resolve();
     this.#disposed = true;
     this.#connected = false;
+    clearTimeout(this.#reconnectTimer);
+    this.#reconnectTimer = undefined;
+    this.#connectionListeners.clear();
     this.#clearReadyTimer();
     this.#removeSocketListeners();
     const error = this.#terminalError ?? new ExomuxClientError("client-disposed", "Exomux client was disposed.");
@@ -486,6 +548,11 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     expected: readonly ExomuxServerMessage["type"][],
     deadline?: number,
   ): Promise<ExomuxServerMessage> {
+    // Do not queue input or mutations across an outage: their delivery is
+    // ambiguous and replaying them can execute a user's command twice.
+    if (this.#hostId && !this.connected) {
+      throw this.#lastDisconnect ?? new ExomuxClientError("not-connected", "Exomux client is reconnecting.");
+    }
     const readyError = await this.#readyResult;
     if (readyError) throw readyError;
     if (!this.connected) {
@@ -505,7 +572,9 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
       } catch {
         clearTimeout(timer);
         this.#pending.delete(requestId);
-        reject(new ExomuxClientError("send-failed", "Exomux host request could not be sent."));
+        const error = new ExomuxClientError("send-failed", "Exomux host request could not be sent.");
+        reject(error);
+        this.#failConnection(error);
       }
     });
   }
@@ -528,10 +597,19 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
         this.#failConnection(new ExomuxClientError("duplicate-ready", "Exomux host repeated authentication."));
         return;
       }
+      if (this.#hostId !== undefined && this.#hostId !== message.hostId) {
+        this.#failConnection(
+          new ExomuxClientError("host-generation-mismatch", "Exomux host changed; reattach explicitly."),
+        );
+        return;
+      }
       this.#connected = true;
       this.#hostId = message.hostId;
       this.#clearReadyTimer();
       this.#settleReady();
+      this.#reconnectAttempt = 0;
+      exomuxDebugLog("connection", "Host authenticated.");
+      this.#notifyConnection();
       return;
     }
     if (!this.#connected) {
@@ -668,12 +746,38 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   #failConnection(error: Error): void {
     if (this.#disposed || this.#terminalError) return;
     this.#terminalError = error;
+    this.#lastDisconnect = error;
+    exomuxDebugLog("connection", `${error.name}: ${error.message}`);
     this.#connected = false;
     this.#clearReadyTimer();
     this.#settleReady(error);
     this.#rejectPending(error);
     for (const attachment of this.#attachments.values()) attachment.settleReplay(error);
     this.#attachments.clear();
+    const retryable = error instanceof ExomuxClientError && [
+      "connection-closed",
+      "connection-error",
+      "auth-send-failed",
+      "send-failed",
+      "connect-timeout",
+      "request-timeout",
+    ].includes(error.code);
+    if (this.#hostId && this.#options.reconnect !== false && retryable) {
+      const delay = Math.min(5_000, this.#reconnectDelayMs * 2 ** Math.min(this.#reconnectAttempt++, 5));
+      this.#reconnectTimer = setTimeout(() => {
+        this.#reconnectTimer = undefined;
+        if (this.#disposed) return;
+        this.#removeSocketListeners();
+        this.#terminalError = undefined;
+        try {
+          this.#socket = this.#options.createWebSocket?.(this.#options.url) ?? new WebSocket(this.#options.url);
+          this.#listen();
+        } catch {
+          this.#failConnection(new ExomuxClientError("connection-error", "Exomux host reconnect failed."));
+        }
+      }, delay);
+    }
+    this.#notifyConnection();
     try {
       this.#socket.close(1011, "client-failed");
     } catch {

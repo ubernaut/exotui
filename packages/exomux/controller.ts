@@ -76,6 +76,7 @@ import {
   exomuxBackgroundSettingsFor,
   type ExomuxBackgroundSettingsMap,
   type ExomuxClientPort,
+  type ExomuxConnectionState,
   type ExomuxControllerInspection,
   type ExomuxGlobalSettingId,
   type ExomuxGlobalSettings,
@@ -962,6 +963,10 @@ export class ExomuxController {
   /** The in-flight local spawn, so adoption never races its reconciliation. */
   #spawnFlight?: Promise<void>;
   #unsubscribeSessions?: () => void;
+  #unsubscribeConnection?: () => void;
+  #connectionGeneration = 0;
+  #connectionStatus?: string;
+  #recoveryTimer?: ReturnType<typeof setTimeout>;
   #lastBounds: Rectangle = { column: 0, row: 0, width: 120, height: 36 };
   /** The window this controller handed the mobile layout's full-screen slot. */
   #mobileMaximizedId?: string;
@@ -1068,6 +1073,7 @@ export class ExomuxController {
     this.#unsubscribeSessions = this.client.subscribeSessions?.((session) => {
       this.#acceptBroadcastSession(session);
     });
+    this.#unsubscribeConnection = this.client.subscribeConnection?.((state) => this.#acceptConnection(state));
     // Appearance is a property of the desktop, not of one client's screen, so
     // it rides the host's shared-state channel (plan 041).
     this.#unsubscribeWorkspace = this.client.subscribeWorkspace?.((state) => {
@@ -3410,7 +3416,9 @@ export class ExomuxController {
   /** Reconciles the local navigator with the authoritative host inventory. */
   async refreshSessions(): Promise<void> {
     this.#assertActive();
+    const generation = this.#connectionGeneration;
     const listed = normalizeSessionList(await this.client.list());
+    if (this.#disposed || generation !== this.#connectionGeneration) return;
     const listedIds = new Set(listed.map((session) => session.id));
     const listedSummaries = new Map(listed.map((session) => [session.id, session]));
     const candidateRuntimes = new Map<string, ExomuxTerminalRuntime>();
@@ -3427,6 +3435,10 @@ export class ExomuxController {
     const reconciliation = await this.#reconcileWindows(
       this.#windowDescriptors(candidateRuntimes, listedSummaries),
     );
+    if (this.#disposed || generation !== this.#connectionGeneration) {
+      for (const runtime of createdRuntimes) disposeTerminalRuntime(runtime);
+      return;
+    }
     if (!windowReconciliationApplied(reconciliation)) {
       for (const runtime of createdRuntimes) disposeTerminalRuntime(runtime);
       this.status.value = `Session refresh deferred: ${reconciliation.reason ?? reconciliation.status}.`;
@@ -3467,11 +3479,58 @@ export class ExomuxController {
 
   /** Detaches every client view, persists layout, and leaves daemon PTYs alive. */
   dispose(): Promise<void> {
+    this.#unsubscribeConnection?.();
+    this.#unsubscribeConnection = undefined;
+    this.#connectionGeneration += 1;
+    clearTimeout(this.#recoveryTimer);
     this.#unsubscribeSessions?.();
     this.#unsubscribeWorkspace?.();
     this.#unsubscribeSessions = undefined;
     this.#disposePromise ??= this.#dispose();
     return this.#disposePromise;
+  }
+
+  #acceptConnection(state: ExomuxConnectionState): void {
+    if (this.#disposed) return;
+    const generation = ++this.#connectionGeneration;
+    clearTimeout(this.#recoveryTimer);
+    if (!state.connected) {
+      this.#connectionStatus = state.reconnecting ? "Reconnecting to terminals…" : "Terminal connection lost.";
+      for (const runtime of this.#runtimes.values()) {
+        runtime.attachGeneration += 1;
+        runtime.attached.value = false;
+        runtime.renderRevision.value += 1;
+      }
+      this.status.value = this.#statusSummary();
+      return;
+    }
+    this.#connectionStatus = "Restoring terminal connections…";
+    this.status.value = this.#statusSummary();
+    void this.#recoverConnection(generation);
+  }
+
+  async #recoverConnection(generation: number): Promise<void> {
+    const current = () => !this.#disposed && generation === this.#connectionGeneration && this.client.connected;
+    try {
+      // Preserve screens, scrollback, and lastSequence. The normal attach path
+      // handles replay truncation and requests a full-screen child repaint.
+      await this.ready;
+      if (!current()) return;
+      await this.refreshSessions();
+      if (!current()) return;
+      await this.syncWindowVisibility(this.#lastBounds);
+      if (!current()) return;
+      const windows = this.windowHost.controller.inspect().windows;
+      const missing = [...this.#runtimes.values()].some((runtime) =>
+        !runtime.attached.peek() &&
+        windows.some((window) => window.id === exomuxWindowId(runtime.sessionId) && window.state !== "closed")
+      );
+      if (missing) throw new Error("Terminal attachment is still pending.");
+      this.#connectionStatus = undefined;
+      this.status.value = this.#statusSummary();
+      return;
+    } catch { /* Retry inventory/attachment failures while this transport survives. */ }
+    if (current()) this.#recoveryTimer = setTimeout(() => void this.#recoverConnection(generation), 1_000);
   }
 
   async #initialize(): Promise<void> {
@@ -3529,7 +3588,9 @@ export class ExomuxController {
   #attachRuntime(runtime: ExomuxTerminalRuntime): Promise<boolean> {
     let result = false;
     const tail = (this.#lifecycleTails.get(runtime.sessionId) ?? Promise.resolve()).then(async () => {
-      if (this.#disposed || runtime.attached.peek() || !this.#runtimes.has(runtime.sessionId)) {
+      if (
+        this.#disposed || !this.client.connected || runtime.attached.peek() || !this.#runtimes.has(runtime.sessionId)
+      ) {
         result = runtime.attached.peek();
         return;
       }
@@ -3560,6 +3621,7 @@ export class ExomuxController {
         this.#publishSessions();
         result = true;
       } catch {
+        if (generation !== runtime.attachGeneration || this.#disposed) return;
         this.#warn(runtime, "The detached terminal could not be attached.");
         runtime.renderRevision.value += 1;
       }
@@ -3824,6 +3886,7 @@ export class ExomuxController {
   }
 
   #statusSummary(): string {
+    if (this.#connectionStatus) return this.#connectionStatus;
     const sessions = this.sessions.peek();
     const running = sessions.filter((session) => session.running).length;
     const hidden = [...this.#runtimes.values()].filter((runtime) => !runtime.attached.peek()).length;

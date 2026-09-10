@@ -125,9 +125,18 @@ export interface ExomuxSpawnOptions {
   readonly rows?: number;
 }
 
+/** Transport state; a recovered connection needs fresh terminal attachments. */
+export interface ExomuxConnectionState {
+  readonly connected: boolean;
+  readonly reconnecting: boolean;
+  /** Most recent failure, retained after recovery for diagnostics. */
+  readonly error?: Error;
+}
+
 /** Narrow client port used by the renderer-neutral controller and fakes. */
 export interface ExomuxClientPort {
   readonly connected: boolean;
+  subscribeConnection?(listener: (state: ExomuxConnectionState) => void): () => void;
   list(): Promise<readonly ExomuxSessionSummary[]>;
   spawn(options: ExomuxSpawnOptions): Promise<ExomuxSessionSummary>;
   attach(

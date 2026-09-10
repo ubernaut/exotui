@@ -3,6 +3,13 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## September 9 2026 — exomux reconnects after transport loss
+
+The client now retries the same daemon after a lost connection and restores open terminal subscriptions from their last
+output sequence. The controller preserves screens, scrollback, and window state, and uses its existing truncated
+replay/repaint path after long outages. Input is not resent. Disconnect codes/reasons remain available for diagnostics.
+See `detail/bug--exomux-reconnect.md` for evidence and the live-instance diagnosis.
+
 ## August 24 2026 — `./shell`: the host-neutral surface gets a door of its own
 
 0.6.0 shipped the seam and kept half of it indoors. Probing the published package rather than the working tree showed
