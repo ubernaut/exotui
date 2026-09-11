@@ -125,7 +125,27 @@ library export.
 
 ## Exomux quick start
 
-Run it straight from JSR, where it is published as [`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux):
+With Node.js 22 or newer, run exomux through npm (available after the first npm release):
+
+```sh
+npx @ubernaut/exomux
+```
+
+Or install the command permanently:
+
+```sh
+npm install -g @ubernaut/exomux
+exomux
+```
+
+The npm launcher downloads and verifies the matching standalone binary; no Deno installation is needed. Supported
+platforms are Linux x64 (glibc), macOS Apple Silicon/Intel, and Windows x64. GitHub must be reachable for the initial
+download. If npm skips install scripts, exomux downloads the binary on first launch. See the
+[npm package README](packages/exomux-npm/README.md) for cache settings and
+[release instructions](docs/exomux-npm-release.md) for publishing setup.
+
+With Deno installed, run it straight from JSR, where it is published as
+[`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux):
 
 ```sh
 deno run -A --unstable-webgpu jsr:@ubernaut/exomux/main

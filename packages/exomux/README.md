@@ -7,6 +7,20 @@ Published on JSR as [`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux).
 
 ## Running
 
+With Node.js 22 or newer (available after the first npm release):
+
+```sh
+npx @ubernaut/exomux
+# Or install permanently:
+npm install -g @ubernaut/exomux
+exomux
+```
+
+The npm package downloads a verified standalone binary for Linux x64 (glibc), macOS arm64/x64, or Windows x64; Deno is
+not required. See [npm installation details](../exomux-npm/README.md).
+
+With Deno installed:
+
 ```sh
 deno run -A --unstable-webgpu jsr:@ubernaut/exomux/main   # from anywhere
 ```

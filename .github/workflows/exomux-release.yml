@@ -1,7 +1,7 @@
 name: exomux binaries
 
-# Tagging a release builds exomux for each platform and attaches the binaries to
-# that release, so someone can run the multiplexer without installing Deno.
+# Tagging a release builds the binaries, tests the npm tarball on every platform,
+# then publishes @ubernaut/exomux. See docs/exomux-npm-release.md for first-time setup.
 on:
   push:
     tags: ["v*"]
@@ -11,9 +11,12 @@ on:
         description: Existing tag to build and attach binaries to
         required: true
 
+concurrency:
+  group: exomux-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  # One job creates the release before three build jobs upload into it;
-  # otherwise the matrix races to create the same release three times.
+  # Create the release once before the build matrix uploads into it.
   release:
     runs-on: ubuntu-latest
     permissions:
@@ -23,6 +26,8 @@ jobs:
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
       - name: Ensure a release exists for the tag
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -34,6 +39,10 @@ jobs:
 
   build:
     needs: release
+    defaults:
+      run:
+        # Upload commands use Bash environment-variable syntax on every runner.
+        shell: bash
     strategy:
       # One platform failing should not withhold the others: a macOS toolchain
       # problem must not cost Linux users their binary.
@@ -44,7 +53,7 @@ jobs:
             asset: exomux-linux-x86_64
           - runner: macos-latest
             asset: exomux-macos-aarch64
-          - runner: macos-13
+          - runner: macos-15-intel
             asset: exomux-macos-x86_64
           # Windows supports the detached host, per the OS support table in the
           # README; macOS does not, and is built anyway because everything else
@@ -54,6 +63,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -73,6 +84,111 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: gh release upload "$TAG" "${{ matrix.asset }}" --clobber --repo "$GITHUB_REPOSITORY"
+        # Published npm packages pin asset checksums. Never overwrite an asset.
+        run: gh release upload "$TAG" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY"
     permissions:
       contents: write
+
+  npm-package:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Test the npm launcher
+        run: npm test --prefix packages/exomux-npm
+      - name: Stage the exact release and pack npm artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release download "$TAG" --pattern 'exomux-*' --dir "$RUNNER_TEMP/binaries" --repo "$GITHUB_REPOSITORY"
+          node scripts/prepare_exomux_npm.mjs "$TAG" "$RUNNER_TEMP/binaries" "$RUNNER_TEMP/exomux-npm"
+          npm pack "$RUNNER_TEMP/exomux-npm" --pack-destination "$RUNNER_TEMP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exomux-npm
+          path: ${{ runner.temp }}/ubernaut-exomux-*.tgz
+          if-no-files-found: error
+
+  npm-smoke:
+    needs: npm-package
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: exomux-npm
+          path: ${{ runner.temp }}/npm-artifact
+      - name: Test npx and global installation using the packed release
+        env:
+          EXOMUX_CACHE_DIR: ${{ runner.temp }}/exomux-npx-cache
+          XDG_STATE_HOME: ${{ runner.temp }}/exomux-state
+        run: |
+          tarballs=("$RUNNER_TEMP"/npm-artifact/ubernaut-exomux-*.tgz)
+          npm exec --yes --ignore-scripts --package="${tarballs[0]}" -- exomux --help > "$RUNNER_TEMP/npx-help.txt"
+          grep -F 'Usage: exomux' "$RUNNER_TEMP/npx-help.txt"
+          EXOMUX_CACHE_DIR="$RUNNER_TEMP/exomux-install-cache" npm install --global --prefix "$RUNNER_TEMP/npm-global" "${tarballs[0]}"
+          if [ "$RUNNER_OS" = Windows ]; then
+            EXOMUX_CACHE_DIR="$RUNNER_TEMP/exomux-install-cache" "$RUNNER_TEMP/npm-global/exomux" --help > "$RUNNER_TEMP/global-help.txt"
+          else
+            EXOMUX_CACHE_DIR="$RUNNER_TEMP/exomux-install-cache" "$RUNNER_TEMP/npm-global/bin/exomux" --help > "$RUNNER_TEMP/global-help.txt"
+          fi
+          grep -F 'Usage: exomux' "$RUNNER_TEMP/global-help.txt"
+
+  npm-publish:
+    needs: npm-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: exomux-npm
+          path: ${{ runner.temp }}/npm-artifact
+      - name: Publish the tested tarball
+        # OIDC is preferred. NPM_TOKEN can bootstrap the first scoped publication
+        # before the package exists and its trusted publisher can be configured.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          tarballs=("$RUNNER_TEMP"/npm-artifact/ubernaut-exomux-*.tgz)
+          mkdir "$RUNNER_TEMP/npm-metadata"
+          tar -xzf "${tarballs[0]}" -C "$RUNNER_TEMP/npm-metadata" package/package.json
+          version=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/npm-metadata/package/package.json")
+          if npm view "@ubernaut/exomux@$version" version --json > "$RUNNER_TEMP/npm-version.json"; then
+            echo "@ubernaut/exomux@$version is already published; leaving it unchanged."
+          else
+            # Only a missing version permits a publish attempt; registry/network
+            # failures must not be mistaken for an unpublished package.
+            node -e 'const result = require(process.argv[1]); if (result.error?.code !== "E404") process.exit(1)' "$RUNNER_TEMP/npm-version.json"
+            npm publish "${tarballs[0]}" --access public
+          fi

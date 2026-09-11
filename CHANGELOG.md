@@ -6,6 +6,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+### Added
+
+- npm/npx distribution for `@ubernaut/exomux`: a Node.js launcher installs a checksum-verified standalone binary with no
+  Deno installation required. Includes platform release smoke tests and npm publishing after all four builds pass.
+
 ## exomux 0.3.1 — 2026-09-09
 
 ### Fixed

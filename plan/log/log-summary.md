@@ -3,6 +3,14 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## September 11 2026 — exomux npm/npx distribution
+
+Added a dependency-free npm launcher for `@ubernaut/exomux`, with verified binary downloads and a cache independent of
+npm's temporary installations. Release staging derives the version from exomux and pins the exact exotui release tag and
+all four asset checksums. Release CI tests the packed command on every platform before publishing; the READMEs now show
+npm/npx alongside Deno. Initial publication still requires npm publisher authentication/setup. Implementation and
+verification details are in `detail/feature--exomux-npm.md`.
+
 ## September 9 2026 — exomux reconnects after transport loss
 
 The client now retries the same daemon after a lost connection and restores open terminal subscriptions from their last
