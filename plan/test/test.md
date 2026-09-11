@@ -34,6 +34,7 @@ deno test -A                      # root suite (~3,460 tests, ~3 min)
 deno test -A --filter "<name>"    # one test
 cd packages/exomux && deno test -A # exomux suite (~510 tests, ~2 min)
 deno task health                  # the full gate list, as CI runs it
+npm test --prefix packages/exomux-npm # npm binary installer and launcher (Node.js 22+)
 ```
 
 Before committing anything that touches modules or public API:
@@ -52,6 +53,10 @@ of silent.
 `deno task health` runs formatting, type checks on every entrypoint and example, a reachability check that no source
 module is imported by nothing, the API reference check, package and release checks, and the web build. CI runs `health`
 plus a clean release-candidate verification. A green suite with a red gate is not done.
+
+The npm launcher has a separate Node 22/24 CI matrix on Linux, macOS, and Windows. Release CI additionally packs the
+actual application, runs it via npm with install scripts disabled and through a global installation on every binary
+platform, then publishes the tested tarball. See [npm release instructions](../../docs/exomux-npm-release.md).
 
 ## What is not covered automatically
 

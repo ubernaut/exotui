@@ -1,0 +1,26 @@
+{
+  "name": "@ubernaut/exomux",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A terminal multiplexer and desktop, with no Deno installation required",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "exomux": "bin/exomux.mjs" },
+  "files": ["bin/", "lib/", "install.mjs", "release.json", "LICENSE.md"],
+  "engines": { "node": ">=22" },
+  "os": ["linux", "darwin", "win32"],
+  "cpu": ["x64", "arm64"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubernaut/exotui.git",
+    "directory": "packages/exomux-npm"
+  },
+  "homepage": "https://github.com/ubernaut/exotui#exomux-quick-start",
+  "bugs": { "url": "https://github.com/ubernaut/exotui/issues" },
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "postinstall": "node install.mjs",
+    "prepack": "node install.mjs --check",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
