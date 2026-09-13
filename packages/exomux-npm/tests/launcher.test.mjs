@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -59,7 +59,8 @@ test("launcher inherits input, output, environment and cwd, preserves argv and n
   assert.equal(result.stderr, "stderr-ok");
   assert.deepEqual(JSON.parse(result.stdout), {
     args,
-    cwd: fixture.root,
+    // process.cwd() resolves macOS's /var -> /private/var alias.
+    cwd: await realpath(fixture.root),
     value: "inherited",
     input: "stdin-ok",
   });
