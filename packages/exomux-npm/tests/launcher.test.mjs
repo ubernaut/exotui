@@ -57,9 +57,10 @@ test("launcher inherits input, output, environment and cwd, preserves argv and n
   });
   assert.equal(result.status, 23, result.stderr);
   assert.equal(result.stderr, "stderr-ok");
-  assert.deepEqual(JSON.parse(result.stdout), {
+  const actual = JSON.parse(result.stdout);
+  // Compare physical paths across macOS symlinks and Windows short-name aliases.
+  assert.deepEqual({ ...actual, cwd: await realpath(actual.cwd) }, {
     args,
-    // process.cwd() resolves macOS's /var -> /private/var alias.
     cwd: await realpath(fixture.root),
     value: "inherited",
     input: "stdin-ok",
