@@ -3,6 +3,13 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## September 12 2026 — first npm release checks and macOS fixture correction
+
+Published release binaries for `v0.7.2-npm.1` (exomux 0.3.1); native builds and packed npm/global installation checks
+passed on Linux x64, macOS arm64/x64, and Windows x64. Published `@ubernaut/exomux@0.3.1` after npm account 2FA setup
+and configured GitHub trusted publishing. Corrected the launcher's macOS `/var` symlink test expectation and documented
+bootstrap authentication. See `detail/bug--exomux-npm-macos-test.md` for release IDs and validation.
+
 ## September 11 2026 — exomux npm/npx distribution
 
 Added a dependency-free npm launcher for `@ubernaut/exomux`, with verified binary downloads and a cache independent of

@@ -3,11 +3,12 @@
 A terminal multiplexer built on `@ubernaut/exotui`: a detachable local host owning PTY-backed shells, and a floating
 workbench client that can exit and reattach without disturbing them.
 
-Published on JSR as [`@ubernaut/exomux`](https://jsr.io/@ubernaut/exomux).
+Install from [npm](https://www.npmjs.com/package/@ubernaut/exomux) or run with Deno from
+[JSR](https://jsr.io/@ubernaut/exomux).
 
 ## Running
 
-With Node.js 22 or newer (available after the first npm release):
+With Node.js 22 or newer:
 
 ```sh
 npx @ubernaut/exomux

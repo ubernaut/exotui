@@ -125,7 +125,7 @@ library export.
 
 ## Exomux quick start
 
-With Node.js 22 or newer, run exomux through npm (available after the first npm release):
+With Node.js 22 or newer, run exomux through npm:
 
 ```sh
 npx @ubernaut/exomux

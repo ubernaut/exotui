@@ -6,17 +6,29 @@ to prevent accidentally publishing it without release metadata.
 
 ## First publication
 
-The npm route is implemented but is not available until the first package publication succeeds.
+The first package, `@ubernaut/exomux@0.3.1`, was published from release `v0.7.2-npm.1`. GitHub trusted publishing is
+configured for `ubernaut/exotui` and `exomux-release.yml`, without an environment or a bootstrap token.
 
 The release workflow prefers [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/). For the first
 publication, when the package does not yet exist, an npm account with permission to publish under `@ubernaut` must
 either publish the tested workflow tarball interactively, or supply a narrowly scoped publishing token as the GitHub
 Actions secret `NPM_TOKEN`. Tokens that require interactive 2FA cannot publish unattended.
 
+For an interactive first publication, enable account 2FA on npmjs.com before running `npm publish`. A successful
+`npm login` alone is insufficient: npm rejects publication from an account without 2FA unless a granular publishing
+token has bypass 2FA enabled. Complete any browser security-key challenge requested by the npm client.
+
 After the package exists, configure its trusted publisher on npmjs.com with GitHub user `ubernaut`, repository `exotui`,
 and workflow filename `exomux-release.yml` (no environment). Subsequent publishes use GitHub OIDC; remove the bootstrap
 token when this works. Node 24 on the publish runner includes a compatible npm version. Never put tokens in the
 repository.
+
+With npm 11.15+ and account 2FA enabled, the trusted publisher can also be configured from the CLI after publication:
+
+```sh
+npm trust github @ubernaut/exomux --repo ubernaut/exotui --file exomux-release.yml --allow-publish --yes
+npm trust list @ubernaut/exomux
+```
 
 ## Release flow
 
