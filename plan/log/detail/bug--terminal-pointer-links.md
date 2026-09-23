@@ -37,3 +37,12 @@ implementation commit and reported fresh. This subsequent log-only update was fo
 The maintainer requested this branch be pushed for testing from their laptop. Real Ghostty acceptance of scrolling,
 selection/copy, and local link opening remains pending. Do not merge or publish until that check and full health pass.
 From a checkout of this branch, run `deno task --cwd packages/exomux start`. npm 0.3.1 still contains the previous code.
+
+## Release acceptance — 2026-09-23
+
+The maintainer tested the pushed branch from their laptop in Ghostty and confirmed “everything works”. They authorized
+merging, pushing, and publishing new npm, JSR, and GitHub releases. Preparing exotui 0.8.0 and exomux 0.4.0, updating
+all exomux imports to the new library range so local links and published dependencies agree. The release uses tag
+v0.8.0; the existing GitHub workflow builds all four native binaries, tests the exact npm tarball on each platform, and
+publishes with OIDC. Full health is rerun after the version change; final results belong in the release commit and ICC
+task.

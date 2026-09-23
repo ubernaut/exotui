@@ -6,19 +6,25 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.8.0 / exomux 0.4.0 — 2026-09-23
+
 ### Added
 
 - Terminal mouse selection and OSC 52 copying, with an Alt-drag override for mouse-aware applications and a reusable
   exotui `TerminalSelectionController`. Copying joins soft wraps and preserves Unicode glyphs and explicit newlines.
 - Ctrl-click opens terminal links on the local exomux client, including OSC 8 links and URLs printed by SSH commands.
   Reusable detection and validation are exported as `terminalLinkAt` and `normalizeTerminalLink`.
-- npm/npx distribution for `@ubernaut/exomux`: a Node.js launcher installs a checksum-verified standalone binary with no
-  Deno installation required. Includes platform release smoke tests and npm publishing after all four builds pass.
 
 ### Fixed
 
 - Preserve scrollback when inline terminal apps scroll a top-anchored transcript region above a fixed composer, as Codex
   does. Interior regions and alternate-screen output do not enter main-screen history.
+
+## npm distribution — 2026-09-13
+
+- npm/npx distribution for `@ubernaut/exomux@0.3.1`: a Node.js launcher installs a checksum-verified standalone binary
+  with no Deno installation required. Includes platform release smoke tests and npm publishing after all four builds
+  pass. The first npm release uses immutable GitHub assets from `v0.7.2-npm.1`.
 
 ## exomux 0.3.1 — 2026-09-09
 
