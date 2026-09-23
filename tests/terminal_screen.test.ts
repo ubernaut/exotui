@@ -825,6 +825,36 @@ Deno.test("TerminalScreenController scrolls inside configured scroll regions", (
   assertEquals(screen.inspect().cursor, { column: 2, row: 2 });
 });
 
+Deno.test("TerminalScreenController retains top-anchored region history above a fixed prompt", () => {
+  for (const scroll of ["\x1b[2S", "\x1b[5;1H\r\nsix\r\nseven"]) {
+    const screen = new TerminalScreenController({ columns: 12, rows: 6, scrollbackLimit: 10 });
+    screen.write("one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nPROMPT");
+    screen.write(`\x1b[1;5r${scroll}\x1b[r`);
+    assertEquals(screen.scrollbackTextRows(), ["one", "two"]);
+    assertEquals(screen.textRows(), [
+      "three",
+      "four",
+      "five",
+      ...(
+        scroll === "\x1b[2S" ? ["", ""] : ["six", "seven"]
+      ),
+      "PROMPT",
+    ]);
+    const history = new TerminalScrollbackController({ screen, viewportRows: 6 });
+    history.scrollLines(-2);
+    assertEquals(history.inspect().visibleRows.slice(0, 3), ["one", "two", "three"]);
+  }
+});
+
+Deno.test("TerminalScreenController does not retain interior or alternate-screen region scrolls", () => {
+  for (const setup of ["\x1b[2;5r", "\x1b[?1049h\x1b[1;5r"]) {
+    const screen = new TerminalScreenController({ columns: 12, rows: 6 });
+    screen.write("one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nPROMPT");
+    screen.write(`${setup}\x1b[2S`);
+    assertEquals(screen.scrollbackTextRows(), []);
+  }
+});
+
 Deno.test("TerminalScreenController resets scroll regions", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 3, scrollbackLimit: 4 });
 

@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 16
-- Unique modules: 546
-- Module visits: 1086
-- Unique re-export declarations: 706
-- Re-export declaration visits: 1086
-- Unique symbol declarations: 4994
-- Symbol declaration visits: 10217
-- Documented symbol declarations: 4962
+- Unique modules: 548
+- Module visits: 1094
+- Unique re-export declarations: 712
+- Re-export declaration visits: 1094
+- Unique symbol declarations: 4998
+- Symbol declaration visits: 10233
+- Documented symbol declarations: 4966
 - Documentation coverage: 99.36%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,9 +21,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     453 |    4348 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     455 |    4352 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     364 |    3695 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3699 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     180 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
@@ -31,8 +31,8 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      83 |     872 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      19 |     203 |  99.51% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      85 |     876 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      21 |     207 |  99.52% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -45,10 +45,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 453
-- Re-export declarations: 454
-- Exported symbols: 4348
-- Documented symbols: 4348
+- Modules: 455
+- Re-export declarations: 456
+- Exported symbols: 4352
+- Documented symbols: 4352
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -75,10 +75,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 364
-- Re-export declarations: 366
-- Exported symbols: 3695
-- Documented symbols: 3695
+- Modules: 366
+- Re-export declarations: 368
+- Exported symbols: 3699
+- Documented symbols: 3699
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -195,10 +195,10 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Path: `./mod.runtime.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 83
-- Re-export declarations: 82
-- Exported symbols: 872
-- Documented symbols: 872
+- Modules: 85
+- Re-export declarations: 84
+- Exported symbols: 876
+- Documented symbols: 876
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -210,11 +210,11 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Path: `./mod.terminal.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 19
-- Re-export declarations: 18
-- Exported symbols: 203
-- Documented symbols: 202
-- Documentation coverage: 99.51%
+- Modules: 21
+- Re-export declarations: 20
+- Exported symbols: 207
+- Documented symbols: 206
+- Documentation coverage: 99.52%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -286,12 +286,12 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
 | [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         17 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         19 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                              |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                                |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                           | `./three-ascii`                          |          3 |       0 |          0 |
 | [`mod.ts`](#mod-ts)                                                                                   | `.`                                      |         66 |       0 |          0 |
-| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         83 |       0 |          0 |
+| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         85 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                       | `.`, `./web`                             |          0 |      14 |         14 |
 | [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                             |          0 |       7 |          7 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)                     | `.`, `./web`                             |          0 |      24 |         24 |
@@ -624,7 +624,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                                     | `.`, `./runtime`                         |          0 |       9 |          9 |
 | [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                               | `.`, `./runtime`                         |          0 |       8 |          8 |
 | [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         80 |       0 |          0 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         82 |       0 |          0 |
 | [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                               | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                       | `.`, `./runtime`                         |          0 |       3 |          3 |
 | [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                       | `.`, `./runtime`                         |          0 |      15 |         15 |
@@ -666,6 +666,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       9 |          9 |
 | [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                       | `.`, `./runtime`, `./terminal`           |          0 |      27 |         27 |
 | [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                                     | `./terminal`                             |          0 |       4 |          3 |
+| [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                                 | `.`, `./runtime`                         |          0 |       2 |          2 |
 | [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                           | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
@@ -675,6 +676,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                             | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
 | [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                           | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
+| [`src/runtime/terminal_selection.ts`](#src-runtime-terminal-selection-ts)                             | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                             | `./terminal`                             |          0 |       3 |          3 |
 | [`src/runtime/terminal_services.ts`](#src-runtime-terminal-services-ts)                               | `.`, `./runtime`                         |          0 |      32 |         32 |
 | [`src/runtime/terminal_session.ts`](#src-runtime-terminal-session-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
@@ -960,6 +962,8 @@ _Entrypoints: `./terminal`_
 | `src/runtime/terminal_palette.ts`          | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
+| `src/runtime/terminal_selection.ts`        | star | -     |
+| `src/runtime/terminal_links.ts`            | star | -     |
 | `src/runtime/terminal_sequences.ts`        | star | -     |
 | `src/runtime/terminal_session.ts`          | star | -     |
 | `src/runtime/terminal_shell.ts`            | star | -     |
@@ -1187,6 +1191,8 @@ _Entrypoints: `./web`_
 | `src/runtime/telemetry.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_screen.ts`        | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_scrollback.ts`    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/runtime/terminal_selection.ts`     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/runtime/terminal_links.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_workspace.ts`     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/worker_pool.ts`            | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/three_ascii/mod.ts`                | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -7074,6 +7080,8 @@ _Entrypoints: `.`, `./runtime`_
 | `src/runtime/terminal_palette.ts`          | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
+| `src/runtime/terminal_selection.ts`        | star | -     |
+| `src/runtime/terminal_links.ts`            | star | -     |
 | `src/runtime/terminal_shell.ts`            | star | -     |
 | `src/runtime/terminal_shell_workspace.ts`  | star | -     |
 | `src/runtime/terminal_session.ts`          | star | -     |
@@ -7836,6 +7844,15 @@ _Entrypoints: `./terminal`_
 | `encodeTerminalIndexedColor` | function | no        | yes   |
 | `encodeTerminalRgbColor`     | function | no        | yes   |
 
+### src/runtime/terminal_links.ts
+
+_Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `normalizeTerminalLink` | function | no        | yes   |
+| `terminalLinkAt`        | function | no        | yes   |
+
 ### src/runtime/terminal_margins.ts
 
 _Entrypoints: `.`, `./runtime`_
@@ -7949,6 +7966,15 @@ _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 | `TerminalScrollbackMode`               | type      | yes       | yes   |
 | `TerminalScrollbackSelection`          | interface | yes       | yes   |
 | `TerminalScrollbackViewportInspection` | interface | yes       | yes   |
+
+### src/runtime/terminal_selection.ts
+
+_Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
+
+| Symbol                        | Kind  | Type Only | JSDoc |
+| ----------------------------- | ----- | --------- | ----- |
+| `TerminalSelectionController` | class | no        | yes   |
+| `TerminalSelectionUnit`       | type  | yes       | yes   |
 
 ### src/runtime/terminal_sequences.ts
 

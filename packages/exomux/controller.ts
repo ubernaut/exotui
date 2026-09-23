@@ -9,12 +9,14 @@ import {
   KittyPassthroughRelay,
   type KittyRelayEmission,
   type KittyRelayRect,
+  normalizeTerminalLink,
   type Rectangle,
   type RuntimePermissionActivationReport,
   type RuntimePermissionManifest,
   Signal,
   TerminalScreenController,
   TerminalScrollbackController,
+  TerminalSelectionController,
   TreeController,
   type TreeNode,
   type WorkbenchWindowHostDescriptor,
@@ -23,6 +25,7 @@ import {
 } from "@ubernaut/exotui";
 import { themeDocumentId, ThemeEditorController, type ThemeLibrary } from "@ubernaut/exotui";
 import { renameThemeDocument } from "@ubernaut/exotui/theme";
+import { openExomuxLocalLink } from "./open_link.ts";
 import type { ThemeDocument } from "@ubernaut/exotui/theme";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import {
@@ -597,6 +600,7 @@ export interface ExomuxTerminalRuntime {
   readonly sessionId: string;
   readonly screen: TerminalScreenController;
   readonly scrollback: TerminalScrollbackController;
+  readonly selection: TerminalSelectionController;
   readonly summary: Signal<ExomuxSessionSummary>;
   readonly attached: Signal<boolean>;
   readonly renderRevision: Signal<number>;
@@ -676,6 +680,8 @@ export interface ExomuxHostSessionRow {
 
 export interface ExomuxControllerOptions {
   readonly client: ExomuxClientPort;
+  /** Opens a terminal URL on this client machine; defaults to the local OS browser launcher. */
+  readonly openLink?: (url: string) => Promise<void>;
   readonly initialSessions?: readonly ExomuxSessionSummary[];
   readonly store?: AsyncStore<unknown>;
   readonly storageKey?: string;
@@ -919,6 +925,7 @@ export class ExomuxController {
   readonly #resizeFlights = new Map<string, Promise<void>>();
   readonly #killFlights = new Map<string, Promise<boolean>>();
   readonly #defaultCommand: string;
+  readonly #openLink: (url: string) => Promise<void>;
   /** Whether kitty graphics from children are relayed to the host terminal. */
   readonly #graphicsPassthrough: boolean;
   /**
@@ -1001,6 +1008,7 @@ export class ExomuxController {
     if (options.ghosttyDetected) this.ghosttyDetected.value = true;
     if (options.initialShaders) this.shaderConfig.value = options.initialShaders;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
+    this.#openLink = options.openLink ?? openExomuxLocalLink;
     this.#graphicsPassthrough = options.graphicsPassthrough ?? false;
     this.#hostCellPixels = options.hostCellPixels;
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
@@ -2220,6 +2228,31 @@ export class ExomuxController {
     this.status.value = `Copied ${label}: ${bounded}`;
   }
 
+  /** Opens a validated terminal URL locally, including links printed by SSH children. */
+  async openTerminalLink(value: string): Promise<boolean> {
+    const url = normalizeTerminalLink(value);
+    if (this.#disposed || !url) return false;
+    try {
+      await this.#openLink(url);
+      if (!this.#disposed) this.status.value = "Opened terminal link on this computer";
+      return true;
+    } catch {
+      if (!this.#disposed) this.status.value = "Could not open terminal link · check your local browser configuration";
+      return false;
+    }
+  }
+
+  /** Copies a terminal selection without truncating it or echoing its contents. */
+  copyTerminalText(text: string): void {
+    if (this.#disposed || !text) return;
+    if (new TextEncoder().encode(text).byteLength > 100_000) {
+      this.status.value = "Selection exceeds the 100 KB clipboard limit; select a smaller region.";
+      return;
+    }
+    this.clipboardCopy.value = { text, nonce: ++this.#clipboardNonce };
+    this.status.value = "Selection sent to terminal clipboard · Escape clears selection";
+  }
+
   /** Starts (or restarts) the network panel's fuzzy filter. */
   beginNetworkFilter(): void {
     this.#assertActive();
@@ -3405,6 +3438,7 @@ export class ExomuxController {
       if (columns === runtime.requestedColumns && rows === runtime.requestedRows) continue;
       runtime.requestedColumns = columns;
       runtime.requestedRows = rows;
+      runtime.selection.clear();
       runtime.screen.resize(columns, rows);
       runtime.renderRevision.value += 1;
       if (runtime.attached.peek() && runtime.summary.peek().running) {
@@ -4035,6 +4069,7 @@ function createTerminalRuntime(
     graphics: relay,
     pendingGraphics,
     scrollback: new TerminalScrollbackController({ screen, viewportRows: summary.rows }),
+    selection: new TerminalSelectionController(),
     summary: new Signal(summary),
     attached: new Signal(false),
     renderRevision: new Signal(0),

@@ -67,6 +67,35 @@ screen and requests a child repaint. The status line reports reconnection. Keybo
 across the interruption, and a different host generation requires an explicit reattach. Debug logging records connection
 failures and WebSocket close codes/reasons; `client.connectionState.error` retains the last failure.
 
+## Selecting and copying terminal text
+
+Drag with the left mouse button inside a terminal pane to select text; releasing copies it through the host terminal's
+OSC 52 clipboard support. Double-click selects a word, and triple-click selects a line. Hold **Alt** while dragging to
+select inside an application that uses mouse reporting. Shift-drag also works when the host forwards it; Ghostty may
+reserve Shift-drag for its own selection, so use Alt-drag there. Turning off Mouse reporting in the window's settings
+allows an ordinary drag to select.
+
+Selection stays within the pane and freezes its displayed text while selected; the child keeps running. Escape clears
+the selection without sending Escape to the child. Typing, pasting, scrolling, or starting another mouse gesture clears
+it too. Wheel into history before selecting older output. Touch continues to scroll and interact with applications.
+
+Copied text preserves Unicode glyphs, removes terminal padding, joins soft-wrapped rows, and keeps explicit newlines.
+Selections are limited to the visible viewport and 100 KB per clipboard write. The reusable
+`TerminalSelectionController` is exported by exotui's root, `./runtime`, `./terminal`, and `./web` entrypoints.
+
+Inline applications can scroll their transcript above a fixed prompt: these rows remain available in exomux history,
+including when Codex or Claude runs through SSH. Apps that request mouse reporting still receive ordinary wheel events.
+
+## Opening terminal links
+
+**Ctrl-click** a link to open it on the computer running the exomux client. This uses your local browser or mail client,
+even when the link was printed by a remote SSH command. HTTP(S), `www.` URLs, and `mailto:` links are supported, along
+with OSC 8 links whose visible label differs from their URL. Soft-wrapped URLs work when the full link is in the
+viewport; scroll to reveal it if part is clipped. Links in scrollback or a frozen selection work too.
+
+Link detection is reusable through exotui's `terminalLinkAt` and `normalizeTerminalLink`; OS launching belongs to the
+exomux client. `ExomuxControllerOptions.openLink` can supply a different host opener.
+
 ## Sessions
 
 Exomux hosts are named sessions, tmux-style. A bare launch attaches to the one live session, creates the default session

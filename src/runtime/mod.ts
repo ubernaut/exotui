@@ -31,6 +31,8 @@ export * from "./process_session.ts";
 export * from "./terminal_palette.ts";
 export * from "./terminal_screen.ts";
 export * from "./terminal_scrollback.ts";
+export * from "./terminal_selection.ts";
+export * from "./terminal_links.ts";
 export * from "./terminal_shell.ts";
 export * from "./terminal_shell_workspace.ts";
 export * from "./terminal_session.ts";

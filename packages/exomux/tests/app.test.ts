@@ -1911,6 +1911,10 @@ Deno.test("Exomux wheel and touch input scroll styled history and manipulate win
     const theme = controller.theme.peek();
     const historyRed = exomuxTerminalForegroundRgb(31, theme.surface, theme.text)!;
     assertStringIncludes(styledHistory, `38;2;${historyRed.join(";")}`);
+    await mounted.handlePointer(mousePointer("down", terminal.clientRect.column, terminal.clientRect.row, 9000));
+    await mounted.handlePointer(mousePointer("move", terminal.clientRect.column + 5, terminal.clientRect.row, 9001));
+    await mounted.handlePointer(mousePointer("up", terminal.clientRect.column + 5, terminal.clientRect.row, 9002));
+    assertEquals(controller.clipboardCopy.peek()?.text, "red-00");
 
     for (let attempt = 0; attempt < 32 && runtime.scrollback.inspect().mode === "copy"; attempt += 1) {
       await harness.pilot.scroll(1, wheelX, wheelY);
@@ -2931,6 +2935,217 @@ function touchPointerWithoutCell(kind: "up" | "cancel", sequence: number): Point
     coordinates: { screen: { space: "screen", x: 100, y: 100 } },
   };
 }
+
+Deno.test("Exomux mouse selection highlights and copies frozen text through both input paths", async () => {
+  const initial = session("selection-shell", "selection shell", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...options, size: { columns: 80, rows: 24 } });
+  try {
+    const mounted = mount.current!;
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({ kind: "maximize", id: exomuxWindowId(initial.id) }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const runtime = controller.runtime(initial.id)!;
+    const rect = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId(initial.id))!.clientRect;
+    const x = rect.column;
+    const y = rect.row;
+    runtime.screen.write("\x1b[2J\x1b[Hhello world\r\nsecond row");
+    client.inputs.splice(0);
+    await mounted.handlePointer(mousePointer("down", x + 6, y, 1000));
+    await mounted.handlePointer(mousePointer("move", x + 10, y, 1001));
+    await harness.pilot.settle();
+    assertEquals(runtime.selection.selectedText(), "world");
+    assertEquals(runtime.selection.contains(6, 0), true);
+    const theme = controller.theme.peek();
+    assertStringIncludes(canvasCell(harness.canvas.frameBuffer[y]?.[x + 6]), `48;2;${theme.accent.join(";")}`);
+    runtime.screen.write("\x1b[HCHANGED");
+    await mounted.handlePointer(mousePointer("up", x + 10, y, 1002));
+    assertEquals(controller.clipboardCopy.peek()?.text, "world");
+    assertStringIncludes(harness.stdout.text, "\x1b]52;c;d29ybGQ=\x1b\\");
+    assertEquals(client.inputs, []);
+    await harness.pilot.press("escape");
+    await mounted.whenIdle();
+    assertEquals(runtime.selection.active, false);
+    assertEquals(client.inputs, []);
+
+    // Shift forces local selection even inside alternate-screen mouse apps.
+    runtime.screen.write("\x1b[?1049h\x1b[?1002;1006hhello world");
+    for (
+      const event of [
+        mousePointer("down", x, y, 2000),
+        mousePointer("move", x + 4, y, 2001),
+        mousePointer("up", x + 4, y, 2002),
+      ]
+    ) {
+      await mounted.handlePointer({ ...event, modifiers: { ...event.modifiers, shift: true } });
+    }
+    assertEquals(controller.clipboardCopy.peek()?.text, "hello");
+    assertEquals(runtime.scrollback.mode, "live");
+    assertEquals(client.inputs, []);
+
+    // Ghostty may reserve Shift-drag; Alt still reaches the application.
+    for (
+      const event of [
+        mousePointer("down", x + 6, y, 2500),
+        mousePointer("move", x + 10, y, 2501),
+        mousePointer("up", x + 10, y, 2502),
+      ]
+    ) {
+      await mounted.handlePointer({ ...event, modifiers: { ...event.modifiers, alt: true } });
+    }
+    assertEquals(controller.clipboardCopy.peek()?.text, "world");
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y, meta: true }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x: x + 4, y, drag: true, button: 0, meta: true }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x: x + 4, y, release: true, meta: true }));
+    assertEquals(controller.clipboardCopy.peek()?.text, "hello");
+    assertEquals(client.inputs, []);
+
+    // Legacy SGR mouse path captures a reverse drag beyond the pane edge.
+    runtime.screen.write("\x1b[?1049l\x1b[?1002l\x1b[Hhello world");
+    await harness.app.mouse.dispatch(createTestMousePress({ x: x + 4, y }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x, y, drag: true, button: 0 }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x: x - 5, y, release: true, button: undefined }));
+    assertEquals(controller.clipboardCopy.peek()?.text, "hello");
+    const nonce = controller.clipboardCopy.peek()?.nonce;
+    await mounted.handlePointer(mousePointer("down", x + 6, y, 3000));
+    await mounted.handlePointer(mousePointer("move", x + 10, y, 3001));
+    await mounted.handlePointer(mousePointer("cancel", x + 10, y, 3002));
+    assertEquals(runtime.selection.active, false);
+    assertEquals(controller.clipboardCopy.peek()?.nonce, nonce);
+
+    // Repeated clicks select a word, then the whole line; a single click copies nothing.
+    for (const sequence of [4000, 4100, 4200]) {
+      await mounted.handlePointer(mousePointer("down", x + 7, y, sequence));
+      await mounted.handlePointer(mousePointer("up", x + 7, y, sequence + 1));
+      if (sequence === 4000) assertEquals(controller.clipboardCopy.peek()?.nonce, nonce);
+      if (sequence === 4100) assertEquals(controller.clipboardCopy.peek()?.text, "world");
+      if (sequence === 4200) assertEquals(controller.clipboardCopy.peek()?.text, "hello world");
+    }
+    await harness.pilot.press("a");
+    await mounted.whenIdle();
+    assertEquals(runtime.selection.active, false);
+    assertEquals(client.inputs.map((input) => input.data).join(""), "a");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux wheel and selection reach inline SSH transcript history above a fixed composer", async () => {
+  const initial = { ...session("ssh-history", "remote Codex", 0), commandLine: "ssh remote" };
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...options, size: { columns: 90, rows: 26 } });
+  try {
+    const mounted = mount.current!;
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const runtime = controller.runtime(initial.id)!;
+    const rect = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId(initial.id))!.clientRect;
+    const rows = runtime.screen.rows;
+    let output = "\x1b[2J\x1b[H";
+    for (let row = 1; row < rows; row++) output += `\x1b[${row};1Hold-${String(row).padStart(2, "0")}`;
+    output += `\x1b[${rows};1HCOMPOSER\x1b[1;${rows - 1}r\x1b[2S\x1b[r`;
+    client.emitOutput({ sessionId: initial.id, sequence: 1, data: output });
+    assertEquals(runtime.screen.scrollbackTextRows(), ["old-01", "old-02"]);
+    assertEquals(runtime.screen.textRows().at(-1), "COMPOSER");
+    client.inputs.splice(0);
+    await harness.pilot.scroll(-1, rect.column + 1, rect.row + 1);
+    await harness.pilot.scroll(-1, rect.column + 1, rect.row + 1);
+    await harness.pilot.settle();
+    assertEquals(runtime.scrollback.inspect().visibleRows[0], "old-01");
+    assertStringIncludes(harness.pilot.snapshot(), "old-01");
+    await harness.app.mouse.dispatch(createTestMousePress({ x: rect.column, y: rect.row }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x: rect.column + 5, y: rect.row, drag: true }));
+    await harness.app.mouse.dispatch(createTestMousePress({ x: rect.column + 5, y: rect.row, release: true }));
+    assertEquals(controller.clipboardCopy.peek()?.text, "old-01");
+    assertEquals(client.inputs, []);
+    await harness.pilot.scroll(1, rect.column + 1, rect.row + 1);
+    await harness.pilot.scroll(1, rect.column + 1, rect.row + 1);
+    assertEquals(runtime.scrollback.mode, "live");
+    assertEquals(runtime.selection.active, false);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux Ctrl-click opens remote terminal links locally with mouse reporting, history and overlays", async () => {
+  const initial = { ...session("ssh-links", "remote Claude", 0), commandLine: "ssh remote" };
+  const client = new FakeExomuxClient([initial]);
+  const opened: string[] = [];
+  let fail = false;
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    openLink: (url) => {
+      if (fail) return Promise.reject(new Error("no browser"));
+      opened.push(url);
+      return Promise.resolve();
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...options, size: { columns: 100, rows: 30 } });
+  try {
+    const mounted = mount.current!;
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const runtime = controller.runtime(initial.id)!;
+    const rect = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId(initial.id))!.clientRect;
+    runtime.screen.write(
+      "\x1b[2J\x1b[Hhttps://example.com/ssh\r\n\x1b]8;;http://localhost:3000/remote\x1b\\open app\x1b]8;;\x1b\\\x1b[?1002;1006h",
+    );
+    client.inputs.splice(0);
+    const click = async (row: number) => {
+      await harness.app.mouse.dispatch(createTestMousePress({ x: rect.column + 2, y: rect.row + row, ctrl: true }));
+      await harness.app.mouse.dispatch(
+        createTestMousePress({ x: rect.column + 2, y: rect.row + row, ctrl: true, release: true }),
+      );
+    };
+    await click(0);
+    const down = mousePointer("down", rect.column + 2, rect.row + 1, 100);
+    await mounted.handlePointer({ ...down, modifiers: { ...down.modifiers, ctrl: true } });
+    await mounted.handlePointer(mousePointer("up", rect.column + 2, rect.row + 1, 101));
+    assertEquals(opened, ["https://example.com/ssh", "http://localhost:3000/remote"]);
+    assertEquals(client.inputs, []);
+    assertEquals(runtime.selection.active, false);
+
+    controller.openHelp();
+    await click(0);
+    assertEquals(opened.length, 2);
+    controller.closeHelp();
+    // The captured visible text, not later output underneath it, owns a click.
+    runtime.selection.begin(runtime.screen.cellRows(), { column: 0, row: 0 });
+    runtime.selection.extend({ column: 5, row: 0 });
+    runtime.screen.write("\x1b[Hhttps://example.com/new\x1b[K");
+    await click(0);
+    assertEquals(opened.at(-1), "https://example.com/ssh");
+
+    runtime.screen.write("\x1b[Hhttps://example.com/history\x1b[K");
+    runtime.screen.write(`\x1b[${runtime.screen.rows};1H\r\nmore\r\noutput`);
+    runtime.scrollback.toTop();
+    await click(0);
+    assertEquals(opened.at(-1), "https://example.com/history");
+    assertEquals(client.inputs, []);
+    fail = true;
+    await click(0);
+    await waitForCondition(() => controller.status.peek().includes("Could not open terminal link"), 2_000);
+    assertEquals(await controller.openTerminalLink("javascript:alert(1)"), false);
+    assertEquals(client.inputs, []);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
 
 function mousePointer(
   kind: "down" | "move" | "up" | "cancel",
