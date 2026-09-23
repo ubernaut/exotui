@@ -3,6 +3,22 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## September 23 2026 — Terminal history, selection, and local links
+
+Recovered the previously unmerged selection work and fixed inline history loss: main-screen scroll regions starting at
+the top now retain outgoing rows even with a fixed composer below them. Soft-wrap metadata supports continuous copied
+text and wrapped URL detection. Alt-drag overrides application mouse tracking; Ctrl-click opens HTTP(S)/mailto links on
+the local client, including output from SSH commands. See
+[`bug/terminal-pointer-links`](detail/bug--terminal-pointer-links.md).
+
+## September 12 2026 — Reusable terminal mouse selection
+
+Exotui's `TerminalSelectionController` now owns cell, word, and line selection over a frozen terminal viewport,
+including reverse drags and intact Unicode glyphs. Exomux uses it for highlighted mouse selection and OSC 52 copying on
+release, with Shift-drag overriding child mouse reporting. Escape clears; typing, paste, wheel, and subsequent mouse
+gestures resume live display. The selection stays in one visible pane; soft-wrapped rows retain their newlines. See
+[`feature/terminal-mouse-selection`](detail/feature--terminal-mouse-selection.md) for evidence and limits.
+
 ## September 12 2026 — first npm release checks and macOS fixture correction
 
 Published release binaries for `v0.7.2-npm.1` (exomux 0.3.1); native builds and packed npm/global installation checks

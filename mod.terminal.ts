@@ -9,6 +9,8 @@ export * from "./src/runtime/terminal_capabilities.ts";
 export * from "./src/runtime/terminal_palette.ts";
 export * from "./src/runtime/terminal_screen.ts";
 export * from "./src/runtime/terminal_scrollback.ts";
+export * from "./src/runtime/terminal_selection.ts";
+export * from "./src/runtime/terminal_links.ts";
 export * from "./src/runtime/terminal_sequences.ts";
 export * from "./src/runtime/terminal_session.ts";
 export * from "./src/runtime/terminal_shell.ts";

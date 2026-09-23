@@ -16,6 +16,10 @@ export interface TerminalScreenCell {
   foreground?: number;
   background?: number;
   hyperlink?: string;
+  /** On a row's final cell when automatic wrapping continues into the next row. */
+  softWrapped?: boolean;
+  /** Right-margin padding inserted before a wide glyph wraps; not copied as text. */
+  wrapPadding?: boolean;
   /**
    * Set on the blank that a double-width glyph parks in the column it also
    * occupies. Renderers must skip it — the glyph to its left already covers that
@@ -285,6 +289,16 @@ export class TerminalScreenController {
     this.#rows = nextRows;
     this.#state = resizeState(this.#state, nextColumns, nextRows);
     if (this.#mainState) this.#mainState = resizeState(this.#mainState, nextColumns, nextRows);
+    // Resize does not reflow text. Discard old live row-boundary annotations.
+    for (const state of [this.#state, this.#mainState]) {
+      if (!state) continue;
+      for (const row of state.cells) {
+        for (const cell of row) {
+          if (cell.softWrapped) delete cell.softWrapped;
+          if (cell.wrapPadding) delete cell.wrapPadding;
+        }
+      }
+    }
     // Narrowing can slice a wide glyph off at the new right edge.
     for (const row of this.#state.cells) this.#repairRow(row);
     if (this.#mainState) { for (const row of this.#mainState.cells) this.#repairRow(row); }
@@ -444,10 +458,17 @@ export class TerminalScreenController {
     if (this.#lastPrintableCell) this.#lastPrintableCell = { ...combined };
   }
 
+  #markSoftWrap(padding = false): void {
+    const row = this.#state.cells[this.#state.cursor.row]!;
+    const last = this.#columns - 1;
+    row[last] = { ...row[last]!, softWrapped: true, ...(padding ? { wrapPadding: true } : {}) };
+  }
+
   #placeGlyph(cell: TerminalScreenCell, width: number): void {
     // Resolve a wrap deferred from a previous edge write before placing this glyph.
     if (this.#pendingWrap) {
       if (this.#autoWrap) {
+        this.#markSoftWrap();
         this.#state.cursor.column = 0;
         this.#index();
       }
@@ -456,6 +477,7 @@ export class TerminalScreenController {
     // A double-width glyph that cannot fit in the final column wraps first.
     if (width === 2 && this.#autoWrap && this.#state.cursor.column >= this.#columns - 1) {
       this.#putCellAt(this.#state.cursor.column, BLANK_CELL, false);
+      this.#markSoftWrap(true);
       this.#state.cursor.column = 0;
       this.#index();
     }
@@ -1053,7 +1075,10 @@ export class TerminalScreenController {
     const amount = clamp(Math.floor(count), 1, bottom - top + 1);
     for (let index = 0; index < amount; index += 1) {
       const shifted = this.#state.cells.splice(top, 1)[0] ?? blankRow(this.#columns);
-      if (top === 0 && bottom === this.#rows - 1 && !this.alternate) {
+      // Inline TUIs scroll transcript rows above a fixed composer/footer.
+      // Like tmux/Ghostty, retain rows leaving the top of the main screen even
+      // when the scrolling region stops above the last physical row.
+      if (top === 0 && !this.alternate) {
         this.#scrollback.push(shifted);
         if (this.#scrollback.length > this.#scrollbackLimit) this.#scrollback.shift();
       }

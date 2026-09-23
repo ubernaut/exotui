@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { ExomuxTerminalSelectionRouter } from "./terminal_selection.ts";
+
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/exotui/app";
 import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/exotui/app";
 import type { SurfaceTransition } from "@ubernaut/exotui";
@@ -26,6 +28,7 @@ import {
   softwareCursorRender,
   type Style,
   type TerminalCellStyleOptions,
+  terminalLinkAt,
   type TreeRow,
   windowResizeGlyphAt,
   type WorkbenchWindowChromeProjection,
@@ -2022,6 +2025,7 @@ export function mountExomuxDesktop(
   void desktop;
 
   const terminalMouse = new ExomuxTerminalMouseRouter(controller);
+  const terminalSelection = new ExomuxTerminalSelectionRouter(controller);
   const touchGestures = new Map<number, ExomuxTouchGesture>();
   let pendingPointerMove: ExomuxPointerMoveSlot | undefined;
   // Global settings are deliberately absent: they live in an ordinary
@@ -2703,12 +2707,34 @@ export function mountExomuxDesktop(
   /** What the pointer is over, in the vocabulary dispatch switches on. */
   const pointerTargetAt = (column: number, row: number) => pointerModel().resolve<ExomuxPointerTarget>(column, row);
 
+  const openTerminalLinkAt = (column: number, row: number): boolean => {
+    const projection = windowProjection.peek();
+    const window = clientWindowAt(projection, column, row);
+    const sessionId = window ? exomuxSessionIdFromWindow(window.id) : undefined;
+    const runtime = sessionId ? controller.runtime(sessionId) : undefined;
+    if (!runtime || !window) return false;
+    const viewport = runtime.scrollback.inspectViewport();
+    const rows = runtime.selection.active
+      ? runtime.selection.rows
+      : viewport.mode === "copy"
+      ? runtime.screen.cellRowsRange(viewport.offset, viewport.viewportRows)
+      : runtime.screen.cellRows();
+    const url = terminalLinkAt(rows, { column: column - window.clientRect.column, row: row - window.clientRect.row });
+    if (!url) return false;
+    terminalSelection.clear();
+    controller.windowHost.execute({ kind: "focus", id: window.id }, projection.bounds);
+    controller.syncActiveSession();
+    void controller.openTerminalLink(url);
+    return true;
+  };
+
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
     // One rule everywhere: the block cursor's cell IS the click's cell.
     event = cursorQuantized(event);
     const target = pointerTargetAt(event.x, event.y)?.payload;
     const targetRegion = pointerTargetAt(event.x, event.y)?.region;
     if (modalOpen()) {
+      terminalSelection.clear();
       if (terminalMouse.hasLegacyCapture) {
         const packet = terminalMouse.routeLegacyPress(
           { ...event, drag: false, release: true },
@@ -2726,6 +2752,22 @@ export function mountExomuxDesktop(
       });
       return handled;
     }
+
+    if (
+      !terminalMouse.hasLegacyCapture && !event.drag && !event.release && event.button === 0 && event.ctrl &&
+      openTerminalLinkAt(event.x, event.y)
+    ) return true;
+    if (
+      !terminalMouse.hasLegacyCapture && terminalSelection.route(
+        event.release ? "up" : event.drag ? "move" : "down",
+        -1,
+        event.x,
+        event.y,
+        event.button === 0,
+        event.shift || event.meta,
+        windowProjection.peek(),
+      )
+    ) return true;
 
     // The start and quit buttons hit-test on the WARPED cell here rather than
     // through raw-rect router targets, so the distorted top corners stay
@@ -2943,6 +2985,7 @@ export function mountExomuxDesktop(
     }
     if (modalOpen()) return Promise.resolve(true);
     if (contains(shelfBounds.peek(), event.x, event.y)) return Promise.resolve(true);
+    terminalSelection.clear();
     const packet = terminalMouse.routeLegacyScroll(event, windowProjection.peek());
     if (packet) {
       void enqueueRaw(packet.bytes, packet.sessionId);
@@ -2972,6 +3015,7 @@ export function mountExomuxDesktop(
   const routeSemanticPointerFast = (event: PointerInputEvent): boolean | undefined => {
     const projection = windowProjection.peek();
     if (modalOpen()) {
+      terminalSelection.clear();
       for (const packet of terminalMouse.cancelPointerCaptures(projection, event)) {
         void enqueueRaw(packet.bytes, packet.sessionId);
       }
@@ -2981,6 +3025,27 @@ export function mountExomuxDesktop(
       routeTerminalPointer(event, projection);
       return true;
     }
+    const selectionPoint = event.coordinates.cell;
+    if (
+      event.device === "mouse" && event.kind === "down" && event.button === 0 && event.modifiers.ctrl &&
+      selectionPoint && openTerminalLinkAt(selectionPoint.x, selectionPoint.y)
+    ) return true;
+    if (
+      event.device === "mouse" &&
+      (event.kind === "down" || event.kind === "move" || event.kind === "up" || event.kind === "cancel") &&
+      selectionPoint && terminalSelection.route(
+        event.kind,
+        event.pointerId,
+        selectionPoint.x,
+        selectionPoint.y,
+        event.button === 0,
+        event.modifiers.shift || event.modifiers.alt || event.modifiers.meta,
+        projection,
+        event.timestamp,
+      )
+    ) return true;
+    if (event.kind === "cancel") terminalSelection.clear();
+    if (event.kind === "wheel") terminalSelection.clear();
     const hostInspection = controller.windowHost.inspect();
     const activePointerId = hostInspection.interaction.active?.pointerId ??
       hostInspection.separatorResize?.pointerId;
@@ -3414,6 +3479,7 @@ export function mountExomuxDesktop(
   // through the pincushion first so both the cursor and the modal hit-test act on
   // the cell the user visually points at.
   const modalTrackPointer = (event: MousePressEvent): MousePressEvent => {
+    terminalSelection.clear();
     const warped = warpPointerEvent(event);
     backgroundSetPointer({ column: warped.x, row: warped.y });
     return warped;
@@ -3501,6 +3567,11 @@ export function mountExomuxDesktop(
     event: KeyPressEvent,
     forwardTerminalInput: (bytes: Uint8Array) => void | Promise<unknown> = (bytes) => controller.writeActive(bytes),
   ): Promise<void> => {
+    if (!modalOpen()) {
+      const selected = controller.activeRuntime()?.selection.active;
+      terminalSelection.clear();
+      if (selected && event.key === "escape") return;
+    }
     // F1 toggles the help modal from anywhere. If help is up it closes; the start
     // menu yields to it; any heavier modal (quit/kill/config) is left for the user
     // to dismiss first rather than stacking the key reference on top of it.
@@ -4027,6 +4098,11 @@ export function mountExomuxDesktop(
     // buffer. Snapshot at the synchronous ingress boundary before any queued
     // prefix/control work can observe the next decoded key instead.
     const event = snapshotKeyPress(readerEvent);
+    if (!modalOpen()) {
+      const selected = controller.activeRuntime()?.selection.active;
+      terminalSelection.clear();
+      if (selected && event.key === "escape") return;
+    }
     if (prefixIngressPending) {
       prefixIngressPending = false;
       enqueueKeyBarrier(event);
@@ -4064,6 +4140,7 @@ export function mountExomuxDesktop(
     if (bytes) void enqueueRaw(bytes);
   }));
   unsubscribers.push(app.tui.on("paste", (event) => {
+    terminalSelection.clear();
     // Preserve the reader's raw bytes when available and let the operation
     // queue perform the sole bounded copy/encoding step at ingress.
     const paste = event.buffer.byteLength > 0 ? event.buffer : event.text;
@@ -4141,6 +4218,7 @@ export function mountExomuxDesktop(
       disposed = true;
       touchGestures.clear();
       terminalMouse.clear();
+      terminalSelection.clear();
       if (pendingPointerMove && !pendingPointerMove.started) {
         pendingPointerMove.settle(false);
         pendingPointerMove = undefined;
@@ -5563,10 +5641,12 @@ function paintTerminal(
 ): void {
   const inspection = runtime.screen.inspect();
   const scrollback = runtime.scrollback.inspectViewport();
-  const rows = scrollback.mode === "copy"
+  const rows = runtime.selection.active
+    ? runtime.selection.rows
+    : scrollback.mode === "copy"
     ? runtime.screen.cellRowsRange(scrollback.offset, scrollback.viewportRows)
     : runtime.screen.cellRows();
-  const cursorActive = scrollback.mode === "live" && active && runtime.attached.peek() &&
+  const cursorActive = !runtime.selection.active && scrollback.mode === "live" && active && runtime.attached.peek() &&
     runtime.summary.peek().running && inspection.cursorVisible;
   // Theme-off keeps the child's true ANSI colors over a plain terminal ground;
   // theme-on maps unset colors onto the theme and lifts ANSI text to contrast.
@@ -5604,8 +5684,8 @@ function paintTerminal(
       // on the window border, so it degrades to a blank inside the client area.
       const glyph = exomuxGlyphColumns(resolved.glyph) === 2 && column + 1 >= rect.width ? " " : resolved.glyph;
       painter.cell(rect.column + column, rect.row + row, glyph, {
-        foreground: resolved.foreground,
-        background: resolved.background,
+        foreground: runtime.selection.contains(column, row) ? theme.background : resolved.foreground,
+        background: runtime.selection.contains(column, row) ? theme.accent : resolved.background,
         bold: resolved.bold,
       });
     }
@@ -5696,6 +5776,9 @@ const EXOMUX_HELP_ENTRIES: readonly ExomuxHelpEntry[] = [
 
 const EXOMUX_HELP_NOTES: readonly string[] = [
   "Wheel terminals or swipe vertically for styled history; [SCROLL] marks copy mode.",
+  "Drag terminal text to copy; double-click a word, triple-click a line. Escape clears.",
+  "Alt-drag overrides child mouse reporting (Shift works if forwarded). Copy needs OSC 52.",
+  "Ctrl-click terminal links to open locally, including links printed by SSH programs.",
   "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
   "Ctrl-N & asks before killing. Drag title bars; drag borders to resize.",
   "Top bar: start menu at the left, open terminals beside it, quit at the right.",
