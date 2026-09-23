@@ -27,8 +27,12 @@ no live daemon or session was changed.
 
 Focused validation passed: 81 terminal screen/selection tests, five link tests, and 103 mounted exomux/local-opener
 tests. The regression failed before the history fix. Formatting passed, ICC guard-diff passed, and a compiled candidate
-at `/tmp/exomux-pointer-links/exomux` passed its help smoke check. The full `env -u NO_COLOR deno task health` run is in
-progress; its result will be recorded after completion. `NO_COLOR` must be unset for the existing color tests.
+at `/tmp/exomux-pointer-links/exomux` passed its help smoke check. The full `env -u NO_COLOR deno task health` run
+exited zero for implementation commit `978d5575`: 3,695 core tests (41 steps), 556 exomux tests, 62 web tests, and 54
+worker tests passed, along with the formatting, type/API/package/release, web build, console, and benchmark gates.
+`NO_COLOR` must be unset for the existing color tests. The full log is `/tmp/exomux-pointer-health.log`; ICC's saved
+task is `exomux-terminal-pointer-links`. ICC indexes, derived stores, and Git history were refreshed for the
+implementation commit and reported fresh. This subsequent log-only update was formatted and checked separately.
 
 The maintainer requested this branch be pushed for testing from their laptop. Real Ghostty acceptance of scrolling,
 selection/copy, and local link opening remains pending. Do not merge or publish until that check and full health pass.
