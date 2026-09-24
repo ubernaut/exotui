@@ -20,6 +20,8 @@ export interface TerminalScreenCell {
   softWrapped?: boolean;
   /** Right-margin padding inserted before a wide glyph wraps; not copied as text. */
   wrapPadding?: boolean;
+  /** On a row's final cell when a narrowing resize cut text off the row; its text does not end here. */
+  clipped?: boolean;
   /**
    * Set on the blank that a double-width glyph parks in the column it also
    * occupies. Renderers must skip it — the glyph to its left already covers that
@@ -289,16 +291,6 @@ export class TerminalScreenController {
     this.#rows = nextRows;
     this.#state = resizeState(this.#state, nextColumns, nextRows);
     if (this.#mainState) this.#mainState = resizeState(this.#mainState, nextColumns, nextRows);
-    // Resize does not reflow text. Discard old live row-boundary annotations.
-    for (const state of [this.#state, this.#mainState]) {
-      if (!state) continue;
-      for (const row of state.cells) {
-        for (const cell of row) {
-          if (cell.softWrapped) delete cell.softWrapped;
-          if (cell.wrapPadding) delete cell.wrapPadding;
-        }
-      }
-    }
     // Narrowing can slice a wide glyph off at the new right edge.
     for (const row of this.#state.cells) this.#repairRow(row);
     if (this.#mainState) { for (const row of this.#mainState.cells) this.#repairRow(row); }
@@ -1355,9 +1347,23 @@ function previousTabStop(stops: Set<number>, column: number): number {
 function resizeState(state: TerminalScreenState, columns: number, rows: number): TerminalScreenState {
   const cells = createRows(columns, rows);
   for (let row = 0; row < Math.min(rows, state.cells.length); row += 1) {
-    for (let column = 0; column < Math.min(columns, state.cells[row]!.length); column += 1) {
-      cells[row]![column] = { ...state.cells[row]![column]! };
+    const source = state.cells[row]!;
+    const target = cells[row]!;
+    // Resize does not reflow text, so a soft wrap survives only while the row
+    // still ends where it wrapped: widening pads the gap as wrap padding, and
+    // narrowing may drop nothing but such padding.
+    const dropped = source.slice(columns);
+    const wrapped = source.at(-1)?.softWrapped === true && dropped.every((cell) => cell.wrapPadding);
+    const clipped = !wrapped &&
+      dropped.some((cell) => cell.continuation || (!cell.wrapPadding && cell.char.trim() !== ""));
+    for (let column = 0; column < Math.min(columns, source.length); column += 1) {
+      const { softWrapped: _softWrapped, wrapPadding, ...cell } = source[column]!;
+      target[column] = wrapped && wrapPadding ? { ...cell, wrapPadding } : cell;
     }
+    if (clipped) target[columns - 1] = { ...target[columns - 1]!, clipped: true };
+    if (!wrapped) continue;
+    for (let column = source.length; column < columns; column += 1) target[column] = { char: " ", wrapPadding: true };
+    target[columns - 1] = { ...target[columns - 1]!, softWrapped: true };
   }
   return {
     cells,

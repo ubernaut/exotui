@@ -42,6 +42,20 @@ Deno.test("tode's own detection reads the sanitised environment as text-only", (
   assertEquals(detectsGraphics, false);
 });
 
+Deno.test("a child is told exomux opens OSC 8 hyperlinks unless the user said otherwise", () => {
+  // Claude Code only links URLs for allowlisted TERM_PROGRAMs or FORCE_HYPERLINK;
+  // without a link it hard-wraps long URLs into pieces no click can reassemble.
+  assertEquals(exomuxChildEnvironment({ inherited: GHOSTTY_HOST }).FORCE_HYPERLINK, "1");
+  assertEquals(
+    exomuxChildEnvironment({ inherited: { ...GHOSTTY_HOST, FORCE_HYPERLINK: "0" } }).FORCE_HYPERLINK,
+    "0",
+  );
+  assertEquals(
+    exomuxChildEnvironment({ inherited: GHOSTTY_HOST, requested: { FORCE_HYPERLINK: "0" } }).FORCE_HYPERLINK,
+    "0",
+  );
+});
+
 Deno.test("a nested exomux is not inside the outer daemon's tmux", () => {
   const env = exomuxChildEnvironment({
     inherited: { ...GHOSTTY_HOST, TMUX: "/tmp/tmux-1000/default,42,0", TMUX_PANE: "%0" },

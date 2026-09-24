@@ -16,10 +16,11 @@ import { createTestTerminalApp } from "@ubernaut/exotui/testing";
 import { stripAnsi } from "@ubernaut/exotui/testing";
 import { createTestKeyPress, createTestMousePress, createTestMouseScroll } from "@ubernaut/exotui/testing";
 import { decodeBuffer } from "@ubernaut/exotui";
-import type { Key, MouseScrollEvent } from "@ubernaut/exotui";
+import type { Key, MousePressEvent, MouseScrollEvent } from "@ubernaut/exotui";
 import {
   bindExomuxPointerInput,
   createExomuxTerminalOptions,
+  EXOMUX_LINK_CURSOR_GLYPH,
   type ExomuxAppMountRef,
   exomuxGlobalConfigLayout,
   exomuxGlyphColumns,
@@ -3145,6 +3146,102 @@ Deno.test("Exomux Ctrl-click opens remote terminal links locally with mouse repo
     harness.destroy();
     await controller.dispose();
   }
+});
+
+Deno.test("Exomux opens hard-wrapped links from any row and points a hand at links on hover", async () => {
+  const initial = { ...session("wrapped-links", "remote Claude", 0), commandLine: "ssh remote" };
+  const client = new FakeExomuxClient([initial]);
+  const opened: string[] = [];
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    openLink: (url) => {
+      opened.push(url);
+      return Promise.resolve();
+    },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...options, size: { columns: 100, rows: 30 } });
+  const pointer = "\x1b]22;pointer\x1b\\";
+  const text = "\x1b]22;text\x1b\\";
+  const count = (needle: string) => harness.stdout.text.split(needle).length - 1;
+  try {
+    const mounted = mount.current!;
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+    const runtime = controller.runtime(initial.id)!;
+    const rect = mounted.windowProjection.peek().windows.find((w) => w.id === exomuxWindowId(initial.id))!.clientRect;
+    // Claude Code's tool output: the URL broken at the edge by hard line
+    // breaks, each continuation indented under it.
+    const { columns } = runtime.screen.inspect();
+    const url = "https://example.com/" + "segment/".repeat(Math.ceil(columns / 3)) + "end";
+    const lines: string[] = [];
+    for (let rest = url, prefix = "  ⎿  "; rest; prefix = "     ") {
+      lines.push(prefix + rest.slice(0, columns - prefix.length));
+      rest = rest.slice(columns - prefix.length);
+    }
+    assert(lines.length >= 3);
+    runtime.screen.write(
+      "\x1b[2J" + lines.map((line, index) => `\x1b[${index + 1};1H${line}`).join("") +
+        `\x1b[${lines.length + 1};1Hdone`,
+    );
+    client.inputs.splice(0);
+    const last = lines.length - 1;
+    await harness.app.mouse.dispatch(createTestMousePress({ x: rect.column + 7, y: rect.row + last, ctrl: true }));
+    await harness.app.mouse.dispatch(
+      createTestMousePress({ x: rect.column + 7, y: rect.row + last, ctrl: true, release: true }),
+    );
+    assertEquals(opened, [url]);
+    // The click itself landed on the link, so the pointer is already a hand.
+    assertEquals([count(pointer), count(text)], [1, 0]);
+
+    // Free motion is tracked without the block cursor, as the terminal sends it.
+    assertStringIncludes(harness.stdout.text, "\x1b[?1003h");
+    const hover = async (column: number, row: number) => {
+      const bytes = new TextEncoder().encode(`\x1b[<35;${column + 1};${row + 1}M`);
+      for (const event of decodeBuffer(bytes)) {
+        if (event.key === "mouse") await harness.app.mouse.dispatch({ ...event } as MousePressEvent);
+      }
+      await mounted.whenIdle();
+    };
+    await hover(rect.column + 1, rect.row + lines.length);
+    assertEquals([count(pointer), count(text)], [1, 1]);
+    await hover(rect.column + 7, rect.row + 1);
+    await hover(rect.column + 9, rect.row + last);
+    assertEquals([count(pointer), count(text)], [2, 1], "one hand for the whole link");
+    await hover(rect.column + 2, rect.row + 1);
+    assertEquals([count(pointer), count(text)], [2, 2], "indentation is not the link");
+    assertEquals(client.inputs, []);
+
+    // A modal covers the link; the pointer is plain again while it is up.
+    await hover(rect.column + 7, rect.row);
+    controller.openHelp();
+    await harness.pilot.settle();
+    await hover(rect.column + 7, rect.row);
+    assertEquals([count(pointer), count(text)], [3, 3]);
+    controller.closeHelp();
+    await harness.pilot.settle();
+
+    // The drawn cursor becomes a hand over a link.
+    controller.globalSettings.value = { ...controller.globalSettings.peek(), blockCursor: true };
+    await hover(rect.column + 7, rect.row);
+    // The cursor blinks, so look across a few frames.
+    let hand = false;
+    for (let frame = 0; frame < 20 && !hand; frame++) {
+      await harness.pilot.settle();
+      hand = canvasCell(harness.canvas.frameBuffer[rect.row]?.[rect.column + 7]).includes(EXOMUX_LINK_CURSOR_GLYPH);
+      if (!hand) await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert(hand, "the drawn cursor is a hand over the link");
+    assertEquals(count(pointer), 4);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+  // Tearing down over a link gives the terminal its pointer back.
+  assert(harness.stdout.text.lastIndexOf(text) > harness.stdout.text.lastIndexOf(pointer));
 });
 
 function mousePointer(

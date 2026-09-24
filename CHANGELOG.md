@@ -6,6 +6,23 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.8.1 / exomux 0.4.1 — 2026-09-24
+
+### Added
+
+- The mouse pointer turns into a hand over terminal links in exomux (OSC 22), and the block cursor shows `☝`. Exomux now
+  enables free-motion mouse reporting at all times so hover is visible without the block cursor.
+- Exomux children get `FORCE_HYPERLINK=1` unless the environment already sets it, so programs such as Claude Code emit
+  OSC 8 links.
+
+### Fixed
+
+- `terminalLinkAt` follows URLs that applications hard-wrap themselves: a URL reaching the right edge (one blank column
+  allowed) continues on the next row after its indentation, unless that row starts a new URL or a list marker.
+- Terminal resizes keep soft-wrap joins: widening pads the wrapped row with wrap padding, and narrowing keeps the join
+  when it drops only padding. A narrowing that cuts text marks the row `clipped`, and a URL through a clipped cell is
+  never opened partially.
+
 ## exotui 0.8.0 / exomux 0.4.0 — 2026-09-23
 
 ### Added
