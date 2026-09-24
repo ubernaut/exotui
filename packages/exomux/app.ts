@@ -25,6 +25,7 @@ import {
   shiftContextMenuSelection,
   Signal,
   type SignalOfObject,
+  type SoftwareCursorRender,
   softwareCursorRender,
   type Style,
   type TerminalCellStyleOptions,
@@ -980,18 +981,39 @@ export function mountExomuxDesktop(
     clearInterval(cursorBlinkTimer);
     cursorBlinkTimer = undefined;
   };
-  // The block cursor needs free-motion mouse events (mode 1003). The library
-  // only ever enables button-event tracking (mode 1002) and (re)asserts it
-  // from `Tui.run()` — which fires *after* this desktop mounts — so the exotui
-  // any-motion helper keeps 1003 re-asserted on a keepalive while the cursor
-  // is on and restores the terminal on teardown (WS-009).
-  const anyMotion = createAnyMotionTracking({ keepaliveMs: EXOMUX_ANY_MOTION_KEEPALIVE_MS });
+  // Control sequences for the hosting terminal itself go straight to its
+  // stdout, around the frame renderer. A terminal that does not know one
+  // ignores it.
+  const writeHostTerminal = (sequence: string): void => {
+    try {
+      const stdout = app.tui.canvas.stdout as { writeSync?: (bytes: Uint8Array) => number } | undefined;
+      stdout?.writeSync?.(new TextEncoder().encode(sequence));
+    } catch {
+      // A closed or non-writable stdout must never take the desktop down.
+    }
+  };
+  // Hover needs free-motion mouse events (mode 1003) for the link pointer and
+  // the block cursor. The library only ever enables button-event tracking
+  // (mode 1002) and (re)asserts it from `Tui.run()` — which fires *after* this
+  // desktop mounts — so the exotui any-motion helper keeps 1003 re-asserted on
+  // a keepalive and restores the terminal on teardown (WS-009).
+  const anyMotion = createAnyMotionTracking({ keepaliveMs: EXOMUX_ANY_MOTION_KEEPALIVE_MS, write: writeHostTerminal });
+  anyMotion.setEnabled(true);
+  // The host pointer becomes a hand over a terminal link. OSC 22 takes CSS
+  // cursor names in Ghostty and kitty; "text" is the pointer a terminal starts
+  // with, and Ghostty ignores a name it does not know, so leaving a link names
+  // it rather than resetting.
+  const pointerOverLink = own(new Signal(false));
+  const setPointerOverLink = (over: boolean): void => {
+    if (over === pointerOverLink.peek()) return;
+    pointerOverLink.value = over;
+    writeHostTerminal(`\x1b]22;${over ? "pointer" : "text"}\x1b\\`);
+  };
   let appliedBlockCursor = false;
   const applyBlockCursorMode = (): void => {
     const enabled = controller.globalSettings.peek().blockCursor;
     if (enabled === appliedBlockCursor) return;
     appliedBlockCursor = enabled;
-    anyMotion.setEnabled(enabled);
     if (enabled) {
       stopCursorBlink();
       cursorBlinkOn.value = true;
@@ -1014,12 +1036,7 @@ export function mountExomuxDesktop(
   controller.clipboardCopy.subscribe((payload) => {
     if (!payload || payload.nonce === lastClipboardNonce) return;
     lastClipboardNonce = payload.nonce;
-    try {
-      const stdout = app.tui.canvas.stdout as { writeSync?: (bytes: Uint8Array) => number } | undefined;
-      stdout?.writeSync?.(new TextEncoder().encode(terminalClipboardSequence(payload.text)));
-    } catch {
-      // A closed or non-writable stdout must never take the desktop down.
-    }
+    writeHostTerminal(terminalClipboardSequence(payload.text));
   }, subscriptions.signal);
   // Global debug logging (UX-008): while on, console output, exomuxDebugLog
   // calls, uncaught errors, and unhandled rejections all land in one file the
@@ -1075,6 +1092,7 @@ export function mountExomuxDesktop(
     dispose: () => {
       stopCursorBlink();
       anyMotion.dispose();
+      setPointerOverLink(false);
     },
   });
   // Preset stepping is requested on the controller, which does not own the
@@ -1939,6 +1957,8 @@ export function mountExomuxDesktop(
         // frame. It only changes on free motion when the cursor is enabled.
         mousePointer.value?.column,
         mousePointer.value?.row,
+        // Over a link the block cursor shows a hand instead.
+        pointerOverLink.value,
         // The cursor blinks, so each on/off toggle has to repaint.
         cursorBlinkOn.value,
         // Settings reach the painter directly — border glyphs, window opacity —
@@ -2002,11 +2022,14 @@ export function mountExomuxDesktop(
         quitModalSelection: quitModal.selectedAction()?.id,
         startMenuView,
         startMenuSelection: startMenuSelection.peek(),
-        blockCursor: exomuxBlockCursorRender(
-          controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
-          mousePointer.peek(),
-          windowProjection.peek(),
-          !modalOpen(),
+        blockCursor: exomuxLinkCursor(
+          exomuxBlockCursorRender(
+            controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
+            mousePointer.peek(),
+            windowProjection.peek(),
+            !modalOpen(),
+          ),
+          pointerOverLink.peek(),
         ),
         backgroundField: activeBackgroundField(),
         ...(overgrowthRatios.size > 0
@@ -2707,12 +2730,13 @@ export function mountExomuxDesktop(
   /** What the pointer is over, in the vocabulary dispatch switches on. */
   const pointerTargetAt = (column: number, row: number) => pointerModel().resolve<ExomuxPointerTarget>(column, row);
 
-  const openTerminalLinkAt = (column: number, row: number): boolean => {
+  /** The link under one desktop cell, read from the text its terminal window is showing. */
+  const terminalLinkUnder = (column: number, row: number) => {
     const projection = windowProjection.peek();
     const window = clientWindowAt(projection, column, row);
     const sessionId = window ? exomuxSessionIdFromWindow(window.id) : undefined;
     const runtime = sessionId ? controller.runtime(sessionId) : undefined;
-    if (!runtime || !window) return false;
+    if (!runtime || !window) return undefined;
     const viewport = runtime.scrollback.inspectViewport();
     const rows = runtime.selection.active
       ? runtime.selection.rows
@@ -2720,17 +2744,31 @@ export function mountExomuxDesktop(
       ? runtime.screen.cellRowsRange(viewport.offset, viewport.viewportRows)
       : runtime.screen.cellRows();
     const url = terminalLinkAt(rows, { column: column - window.clientRect.column, row: row - window.clientRect.row });
-    if (!url) return false;
+    return url ? { url, window, projection } : undefined;
+  };
+
+  const openTerminalLinkAt = (column: number, row: number): boolean => {
+    const link = terminalLinkUnder(column, row);
+    if (!link) return false;
     terminalSelection.clear();
-    controller.windowHost.execute({ kind: "focus", id: window.id }, projection.bounds);
+    controller.windowHost.execute({ kind: "focus", id: link.window.id }, link.projection.bounds);
     controller.syncActiveSession();
-    void controller.openTerminalLink(url);
+    void controller.openTerminalLink(link.url);
     return true;
   };
 
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
+    // Free motion is reported only so the pointer can follow links. Without
+    // the block cursor that is all it does: backgrounds, the drawn cursor and
+    // children keep hearing the button events they heard before.
+    if (isHoverMotion(event) && !controller.globalSettings.peek().blockCursor) {
+      const warped = warpPointerEvent(event);
+      setPointerOverLink(!modalOpen() && terminalLinkUnder(warped.x, warped.y) !== undefined);
+      return true;
+    }
     // One rule everywhere: the block cursor's cell IS the click's cell.
     event = cursorQuantized(event);
+    setPointerOverLink(!modalOpen() && terminalLinkUnder(event.x, event.y) !== undefined);
     const target = pointerTargetAt(event.x, event.y)?.payload;
     const targetRegion = pointerTargetAt(event.x, event.y)?.region;
     if (modalOpen()) {
@@ -3480,6 +3518,7 @@ export function mountExomuxDesktop(
   // the cell the user visually points at.
   const modalTrackPointer = (event: MousePressEvent): MousePressEvent => {
     terminalSelection.clear();
+    setPointerOverLink(false);
     const warped = warpPointerEvent(event);
     backgroundSetPointer({ column: warped.x, row: warped.y });
     return warped;
@@ -3495,7 +3534,8 @@ export function mountExomuxDesktop(
       return warped.button === 0 ? routeModalActivation(warped.x, warped.y) : true;
     },
     onDrag: (event) => {
-      modalTrackPointer(event);
+      if (isHoverMotion(event) && !controller.globalSettings.peek().blockCursor) setPointerOverLink(false);
+      else modalTrackPointer(event);
       return true;
     },
     onRelease: (event) => {
@@ -7946,6 +7986,23 @@ export const resizeGlyphAt = windowResizeGlyphAt;
 
 /** Block-cursor render descriptor (now the exotui software-cursor helper). */
 const exomuxBlockCursorRender = softwareCursorRender;
+
+/** Free motion with no button held, which only any-motion tracking (mode 1003) reports. */
+function isHoverMotion(event: MousePressEvent): boolean {
+  // SGR decodes no-button motion as button 3, which the event type does not admit.
+  const button = event.button as number | undefined;
+  return event.drag && !event.release && (button === undefined || button === 3);
+}
+
+/** The drawn cursor over a terminal link: a pointing hand in place of the block. */
+export const EXOMUX_LINK_CURSOR_GLYPH = "☝";
+
+function exomuxLinkCursor(
+  cursor: SoftwareCursorRender | undefined,
+  overLink: boolean,
+): SoftwareCursorRender | undefined {
+  return cursor && overLink ? { ...cursor, glyph: EXOMUX_LINK_CURSOR_GLYPH } : cursor;
+}
 
 /**
  * Returns the window whose title bar covers one cell, when any. The title bar is

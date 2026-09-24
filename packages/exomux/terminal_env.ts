@@ -82,6 +82,13 @@ export function exomuxChildEnvironment(options: ExomuxChildEnvironmentOptions): 
   if (options.version) env.TERM_PROGRAM_VERSION = options.version;
   else delete env.TERM_PROGRAM_VERSION;
   env.COLORTERM = "truecolor";
+  // The emulator keeps OSC 8 targets and opens them on Ctrl-click, but
+  // hyperlink detection allowlists TERM_PROGRAM, and "exomux" is on no list.
+  // FORCE_HYPERLINK is the shared override. Claude Code honours it and links
+  // the URLs in its output, and a link survives the hard wraps it breaks
+  // long URLs with.
+  // One inherited from the user's own environment still decides.
+  env.FORCE_HYPERLINK ??= "1";
   for (const [name, value] of Object.entries(options.requested ?? {})) env[name] = value;
   return env;
 }

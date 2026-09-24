@@ -93,6 +93,17 @@ even when the link was printed by a remote SSH command. HTTP(S), `www.` URLs, an
 with OSC 8 links whose visible label differs from their URL. Soft-wrapped URLs work when the full link is in the
 viewport; scroll to reveal it if part is clipped. Links in scrollback or a frozen selection work too.
 
+Long URLs that an application breaks across rows itself — Claude Code does, and indents the continuation — open whole
+from any of their rows when the URL runs to the right edge (one blank column is allowed) and the next row carries on
+with URL text. A URL that happens to end exactly at the edge above a line of prose can pick up that line's first word;
+that is the price of the rule. Terminals exomux starts get `FORCE_HYPERLINK=1`, so local programs that honour it, Claude
+Code included, send real OSC 8 links instead; set `FORCE_HYPERLINK=0` in your own environment to opt out. SSH does not
+forward it.
+
+The mouse pointer turns into a hand over a link (OSC 22, honoured by Ghostty and kitty; other terminals ignore it), and
+the optional block cursor becomes `☝`. Hover needs free-motion mouse reporting, so exomux now enables it whether or not
+the block cursor is on.
+
 Link detection is reusable through exotui's `terminalLinkAt` and `normalizeTerminalLink`; OS launching belongs to the
 exomux client. `ExomuxControllerOptions.openLink` can supply a different host opener.
 

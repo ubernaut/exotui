@@ -3,6 +3,15 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## September 24 2026 — Multi-row links and a link pointer
+
+Long links now open from any row. Claude Code hard-wraps URLs with indented continuations (measured from its raw
+output), so `terminalLinkAt` joins a URL that runs to the right edge onto the next row; resizes keep soft-wrap joins
+instead of discarding them, and a narrowing that cuts text marks the row `clipped` so cut URLs never open. Exomux
+children get `FORCE_HYPERLINK=1`, which makes local Claude Code send OSC 8. The host pointer becomes a hand over links
+via OSC 22, which needs free-motion reporting on at all times. See
+[`bug/terminal-link-wrap-hover`](detail/bug--terminal-link-wrap-hover.md).
+
 ## September 23 2026 — Terminal history, selection, and local links
 
 Recovered the previously unmerged selection work and fixed inline history loss: main-screen scroll regions starting at
