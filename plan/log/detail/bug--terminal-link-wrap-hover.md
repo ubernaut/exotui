@@ -71,3 +71,11 @@ exomux, 62 web and 54 worker tests. (A first health run was discarded because a 
 baselines touched the tree mid-run.) `FORCE_HYPERLINK` is applied by the daemon at spawn, so it reaches only terminals a
 restarted daemon creates; link joining and the pointer are client-side. Real Ghostty acceptance of the hand pointer is
 the maintainer's to run. Pushed for laptop testing at the maintainer's request; not merged or released.
+
+## 2026-09-24 — Release acceptance
+
+The maintainer tested the pushed branch (`f85fcb5a`) on their laptop, reported "it works!", and asked for a release.
+Cutting exotui 0.8.1 and exomux 0.4.1 as patch releases, following 0.7.2's precedent for small additions: the library
+change is a detection fix plus one optional cell field, and exomux's range moves to `^0.8.1` so registry consumers get
+the fixed detection. Tag `v0.8.1` drives the binaries, GitHub release and npm publish; the merge to `main` drives both
+JSR publishes. npm launcher tests and full health are rerun on the release tree before merging.

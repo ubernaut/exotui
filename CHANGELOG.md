@@ -6,6 +6,8 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.8.1 / exomux 0.4.1 — 2026-09-24
+
 ### Added
 
 - The mouse pointer turns into a hand over terminal links in exomux (OSC 22), and the block cursor shows `☝`. Exomux now
