@@ -1,6 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import type { Rectangle } from "../../types.ts";
+import { OrthogonalRouter, routeCells } from "../../geometry/orthogonal_routes.ts";
+import { circuitChipGlyph } from "../../geometry/circuit_glyphs.ts";
 import {
   mixShellRgb,
   type ShellAnimatedBackground,
@@ -47,13 +49,6 @@ const INPUT_APPROACH_COLUMNS = 2;
 const STAGE_PITCH = CHIP_WIDTH + CHIP_SPACING + 4;
 /** Chance that growth splices a gate into an existing wire instead of appending one. */
 const SPLICE_CHANCE = 0.35;
-/**
- * The generation-stamped search visits each cell at most once, so the board's own
- * cell count is the real bound and a blocked route still fails in one sweep. A
- * fixed cap below that silently truncates the search on any desktop larger than
- * it — the route is abandoned and its wire never drawn.
- */
-const routeVisitCap = (bounds: Rectangle): number => bounds.width * bounds.height;
 /** Keep-out padding, in cells, applied around every window obstacle rect. */
 const OBSTACLE_MARGIN = 1;
 /**
@@ -144,26 +139,6 @@ const MAX_OSCILLATORS = 3;
 /** Direction order: up, right, down, left. */
 const DIR_DX = [0, 1, 0, -1] as const;
 const DIR_DY = [-1, 0, 1, 0] as const;
-
-/** Glyph for a trace cell indexed by `arrivalDirection * 4 + exitDirection`. */
-const TRACE_GLYPHS = [
-  "│",
-  "┌",
-  "│",
-  "┐",
-  "┘",
-  "─",
-  "┐",
-  "─",
-  "│",
-  "└",
-  "│",
-  "┘",
-  "└",
-  "─",
-  "┌",
-  "─",
-] as const;
 
 /** Construction options shared by the Shell animated background catalog. */
 export interface ShellCircuitFieldOptions {
@@ -454,10 +429,7 @@ export class ShellCircuitField implements ShellAnimatedBackground {
   #selectedChipId?: number;
   // Reused routing scratch: a generation stamp marks cells visited this route,
   // so no per-route array reset or allocation is needed on the hot path.
-  #routeSeen = new Uint32Array();
-  #routePrev = new Int32Array();
-  #routeQueue = new Int32Array();
-  #routeGeneration = 0;
+  #router = new OrthogonalRouter();
 
   constructor(options: ShellCircuitFieldOptions = {}) {
     this.#randomState = (options.seed ?? 0x50_43_42_31) >>> 0;
@@ -699,13 +671,7 @@ export class ShellCircuitField implements ShellAnimatedBackground {
           const gx = chip.x + c;
           if (gx < 0 || gx >= width) continue;
           const edge = r === 0 || r === lastRow || c === 0 || c === lastColumn;
-          const char = !edge
-            ? CHIP_FILL_GLYPH
-            : r === 0
-            ? (c === 0 ? "╔" : c === lastColumn ? "╗" : "═")
-            : r === lastRow
-            ? (c === 0 ? "╚" : c === lastColumn ? "╝" : "═")
-            : "║";
+          const char = circuitChipGlyph(c, r, chip.width, chip.height, CHIP_FILL_GLYPH);
           this.#cells[gy]![gx] = { char, foreground: edge ? borderColor : bodyColor };
         }
       }
@@ -1341,58 +1307,11 @@ export class ShellCircuitField implements ShellAnimatedBackground {
 
   #searchRoute(source: CircuitPathPoint, sink: CircuitPathPoint, bounds: Rectangle): CircuitTraceCell[] | undefined {
     const { width, height } = bounds;
-    const size = width * height;
-    if (this.#routeSeen.length !== size) {
-      this.#routeSeen = new Uint32Array(size);
-      this.#routePrev = new Int32Array(size);
-      this.#routeQueue = new Int32Array(size);
-      this.#routeGeneration = 0;
-    }
     const passable = (index: number): boolean => this.#occupancy[index] !== 1 && this.#keepOut[index] === 0;
-    const sourceIndex = source.y * width + source.x;
-    const sinkIndex = sink.y * width + sink.x;
-    if (!passable(sourceIndex) || !passable(sinkIndex)) return undefined;
-
-    const seen = this.#routeSeen;
-    const previous = this.#routePrev;
-    const queue = this.#routeQueue;
-    const generation = ++this.#routeGeneration;
+    if (!passable(source.y * width + source.x) || !passable(sink.y * width + sink.x)) return undefined;
     const rotation = Math.floor(this.#random() * 4);
-    let head = 0;
-    let tail = 0;
-    queue[tail++] = sourceIndex;
-    seen[sourceIndex] = generation;
-    previous[sourceIndex] = -1;
-    let found = false;
-    const visitCap = routeVisitCap(bounds);
-    while (head < tail && head <= visitCap) {
-      const index = queue[head++]!;
-      if (index === sinkIndex) {
-        found = true;
-        break;
-      }
-      const x = index % width;
-      const y = (index - x) / width;
-      for (let turn = 0; turn < 4; turn += 1) {
-        const direction = (turn + rotation) % 4;
-        const nx = x + DIR_DX[direction]!;
-        const ny = y + DIR_DY[direction]!;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-        const neighbour = ny * width + nx;
-        if (seen[neighbour] === generation || !passable(neighbour)) continue;
-        seen[neighbour] = generation;
-        previous[neighbour] = index;
-        queue[tail++] = neighbour;
-      }
-    }
-    if (!found) return undefined;
-    const path: CircuitPathPoint[] = [];
-    for (let index = sinkIndex; index !== -1; index = previous[index]!) {
-      path.push({ x: index % width, y: Math.floor(index / width) });
-    }
-    path.reverse();
-    if (path.length < 2) return undefined;
-    return wirePathToCells(path);
+    const path = this.#router.route(width, height, source, sink, passable, rotation);
+    return path && path.length >= 2 ? routeCells(path) : undefined;
   }
 
   /**
@@ -2579,34 +2498,11 @@ function evaluateGate(gate: GateType, high: number, total: number): boolean {
 
 /** Converts a routed wire path to drawn cells, with line glyphs at both ends. */
 function wirePathToCells(path: readonly CircuitPathPoint[]): CircuitTraceCell[] {
-  const cells: CircuitTraceCell[] = [];
-  for (let index = 0; index < path.length; index += 1) {
-    const point = path[index]!;
-    const arrival = index === 0 ? pathDirection(path[0]!, path[1]!) : pathDirection(path[index - 1]!, point);
-    const exit = index === path.length - 1 ? arrival : pathDirection(point, path[index + 1]!);
-    cells.push({ x: point.x, y: point.y, glyph: TRACE_GLYPHS[arrival * 4 + exit]! });
-  }
-  return cells;
+  return routeCells(path);
 }
 
 function pathToTraceCells(path: readonly CircuitPathPoint[]): CircuitTraceCell[] {
-  const cells: CircuitTraceCell[] = [];
-  for (let index = 0; index < path.length; index += 1) {
-    const point = path[index]!;
-    const arrival = index === 0 ? pathDirection(path[0]!, path[1]!) : pathDirection(path[index - 1]!, point);
-    const lastCell = index === path.length - 1;
-    const exit = lastCell ? arrival : pathDirection(point, path[index + 1]!);
-    const glyph = lastCell ? VIA_GLYPH : TRACE_GLYPHS[arrival * 4 + exit]!;
-    cells.push({ x: point.x, y: point.y, glyph });
-  }
-  return cells;
-}
-
-function pathDirection(from: CircuitPathPoint, to: CircuitPathPoint): number {
-  if (to.y < from.y) return 0;
-  if (to.x > from.x) return 1;
-  if (to.y > from.y) return 2;
-  return 3;
+  return routeCells(path, VIA_GLYPH);
 }
 
 function sameRect(a: Rectangle, b: Rectangle): boolean {

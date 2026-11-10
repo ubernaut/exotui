@@ -34,12 +34,21 @@ import { resolveVisualizationTheme } from "../../src/viz/mod.ts";
 import { neonDemosForSection, type NeonSuiteSection, renderNeonSuiteDemo } from "../../app/neon_suite.ts";
 import type { NeonDemo } from "../../app/visualizations.ts";
 import { ansiLineToCells } from "./ansi_cells.ts";
+import { glyphTextFont, renderGlyphText } from "../../src/content/ascii_fonts.ts";
+import { fontGeneratorDemo } from "./desktop_font_generator.ts";
 import {
-  borderBoxOnGround,
+  DESKTOP_ANIMATION_CHOICES,
+  DESKTOP_ANIMATION_SPEEDS,
+  DESKTOP_WINDOW_TRANSITIONS,
+  type DesktopAnimationSettings,
+  DesktopWindowAnimations,
+} from "./desktop_animations.ts";
+import {
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellTabStrip,
   paintShellWindowChrome,
+  shellCellImpression,
   type ShellSurface,
   type ShellTabRect,
   solidGround,
@@ -120,15 +129,28 @@ function applyShellTheme(spec: ShellThemeSpec): void {
 // Demo adapters. A demo renders its client area and may take input; the
 // desktop never knows what is inside a window.
 
-interface DesktopDemo {
+export interface DesktopDemo {
   readonly id: string;
   readonly title: string;
   readonly summary: string;
-  readonly window: { width: number; height: number; minWidth: number; minHeight: number };
+  readonly window: {
+    width: number;
+    height: number;
+    minWidth: number;
+    minHeight: number;
+    widthRatio?: number;
+    heightRatio?: number;
+    /** Default fullscreen threshold in host viewport pixels, when supplied by the host. */
+    fullscreenBelow?: number;
+  };
+  /** Windows reached from another application's links need not fill the launcher. */
+  readonly menu?: boolean;
   sample?(now: number): void;
-  render(width: number, height: number, now: number): VizFrame;
+  render(width: number, height: number, now: number, theme?: ShellThemeSpec): VizFrame;
   onKey?(event: KeyPressEvent): boolean;
   onPointerDown?(column: number, row: number): void;
+  /** Release activation allows text selection without firing document links on press. */
+  onPointerUp?(column: number, row: number): void;
   /** Scroll inside the client area; direction 1 is down. */
   onWheel?(direction: 1 | -1, column: number, row: number): boolean;
   /** Vertical scroll state; overflowing windows get a right-edge scrollbar. */
@@ -360,6 +382,22 @@ function settingsDemo(): DesktopDemo {
         persistDesktop();
       },
     })),
+    ...(services.audio
+      ? [
+        { label: () => "", action: () => {} },
+        { label: () => "BUTTERCHURN AUDIO", heading: true, action: () => {} },
+        {
+          label: () => `  ${services.audio!.source() === "noise" ? "●" : "○"} noise generator (default)`,
+          action: () => services.audio!.useNoise(),
+        },
+        {
+          label: () => `  ${services.audio!.source() === "microphone" ? "●" : "○"} microphone (request permission)`,
+          action: () => {
+            void services.audio!.enableMicrophone();
+          },
+        },
+      ]
+      : []),
     { label: () => "", action: () => {} },
     { label: () => "BAR", heading: true, action: () => {} },
     {
@@ -407,6 +445,33 @@ function settingsDemo(): DesktopDemo {
       : []),
     { label: () => "", action: () => {} },
     { label: () => "WINDOWS", heading: true, action: () => {} },
+    {
+      label: () => `  animation speed ◂ ${windowAnimations.settings().speed} ▸`,
+      action: (column) => {
+        const saved = windowAnimations.settings();
+        const index = DESKTOP_ANIMATION_SPEEDS.indexOf(saved.speed);
+        const direction = (column ?? 99) < 22 ? -1 : 1;
+        windowAnimations.setSettings({ ...saved, speed: DESKTOP_ANIMATION_SPEEDS[(index + direction + 4) % 4] });
+        persistDesktop();
+      },
+    },
+    ...DESKTOP_WINDOW_TRANSITIONS.map((transition) => ({
+      label: () =>
+        `  ${transition === "maximize" ? "max / unmax" : transition} ◂ ${
+          windowAnimations.settings().kinds[transition]
+        } ▸`,
+      action: (column?: number) => {
+        const saved = windowAnimations.settings();
+        const index = DESKTOP_ANIMATION_CHOICES.indexOf(saved.kinds[transition]);
+        const direction = (column ?? 99) < 15 ? -1 : 1;
+        const count = DESKTOP_ANIMATION_CHOICES.length;
+        windowAnimations.setSettings({
+          ...saved,
+          kinds: { ...saved.kinds, [transition]: DESKTOP_ANIMATION_CHOICES[(index + direction + count) % count] },
+        });
+        persistDesktop();
+      },
+    })),
     ...[1, 0.9, 0.8, 0.65].map((opacity) => ({
       label: () =>
         `  ${desktopSettings.windowOpacity === opacity ? "●" : "○"} ${
@@ -595,14 +660,7 @@ function themeBuilderDemo(): DesktopDemo {
   };
 }
 
-const ABOUT_ART = [
-  "                                 ___.    __        .__ ",
-  "  ____ ___  _________  _  __ ____\\_ |___/  |_ __ __|__|",
-  "_/ __ \\\\  \\/  /  _ \\ \\/ \\/ // __ \\| __ \\   __\\  |  \\  |",
-  "\\  ___/ >    <  <_> )     /\\  ___/| \\_\\ \\  | |  |  /  |",
-  " \\___  >__/\\_ \\____/ \\/\\_/  \\___  >___  /__| |____/|__|",
-  "     \\/      \\/                 \\/    \\/              ",
-];
+const ABOUT_ART = renderGlyphText(glyphTextFont("small"), "exowebtui", "font");
 
 /** The welcome text as flowing blocks, reflowed live to the window width. */
 type AboutBlock =
@@ -1055,6 +1113,7 @@ const DEMOS: DesktopDemo[] = [
   vizCatalogDemo(),
   threeDemo(),
   clockDemo(),
+  fontGeneratorDemo((text) => services.copyText?.(text)),
   themesDemo(),
   themeBuilderDemo(),
   settingsDemo(),
@@ -1075,7 +1134,7 @@ const DEMO_GLYPHS: Record<string, string> = {
 };
 /** Settings and Help sit below the apps with a rule above, exomux's order. */
 const START_MENU_SEPARATED = new Set(["settings", "workbench"]);
-const START_MENU_ITEMS: StartMenuItem[] = [
+const DEFAULT_START_MENU_ITEMS: StartMenuItem[] = [
   ...DEMOS.map((demo) => ({
     id: demo.id,
     glyph: DEMO_GLYPHS[demo.id] ?? "·",
@@ -1106,6 +1165,7 @@ const START_MENU_ITEMS: StartMenuItem[] = [
     href: "https://github.com/ubernaut/exotui",
   },
 ];
+let START_MENU_ITEMS = [...DEFAULT_START_MENU_ITEMS];
 
 // ---------------------------------------------------------------------------
 // Host, window host, and the paint loop.
@@ -1116,6 +1176,28 @@ const START_MENU_ITEMS: StartMenuItem[] = [
  * rather than a crash — the exomonitor contract, applied to the whole app.
  */
 export interface DesktopServices {
+  /** Application windows joining the exact same host, launcher, and input routes as demos. */
+  readonly applications?: readonly DesktopDemo[];
+  /** Optional branding for a desktop built from this starting point. */
+  readonly startLabel?: string;
+  /** Open this application window on boot instead of the introduction. */
+  readonly initialWindow?: string;
+  /** Hide demo launcher entries without replacing the shared desktop. */
+  readonly hiddenMenuIds?: readonly string[];
+  /** Outward documents/downloads in the same launcher as application windows. */
+  readonly menuLinks?: readonly { id: string; title: string; summary: string; href: string }[];
+  /** Host pixel width for applications with an explicit fullscreen threshold. */
+  readonly viewportWidth?: () => number;
+  /** Host accessibility preference; changing it cancels any detached animation immediately. */
+  readonly reducedMotion?: () => boolean;
+  /** Browser content overlays observe host geometry; they never own window state. */
+  readonly onWindows?: (
+    windows: readonly WorkbenchWindowChromeProjection[],
+    blocked: boolean,
+    theme: ShellThemeSpec,
+    /** Detached transition effects currently take precedence over browser vector stages. */
+    animating: boolean,
+  ) => void;
   /** Opens an outward link (a browser tab; a terminal might print it). */
   readonly openExternal?: (url: string) => void;
   /** A live monitor with host-probed sources (microphone, heap). */
@@ -1125,7 +1207,14 @@ export interface DesktopServices {
   /** Host-provided backgrounds joining the shared catalog (butterchurn). */
   readonly extraBackgrounds?: readonly ShellBackgroundEntry[];
   /** Copies selected text to the host clipboard. */
-  readonly copyText?: (text: string) => void;
+  readonly copyText?: (text: string) => void | boolean | Promise<boolean>;
+  /** Browser-native selection from vector/DOM enhancements; cells retain their existing selection. */
+  readonly selectionText?: () => string;
+  readonly audio?: {
+    source(): "noise" | "microphone";
+    useNoise(): void;
+    enableMicrophone(): Promise<void>;
+  };
   /** Ghostty-style post shaders, where the host renders through a canvas. */
   readonly shader?: DesktopShaderService;
 }
@@ -1241,14 +1330,6 @@ function mixRgb(from: Rgb, to: Rgb, amount: number): Rgb {
   ];
 }
 
-/** What the wallpaper shows at a cell — what a translucent window blends with. */
-function backdropAt(x: number, y: number): Rgb {
-  const body = bodyBounds();
-  const cell = backgroundCells?.[y - body.row]?.[x - body.column];
-  if (!cell) return DESKTOP.wallpaper;
-  return cell.char === "█" ? cell.foreground as Rgb : mixRgb(DESKTOP.wallpaper, cell.foreground as Rgb, 0.45);
-}
-
 function currentBackgroundField(): ShellAnimatedBackground | undefined {
   const id = desktopSettings.wallpaper;
   if (backgroundFieldId === id) return backgroundField;
@@ -1278,6 +1359,7 @@ const mobileLayout = (): boolean => columns() < 72 || rows() < 20;
 
 let startMenuOpen = false;
 let startMenuSelected = 0;
+let startMenuOffset = 0;
 
 /** Magnetization level past which the picture is annoying to read. */
 const MAGNET_BLINK_THRESHOLD = 0.55;
@@ -1304,7 +1386,7 @@ let contextMenu: { rect: Rectangle; items: ContextMenuItem[] } | undefined;
 
 /**
  * Terminal-style text selection: drag across any window's client area,
- * release, and the visible characters land on the host clipboard. Linear
+ * release, then copy through the context menu or Ctrl/Cmd+C. Linear
  * ranges, the way a terminal selects — full rows between the endpoints.
  */
 interface SelectionPoint {
@@ -1319,6 +1401,109 @@ let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
   | undefined;
 let selecting = false;
+const clientTextFrames = new Map<string, readonly (readonly string[])[]>();
+let releaseAction: { windowId: string; x: number; y: number } | undefined;
+let lastPointerEvent: PointerInputEvent | undefined;
+
+let degaussAlertOpen = false;
+let magnetAlarmArmed = false;
+const DEGAUSS_ALERT_ID = "desktop-degauss-alert";
+function degaussAlertGeometry(): { rect: Rectangle; button: Rectangle } {
+  const width = Math.max(1, Math.min(64, columns() - 2));
+  const height = Math.max(1, Math.min(14, rows() - 2));
+  const rect = { column: Math.floor((columns() - width) / 2), row: Math.floor((rows() - height) / 2), width, height };
+  const buttonHeight = height >= 12 ? 7 : Math.max(1, Math.min(3, height - 2));
+  const inset = width >= 8 ? 3 : 0;
+  return {
+    rect,
+    button: {
+      column: rect.column + inset,
+      row: rect.row + Math.max(0, height - buttonHeight - 2),
+      width: Math.max(1, width - inset * 2),
+      height: buttonHeight,
+    },
+  };
+}
+function closeDegaussAlert(): void {
+  degaussAlertOpen = false;
+  windowHost.overlays.remove(DEGAUSS_ALERT_ID);
+}
+function degaussDesktop(): void {
+  services.shader?.degauss();
+  closeDegaussAlert();
+  magnetAlarmArmed = true;
+}
+function updateDegaussAlert(): void {
+  const shader = services.shader;
+  const level = shader?.magnetism() ?? 0;
+  if (!shader?.enabled().includes("degauss") || level < 1) {
+    if (level < 1) magnetAlarmArmed = true;
+    if (degaussAlertOpen) closeDegaussAlert();
+    return;
+  }
+  if (!magnetAlarmArmed) return;
+  if (!degaussAlertOpen) {
+    if (lastPointerEvent) {
+      windowHost.handlePointer({ ...lastPointerEvent, kind: "cancel" }, bodyBounds(), projectionOptions());
+    }
+    selectionAnchor = undefined;
+    selecting = false;
+    touchScroll = undefined;
+    degaussAlertOpen = true;
+    startMenuOpen = false;
+    contextMenu = undefined;
+    releaseAction = undefined;
+    windowHost.overlays.register({
+      id: DEGAUSS_ALERT_ID,
+      ownerId: "desktop-alert",
+      rect: degaussAlertGeometry().rect,
+      layer: "modal",
+      kind: "modal",
+      modal: true,
+      visible: true,
+    });
+  } else windowHost.overlays.update(DEGAUSS_ALERT_ID, { rect: degaussAlertGeometry().rect });
+}
+function paintDegaussAlert(frame: VizCell[][], now: number): void {
+  if (!degaussAlertOpen) return;
+  const { rect, button } = degaussAlertGeometry();
+  paintShellMenuPanel(frameSurface(frame), rect, [], {
+    panelFill: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+    borderGlyphs: THIN_GLYPHS,
+    borderStyle: { foreground: DESKTOP.danger, background: DESKTOP.menu, bold: true },
+    rowStyle: { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+    dangerForeground: DESKTOP.danger,
+  });
+  if (rect.height >= 9) {
+    writeText(frame, rect.column + 2, rect.row + 2, "DISTORTION AT MAXIMUM".slice(0, rect.width - 4), {
+      foreground: DESKTOP.danger,
+      background: DESKTOP.menu,
+    });
+  }
+  if (rect.height >= 12) {
+    writeText(
+      frame,
+      rect.column + 2,
+      rect.row + 3,
+      "Reset the magnetic field to clear the picture.".slice(0, rect.width - 4),
+      { foreground: DESKTOP.chromeText, background: DESKTOP.menu },
+    );
+  }
+  const ground = Math.floor(now / 600) % 2 === 0 ? DESKTOP.danger : DESKTOP.accent;
+  fillRect(frame, button, ground);
+  const art = renderGlyphText(glyphTextFont("small"), "DEGAUSS", "font");
+  const label = button.height >= 7 && button.width >= art[0]!.length + 2 ? art : ["DEGAUSS"];
+  const top = button.row + Math.max(0, Math.floor((button.height - label.length) / 2));
+  for (let row = 0; row < label.length; row++) {
+    writeText(
+      frame,
+      button.column + Math.max(0, Math.floor((button.width - label[row]!.length) / 2)),
+      top + row,
+      label[row]!.slice(0, button.width),
+      { foreground: ON_ACCENT, background: ground },
+    );
+  }
+}
 
 function orderedSelection(): { windowId: string; from: SelectionPoint; to: SelectionPoint } | undefined {
   if (!selection) return undefined;
@@ -1347,61 +1532,26 @@ function selectionCoversLocal(x: number, y: number): boolean {
 }
 
 function selectedText(): string {
+  const native = services.selectionText?.();
+  if (native) return native;
   const range = orderedSelection();
   const client = selectionClientRect();
   if (!range || !client) return "";
   const lines: string[] = [];
   for (let y = range.from.y; y <= range.to.y; y += 1) {
-    const row = lastFrame[client.row + y] ?? [];
+    const row = clientTextFrames.get(range.windowId)?.[y] ?? [];
     const startX = y === range.from.y ? range.from.x : 0;
     const endX = y === range.to.y ? range.to.x : client.width - 1;
     let line = "";
-    for (let x = startX; x <= endX && client.column + x < row.length; x += 1) {
-      line += row[client.column + x]?.char ?? " ";
+    for (let x = startX; x <= endX && x < row.length; x += 1) {
+      line += row[x] ?? " ";
     }
     lines.push(line.replace(/\s+$/, ""));
   }
   return lines.join("\n");
 }
 
-/** Minimize/restore fly ghosts, the exomux taskbar gesture in miniature. */
-interface FlyGhost {
-  readonly from: Rectangle;
-  readonly to: Rectangle;
-  readonly start: number;
-  readonly duration: number;
-}
-let flyGhosts: FlyGhost[] = [];
-/** Window rects as last painted, for ghosts that start where the eye was. */
-const lastWindowRects = new Map<string, Rectangle>();
-
-function pushFlyGhost(from: Rectangle | undefined, to: Rectangle | undefined, now: number): void {
-  if (!from || !to || from.width <= 0 || to.width <= 0) return;
-  flyGhosts.push({ from, to, start: now, duration: 170 });
-}
-
-function paintFlyGhosts(frame: VizCell[][], now: number): void {
-  flyGhosts = flyGhosts.filter((ghost) => now - ghost.start < ghost.duration);
-  for (const ghost of flyGhosts) {
-    const t = Math.min(1, (now - ghost.start) / ghost.duration);
-    const ease = 1 - Math.pow(1 - t, 3);
-    const lerp = (a: number, b: number) => Math.round(a + (b - a) * ease);
-    const rect: Rectangle = {
-      column: lerp(ghost.from.column, ghost.to.column),
-      row: lerp(ghost.from.row, ghost.to.row),
-      width: Math.max(2, lerp(ghost.from.width, ghost.to.width)),
-      height: Math.max(1, lerp(ghost.from.height, ghost.to.height)),
-    };
-    borderBoxOnGround(
-      frameSurface(frame),
-      rect,
-      THIN_GLYPHS,
-      DESKTOP.accent,
-      (x: number, y: number) => frame[y]?.[x]?.background ?? DESKTOP.wallpaper,
-      true,
-    );
-  }
-}
+const windowAnimations = new DesktopWindowAnimations();
 
 function openContextMenu(column: number, row: number, items: ContextMenuItem[]): void {
   const width = Math.min(
@@ -1421,12 +1571,29 @@ function openContextMenu(column: number, row: number, items: ContextMenuItem[]):
 }
 
 function contextMenuItemsFor(column: number, row: number): ContextMenuItem[] {
+  // Snapshot before a menu can cover the highlighted cells.
+  const text = selectedText();
+  const copy: ContextMenuItem[] = services.copyText && text.trim()
+    ? [{
+      label: "copy selected text",
+      action: () => {
+        void services.copyText?.(text);
+      },
+    }]
+    : [];
+  const shortcuts: ContextMenuItem[] = [
+    { label: "settings", action: () => presentDemoWindow("settings") },
+    { label: "themes", action: () => presentDemoWindow("themes") },
+    ...(services.shader ? [{ label: "degauss", action: degaussDesktop }] : []),
+    { label: "help", action: () => presentDemoWindow("help") },
+  ];
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   const over = [...projection.windows].reverse().find((window) => contains(window.rect, column, row));
   if (over) {
     const id = over.id;
     const maximized = over.state === "maximized";
     return [
+      ...copy,
       {
         label: maximized ? "restore" : "maximize",
         action: () => windowHost.execute({ kind: "toggle-maximize", id }, bodyBounds(), projectionOptions()),
@@ -1444,29 +1611,10 @@ function contextMenuItemsFor(column: number, row: number): ContextMenuItem[] {
         danger: true,
         action: () => windowHost.execute({ kind: "close", id }, bodyBounds(), projectionOptions()),
       },
+      ...shortcuts,
     ];
   }
-  const wallpapers = wallpaperStyles();
-  const at = wallpapers.findIndex((style) => style.id === desktopSettings.wallpaper);
-  return [
-    {
-      label: "next background",
-      action: () => {
-        desktopSettings.wallpaper = wallpapers[(at + 1) % wallpapers.length]!.id;
-        persistDesktop();
-      },
-    },
-    {
-      label: "next theme",
-      action: () => {
-        const index = SHELL_THEMES.findIndex((theme) => theme.id === themeSpec.id);
-        applyShellTheme(SHELL_THEMES[(index + 1) % SHELL_THEMES.length]!);
-      },
-    },
-    ...(services.shader ? [{ label: "degauss", action: () => services.shader!.degauss() }] : []),
-    { label: "settings", action: () => presentDemoWindow("settings") },
-    { label: "help", action: () => presentDemoWindow("help") },
-  ];
+  return [...copy, ...shortcuts];
 }
 
 function paintContextMenu(frame: VizCell[][]): void {
@@ -1509,7 +1657,17 @@ function startMenuLayout(): StartMenuLayout {
   const itemRects: (Rectangle | undefined)[] = [];
   let row = rect.row + 1;
   const limit = rect.row + rect.height - 1;
-  for (const item of START_MENU_ITEMS) {
+  const cost = (index: number) => rowsPerItem + (START_MENU_ITEMS[index]?.separatorBefore ? 1 : 0);
+  startMenuOffset = Math.min(startMenuOffset, startMenuSelected);
+  let selectedCost = 0;
+  for (let index = startMenuOffset; index <= startMenuSelected; index++) selectedCost += cost(index);
+  while (selectedCost > limit - row && startMenuOffset < startMenuSelected) selectedCost -= cost(startMenuOffset++);
+  for (let index = 0; index < START_MENU_ITEMS.length; index++) {
+    if (index < startMenuOffset) {
+      itemRects.push(undefined);
+      continue;
+    }
+    const item = START_MENU_ITEMS[index]!;
     if (item.separatorBefore) row += 1;
     itemRects.push(
       row + rowsPerItem <= limit
@@ -1521,7 +1679,7 @@ function startMenuLayout(): StartMenuLayout {
   return { rect, itemRects, dense: rowsPerItem === 1 };
 }
 
-const START_BUTTON = " ⏻ exowebtui ";
+let START_BUTTON = " ⏻ exowebtui ";
 
 let presentedCount = 0;
 
@@ -1536,11 +1694,17 @@ function autoRectFor(id: string): Rectangle {
   const body = bodyBounds();
   const width = Math.max(
     demo?.window.minWidth ?? 20,
-    Math.min(Math.round(body.width * 0.52), Math.max(demo?.window.width ?? 48, Math.round(body.width * 0.4))),
+    Math.min(
+      Math.round(body.width * (demo?.window.widthRatio ?? 0.52)),
+      Math.max(demo?.window.width ?? 48, Math.round(body.width * 0.4)),
+    ),
   );
   const height = Math.max(
     demo?.window.minHeight ?? 6,
-    Math.min(Math.round(body.height * 0.62), Math.max(demo?.window.height ?? 14, Math.round(body.height * 0.45))),
+    Math.min(
+      Math.round(body.height * (demo?.window.heightRatio ?? 0.62)),
+      Math.max(demo?.window.height ?? 14, Math.round(body.height * 0.45)),
+    ),
   );
   const stepColumn = Math.max(2, Math.round(body.width * 0.06));
   const stepRow = 2;
@@ -1551,11 +1715,6 @@ function autoRectFor(id: string): Rectangle {
 }
 
 function presentDemoWindow(id: string): void {
-  const fromTab = paintedTabRects.find((candidate) => candidate.id === id)?.rect;
-  const wasHidden = (() => {
-    const state = windowHost.controller.inspect().windows.find((window) => window.id === id)?.state;
-    return state === "minimized" || state === "closed";
-  })();
   // The host blocks focusing a window another maximized window hides, so a
   // maximized peer steps down first — the same order exomux presents in.
   const maximizedId = windowHost.controller.inspect().maximizedWindowId;
@@ -1564,9 +1723,7 @@ function presentDemoWindow(id: string): void {
   }
   const wasClosed = windowHost.controller.inspect().windows.find((window) => window.id === id)?.state === "closed";
   windowHost.execute({ kind: "restore", id }, bodyBounds(), projectionOptions());
-  if (mobileLayout()) {
-    windowHost.execute({ kind: "maximize", id }, bodyBounds(), projectionOptions());
-  } else if (wasClosed) {
+  if (wasClosed) {
     // A window opens sized for the screen it is on, not the one it was
     // declared for.
     windowHost.execute(
@@ -1576,11 +1733,9 @@ function presentDemoWindow(id: string): void {
     );
     presentedCount += 1;
   }
+  if (defaultFullscreen(id)) windowHost.execute({ kind: "maximize", id }, bodyBounds(), projectionOptions());
+  responsiveDefaults.set(id, defaultFullscreen(id));
   windowHost.execute({ kind: "focus", id }, bodyBounds(), projectionOptions());
-  if (wasHidden) {
-    const landed = windowHost.project(bodyBounds(), projectionOptions()).windows.find((window) => window.id === id);
-    pushFlyGhost(fromTab ?? { column: 1, row: 0, width: 8, height: 1 }, landed?.rect, performance.now());
-  }
 }
 
 /**
@@ -1589,14 +1744,35 @@ function presentDemoWindow(id: string): void {
  * recovered by the host rather than left where nobody can reach them.
  */
 function fitWindowsToViewport(): void {
+  const active = windowHost.controller.inspect().activeWindowId;
+  if (active && demoById.get(active)?.window.fullscreenBelow !== undefined && services.viewportWidth) {
+    const fullscreen = defaultFullscreen(active);
+    if (responsiveDefaults.get(active) !== fullscreen) {
+      windowHost.execute({ kind: fullscreen ? "maximize" : "restore", id: active }, bodyBounds(), projectionOptions());
+      responsiveDefaults.set(active, fullscreen);
+    }
+    // Do not move a hidden floating restore rect while its window is fullscreen.
+    // Recovery only guarantees a reachable title, which can shift a wide rect left on a phone.
+    if (fullscreen) return;
+    windowHost.execute({ kind: "recover-all" }, bodyBounds(), projectionOptions());
+    return;
+  }
   if (mobileLayout()) {
-    const active = windowHost.controller.inspect().activeWindowId;
     if (active) windowHost.execute({ kind: "maximize", id: active }, bodyBounds(), projectionOptions());
     return;
   }
   const maximizedId = windowHost.controller.inspect().maximizedWindowId;
   if (maximizedId) windowHost.execute({ kind: "restore", id: maximizedId }, bodyBounds(), projectionOptions());
   windowHost.execute({ kind: "recover-all" }, bodyBounds(), projectionOptions());
+}
+
+const responsiveDefaults = new Map<string, boolean>();
+function defaultFullscreen(id: string): boolean {
+  const threshold = demoById.get(id)?.window.fullscreenBelow;
+  const fullscreen = threshold !== undefined && services.viewportWidth
+    ? services.viewportWidth() < threshold
+    : mobileLayout();
+  return fullscreen;
 }
 
 function activateStartMenuItem(item: StartMenuItem): void {
@@ -1620,7 +1796,8 @@ function syncThreeOverlay(): void {
   if (!threeOverlay || threeOverlay.state() !== "ready") return;
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   const top = projection.windows[projection.windows.length - 1];
-  const eligible = !startMenuOpen && top?.id === "three" && top.state !== "minimized" &&
+  const eligible = !startMenuOpen && !degaussAlertOpen && windowAnimations.status().length === 0 &&
+    top?.id === "three" && top.state !== "minimized" &&
     top.clientRect.width > 0 && top.clientRect.height > 1;
   if (!eligible) {
     threeOverlay.setRect(null);
@@ -1632,6 +1809,17 @@ function syncThreeOverlay(): void {
 }
 
 function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection, now: number): void {
+  // Capture the scene BEFORE any chrome/client writes. Sampling the frame
+  // afterwards would blend a window with itself; sampling only the field loses
+  // every lower window. Cells are immutable and replaced by the painters.
+  const opacity = desktopSettings.windowOpacity;
+  const underColumn = Math.max(0, window.rect.column);
+  const beneath = opacity < 1
+    ? Array.from(
+      { length: window.rect.height },
+      (_, row) => frame[window.rect.row + row]?.slice(underColumn, window.rect.column + window.rect.width) ?? [],
+    )
+    : undefined;
   const demo = demoById.get(window.id);
   const chromeBase = window.active ? DESKTOP.chromeIdle : DESKTOP.wallpaperDot;
   // The library shell paints the chrome — the same painter exomux draws with —
@@ -1652,7 +1840,11 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
   const client = window.clientRect;
   if (client.width <= 0 || client.height <= 0) return;
   if (demo) {
-    blitFrame(frame, { column: client.column, row: client.row }, demo.render(client.width, client.height, now));
+    blitFrame(
+      frame,
+      { column: client.column, row: client.row },
+      demo.render(client.width, client.height, now, themeSpec),
+    );
     // A right-edge scrollbar wherever the content overflows the viewport —
     // the render above has already clamped the demo's own offset.
     const scroll = demo.vscroll?.(client.width, client.height);
@@ -1699,6 +1891,17 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
   } else {
     fillRect(frame, client, DESKTOP.clientGround);
   }
+  clientTextFrames.set(
+    window.id,
+    Array.from(
+      { length: client.height },
+      (_, row) =>
+        Array.from(
+          { length: client.width },
+          (_, column) => frame[client.row + row]?.[client.column + column]?.char ?? " ",
+        ),
+    ),
+  );
   // The selection inverts inside this window's client area, and nowhere else.
   const range = orderedSelection();
   if (range && range.windowId === window.id) {
@@ -1719,10 +1922,9 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
       }
     }
   }
-  // The glass: exomux's translucency, blended against the live backdrop. The
+  // The glass: Exomux's translucency, blended against the actual lower scene. The
   // chrome keeps half the transparency so borders and titles stay legible.
-  const opacity = desktopSettings.windowOpacity;
-  if (opacity < 1) {
+  if (beneath) {
     const chromeOpacity = Math.min(1, opacity + (1 - opacity) / 2);
     for (let y = window.rect.row; y < window.rect.row + window.rect.height; y += 1) {
       const line = frame[y];
@@ -1733,10 +1935,16 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
         const cell = line[x]!;
         if (!cell.background) continue;
         const inClient = inClientRow && x >= client.column && x < client.column + client.width;
+        const under = beneath[y - window.rect.row]?.[x - underColumn];
+        const impression = shellCellImpression(
+          under?.char ?? " ",
+          under?.foreground,
+          under?.background ?? DESKTOP.wallpaper,
+        );
         line[x] = {
           char: cell.char,
           foreground: cell.foreground,
-          background: mixRgb(backdropAt(x, y), cell.background as Rgb, inClient ? opacity : chromeOpacity),
+          background: mixRgb(impression, cell.background as Rgb, inClient ? opacity : chromeOpacity),
         };
       }
     }
@@ -1817,7 +2025,7 @@ function paintStartMenu(frame: VizCell[][]): void {
     dangerForeground: DESKTOP.danger,
   });
   // The title rides the top border, the way exomux titles its boxes.
-  writeText(frame, rect.column + 2, rect.row, " exowebtui ", {
+  writeText(frame, rect.column + 2, rect.row, ` ${services.startLabel ?? "exowebtui"} `, {
     foreground: DESKTOP.accent,
     background: DESKTOP.menu,
   });
@@ -1908,8 +2116,9 @@ function paintWallpaper(frame: VizCell[][], width: number, height: number, now: 
 }
 
 let lastFrame: VizCell[][] = [];
+let desktopInitialized = false;
 let lastPointerCell: { x: number; y: number; kind: string } | undefined;
-let pointerKindCounts: Record<string, number> = {};
+const pointerKindCounts: Record<string, number> = {};
 
 function paintDesktop(now: number): VizCell[][] {
   const width = columns();
@@ -1918,9 +2127,19 @@ function paintDesktop(now: number): VizCell[][] {
   fillRect(frame, { column: 0, row: 0, width, height }, DESKTOP.wallpaper);
   paintWallpaper(frame, width, height, now);
   const projection = windowHost.project(bodyBounds(), projectionOptions());
+  windowAnimations.beginFrame({
+    now,
+    bounds: bodyBounds(),
+    windows: projection.windows,
+    states: windowHost.controller.inspect().windows,
+    reducedMotion: services.reducedMotion?.(),
+    anchor: (id) => paintedTabRects.find((tab) => tab.id === id)?.rect,
+  });
+  const animatedWindow = (window: WorkbenchWindowChromeProjection) =>
+    windowAnimations.paintWindow(frame, window, () => paintWindow(frame, window, now));
   // Tiled windows, their separators, then floating windows: a separator is
   // part of the tiled layer and must never cut through a window above it.
-  for (const window of projection.tiledWindows) paintWindow(frame, window, now);
+  for (const window of projection.tiledWindows) animatedWindow(window);
   for (const separator of projection.separators) {
     const glyph = separator.axis === "column" ? "│" : "─";
     for (let row = separator.rect.row; row < separator.rect.row + separator.rect.height; row += 1) {
@@ -1931,9 +2150,8 @@ function paintDesktop(now: number): VizCell[][] {
       }
     }
   }
-  for (const window of projection.floatingWindows) paintWindow(frame, window, now);
-  lastWindowRects.clear();
-  for (const window of projection.windows) lastWindowRects.set(window.id, window.rect);
+  for (const window of projection.floatingWindows) animatedWindow(window);
+  windowAnimations.paintOverlays(frame);
   if (projection.switcher) {
     paintShellSwitcher(frameSurface(frame), projection.switcher, bodyBounds(), {
       colors: {
@@ -1967,7 +2185,6 @@ function paintDesktop(now: number): VizCell[][] {
   paintBar(frame);
   if (startMenuOpen) paintStartMenu(frame);
   paintContextMenu(frame);
-  paintFlyGhosts(frame, now);
   const chip = degaussChipRect();
   if (chip && services.shader) {
     const level = services.shader.magnetism();
@@ -1984,6 +2201,7 @@ function paintDesktop(now: number): VizCell[][] {
       }
     }
   }
+  paintDegaussAlert(frame, now);
   // The drawn pointer: the OS cursor is hidden on this page, so the cell
   // cursor IS the pointer — and it rides the shader warp with the picture.
   const cursor = softwareCursorRender(
@@ -2005,9 +2223,17 @@ function paintDesktop(now: number): VizCell[][] {
 
 /** One frame of the desktop: sample the demos, compose, sync the overlay. */
 function composeDesktopFrame(now: number): VizCell[][] {
+  updateDegaussAlert();
   for (const demo of DEMOS) demo.sample?.(now);
   const frame = paintDesktop(now);
   syncThreeOverlay();
+  const projection = windowHost.project(bodyBounds(), projectionOptions());
+  services.onWindows?.(
+    projection.windows,
+    startMenuOpen || contextMenu !== undefined || degaussAlertOpen || projection.switcher !== undefined,
+    themeSpec,
+    windowAnimations.status().length > 0,
+  );
   return frame;
 }
 
@@ -2025,6 +2251,7 @@ function activeDemoWindow(): WorkbenchWindowChromeProjection | undefined {
 }
 
 function handleDesktopPointer(event: PointerInputEvent): void {
+  lastPointerEvent = event;
   const cell = event.coordinates.cell;
   if (!cell) return;
   const { x, y } = cell;
@@ -2037,6 +2264,14 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     cursorPoint = { column: x, row: y };
   }
   pointerKindCounts[`${event.kind}:${event.device}`] = (pointerKindCounts[`${event.kind}:${event.device}`] ?? 0) + 1;
+  if (degaussAlertOpen) {
+    if (event.kind === "down" && event.primary && event.button !== 2 && contains(degaussAlertGeometry().button, x, y)) {
+      degaussDesktop();
+    } else if (event.kind === "up" || event.kind === "cancel") {
+      windowHost.handlePointer({ ...event, kind: "cancel" }, bodyBounds(), projectionOptions());
+    }
+    return;
+  }
   if (event.kind === "move" && backgroundField) backgroundField.setPointer({ column: x, row: y });
   if (contextMenu) {
     if (event.kind !== "down") return;
@@ -2054,7 +2289,7 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   if (event.kind === "down" && event.button !== 2) {
     const chip = degaussChipRect();
     if (chip && contains(chip, x, y)) {
-      services.shader!.degauss();
+      degaussDesktop();
       return;
     }
   }
@@ -2069,6 +2304,11 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     // borders, and any window beneath it belong to the host's gestures.
     const top = [...projection.windows].reverse().find((candidate) => contains(candidate.rect, x, y));
     const inClient = top !== undefined && contains(top.clientRect, x, y);
+    // Raise the picked client before any child action or selection can consume the press.
+    if (inClient && event.primary && !top.active) {
+      windowHost.execute({ kind: "focus", id: top.id }, bodyBounds(), projectionOptions());
+    }
+    releaseAction = inClient && demoById.get(top.id)?.onPointerUp ? { windowId: top.id, x, y } : undefined;
     if (inClient && event.device === "touch") {
       // Touch convention: a drag moves the CONTENT. Selection stays with the
       // mouse and the pen, where a drag has always meant selecting.
@@ -2128,18 +2368,26 @@ function handleDesktopPointer(event: PointerInputEvent): void {
   } else if (event.kind === "up" || event.kind === "cancel") {
     if (touchScroll?.active) {
       touchScroll = undefined;
+      releaseAction = undefined;
       return;
     }
     touchScroll = undefined;
     if (selecting && selection) {
-      const text = selectedText();
-      if (text.trim().length > 0) services.copyText?.(text);
       selecting = false;
       selectionAnchor = undefined;
+      releaseAction = undefined;
       return;
     }
     selecting = false;
     selectionAnchor = undefined;
+    const action = releaseAction;
+    releaseAction = undefined;
+    if (event.kind === "up" && action && Math.abs(action.x - x) + Math.abs(action.y - y) < 2) {
+      const owner = activeDemoWindow();
+      if (owner?.id === action.windowId && contains(owner.clientRect, x, y)) {
+        demoById.get(owner.id)?.onPointerUp?.(x - owner.clientRect.column, y - owner.clientRect.row);
+      }
+    }
   }
   if (startMenuOpen && event.kind === "move") {
     // Mouse hover follows the pointer; touch sends no hover and loses nothing,
@@ -2171,7 +2419,6 @@ function handleDesktopPointer(event: PointerInputEvent): void {
         if (contains(tab.rect, x, y)) {
           const active = windowHost.controller.inspect().activeWindowId === tab.id;
           if (active && paintedTabMinimized.get(tab.id) !== true) {
-            pushFlyGhost(lastWindowRects.get(tab.id), tab.rect, performance.now());
             windowHost.execute({ kind: "minimize", id: tab.id }, bodyBounds(), projectionOptions());
           } else presentDemoWindow(tab.id);
           return;
@@ -2180,7 +2427,6 @@ function handleDesktopPointer(event: PointerInputEvent): void {
       return;
     }
   }
-  const before = new Map(lastWindowRects);
   const result = windowHost.handlePointer(event, bodyBounds(), projectionOptions());
   if (
     event.kind === "down" && (result.interaction !== undefined || (result.command && result.command.kind !== "focus"))
@@ -2188,11 +2434,6 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     // The host began a drag, resize, or chrome action on this down; the
     // selection must never fight it.
     selectionAnchor = undefined;
-  }
-  if (result.command?.kind === "minimize") {
-    const id = result.command.id;
-    const tab = paintedTabRects.find((candidate) => candidate.id === id);
-    if (id) pushFlyGhost(before.get(id), tab?.rect, performance.now());
   }
   if (event.kind === "down") {
     const window = activeDemoWindow();
@@ -2237,6 +2478,7 @@ function handleDesktopPointer(event: PointerInputEvent): void {
 }
 
 function handleDesktopWheel(event: MouseScrollEvent): void {
+  if (degaussAlertOpen || contextMenu) return;
   const direction: 1 | -1 = event.scroll >= 0 ? 1 : -1;
   const { x, y } = event;
   if (startMenuOpen) {
@@ -2251,6 +2493,15 @@ function handleDesktopWheel(event: MouseScrollEvent): void {
 }
 
 function handleDesktopKey(event: KeyPressEvent): void {
+  if (degaussAlertOpen) {
+    if (event.key === "return" || event.key === "space") degaussDesktop();
+    return;
+  }
+  if (selection && (event.ctrl || event.meta) && event.key === "c") {
+    const text = selectedText();
+    if (text.trim()) void services.copyText?.(text);
+    return;
+  }
   if (startMenuOpen) {
     if (event.key === "escape") startMenuOpen = false;
     else if (event.key === "down") startMenuSelected = (startMenuSelected + 1) % START_MENU_ITEMS.length;
@@ -2301,6 +2552,7 @@ function handleDesktopKey(event: KeyPressEvent): void {
       }@r${window.rect.row}+${window.rect.height}c${window.rect.column}+${window.rect.width} client r${window.clientRect.row}+${window.clientRect.height}`
     ),
   row: (index: number) => (lastFrame[index] ?? []).map((cell) => cell.char).join(""),
+  cell: (column: number, row: number) => lastFrame[row]?.[column],
   pointer: () => lastPointerCell,
   kinds: () => pointerKindCounts,
   preset: () => (backgroundField as { presetIndex?: number } | undefined)?.presetIndex,
@@ -2313,6 +2565,14 @@ function handleDesktopKey(event: KeyPressEvent): void {
     size: presentedSize,
     presented: presentedCount,
   }),
+  menu: () => ({ items: START_MENU_ITEMS, selected: startMenuSelected, ...startMenuLayout() }),
+  context: () => contextMenu,
+  selection: selectedText,
+  windows: () => desktopInitialized ? windowHost.project(bodyBounds(), projectionOptions()).windows : [],
+  audio: () => services.audio?.source(),
+  animations: () => windowAnimations.status(),
+  animationSettings: () => windowAnimations.settings(),
+  alert: () => degaussAlertOpen ? degaussAlertGeometry() : undefined,
   separators: () =>
     windowHost.project(bodyBounds(), projectionOptions()).separators.map((separator) =>
       `${separator.axis}@r${separator.rect.row}+${separator.rect.height}c${separator.rect.column}+${separator.rect.width}`
@@ -2328,7 +2588,10 @@ interface DesktopPersisted {
   readonly shader?: string;
   readonly shaders?: readonly string[];
   readonly shaderTuning?: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  /** Distinguishes the old saved default from a deliberate rate chosen after the slower-default upgrade. */
+  readonly shaderDefaultsVersion?: number;
   readonly windowOpacity?: number;
+  readonly animations?: DesktopAnimationSettings;
 }
 
 function shaderTuningSnapshot(shader: DesktopShaderService): Record<string, Record<string, number>> {
@@ -2355,9 +2618,60 @@ function persistDesktop(): void {
  * host-neutral, and this is the only object a host needs. Both entries —
  * the web page and the console — run exactly this.
  */
-export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp {
+export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp & { openWindow(id: string): void } {
+  desktopInitialized = false;
+  let lastViewportWidth = givenServices.viewportWidth?.();
   services = givenServices;
+  windowAnimations.resize();
+  windowAnimations.setSettings(undefined);
+  closeDegaussAlert();
+  magnetAlarmArmed = false;
+  selection = undefined;
+  selectionAnchor = undefined;
+  releaseAction = undefined;
+  contextMenu = undefined;
+  startMenuOpen = false;
+  startMenuSelected = 0;
+  startMenuOffset = 0;
+  START_BUTTON = ` ⏻ ${givenServices.startLabel ?? "exowebtui"} `;
+  const extra = [...(givenServices.applications ?? [])];
+  const newIds = new Set<string>();
+  for (const demo of extra) {
+    if (demoById.has(demo.id) || newIds.has(demo.id)) throw new TypeError(`Duplicate desktop application: ${demo.id}`);
+    newIds.add(demo.id);
+  }
+  for (const demo of extra) {
+    demoById.set(demo.id, demo);
+  }
+  DEMOS.push(...extra);
+  const hidden = new Set(givenServices.hiddenMenuIds ?? []);
+  START_MENU_ITEMS = [
+    ...extra.filter((demo) => demo.menu !== false).map((demo) => ({
+      id: demo.id,
+      glyph: "▧",
+      title: demo.title,
+      summary: demo.summary,
+    })),
+    ...(givenServices.menuLinks ?? []).map((link) => ({ ...link, glyph: "↗" })),
+    ...DEFAULT_START_MENU_ITEMS,
+  ].filter((item) => !hidden.has(item.id));
+  if (extra.length) {
+    const result = windowHost.reconcileWindows(DEMOS.map((demo, index) => ({
+      id: demo.id,
+      title: demo.title,
+      minWidth: demo.window.minWidth,
+      minHeight: demo.window.minHeight,
+      state: demo.id === "about" ? "normal" as const : "closed" as const,
+      placement: "floating" as const,
+      floatingRect: { column: 4 + index * 3, row: 2 + index * 2, width: demo.window.width, height: demo.window.height },
+    })));
+    if (!result.handled) throw new Error(`Could not register desktop applications: ${result.reason}`);
+  }
   return {
+    openWindow(id) {
+      if (!demoById.has(id)) throw new TypeError(`Unknown desktop application: ${id}`);
+      presentDemoWindow(id);
+    },
     async init(presenter) {
       presentedSize = presenter.size();
       const store = presenter.store<DesktopPersisted>("desktop");
@@ -2375,11 +2689,16 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
           else services.shader.setEnabled(services.shader.list().map((entry) => entry.id));
           for (const [id, tuning] of Object.entries(saved?.shaderTuning ?? {})) {
             for (const [key, value] of Object.entries(tuning)) {
-              if (typeof value === "number") services.shader.setOption(id, key, value);
+              if (typeof value === "number") {
+                const oldDefault = saved?.shaderDefaultsVersion !== 2 && id === "degauss" && key === "rate" &&
+                  value === .2;
+                services.shader.setOption(id, key, oldDefault ? .02 : value);
+              }
             }
           }
         }
         if (typeof saved?.windowOpacity === "number") desktopSettings.windowOpacity = saved.windowOpacity;
+        windowAnimations.setSettings(saved?.animations);
       } catch {
         // A broken store never blocks boot; defaults stand.
       }
@@ -2389,12 +2708,21 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
           wallpaper: desktopSettings.wallpaper,
           barHints: desktopSettings.barHints,
           ...(services.shader
-            ? { shaders: [...services.shader.enabled()], shaderTuning: shaderTuningSnapshot(services.shader) }
+            ? {
+              shaders: [...services.shader.enabled()],
+              shaderTuning: shaderTuningSnapshot(services.shader),
+              shaderDefaultsVersion: 2,
+            }
             : {}),
           windowOpacity: desktopSettings.windowOpacity,
+          animations: windowAnimations.settings(),
         }).catch(() => {});
       };
       // The first window sizes for the actual screen at boot — phone or desktop.
+      if (services.initialWindow) {
+        windowHost.execute({ kind: "close", id: "about" }, bodyBounds(), projectionOptions());
+        presentDemoWindow(services.initialWindow);
+      }
       if (mobileLayout()) fitWindowsToViewport();
       else {
         windowHost.execute(
@@ -2404,15 +2732,26 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
         );
         presentedCount += 1;
       }
+      desktopInitialized = true;
     },
     frame(now, size) {
+      if (size.columns !== presentedSize.columns || size.rows !== presentedSize.rows) windowAnimations.resize();
       presentedSize = size;
+      // A one-pixel breakpoint crossing need not change the terminal grid.
+      // Observe the host width as well as the presenter's cell-size resize events.
+      const width = services.viewportWidth?.();
+      if (width !== undefined && width !== lastViewportWidth) {
+        lastViewportWidth = width;
+        windowAnimations.resize();
+        fitWindowsToViewport();
+      }
       return composeDesktopFrame(now);
     },
     key: handleDesktopKey,
     pointer: handleDesktopPointer,
     wheel: handleDesktopWheel,
     resize(size) {
+      windowAnimations.resize();
       presentedSize = size;
       fitWindowsToViewport();
     },

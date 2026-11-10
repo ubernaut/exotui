@@ -46,7 +46,7 @@ export class TextObject extends DrawObject<"text"> {
     this.rectangle = signalify(options.rectangle as Rectangle);
     this.overwriteRectangle = signalify(options.overwriteRectangle ?? false);
     this.multiCodePointSupport = signalify(options.multiCodePointSupport ?? false);
-    this.valueChars = this.multiCodePointSupport.value ? getMultiCodePointCharacters(this.text.value) : this.text.value;
+    this.valueChars = this.multiCodePointSupport.value ? textCells(this.text.value) : this.text.value;
     this.rerenderRanges = [];
 
     const { updateObjects } = this.canvas;
@@ -71,9 +71,7 @@ export class TextObject extends DrawObject<"text"> {
       rectangle.height = 1;
 
       const { valueChars: previousValueChars } = this;
-      const valueChars: string | string[] = this.valueChars = multiCodePointSupport
-        ? getMultiCodePointCharacters(text)
-        : text;
+      const valueChars: string | string[] = this.valueChars = multiCodePointSupport ? textCells(text) : text;
 
       const { row, column, width } = rectangle;
       const barrier = overwriteRectangle
@@ -253,6 +251,18 @@ export class TextObject extends DrawObject<"text"> {
     }
 
     const rowBuffer = frameBuffer[row] ??= [];
+    const leftEdge = Math.max(0, rectangle.column, viewRectangle?.column ?? 0);
+    const paint = (column: number): string => {
+      const index = column - rectangle.column;
+      let value = valueChars[index] ?? " ";
+      // Wide glyphs own both cells. Clipping/occlusion of either half must
+      // never leak a two-column glyph past the object's visible rectangle.
+      if (
+        value === "" && (column === leftEdge || omitColumns?.has(column - 1)) ||
+        valueChars[index + 1] === "" && (column + 1 >= columnRange || omitColumns?.has(column + 1))
+      ) value = " ";
+      return style(value);
+    };
 
     if (ranges?.length) {
       mergeDirtyRowSegmentsInPlace(ranges);
@@ -264,7 +274,7 @@ export class TextObject extends DrawObject<"text"> {
         if (end <= start) continue;
         for (let column = start; column < end; column += 1) {
           if (omitColumns?.has(column)) continue;
-          rowBuffer[column] = style(valueChars[column - rectangle.column] ?? " ");
+          rowBuffer[column] = paint(column);
           if (!directRanges) {
             rerenderQueueRow ??= rerenderQueue[row] ??= new Set();
             rerenderQueueRow.add(column);
@@ -286,13 +296,23 @@ export class TextObject extends DrawObject<"text"> {
           continue;
         }
 
-        rowBuffer[column] = style(valueChars[column - rectangle.column] ?? " ");
+        rowBuffer[column] = paint(column);
         rerenderQueueRow.add(column);
       }
 
       rerenderColumns.clear();
     }
   }
+}
+
+function textCells(text: string): string[] {
+  const characters = getMultiCodePointCharacters(text);
+  // Most styled rows contain only single-column glyphs; retain their fast path.
+  if (textWidth(text) === characters.length) return characters;
+  return characters.flatMap((char) => {
+    const width = textWidth(char);
+    return width === 2 ? [char, ""] : width ? [char] : [];
+  });
 }
 
 function queueChangedOverwriteRanges(

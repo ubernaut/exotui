@@ -13,6 +13,7 @@
 
 import { decodeTerminalColor } from "./terminal_color.ts";
 import type { TerminalScreenCell } from "./terminal_screen.ts";
+import type { AnsiStyleSpec } from "../theme.ts";
 
 /** One renderable RGB triple. */
 export type TerminalRgb = readonly [number, number, number];
@@ -110,6 +111,13 @@ export interface ResolvedTerminalCellStyle {
   readonly foreground: TerminalRgb;
   readonly background: TerminalRgb;
   readonly bold: boolean;
+  readonly dim?: boolean;
+  readonly italic?: boolean;
+  readonly underline?: boolean;
+  readonly underlineStyle?: AnsiStyleSpec["underlineStyle"];
+  readonly underlineColor?: TerminalRgb;
+  readonly overline?: boolean;
+  readonly strikethrough?: boolean;
 }
 
 /**
@@ -119,11 +127,9 @@ export interface ResolvedTerminalCellStyle {
  * `column`/`row` address the cell for the `ground` callback (pass the same
  * coordinate space the ground expects).
  */
-interface MemoizedTerminalCellStyle {
-  foreground: TerminalRgb;
+interface MemoizedTerminalCellStyle extends Omit<ResolvedTerminalCellStyle, "glyph" | "background"> {
   /** Undefined when the background must blend the per-position ground. */
   background?: TerminalRgb;
-  bold: boolean;
 }
 
 /**
@@ -141,7 +147,7 @@ const CELL_STYLE_MEMO_LIMIT = 4096;
 
 /** Resolves one terminal cell to its final colours, honouring cursor, opacity, and ground. */
 export function resolveTerminalCellStyle(
-  cell: Pick<TerminalScreenCell, "char" | "foreground" | "background" | "bold">,
+  cell: TerminalScreenCell,
   column: number,
   row: number,
   cursor: boolean,
@@ -149,21 +155,15 @@ export function resolveTerminalCellStyle(
 ): ResolvedTerminalCellStyle {
   const opacity = options.opacity ?? 1;
   const transparent = options.ground !== undefined && opacity < 1;
-  if (cursor) {
-    let background = options.cursorBackground;
-    let foreground = options.cursorForeground;
-    if (options.dimToward) {
-      background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
-      foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
-    }
-    return { glyph: cell.char || " ", foreground, background, bold: true };
-  }
   let memo = cellStyleMemos.get(options);
   if (memo === undefined) {
     memo = new Map();
     cellStyleMemos.set(options, memo);
   }
-  const key = `${cell.foreground ?? ""}\u001f${cell.background ?? ""}\u001f${cell.bold ? "b" : ""}`;
+  const flags = (cell.dim ? 1 : 0) | (cell.italic ? 2 : 0) | (cell.underline ? 4 : 0) |
+    (cell.overline ? 8 : 0) | (cell.strikethrough ? 16 : 0);
+  const key = `${cell.foreground ?? ""}\u001f${cell.background ?? ""}\u001f${cell.bold ? "b" : ""}` +
+    `\u001f${flags}\u001f${cell.underlineStyle ?? ""}\u001f${cell.underlineColor ?? ""}`;
   let entry = memo.get(key);
   if (entry === undefined) {
     const explicit = terminalPaletteRgb(cell.background, true);
@@ -172,11 +172,24 @@ export function resolveTerminalCellStyle(
       ? terminalReadableForegroundRgb(cell.foreground, options.defaultBackground, options.defaultForeground) ??
         options.defaultForeground
       : terminalPaletteRgb(cell.foreground, false) ?? options.defaultForeground;
+    let underlineColor = terminalPaletteRgb(cell.underlineColor, false);
     if (options.dimToward) {
       if (background !== undefined) background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
       foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
+      if (underlineColor !== undefined) underlineColor = mixTerminalRgb(underlineColor, options.dimToward, DIM_RATIO);
     }
-    entry = { foreground, background, bold: cell.bold === true };
+    entry = {
+      foreground,
+      background,
+      bold: cell.bold === true,
+      ...(cell.dim ? { dim: true } : {}),
+      ...(cell.italic ? { italic: true } : {}),
+      ...(cell.underline ? { underline: true } : {}),
+      ...(cell.underlineStyle ? { underlineStyle: cell.underlineStyle } : {}),
+      ...(underlineColor !== undefined ? { underlineColor } : {}),
+      ...(cell.overline ? { overline: true } : {}),
+      ...(cell.strikethrough ? { strikethrough: true } : {}),
+    };
     if (memo.size < CELL_STYLE_MEMO_LIMIT) memo.set(key, entry);
   }
   let background = entry.background;
@@ -184,7 +197,19 @@ export function resolveTerminalCellStyle(
     background = mixTerminalRgb(options.ground!(column, row), options.defaultBackground, opacity);
     if (options.dimToward) background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
   }
-  return { glyph: cell.char || " ", foreground: entry.foreground, background, bold: entry.bold };
+  let foreground = entry.foreground;
+  if (cell.inverse) [foreground, background] = [background, foreground];
+  // Reverse video follows the actual resolved ground. Explicit underline ink
+  // remains independent, and cursor colors override reverse without losing typography.
+  if (cursor) {
+    foreground = options.cursorForeground;
+    background = options.cursorBackground;
+    if (options.dimToward) {
+      foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
+      background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
+    }
+  }
+  return { ...entry, glyph: cell.char || " ", foreground, background, bold: cursor || entry.bold };
 }
 
 function xtermPaletteRgb(index: number): TerminalRgb {

@@ -214,11 +214,13 @@ export class BrowserInputSource implements InputSource {
 
   #handlePointer(event: PointerEvent, kind: "down" | "up" | "cancel"): void {
     const release = kind !== "down";
+    const nativeSelection = permitsDomSelection(event);
     // Capture can throw NotFoundError when the pointer is already gone — a
     // finger lifted before the handler ran, or a synthetic event — and the
     // down must still be emitted.
     try {
-      if (kind === "down") {
+      if (kind === "down" && !nativeSelection) {
+        if (event.button === 0) this.#target.ownerDocument?.getSelection()?.removeAllRanges();
         (this.#keyboardTarget ?? this.#target).focus({ preventScroll: true });
         this.#target.setPointerCapture?.(event.pointerId);
       } else if (this.#target.hasPointerCapture?.(event.pointerId)) {
@@ -244,7 +246,7 @@ export class BrowserInputSource implements InputSource {
       release,
       button: release ? undefined : browserButton(event.button),
     });
-    event.preventDefault();
+    if (!nativeSelection) event.preventDefault();
   }
 
   #handlePointerMove(event: PointerEvent): void {
@@ -268,7 +270,7 @@ export class BrowserInputSource implements InputSource {
       release: false,
       button: browserButton(event.button),
     });
-    event.preventDefault();
+    if (!permitsDomSelection(event)) event.preventDefault();
   }
 
   #emitPointerInput(
@@ -481,6 +483,11 @@ function createHiddenTextInput(target: HTMLElement): { element: HTMLElement; dis
     element: textarea,
     dispose: () => textarea.remove(),
   };
+}
+
+function permitsDomSelection(event: Event): boolean {
+  return typeof Element !== "undefined" &&
+    event.composedPath().some((target) => target instanceof Element && target.hasAttribute("data-exotui-selectable"));
 }
 
 function browserButton(button: number): MousePressEvent["button"] {

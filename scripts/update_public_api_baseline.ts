@@ -10,7 +10,15 @@
  * then writes the new baseline.
  */
 
-const ENTRYPOINTS = ["mod.ts", "mod.app.ts", "mod.remote.ts", "mod.testing.ts"];
+const ENTRYPOINTS = [
+  "mod.ts",
+  "mod.app.ts",
+  "mod.document.ts",
+  "mod.mermaid.ts",
+  "mod.mermaid_headless.ts",
+  "mod.remote.ts",
+  "mod.testing.ts",
+];
 
 const baselinePath = new URL("../budgets/public_api.json", import.meta.url);
 let previous: Record<string, string[]> = {};

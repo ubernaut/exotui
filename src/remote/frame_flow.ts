@@ -11,7 +11,14 @@
 // against the newest valid base; an explicit resync clears the chain and
 // the next frame goes out full.
 
-import { type CellFrame, encodeCellFrame, encodeCellFrameDelta, type EncodedFrame } from "./frame_codec.ts";
+import {
+  type CellFrame,
+  encodeCellFrame,
+  encodeCellFrameDelta,
+  type EncodedFrame,
+  type FrameCodecVersion,
+  snapshotCellFrame,
+} from "./frame_codec.ts";
 
 /** One sequenced outbound frame. */
 export interface SequencedFrame {
@@ -21,13 +28,16 @@ export interface SequencedFrame {
 
 /** Flow-controller options. */
 export interface FrameFlowOptions {
-  /** Max unacknowledged frames in flight (default 4). */
+  /** Max unacknowledged frames in flight (default 4, integer 1–64). */
   readonly windowSize?: number;
+  /** Default 2 locally; choose from the ready handshake before sending network traffic. */
+  readonly codecVersion?: FrameCodecVersion;
 }
 
 /** The per-client frame flow controller. */
 export class FrameFlowController {
   readonly #windowSize: number;
+  readonly #codecVersion: FrameCodecVersion;
   readonly #inFlight = new Map<number, CellFrame>();
   #lastSent?: CellFrame;
   #lastAcked?: CellFrame;
@@ -37,7 +47,14 @@ export class FrameFlowController {
   #needsFull = true;
 
   constructor(options: FrameFlowOptions = {}) {
-    this.#windowSize = Math.max(1, options.windowSize ?? 4);
+    const windowSize = options.windowSize ?? 4;
+    const codecVersion = options.codecVersion ?? 2;
+    if (!Number.isInteger(windowSize) || windowSize < 1 || windowSize > 64) {
+      throw new RangeError("frame flow windowSize must be an integer from 1 to 64");
+    }
+    if (codecVersion !== 1 && codecVersion !== 2) throw new RangeError("unsupported frame flow codecVersion");
+    this.#windowSize = windowSize;
+    this.#codecVersion = codecVersion;
   }
 
   /**
@@ -46,6 +63,9 @@ export class FrameFlowController {
    * single coalescing slot, replacing any earlier waiter.
    */
   offer(frame: CellFrame): SequencedFrame | undefined {
+    frame = snapshotCellFrame(frame);
+    // Reject legacy-unrepresentable input even when it would only enter the pending slot.
+    if (this.#codecVersion === 1) encodeCellFrame(frame, { version: 1 });
     if (this.#inFlight.size >= this.#windowSize) {
       if (this.#pendingLatest) this.#coalescedDrops += 1;
       this.#pendingLatest = frame; // newest wins; memory stays constant
@@ -59,6 +79,9 @@ export class FrameFlowController {
    * coalesced frame's payload when the ack made room.
    */
   ack(sequence: number): SequencedFrame | undefined {
+    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence > this.#sequence) {
+      throw new RangeError("frame acknowledgement is outside the sent sequence range");
+    }
     for (const [inFlightSequence, frame] of [...this.#inFlight]) {
       if (inFlightSequence <= sequence) {
         this.#inFlight.delete(inFlightSequence);
@@ -78,6 +101,7 @@ export class FrameFlowController {
     this.#inFlight.clear();
     this.#lastSent = undefined;
     this.#lastAcked = undefined;
+    this.#pendingLatest = undefined;
     this.#needsFull = true;
   }
 
@@ -97,8 +121,8 @@ export class FrameFlowController {
 
   #send(frame: CellFrame): SequencedFrame {
     const payload = this.#needsFull || !this.#lastSent
-      ? encodeCellFrame(frame)
-      : encodeCellFrameDelta(this.#lastSent, frame);
+      ? encodeCellFrame(frame, { version: this.#codecVersion })
+      : encodeCellFrameDelta(this.#lastSent, frame, { version: this.#codecVersion });
     this.#needsFull = false;
     this.#lastSent = frame;
     this.#sequence += 1;

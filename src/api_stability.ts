@@ -11,6 +11,9 @@ export interface PackageEntrypointManifest {
   specifier:
     | "."
     | "./app"
+    | "./document"
+    | "./mermaid"
+    | "./mermaid/headless"
     | "./web"
     | "./shell"
     | "./remote"
@@ -28,6 +31,9 @@ export interface PackageEntrypointManifest {
   path:
     | "./mod.ts"
     | "./mod.app.ts"
+    | "./mod.document.ts"
+    | "./mod.mermaid.ts"
+    | "./mod.mermaid_headless.ts"
     | "./mod.web.ts"
     | "./mod.shell.ts"
     | "./mod.remote.ts"
@@ -116,6 +122,63 @@ export const packageEntrypoints: readonly PackageEntrypointManifest[] = [
       "advanced tiled/floating workbench window host",
     ],
     excludes: ["broad compatibility surface", "browser host helpers", "renderer internals", "demo workbench code"],
+  },
+  {
+    specifier: "./document",
+    path: "./mod.document.ts",
+    runtime: "shared",
+    stability: "beta",
+    description:
+      "Optional Markdown components, ASCII headings, and circuit-routed Mermaid flowcharts for cell windows.",
+    includes: [
+      "Markdown parser/controller/component",
+      "offscreen MarkdownSurface",
+      "four heading fonts",
+      "bounded flowchart layout and cell/SVG export",
+    ],
+    excludes: ["DOM document overlays", "built-in full Mermaid compiler", "terminal input lifecycle"],
+  },
+  {
+    specifier: "./mermaid",
+    path: "./mod.mermaid.ts",
+    runtime: "shared",
+    stability: "experimental",
+    description:
+      "Optional official full-standard Mermaid compiler and renderer-neutral scene extraction, in development.",
+    includes: [
+      "version-pinned upstream grammar and SVG rendering",
+      "portable measured geometry and labels",
+      "prepared native Markdown diagram hook",
+      "reactive native Markdown and flex-panel controllers",
+      "bounded host cache and lease-aware document lifecycle",
+      "explicit host font bytes and bounded layout readiness",
+    ],
+    excludes: [
+      "core runtime dependency",
+      "automatic source callback execution",
+      "complete documented feature/interaction fidelity",
+    ],
+  },
+  {
+    specifier: "./mermaid/headless",
+    path: "./mod.mermaid_headless.ts",
+    runtime: "terminal",
+    stability: "experimental",
+    description: "Optional isolated DOM compiler for full Mermaid in Deno terminal/remote hosts.",
+    includes: [
+      "private Chromium context",
+      "local-only browser engine bundle",
+      "serializable SVG/native scenes",
+      "bounded queues/cancellation/disposal",
+      "deny-by-default resources",
+      "private font registration and recovery",
+    ],
+    excludes: [
+      "browser download",
+      "application browser globals/profile",
+      "automatic callback binding",
+      "complete native visual fidelity",
+    ],
   },
   {
     specifier: "./web",
@@ -347,6 +410,27 @@ export const apiSurfacePolicies: readonly ApiSurfacePolicy[] = [
     stability: "beta",
     public: true,
     description: "Focused terminal app API and recommended starting point for new applications.",
+  },
+  {
+    pattern: "mod.document.ts",
+    runtime: "shared",
+    stability: "beta",
+    public: true,
+    description: "Optional terminal-native Markdown components, heading fonts, and bounded Mermaid flowcharts.",
+  },
+  {
+    pattern: "mod.mermaid.ts",
+    runtime: "shared",
+    stability: "experimental",
+    public: true,
+    description: "Optional full-standard Mermaid compiler/scene surface; native composition is still in development.",
+  },
+  {
+    pattern: "mod.mermaid_headless.ts",
+    runtime: "terminal",
+    stability: "experimental",
+    public: true,
+    description: "Optional private headless DOM compiler for native terminal/remote consumers.",
   },
   {
     pattern: "mod.web.ts",

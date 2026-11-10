@@ -5,15 +5,15 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 ## Summary
 
-- Entrypoints: 16
-- Unique modules: 548
-- Module visits: 1094
-- Unique re-export declarations: 712
-- Re-export declaration visits: 1094
-- Unique symbol declarations: 4998
-- Symbol declaration visits: 10233
-- Documented symbol declarations: 4966
-- Documentation coverage: 99.36%
+- Entrypoints: 19
+- Unique modules: 573
+- Module visits: 1123
+- Unique re-export declarations: 738
+- Re-export declaration visits: 1120
+- Unique symbol declarations: 5143
+- Symbol declaration visits: 10420
+- Documented symbol declarations: 5112
+- Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -21,18 +21,21 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     455 |    4352 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     455 |    4356 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3699 | 100.00% |
-| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     180 | 100.00% |
-| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     127 |  99.21% |
+| `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
+| `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
+| `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3702 | 100.00% |
+| `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
+| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     136 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      85 |     876 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      21 |     207 |  99.52% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      85 |     877 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      21 |     208 |  99.52% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -47,8 +50,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 455
 - Re-export declarations: 456
-- Exported symbols: 4352
-- Documented symbols: 4352
+- Exported symbols: 4356
+- Documented symbols: 4356
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -68,6 +71,51 @@ Focused terminal application package with opinionated lifecycle wiring and curat
 - Duplicate symbols: 0
 - Missing targets: 0
 
+## Entrypoint ./document
+
+Optional Markdown components, ASCII headings, and circuit-routed Mermaid flowcharts for cell windows.
+
+- Path: `./mod.document.ts`
+- Runtime: shared
+- Stability: beta
+- Modules: 12
+- Re-export declarations: 11
+- Exported symbols: 89
+- Documented symbols: 89
+- Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./mermaid
+
+Optional official full-standard Mermaid compiler and renderer-neutral scene extraction, in development.
+
+- Path: `./mod.mermaid.ts`
+- Runtime: shared
+- Stability: experimental
+- Modules: 12
+- Re-export declarations: 11
+- Exported symbols: 65
+- Documented symbols: 65
+- Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
+## Entrypoint ./mermaid/headless
+
+Optional isolated DOM compiler for full Mermaid in Deno terminal/remote hosts.
+
+- Path: `./mod.mermaid_headless.ts`
+- Runtime: terminal
+- Stability: experimental
+- Modules: 5
+- Re-export declarations: 4
+- Exported symbols: 14
+- Documented symbols: 14
+- Documentation coverage: 100.00%
+- Duplicate symbols: 0
+- Missing targets: 0
+
 ## Entrypoint ./web
 
 Standalone browser-safe package for shared controllers, themes, layout, canvas sinks, and web hosts.
@@ -77,8 +125,8 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Stability: beta
 - Modules: 366
 - Re-export declarations: 368
-- Exported symbols: 3699
-- Documented symbols: 3699
+- Exported symbols: 3702
+- Documented symbols: 3702
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -92,8 +140,8 @@ Host-neutral shell surface: the presenter seam, shell painters, theme catalog, w
 - Stability: beta
 - Modules: 23
 - Re-export declarations: 23
-- Exported symbols: 180
-- Documented symbols: 180
+- Exported symbols: 181
+- Documented symbols: 181
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -107,9 +155,9 @@ Hosted terminal/client bridge protocol and browser WebSocket transport.
 - Stability: experimental
 - Modules: 14
 - Re-export declarations: 13
-- Exported symbols: 127
-- Documented symbols: 126
-- Documentation coverage: 99.21%
+- Exported symbols: 136
+- Documented symbols: 136
+- Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -197,8 +245,8 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Stability: beta
 - Modules: 85
 - Re-export declarations: 84
-- Exported symbols: 876
-- Documented symbols: 876
+- Exported symbols: 877
+- Documented symbols: 877
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -212,8 +260,8 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Stability: beta
 - Modules: 21
 - Re-export declarations: 20
-- Exported symbols: 207
-- Documented symbols: 206
+- Exported symbols: 208
+- Documented symbols: 207
 - Documentation coverage: 99.52%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -283,6 +331,9 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | Module                                                                                                | Entrypoints                              | Re-exports | Symbols | Documented |
 | ----------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------: | ------: | ---------: |
 | [`mod.app.ts`](#mod-app-ts)                                                                           | `./app`                                  |         53 |       0 |          0 |
+| [`mod.document.ts`](#mod-document-ts)                                                                 | `./document`                             |         11 |       0 |          0 |
+| [`mod.mermaid_headless.ts`](#mod-mermaid-headless-ts)                                                 | `./mermaid/headless`                     |          1 |       0 |          0 |
+| [`mod.mermaid.ts`](#mod-mermaid-ts)                                                                   | `./mermaid`                              |          8 |       0 |          0 |
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
 | [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
@@ -293,7 +344,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.ts`](#mod-ts)                                                                                   | `.`                                      |         66 |       0 |          0 |
 | [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         85 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                       | `.`, `./web`                             |          0 |      14 |         14 |
-| [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                             |          0 |       7 |          7 |
+| [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                             |          0 |       8 |          8 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)                     | `.`, `./web`                             |          0 |      24 |         24 |
 | [`src/app/action_journal_retention.ts`](#src-app-action-journal-retention-ts)                         | `.`, `./web`                             |          0 |      21 |         21 |
 | [`src/app/action_journal.ts`](#src-app-action-journal-ts)                                             | `.`, `./web`                             |          0 |      17 |         17 |
@@ -440,7 +491,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/workbench_overlay.ts`](#src-app-workbench-overlay-ts)                                       | `.`, `./web`                             |          0 |      13 |         13 |
 | [`src/app/workbench_panel_workspace_store.ts`](#src-app-workbench-panel-workspace-store-ts)           | `.`, `./web`                             |          0 |       8 |          8 |
 | [`src/app/workbench_shelf.ts`](#src-app-workbench-shelf-ts)                                           | `.`, `./web`                             |          0 |      20 |         20 |
-| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                           | `.`, `./web`, `./shell`                  |          0 |      24 |         24 |
+| [`src/app/workbench_shell.ts`](#src-app-workbench-shell-ts)                                           | `.`, `./web`, `./shell`                  |          0 |      25 |         25 |
 | [`src/app/workbench_status.ts`](#src-app-workbench-status-ts)                                         | `.`, `./web`                             |          0 |      26 |         26 |
 | [`src/app/workbench_terminal.ts`](#src-app-workbench-terminal-ts)                                     | `.`, `./web`                             |          0 |      66 |         66 |
 | [`src/app/workbench_text.ts`](#src-app-workbench-text-ts)                                             | `.`, `./web`                             |          0 |      17 |         17 |
@@ -485,7 +536,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/components/label.ts`](#src-components-label-ts)                                                 | `.`, `./app`, `./web`                    |          0 |       6 |          6 |
 | [`src/components/list.ts`](#src-components-list-ts)                                                   | `.`, `./app`, `./web`                    |          0 |      14 |         14 |
 | [`src/components/log_viewer.ts`](#src-components-log-viewer-ts)                                       | `.`, `./web`                             |          0 |       6 |          6 |
-| [`src/components/markdown.ts`](#src-components-markdown-ts)                                           | `./app`                                  |          0 |       9 |          9 |
+| [`src/components/markdown.ts`](#src-components-markdown-ts)                                           | `./app`, `./document`                    |          0 |       9 |          9 |
 | [`src/components/menu_bar.ts`](#src-components-menu-bar-ts)                                           | `.`, `./web`                             |          0 |      10 |         10 |
 | [`src/components/metric_series.ts`](#src-components-metric-series-ts)                                 | `.`, `./web`                             |          0 |      10 |         10 |
 | [`src/components/mod.ts`](#src-components-mod-ts)                                                     | `.`, `./web`                             |         45 |       0 |          0 |
@@ -511,7 +562,28 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/components/toast.ts`](#src-components-toast-ts)                                                 | `.`, `./app`, `./web`                    |          0 |       8 |          8 |
 | [`src/components/tree.ts`](#src-components-tree-ts)                                                   | `.`, `./app`, `./web`                    |          0 |      13 |         13 |
 | [`src/components/virtual_list.ts`](#src-components-virtual-list-ts)                                   | `.`, `./app`, `./web`                    |          0 |       9 |          9 |
-| [`src/content/markdown.ts`](#src-content-markdown-ts)                                                 | `./app`                                  |          0 |      14 |         14 |
+| [`src/content/ascii_fonts.ts`](#src-content-ascii-fonts-ts)                                           | `./document`                             |          0 |       8 |          8 |
+| [`src/content/document_accessibility_dom.ts`](#src-content-document-accessibility-dom-ts)             | `./document`                             |          0 |       2 |          2 |
+| [`src/content/document_accessibility.ts`](#src-content-document-accessibility-ts)                     | `./document`                             |          0 |       4 |          4 |
+| [`src/content/document_interactions.ts`](#src-content-document-interactions-ts)                       | `./document`                             |          0 |       8 |          8 |
+| [`src/content/document_semantics.ts`](#src-content-document-semantics-ts)                             | `./document`                             |          0 |       5 |          5 |
+| [`src/content/flex_markdown_surface.ts`](#src-content-flex-markdown-surface-ts)                       | `./document`                             |          0 |       9 |          9 |
+| [`src/content/heading_fonts.ts`](#src-content-heading-fonts-ts)                                       | `./document`                             |          0 |       6 |          6 |
+| [`src/content/markdown_surface.ts`](#src-content-markdown-surface-ts)                                 | `./document`                             |          0 |       3 |          3 |
+| [`src/content/markdown.ts`](#src-content-markdown-ts)                                                 | `./app`, `./document`                    |          0 |      14 |         14 |
+| [`src/content/mermaid_animation.ts`](#src-content-mermaid-animation-ts)                               | `./mermaid`                              |          0 |       5 |          5 |
+| [`src/content/mermaid_cells.ts`](#src-content-mermaid-cells-ts)                                       | `./mermaid`                              |          0 |       5 |          5 |
+| [`src/content/mermaid_document.ts`](#src-content-mermaid-document-ts)                                 | `./mermaid`                              |          0 |       7 |          7 |
+| [`src/content/mermaid_flex_document.ts`](#src-content-mermaid-flex-document-ts)                       | `./mermaid`                              |          0 |       3 |          3 |
+| [`src/content/mermaid_fonts.ts`](#src-content-mermaid-fonts-ts)                                       | `./mermaid`, `./mermaid/headless`        |          0 |       3 |          3 |
+| [`src/content/mermaid_headless.ts`](#src-content-mermaid-headless-ts)                                 | `./mermaid/headless`                     |          3 |       4 |          4 |
+| [`src/content/mermaid_icons.ts`](#src-content-mermaid-icons-ts)                                       | `./mermaid`, `./mermaid/headless`        |          0 |       5 |          5 |
+| [`src/content/mermaid_image.ts`](#src-content-mermaid-image-ts)                                       | `./mermaid`                              |          0 |       3 |          3 |
+| [`src/content/mermaid_markdown.ts`](#src-content-mermaid-markdown-ts)                                 | `./mermaid`                              |          0 |       4 |          4 |
+| [`src/content/mermaid_resources.ts`](#src-content-mermaid-resources-ts)                               | `./mermaid/headless`                     |          0 |       2 |          2 |
+| [`src/content/mermaid_scene.ts`](#src-content-mermaid-scene-ts)                                       | `./mermaid`                              |          0 |      16 |         16 |
+| [`src/content/mermaid_standard.ts`](#src-content-mermaid-standard-ts)                                 | `./mermaid`                              |          3 |       7 |          7 |
+| [`src/content/mermaid.ts`](#src-content-mermaid-ts)                                                   | `./document`                             |          0 |      16 |         16 |
 | [`src/controls.ts`](#src-controls-ts)                                                                 | `.`                                      |          0 |       2 |          2 |
 | [`src/event_emitter.ts`](#src-event-emitter-ts)                                                       | `.`, `./web`                             |          0 |       5 |          5 |
 | [`src/focus.ts`](#src-focus-ts)                                                                       | `.`, `./web`                             |          0 |      13 |         13 |
@@ -594,7 +666,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/platform/types.ts`](#src-platform-types-ts)                                                     | `./web`                                  |          0 |      10 |         10 |
 | [`src/pointer_input.ts`](#src-pointer-input-ts)                                                       | `.`, `./web`, `./shell`                  |          0 |      40 |         40 |
 | [`src/remote/adaptive_quality.ts`](#src-remote-adaptive-quality-ts)                                   | `./remote`                               |          0 |       9 |          9 |
-| [`src/remote/frame_codec.ts`](#src-remote-frame-codec-ts)                                             | `./remote`                               |          0 |      14 |         13 |
+| [`src/remote/frame_codec.ts`](#src-remote-frame-codec-ts)                                             | `./remote`                               |          0 |      23 |         23 |
 | [`src/remote/frame_flow.ts`](#src-remote-frame-flow-ts)                                               | `./remote`                               |          0 |       4 |          4 |
 | [`src/remote/handshake.ts`](#src-remote-handshake-ts)                                                 | `./web`, `./remote`                      |          0 |      28 |         28 |
 | [`src/remote/input_sequencing.ts`](#src-remote-input-sequencing-ts)                                   | `./remote`                               |          0 |       5 |          5 |
@@ -674,7 +746,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                         | `.`, `./runtime`                         |          0 |      11 |         11 |
 | [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                                 | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                             | `.`, `./runtime`                         |          0 |       4 |          4 |
-| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
+| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       7 |          7 |
 | [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                           | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
 | [`src/runtime/terminal_selection.ts`](#src-runtime-terminal-selection-ts)                             | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                             | `./terminal`                             |          0 |       3 |          3 |
@@ -772,7 +844,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/unicode/controls.ts`](#src-unicode-controls-ts)                                                 | `.`                                      |          0 |       7 |          7 |
 | [`src/unicode/data_pack.ts`](#src-unicode-data-pack-ts)                                               | `.`                                      |          0 |      26 |         26 |
 | [`src/unicode/emoji.ts`](#src-unicode-emoji-ts)                                                       | `.`                                      |          0 |       6 |          6 |
-| [`src/unicode/grapheme.ts`](#src-unicode-grapheme-ts)                                                 | `.`                                      |          0 |      21 |         21 |
+| [`src/unicode/grapheme.ts`](#src-unicode-grapheme-ts)                                                 | `.`                                      |          0 |      22 |         22 |
 | [`src/unicode/hyphenation.ts`](#src-unicode-hyphenation-ts)                                           | `.`                                      |          0 |       7 |          7 |
 | [`src/unicode/line_break.ts`](#src-unicode-line-break-ts)                                             | `.`                                      |          0 |       8 |          8 |
 | [`src/unicode/mod.ts`](#src-unicode-mod-ts)                                                           | `.`                                      |         13 |       0 |          0 |
@@ -826,6 +898,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/web/cell_canvas_sink.ts`](#src-web-cell-canvas-sink-ts)                                         | `./web`                                  |          0 |       5 |          5 |
 | [`src/web/dom_renderer.ts`](#src-web-dom-renderer-ts)                                                 | `./web`                                  |          0 |       7 |          7 |
 | [`src/web/host.ts`](#src-web-host-ts)                                                                 | `./web`                                  |          0 |       5 |          5 |
+| [`src/web/mermaid_svg.ts`](#src-web-mermaid-svg-ts)                                                   | `./mermaid`                              |          0 |       7 |          7 |
 | [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                  |          7 |       0 |          0 |
 | [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                  |          0 |       7 |          7 |
 | [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                      |          0 |      33 |         33 |
@@ -892,6 +965,53 @@ _Entrypoints: `./app`_
 | `src/components/toast.ts`           | named | `ToastStack`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `src/components/tree.ts`            | named | `Tree`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `src/components/virtual_list.ts`    | named | `VirtualList`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+_No direct exported symbols._
+
+### mod.document.ts
+
+_Entrypoints: `./document`_
+
+| Re-export Target                            | Kind | Names |
+| ------------------------------------------- | ---- | ----- |
+| `src/content/markdown.ts`                   | star | -     |
+| `src/components/markdown.ts`                | star | -     |
+| `src/content/heading_fonts.ts`              | star | -     |
+| `src/content/ascii_fonts.ts`                | star | -     |
+| `src/content/mermaid.ts`                    | star | -     |
+| `src/content/markdown_surface.ts`           | star | -     |
+| `src/content/flex_markdown_surface.ts`      | star | -     |
+| `src/content/document_interactions.ts`      | star | -     |
+| `src/content/document_accessibility.ts`     | star | -     |
+| `src/content/document_accessibility_dom.ts` | star | -     |
+| `src/content/document_semantics.ts`         | star | -     |
+
+_No direct exported symbols._
+
+### mod.mermaid_headless.ts
+
+_Entrypoints: `./mermaid/headless`_
+
+| Re-export Target                  | Kind | Names |
+| --------------------------------- | ---- | ----- |
+| `src/content/mermaid_headless.ts` | star | -     |
+
+_No direct exported symbols._
+
+### mod.mermaid.ts
+
+_Entrypoints: `./mermaid`_
+
+| Re-export Target                       | Kind | Names |
+| -------------------------------------- | ---- | ----- |
+| `src/content/mermaid_standard.ts`      | star | -     |
+| `src/content/mermaid_scene.ts`         | star | -     |
+| `src/content/mermaid_animation.ts`     | star | -     |
+| `src/content/mermaid_cells.ts`         | star | -     |
+| `src/content/mermaid_markdown.ts`      | star | -     |
+| `src/content/mermaid_document.ts`      | star | -     |
+| `src/content/mermaid_flex_document.ts` | star | -     |
+| `src/web/mermaid_svg.ts`               | star | -     |
 
 _No direct exported symbols._
 
@@ -1235,6 +1355,7 @@ _Entrypoints: `.`, `./web`_
 | `TERMINAL_EXPOSABLE_SEMANTICS`    | const     | no        | yes   |
 | `TerminalAccessibilityProjection` | interface | yes       | yes   |
 | `toAriaAttributes`                | function  | no        | yes   |
+| `toAriaAttributesWithDescription` | function  | no        | yes   |
 | `toAriaTree`                      | function  | no        | yes   |
 | `toTerminalProjection`            | function  | no        | yes   |
 
@@ -3813,6 +3934,7 @@ _Entrypoints: `.`, `./web`, `./shell`_
 | `paintShellTabStrip`       | function  | no        | yes   |
 | `paintShellWindowChrome`   | function  | no        | yes   |
 | `ShellBorderGlyphs`        | interface | yes       | yes   |
+| `shellCellImpression`      | function  | no        | yes   |
 | `shellFitSpan`             | function  | no        | yes   |
 | `shellFitText`             | function  | no        | yes   |
 | `shellGlyphColumns`        | function  | no        | yes   |
@@ -4608,7 +4730,7 @@ _Entrypoints: `.`, `./web`_
 
 ### src/components/markdown.ts
 
-_Entrypoints: `./app`_
+_Entrypoints: `./app`, `./document`_
 
 | Symbol                      | Kind      | Type Only | JSDoc |
 | --------------------------- | --------- | --------- | ----- |
@@ -5067,9 +5189,110 @@ _Entrypoints: `.`, `./app`, `./web`_
 | `VirtualListRow`               | interface | yes       | yes   |
 | `virtualListRows`              | function  | no        | yes   |
 
+### src/content/ascii_fonts.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `filterGlyphFonts`        | function  | no        | yes   |
+| `GLYPH_TEXT_FONTS`        | const     | no        | yes   |
+| `glyphFontIdFromFileName` | function  | no        | yes   |
+| `glyphTextFont`           | function  | no        | yes   |
+| `GlyphTextFont`           | interface | yes       | yes   |
+| `GlyphTextLayout`         | type      | yes       | yes   |
+| `parseFigletFont`         | function  | no        | yes   |
+| `renderGlyphText`         | function  | no        | yes   |
+
+### src/content/document_accessibility_dom.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `DocumentAccessibilityDOM`    | class     | no        | yes   |
+| `DocumentAccessibilitySource` | interface | yes       | yes   |
+
+### src/content/document_accessibility.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `diagramAccessibilityNode`     | function  | no        | yes   |
+| `DocumentAccessibilityTarget`  | interface | yes       | yes   |
+| `documentAccessibilityTargets` | function  | no        | yes   |
+| `snapshotDiagramAccessibility` | function  | no        | yes   |
+
+### src/content/document_interactions.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `DocumentInteractionController` | class     | no        | yes   |
+| `DocumentInteractionRange`      | interface | yes       | yes   |
+| `DocumentInteractionTarget`     | interface | yes       | yes   |
+| `documentInteractionTargets`    | function  | no        | yes   |
+| `documentRowCells`              | function  | no        | yes   |
+| `DocumentTooltip`               | interface | yes       | yes   |
+| `layoutDocumentTooltip`         | function  | no        | yes   |
+| `paintDocumentInteractions`     | function  | no        | yes   |
+
+### src/content/document_semantics.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `diagramSemanticNamespace`       | function  | no        | yes   |
+| `DiagramSemanticNode`            | interface | yes       | yes   |
+| `DiagramSemanticTag`             | type      | yes       | yes   |
+| `isDiagramMathAttribute`         | function  | no        | yes   |
+| `snapshotDiagramSemanticContent` | function  | no        | yes   |
+
+### src/content/flex_markdown_surface.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                       | Kind      | Type Only | JSDoc |
+| ---------------------------- | --------- | --------- | ----- |
+| `FlexMarkdownBox`            | interface | yes       | yes   |
+| `FlexMarkdownController`     | class     | no        | yes   |
+| `FlexMarkdownLayout`         | interface | yes       | yes   |
+| `FlexMarkdownPanel`          | interface | yes       | yes   |
+| `FlexMarkdownRow`            | interface | yes       | yes   |
+| `FlexMarkdownSection`        | interface | yes       | yes   |
+| `FlexMarkdownSurface`        | class     | no        | yes   |
+| `FlexMarkdownSurfaceOptions` | interface | yes       | yes   |
+| `layoutFlexMarkdown`         | function  | no        | yes   |
+
+### src/content/heading_fonts.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                  | Kind     | Type Only | JSDoc |
+| ----------------------- | -------- | --------- | ----- |
+| `ASCII_HEADING_FONTS`   | const    | no        | yes   |
+| `AsciiHeadingFont`      | type     | yes       | yes   |
+| `COMPACT_HEADING_FONTS` | const    | no        | yes   |
+| `MarkdownHeadingFonts`  | type     | yes       | yes   |
+| `renderAsciiHeading`    | function | no        | yes   |
+| `TITLE_HEADING_FONTS`   | const    | no        | yes   |
+
+### src/content/markdown_surface.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `MarkdownSurface`        | class     | no        | yes   |
+| `MarkdownSurfaceOptions` | interface | yes       | yes   |
+| `MarkdownSurfacePalette` | interface | yes       | yes   |
+
 ### src/content/markdown.ts
 
-_Entrypoints: `./app`_
+_Entrypoints: `./app`, `./document`_
 
 | Symbol                  | Kind      | Type Only | JSDoc |
 | ----------------------- | --------- | --------- | ----- |
@@ -5087,6 +5310,189 @@ _Entrypoints: `./app`_
 | `MarkdownTableCell`     | interface | yes       | yes   |
 | `parseMarkdown`         | function  | no        | yes   |
 | `renderMarkdown`        | function  | no        | yes   |
+
+### src/content/mermaid_animation.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `MermaidAnimationKeyframe` | interface | yes       | yes   |
+| `MermaidAnimationTiming`   | interface | yes       | yes   |
+| `mermaidAnimationValue`    | function  | no        | yes   |
+| `MermaidSceneAnimation`    | interface | yes       | yes   |
+| `projectMermaidScene`      | function  | no        | yes   |
+
+### src/content/mermaid_cells.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `MermaidNativeCell`        | interface | yes       | yes   |
+| `MermaidNativeFrame`       | interface | yes       | yes   |
+| `mermaidNativeLines`       | function  | no        | yes   |
+| `MermaidNativeOptions`     | interface | yes       | yes   |
+| `renderMermaidNativeFrame` | function  | no        | yes   |
+
+### src/content/mermaid_document.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `MermaidMarkdownCache`             | class     | no        | yes   |
+| `MermaidMarkdownCacheInspection`   | interface | yes       | yes   |
+| `MermaidMarkdownCacheOptions`      | interface | yes       | yes   |
+| `MermaidMarkdownController`        | class     | no        | yes   |
+| `MermaidMarkdownControllerOptions` | interface | yes       | yes   |
+| `MermaidMarkdownSettings`          | interface | yes       | yes   |
+| `MermaidMarkdownState`             | interface | yes       | yes   |
+
+### src/content/mermaid_flex_document.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `MermaidFlexMarkdownController` | class     | no        | yes   |
+| `MermaidFlexMarkdownOptions`    | interface | yes       | yes   |
+| `MermaidFlexMarkdownSurface`    | class     | no        | yes   |
+
+### src/content/mermaid_fonts.ts
+
+_Entrypoints: `./mermaid`, `./mermaid/headless`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `MermaidFontFace`    | interface | yes       | yes   |
+| `MermaidFontLimits`  | interface | yes       | yes   |
+| `MermaidFontOptions` | interface | yes       | yes   |
+
+### src/content/mermaid_headless.ts
+
+_Entrypoints: `./mermaid/headless`_
+
+| Re-export Target                   | Kind  | Names                                                                                                                          |
+| ---------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `src/content/mermaid_fonts.ts`     | named | `type MermaidFontFace`, `type MermaidFontLimits`, `type MermaidFontOptions`                                                    |
+| `src/content/mermaid_resources.ts` | named | `type MermaidResourceInspection`, `type MermaidResourceLimits`                                                                 |
+| `src/content/mermaid_icons.ts`     | named | `type MermaidIconContext`, `type MermaidIconData`, `type MermaidIconLimits`, `type MermaidIconOptions`, `type MermaidIconPack` |
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createHeadlessMermaidRenderer` | function  | no        | yes   |
+| `HeadlessMermaidInspection`     | interface | yes       | yes   |
+| `HeadlessMermaidOptions`        | interface | yes       | yes   |
+| `HeadlessMermaidRenderer`       | class     | no        | yes   |
+
+### src/content/mermaid_icons.ts
+
+_Entrypoints: `./mermaid`, `./mermaid/headless`_
+
+| Symbol               | Kind      | Type Only | JSDoc |
+| -------------------- | --------- | --------- | ----- |
+| `MermaidIconContext` | interface | yes       | yes   |
+| `MermaidIconData`    | type      | yes       | yes   |
+| `MermaidIconLimits`  | interface | yes       | yes   |
+| `MermaidIconOptions` | interface | yes       | yes   |
+| `MermaidIconPack`    | type      | yes       | yes   |
+
+### src/content/mermaid_image.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `MermaidImageLimits`   | interface | yes       | yes   |
+| `MermaidImageOptions`  | interface | yes       | yes   |
+| `MermaidImageResource` | interface | yes       | yes   |
+
+### src/content/mermaid_markdown.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                    | Kind      | Type Only | JSDoc |
+| ------------------------- | --------- | --------- | ----- |
+| `MermaidMarkdownDiagram`  | interface | yes       | yes   |
+| `MermaidMarkdownDocument` | interface | yes       | yes   |
+| `MermaidMarkdownOptions`  | interface | yes       | yes   |
+| `prepareMermaidMarkdown`  | function  | no        | yes   |
+
+### src/content/mermaid_resources.ts
+
+_Entrypoints: `./mermaid/headless`_
+
+| Symbol                      | Kind      | Type Only | JSDoc |
+| --------------------------- | --------- | --------- | ----- |
+| `MermaidResourceInspection` | interface | yes       | yes   |
+| `MermaidResourceLimits`     | interface | yes       | yes   |
+
+### src/content/mermaid_scene.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `extractMermaidScene`    | function  | no        | yes   |
+| `MermaidScene`           | interface | yes       | yes   |
+| `MermaidSceneClip`       | type      | yes       | yes   |
+| `MermaidSceneComposite`  | interface | yes       | yes   |
+| `MermaidSceneFilter`     | interface | yes       | yes   |
+| `MermaidSceneFilterNode` | type      | yes       | yes   |
+| `MermaidSceneGradient`   | interface | yes       | yes   |
+| `MermaidSceneImage`      | interface | yes       | yes   |
+| `MermaidSceneImageAsset` | interface | yes       | yes   |
+| `MermaidSceneItem`       | type      | yes       | yes   |
+| `MermaidScenePaint`      | interface | yes       | yes   |
+| `MermaidScenePath`       | interface | yes       | yes   |
+| `MermaidScenePoint`      | interface | yes       | yes   |
+| `MermaidSceneSubpath`    | interface | yes       | yes   |
+| `MermaidSceneText`       | interface | yes       | yes   |
+| `MermaidSceneTransfer`   | type      | yes       | yes   |
+
+### src/content/mermaid_standard.ts
+
+_Entrypoints: `./mermaid`_
+
+| Re-export Target               | Kind  | Names                                                                                                                          |
+| ------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `src/content/mermaid_image.ts` | named | `type MermaidImageLimits`, `type MermaidImageOptions`, `type MermaidImageResource`                                             |
+| `src/content/mermaid_icons.ts` | named | `type MermaidIconContext`, `type MermaidIconData`, `type MermaidIconLimits`, `type MermaidIconOptions`, `type MermaidIconPack` |
+| `src/content/mermaid_fonts.ts` | named | `type MermaidFontFace`, `type MermaidFontLimits`, `type MermaidFontOptions`                                                    |
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `createMermaidStandardRenderer` | function  | no        | yes   |
+| `MERMAID_STANDARD_VERSION`      | const     | no        | yes   |
+| `MermaidStandardConfig`         | type      | yes       | yes   |
+| `MermaidStandardDiagram`        | interface | yes       | yes   |
+| `MermaidStandardOptions`        | interface | yes       | yes   |
+| `MermaidStandardRenderer`       | class     | no        | yes   |
+| `MermaidStandardRuntime`        | interface | yes       | yes   |
+
+### src/content/mermaid.ts
+
+_Entrypoints: `./document`_
+
+| Symbol                 | Kind      | Type Only | JSDoc |
+| ---------------------- | --------- | --------- | ----- |
+| `layoutMermaid`        | function  | no        | yes   |
+| `MermaidDirection`     | type      | yes       | yes   |
+| `MermaidEdge`          | interface | yes       | yes   |
+| `MermaidFrameCell`     | interface | yes       | yes   |
+| `MermaidGraph`         | interface | yes       | yes   |
+| `MermaidLayout`        | interface | yes       | yes   |
+| `MermaidLayoutOptions` | interface | yes       | yes   |
+| `MermaidNode`          | interface | yes       | yes   |
+| `MermaidPaint`         | interface | yes       | yes   |
+| `MermaidPlacedNode`    | interface | yes       | yes   |
+| `MermaidRoutedEdge`    | interface | yes       | yes   |
+| `MermaidShape`         | type      | yes       | yes   |
+| `parseMermaid`         | function  | no        | yes   |
+| `renderMermaidCells`   | function  | no        | yes   |
+| `renderMermaidFrame`   | function  | no        | yes   |
+| `renderMermaidSvg`     | function  | no        | yes   |
 
 ### src/controls.ts
 
@@ -6494,22 +6900,31 @@ _Entrypoints: `./remote`_
 
 _Entrypoints: `./remote`_
 
-| Symbol                 | Kind      | Type Only | JSDoc |
-| ---------------------- | --------- | --------- | ----- |
-| `applyCellFrameDelta`  | function  | no        | yes   |
-| `CellFrame`            | interface | yes       | yes   |
-| `CellRun`              | interface | yes       | yes   |
-| `decodeCellFrame`      | function  | no        | yes   |
-| `DecodeResult`         | type      | yes       | yes   |
-| `DeltaSpan`            | interface | yes       | yes   |
-| `encodeCellFrame`      | function  | no        | yes   |
-| `encodeCellFrameDelta` | function  | no        | yes   |
-| `EncodedDeltaFrame`    | interface | yes       | yes   |
-| `EncodedFrame`         | type      | yes       | no    |
-| `EncodedFullFrame`     | interface | yes       | yes   |
-| `FRAME_CODEC_VERSION`  | const     | no        | yes   |
-| `frameChecksum`        | function  | no        | yes   |
-| `StyledCell`           | interface | yes       | yes   |
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `applyCellFrameDelta`         | function  | no        | yes   |
+| `CellFrame`                   | interface | yes       | yes   |
+| `CellRun`                     | interface | yes       | yes   |
+| `decodeCellFrame`             | function  | no        | yes   |
+| `DecodeResult`                | type      | yes       | yes   |
+| `DeltaSpan`                   | interface | yes       | yes   |
+| `encodeCellFrame`             | function  | no        | yes   |
+| `encodeCellFrameDelta`        | function  | no        | yes   |
+| `EncodedDeltaFrame`           | interface | yes       | yes   |
+| `EncodedFrame`                | type      | yes       | yes   |
+| `EncodedFullFrame`            | interface | yes       | yes   |
+| `FRAME_CODEC_CAPABILITY`      | const     | no        | yes   |
+| `FRAME_CODEC_LIMITS`          | const     | no        | yes   |
+| `FRAME_CODEC_VERSION`         | const     | no        | yes   |
+| `frameChecksum`               | function  | no        | yes   |
+| `FrameCodecError`             | class     | no        | yes   |
+| `FrameCodecErrorCode`         | type      | yes       | yes   |
+| `FrameCodecOptions`           | interface | yes       | yes   |
+| `FrameCodecVersion`           | type      | yes       | yes   |
+| `LEGACY_FRAME_CODEC_VERSION`  | const     | no        | yes   |
+| `negotiatedFrameCodecVersion` | function  | no        | yes   |
+| `snapshotCellFrame`           | function  | no        | yes   |
+| `StyledCell`                  | interface | yes       | yes   |
 
 ### src/remote/frame_flow.ts
 
@@ -7952,6 +8367,7 @@ _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 | `TerminalScreenControllerOptions` | interface | yes       | yes   |
 | `TerminalScreenCursor`            | interface | yes       | yes   |
 | `TerminalScreenCursorStyle`       | interface | yes       | yes   |
+| `TerminalScreenGlyphInspection`   | interface | yes       | yes   |
 | `TerminalScreenInspection`        | interface | yes       | yes   |
 
 ### src/runtime/terminal_scrollback.ts
@@ -9605,6 +10021,7 @@ _Entrypoints: `.`_
 | `segmentGraphemes`                   | function  | no        | yes   |
 | `truncateGraphemeClusters`           | function  | no        | yes   |
 | `truncateGraphemeUtf16`              | function  | no        | yes   |
+| `UnicodeGraphemeBoundaryCursor`      | class     | no        | yes   |
 | `UnicodeGraphemeChunkSegmenter`      | class     | no        | yes   |
 | `UnicodeGraphemeDataError`           | class     | no        | yes   |
 | `UnicodeGraphemeSegmenter`           | class     | no        | yes   |
@@ -10373,6 +10790,20 @@ _Entrypoints: `./web`_
 | `WebTuiHostEvents`     | type      | yes       | yes   |
 | `WebTuiHostInspection` | interface | yes       | yes   |
 | `WebTuiHostOptions`    | interface | yes       | yes   |
+
+### src/web/mermaid_svg.ts
+
+_Entrypoints: `./mermaid`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `MermaidSvgDesktopLayer`       | class     | no        | yes   |
+| `MermaidSvgFlexSurface`        | class     | no        | yes   |
+| `MermaidSvgMarkdownController` | class     | no        | yes   |
+| `MermaidSvgSettings`           | interface | yes       | yes   |
+| `MermaidSvgTarget`             | interface | yes       | yes   |
+| `MermaidSvgViewport`           | interface | yes       | yes   |
+| `MermaidSvgWindow`             | interface | yes       | yes   |
 
 ### src/web/mod.ts
 

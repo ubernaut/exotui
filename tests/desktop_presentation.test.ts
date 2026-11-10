@@ -9,6 +9,7 @@ import { runShellApp, shellCellsToAnsiRow } from "../src/app/shell_presenter.ts"
 import { MemoryStore } from "../src/runtime/storage.ts";
 import { createDesktopApp } from "../examples/web/desktop_app.ts";
 import { SHELL_THEMES } from "../src/app/shell_theme.ts";
+import { assertThrows } from "./deps.ts";
 
 function fakePresenter(store: MemoryStore<unknown>): {
   presenter: ShellPresenter;
@@ -69,6 +70,49 @@ Deno.test("the desktop boots and paints its furniture on a fake presenter", asyn
   assert(text.includes("welcome"), "the welcome window paints");
   assert(text.includes("│"), "window borders paint");
   handle.stop();
+});
+
+Deno.test("desktop document extensions keep the original launcher and window host", async () => {
+  assertThrows(() => createDesktopApp({ applications: [{ id: "about" } as never] }), TypeError);
+  const { presenter, frames, fire } = fakePresenter(new MemoryStore());
+  let visible: readonly { id: string; active: boolean }[] = [];
+  let receivedTheme = false;
+  const app = createDesktopApp({
+    startLabel: "documents",
+    initialWindow: "document-test",
+    applications: [{
+      id: "document-test",
+      title: "Document test",
+      summary: "Native cells",
+      window: { width: 70, height: 20, minWidth: 25, minHeight: 8, widthRatio: .8, heightRatio: .8 },
+      render(width, height, _now, theme) {
+        receivedTheme = !!theme;
+        return Array.from(
+          { length: height },
+          (_, row) =>
+            Array.from({ length: width }, (_, column) => ({ char: row === 0 ? "document"[column] ?? " " : " " })),
+        );
+      },
+    }],
+    onWindows: (windows) => {
+      visible = windows;
+    },
+  });
+  const handle = runShellApp(presenter, app);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    fire(1000);
+    assert(receivedTheme);
+    assert(visible.some((window) => window.id === "document-test" && window.active));
+    assert(!visible.some((window) => window.id === "about"));
+    assert(frameText(frames.at(-1)!).includes("⏻ documents"));
+    app.openWindow("themes");
+    fire(1033);
+    assert(visible.some((window) => window.id === "themes"));
+    assertThrows(() => app.openWindow("not-a-window"), TypeError);
+  } finally {
+    handle.stop();
+  }
 });
 
 Deno.test("a persisted theme is loaded through the presenter's store", async () => {

@@ -73,7 +73,12 @@ Deno.test("text that leaves ASCII still takes the general path and stays correct
  * Captured from the implementation as it stood at f214b09e, before either fast
  * path existed. The fast paths are an optimisation, so the only acceptable
  * output is the output that was there before — including for the inputs that
- * do NOT take them.
+ * do NOT take them. The October 5 grapheme-aware crop intentionally removes
+ * an entire CRLF line ending; the explicit exception below retains the original
+ * fixture and pins both the historical dangling CR and its corrected output.
+ * October 6 additionally makes ASCII controls zero width. Preserve the old
+ * fixture's control offsets and explicitly pin the two newly fitting source
+ * units; no other historical case may change.
  */
 const WRAP_BEFORE: readonly {
   readonly lines: readonly string[];
@@ -87,7 +92,8 @@ const WRAP_BEFORE: readonly {
   }[];
 }[] = JSON.parse(await Deno.readTextFile(new URL("./fixtures/textbox/wrap_before_fast_path.json", import.meta.url)));
 
-Deno.test("wrapping is byte-identical to the implementation before the fast paths", () => {
+Deno.test("wrapping retains the historical bytes except explicit CRLF and zero-width control corrections", () => {
+  let corrections = 0, controlCorrections = 0;
   for (const { lines, width, wrapped } of WRAP_BEFORE) {
     const actual = wrapTextBoxLines(lines, width, { wordWrap: true }).map((visual) => ({
       lineIndex: visual.lineIndex,
@@ -96,8 +102,30 @@ Deno.test("wrapping is byte-identical to the implementation before the fast path
       text: visual.text,
       continuation: visual.continuation,
     }));
-    assertEquals(actual, wrapped, `wrapping changed for ${JSON.stringify(lines)} at width ${width}`);
+    if (width === 4 && lines.length === 1 && lines[0] === "a\r\nb") {
+      assertEquals(wrapped, [{ lineIndex: 0, startColumn: 0, endColumn: 4, text: "a\r", continuation: false }]);
+      assertEquals(actual, [{ lineIndex: 0, startColumn: 0, endColumn: 4, text: "a", continuation: false }]);
+      corrections++;
+    } else if (width === 10 && lines.length === 1 && lines[0] === "ctrl\x07bell and \x1b[31mansi\x1b[0m") {
+      // Source offsets remain UTF-16 offsets. The two ESC code points now
+      // occupy no display columns, so two more source units fit this raw
+      // control-containing segment. This is not an ANSI-aware editor lexer.
+      assertEquals(wrapped.slice(2), [
+        { lineIndex: 0, startColumn: 14, endColumn: 24, text: "\x1b[31mansi\x1b", continuation: true },
+        { lineIndex: 0, startColumn: 24, endColumn: 27, text: "[0m", continuation: true },
+      ]);
+      assertEquals(actual.slice(0, 2), wrapped.slice(0, 2));
+      assertEquals(actual.slice(2), [
+        { lineIndex: 0, startColumn: 14, endColumn: 26, text: "\x1b[31mansi\x1b[0", continuation: true },
+        { lineIndex: 0, startColumn: 26, endColumn: 27, text: "m", continuation: true },
+      ]);
+      controlCorrections++;
+    } else {
+      assertEquals(actual, wrapped, `wrapping changed for ${JSON.stringify(lines)} at width ${width}`);
+    }
   }
+  assertEquals(corrections, 1, "Exactly the separately documented CRLF semantic change is permitted.");
+  assertEquals(controlCorrections, 1, "Exactly one independently specified zero-control fixture changes.");
   // The fixture is worth having only if it covers what the fast paths skip.
   const covered = WRAP_BEFORE.map((entry) => entry.lines.join(""));
   assert(covered.some((text) => text.includes("\t")), "a tab");
@@ -105,6 +133,17 @@ Deno.test("wrapping is byte-identical to the implementation before the fast path
   assert(covered.some((text) => text.includes("\x07")), "a control character");
   assert(covered.some((text) => /[^\x00-\x7f]/.test(text)), "text outside ASCII");
   assert(covered.some((text) => text.includes("\r\n")), "a CR LF pair");
+});
+
+Deno.test("zero-width controls retain literal source offsets while wrapping into visible columns", () => {
+  assertEquals(wrapTextBoxLines(["A\x07B"], 1, { wordWrap: true }), [
+    { lineIndex: 0, startColumn: 0, endColumn: 1, text: "A", continuation: false },
+    { lineIndex: 0, startColumn: 1, endColumn: 3, text: "\x07B", continuation: true },
+  ]);
+  assertEquals(wrapTextBoxLines(["\x07AB"], 1, { wordWrap: true }), [
+    { lineIndex: 0, startColumn: 0, endColumn: 2, text: "\x07A", continuation: false },
+    { lineIndex: 0, startColumn: 2, endColumn: 3, text: "B", continuation: true },
+  ]);
 });
 
 Deno.test("a word longer than the viewport still advances", () => {

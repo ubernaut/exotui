@@ -2,7 +2,12 @@
 // markdown-it 15 exports the callable constructor as the default value and the
 // instance type as a named type export, so the two are imported separately.
 import MarkdownIt, { type MarkdownIt as MarkdownItParser, type Token } from "markdown-it";
+import type { AnsiStyleSpec } from "../theme.ts";
 import { cropToWidth, getMultiCodePointCharacters, textWidth } from "../utils/strings.ts";
+import { type MarkdownHeadingFonts, renderAsciiHeading } from "./heading_fonts.ts";
+import { layoutMermaid, parseMermaid, renderMermaidCells, renderMermaidFrame } from "./mermaid.ts";
+import { snapshotDiagramAccessibility } from "./document_accessibility.ts";
+import type { DiagramSemanticNode } from "./document_semantics.ts";
 
 /** Block kinds emitted by the renderer-neutral Markdown parser. */
 export type MarkdownBlockKind = "heading" | "paragraph" | "list-item" | "code" | "rule" | "table-row";
@@ -16,6 +21,23 @@ export interface MarkdownInlineSpan {
   marks: readonly MarkdownInlineMark[];
   href?: string;
   title?: string;
+  /** Portable diagram/link metadata; actions are dispatched only by an explicit host hook. */
+  interaction?: MarkdownInteraction;
+}
+
+/** Declarative callback arguments, never executable source or a global-function lookup. */
+export interface MarkdownCallback {
+  name: string;
+  args: readonly string[];
+}
+
+/** JSON-portable hit metadata shared by native diagrams, Markdown and cell-window hosts. */
+export interface MarkdownInteraction {
+  id?: string;
+  href?: string;
+  target?: string;
+  title?: string;
+  callbacks?: readonly MarkdownCallback[];
 }
 
 /** One parsed Markdown table cell. */
@@ -63,6 +85,47 @@ export interface MarkdownRenderOptions {
   codeLineNumbers?: boolean;
   bullet?: string;
   rule?: string;
+  /** Opt-in ASCII font per heading level; omitted levels retain their default rendering. */
+  headingFonts?: MarkdownHeadingFonts;
+  /** "title" allows art only for an unquoted H1 at the start of the document; later headings stay plain. */
+  headingArt?: "all" | "title";
+  /** False falls back to plain text instead of wrapping large heading art across rows. */
+  wrapHeadingArt?: boolean;
+  /** Render fenced Mermaid flowcharts as circuit-routed cells rather than source code. */
+  mermaid?: boolean;
+  /** Opt-in compact, theme-aware circuit-board diagram presentation. */
+  mermaidStyle?: "plain" | "circuit";
+  /** Host-precompiled Mermaid cells; no diagram engine enters the document/core import graph. */
+  diagram?: (source: string, width: number) => MarkdownDiagramFrame | undefined;
+}
+
+/** Portable diagram cell, with native styling rather than embedded ANSI/HTML. */
+export interface MarkdownDiagramCell {
+  char: string;
+  style?: AnsiStyleSpec;
+  href?: string;
+  interaction?: MarkdownInteraction;
+}
+
+/** A prepared diagram and its horizontal viewport; empty cells continue wide glyphs. */
+export interface MarkdownDiagramFrame {
+  columns: number;
+  cells: readonly (readonly MarkdownDiagramCell[])[];
+  offset?: number;
+  /** Inert diagram semantics survive native preparation, pan, scrolling and remote JSON transport. */
+  accessibility?: MarkdownDiagramAccessibility;
+}
+
+/** Root diagram semantics, independent of browser DOM and terminal paint. */
+export interface MarkdownDiagramAccessibility {
+  readonly title?: string;
+  readonly description?: string;
+  /** Upstream ARIA role tokens, including ordered fallbacks. */
+  readonly role?: string;
+  readonly roleDescription?: string;
+  readonly hidden?: boolean;
+  /** Meaningful engine label/MathML structure, not source SVG or flattened cell text. */
+  readonly content?: readonly DiagramSemanticNode[];
 }
 
 /** Semantic role assigned to one rendered Markdown segment. */
@@ -76,11 +139,18 @@ export type MarkdownRenderRole =
   | "link-destination"
   | "rule"
   | "table-border"
-  | "table-header";
+  | "table-header"
+  | "diagram-node"
+  | "diagram-trace"
+  | "diagram-integration"
+  | "diagram-label"
+  | "diagram-grid";
 
 /** One renderable terminal segment retaining Markdown semantics. */
 export interface MarkdownRenderSegment extends MarkdownInlineSpan {
   role: MarkdownRenderRole;
+  /** Explicit native diagram styling, applied inside the host's semantic style. */
+  style?: AnsiStyleSpec;
 }
 
 /** One cell-width-bounded terminal row projected from a Markdown block. */
@@ -88,6 +158,8 @@ export interface MarkdownRenderLine {
   blockIndex: number;
   text: string;
   segments: readonly MarkdownRenderSegment[];
+  /** Repeated on each row so partially visible diagrams retain their semantic identity. */
+  accessibility?: MarkdownDiagramAccessibility;
 }
 
 interface ListState {
@@ -360,11 +432,20 @@ function appendInline(
 ): void {
   if (!text) return;
   const previous = spans.at(-1);
-  if (previous && previous.href === link?.href && previous.title === link?.title && equalMarks(previous.marks, marks)) {
+  if (
+    previous && previous.interaction === link && previous.href === link?.href && previous.title === link?.title &&
+    equalMarks(previous.marks, marks)
+  ) {
     spans[spans.length - 1] = { ...previous, text: previous.text + text };
     return;
   }
-  spans.push({ text, marks: [...new Set(marks)], href: link?.href || undefined, title: link?.title });
+  spans.push({
+    text,
+    marks: [...new Set(marks)],
+    href: link?.href || undefined,
+    title: link?.title,
+    interaction: link?.href ? link : undefined,
+  });
 }
 
 function taskListState(inlines: readonly MarkdownInlineSpan[]): {
@@ -421,7 +502,67 @@ function renderBlock(
     return;
   }
   if (block.kind === "code") {
+    if (options.diagram && block.language === "mermaid") {
+      const frame = options.diagram(block.code ?? "", Math.max(1, width - textWidth(quote)));
+      if (frame) {
+        renderDiagram(lines, frame, blockIndex, width, quote);
+        return;
+      }
+    }
+    if (options.mermaid && block.language === "mermaid") {
+      const graph = parseMermaid(block.code ?? "");
+      const available = width - textWidth(quote);
+      if (available >= 12) {
+        const layout = layoutMermaid(graph, { maxColumns: Math.min(2000, available), style: options.mermaidStyle });
+        if (options.mermaidStyle === "circuit") {
+          for (const row of renderMermaidFrame(layout)) {
+            const spans: MarkdownRenderSegment[] = [
+              segment(quote, "quote"),
+              segment(" ".repeat(Math.floor((available - layout.width) / 2)), "diagram-grid"),
+            ];
+            for (const cell of row) {
+              const last = spans.at(-1);
+              if (last?.role === cell.role) last.text += cell.char;
+              else spans.push(segment(cell.char, cell.role));
+            }
+            appendLine(lines, blockIndex, spans);
+          }
+        } else {
+          for (const row of renderMermaidCells(layout)) {
+            appendLine(lines, blockIndex, [segment(quote, "quote"), segment(row, "code-fence")]);
+          }
+        }
+      } else {
+        // A tiny terminal cannot fit a node box: keep its labeled relationships readable.
+        const text = graph.edges.length
+          ? graph.edges.map((edge) => `${edge.from} → ${edge.to}${edge.label ? `: ${edge.label}` : ""}`).join("\n")
+          : graph.nodes.map((node) => node.label).join("\n");
+        wrapInlines(lines, blockIndex, [{ text, marks: [] }], width, quote, quote, "text");
+      }
+      return;
+    }
     renderCode(lines, block, blockIndex, width, options);
+    return;
+  }
+
+  const headingFont = block.kind === "heading" && options.headingFonts
+    ? options.headingArt === "title" && (blockIndex !== 0 || block.level !== 1 || block.quoteDepth)
+      ? "plain"
+      : options.headingFonts[(block.level ?? 1) as 1 | 2 | 3 | 4 | 5 | 6]
+    : undefined;
+  if (headingFont && width > textWidth(quote)) {
+    let art = renderAsciiHeading(
+      inlinePlainText(block.inlines ?? [], false),
+      headingFont,
+      width - textWidth(quote),
+    );
+    const fontHeight = headingFont === "standard" ? 6 : headingFont === "small" ? 5 : headingFont === "micro" ? 3 : 1;
+    if (options.wrapHeadingArt === false && art.length > fontHeight) {
+      art = renderAsciiHeading(inlinePlainText(block.inlines ?? [], false), "plain", width - textWidth(quote));
+    }
+    for (const row of art) {
+      appendLine(lines, blockIndex, [segment(quote, "quote"), segment(row, "heading")]);
+    }
     return;
   }
 
@@ -457,6 +598,67 @@ function renderBlock(
     continuation,
     role,
   );
+}
+
+function renderDiagram(
+  lines: MarkdownRenderLine[],
+  frame: MarkdownDiagramFrame,
+  blockIndex: number,
+  width: number,
+  quote: string,
+): void {
+  const available = Math.max(0, width - textWidth(quote));
+  if (!available) return;
+  if (
+    !Number.isSafeInteger(frame.columns) || frame.columns < 1 || frame.cells.length < 1 ||
+    frame.columns * frame.cells.length > 1_000_000
+  ) {
+    throw new RangeError("Invalid prepared Markdown diagram dimensions.");
+  }
+  const offset = Math.max(0, Math.min(Math.floor(frame.offset ?? 0), Math.max(0, frame.columns - available)));
+  if (!Number.isFinite(offset)) throw new RangeError("Invalid prepared Markdown diagram offset.");
+  const margin = Math.max(0, Math.floor((available - frame.columns) / 2));
+  const accessibility = frame.accessibility ? snapshotDiagramAccessibility(frame.accessibility) : undefined;
+  const firstLine = lines.length;
+  for (const row of frame.cells) {
+    if (row.length !== frame.columns) throw new RangeError("Prepared Markdown diagram has an inconsistent row width.");
+    const spans: MarkdownRenderSegment[] = [segment(quote, "quote"), segment(" ".repeat(margin), "diagram-grid")];
+    for (let column = offset; column < Math.min(frame.columns, offset + available); column++) {
+      const cell = row[column]!;
+      const cellWidth = textWidth(cell.char);
+      // deno-lint-ignore no-control-regex -- prepared cells cannot contain terminal escape payloads
+      if (/[\x00-\x1f\x7f-\x9f]/.test(cell.char) || cellWidth > 2) {
+        throw new TypeError("Prepared diagram cells must contain display glyphs, not terminal control sequences.");
+      }
+      if (!cell.char && column !== offset) continue;
+      const clipped = !cell.char || column - offset + cellWidth > available;
+      const char = clipped ? " " : cell.char;
+      spans.push({
+        text: char,
+        role: "diagram-label",
+        marks: !clipped && cell.href ? ["link"] : [],
+        href: clipped ? undefined : cell.href,
+        interaction: clipped ? undefined : cell.interaction,
+        style: cell.style,
+      });
+    }
+    appendLine(lines, blockIndex, spans);
+  }
+  if (frame.columns > available) {
+    appendLine(lines, blockIndex, [
+      segment(quote, "quote"),
+      segment(
+        fitText(
+          `[diagram ${offset + 1}–${Math.min(offset + available, frame.columns)}/${frame.columns} columns]`,
+          available,
+        ),
+        "marker",
+      ),
+    ]);
+  }
+  if (accessibility) {
+    for (let index = firstLine; index < lines.length; index++) lines[index]!.accessibility = accessibility;
+  }
 }
 
 function renderCode(
@@ -635,12 +837,13 @@ function withLinkDestinations(
       continue;
     }
     let label = "";
-    while (index < inlines.length && inlines[index]?.href === href) {
+    const interaction = inlines[index]?.interaction;
+    while (index < inlines.length && inlines[index]?.href === href && inlines[index]?.interaction === interaction) {
       const inline = inlines[index++]!;
       label += inline.text;
       output.push(inline);
     }
-    if (label !== href) output.push({ text: ` <${href}>`, marks: ["link"], href });
+    if (label !== href) output.push({ text: ` <${href}>`, marks: ["link"], href, interaction });
   }
   return output;
 }
@@ -667,6 +870,7 @@ function appendSegment(segments: MarkdownRenderSegment[], next: MarkdownRenderSe
   const previous = segments.at(-1);
   if (
     previous && previous.role === next.role && previous.href === next.href && previous.title === next.title &&
+    previous.interaction === next.interaction && previous.style === next.style &&
     equalMarks(previous.marks, next.marks)
   ) {
     segments[segments.length - 1] = { ...previous, text: previous.text + next.text };

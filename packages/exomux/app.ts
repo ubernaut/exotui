@@ -6,6 +6,7 @@ import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@u
 import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/exotui/app";
 import type { SurfaceTransition } from "@ubernaut/exotui";
 import {
+  type AnsiStyleSpec,
   clampContextMenuSelection,
   Component,
   type ComponentOptions,
@@ -44,6 +45,7 @@ import {
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellWindowChrome,
+  shellCellImpression,
   writeOnGround,
 } from "@ubernaut/exotui";
 import { wrapTextBoxLines } from "@ubernaut/exotui";
@@ -4518,9 +4520,7 @@ type ExomuxBackdrop = (column: number, row: number) => ExomuxRgb;
  * content. A blank cell is pure ground; ink-free glyphs must not tint it.
  */
 function exomuxDepositColor(glyph: string, foreground: ExomuxRgb, background: ExomuxRgb): ExomuxRgb {
-  if (glyph === " " || glyph === "") return background;
-  const coverage = BACKDROP_COVERAGE[glyph] ?? DEFAULT_BACKDROP_COVERAGE;
-  return mixExomuxRgb(background, foreground, coverage);
+  return shellCellImpression(glyph, foreground, background);
 }
 
 /**
@@ -5727,6 +5727,13 @@ function paintTerminal(
         foreground: runtime.selection.contains(column, row) ? theme.background : resolved.foreground,
         background: runtime.selection.contains(column, row) ? theme.accent : resolved.background,
         bold: resolved.bold,
+        dim: resolved.dim,
+        italic: resolved.italic,
+        underline: resolved.underline,
+        underlineStyle: resolved.underlineStyle,
+        underlineColor: resolved.underlineColor,
+        overline: resolved.overline,
+        strikethrough: resolved.strikethrough,
       });
     }
   }
@@ -7502,6 +7509,13 @@ interface PaintedStyle {
   foreground: ExomuxRgb;
   background: ExomuxRgb;
   bold?: boolean;
+  dim?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  underlineStyle?: AnsiStyleSpec["underlineStyle"];
+  underlineColor?: ExomuxRgb;
+  overline?: boolean;
+  strikethrough?: boolean;
 }
 
 /** Small paint buffer that caches ANSI style functions by exact cell style. */
@@ -7545,10 +7559,15 @@ const glyphColumnCache = new Map<string, 1 | 2>();
  * every cell painted, which at desktop scale was the single largest cost in the
  * frame.
  */
-function paintedStyleKey(spec: PaintedStyle): number {
+function paintedStyleKey(spec: PaintedStyle): number | string {
   const foreground = (spec.foreground[0] << 16) | (spec.foreground[1] << 8) | spec.foreground[2];
   const background = (spec.background[0] << 16) | (spec.background[1] << 8) | spec.background[2];
-  return foreground * 33_554_432 + background * 2 + (spec.bold ? 1 : 0);
+  const base = foreground * 33_554_432 + background * 2 + (spec.bold ? 1 : 0);
+  const flags = (spec.dim ? 1 : 0) | (spec.italic ? 2 : 0) | (spec.underline ? 4 : 0) |
+    (spec.overline ? 8 : 0) | (spec.strikethrough ? 16 : 0);
+  // Preserve the allocation-free numeric hot path for wallpaper and ordinary cells.
+  if (flags === 0 && spec.underlineStyle === undefined && spec.underlineColor === undefined) return base;
+  return `${base}|${flags}|${spec.underlineStyle ?? ""}|${spec.underlineColor?.join(",") ?? ""}`;
 }
 
 // Butterchurn's quantized palette alone can reach ~10k distinct keys
@@ -7562,13 +7581,13 @@ const MAX_PAINT_STYLE_CACHE = 32768;
  * per-instance cache re-ran `createAnsiStyle` for every colour on every frame —
  * and an animated background paints hundreds of distinct colours per frame.
  */
-const paintStyleCache = new Map<number, Style>();
+const paintStyleCache = new Map<number | string, Style>();
 
 function paintedStyle(spec: PaintedStyle): Style {
   const key = paintedStyleKey(spec);
   let style = paintStyleCache.get(key);
   if (style) return style;
-  style = createAnsiStyle({ foreground: spec.foreground, background: spec.background, bold: spec.bold });
+  style = createAnsiStyle(spec);
   // A long-lived session cannot grow this without limit — but overflow
   // evicts only the OLDEST half (Map iteration is insertion order), so a
   // pathological palette can never wipe the whole desktop's styles

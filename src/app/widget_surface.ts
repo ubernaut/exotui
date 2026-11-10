@@ -22,6 +22,8 @@ import { Canvas } from "../canvas/canvas.ts";
 import { MemoryCanvasSink } from "../canvas/sink.ts";
 import type { Component } from "../component.ts";
 import { Tui } from "../tui.ts";
+import type { Stdin, Stdout } from "../types.ts";
+import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 
 /** One styled cell from the surface, or undefined for an untouched cell. */
 export type WidgetSurfaceCell = string | Uint8Array | undefined;
@@ -34,7 +36,7 @@ export interface WidgetSurfaceCellData {
   bold: boolean;
 }
 
-const CELL_SGR_PATTERN = /\x1b\[([0-9;]*)m/g;
+const CELL_SGR_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[([0-9;:]*)m`, "g");
 const cellDecoder = new TextDecoder();
 
 /**
@@ -45,7 +47,8 @@ const cellDecoder = new TextDecoder();
  * Surface cells are produced by this library's own style pipeline, so only the
  * sequences it emits are interpreted: truecolor foreground/background
  * (38;2 / 48;2), bold (1/22), and resets (0/39/49). Anything else in a cell is
- * ignored rather than guessed at. Returns undefined for an untouched cell.
+ * ignored rather than guessed at. Colon tokens and extended color channels are
+ * consumed atomically, including ignored underline ink. Returns undefined for an untouched cell.
  */
 export function widgetSurfaceCellData(cell: WidgetSurfaceCell): WidgetSurfaceCellData | undefined {
   if (cell === undefined) return undefined;
@@ -68,9 +71,20 @@ export function widgetSurfaceCellData(cell: WidgetSurfaceCell): WidgetSurfaceCel
   for (let match = CELL_SGR_PATTERN.exec(text); match; match = CELL_SGR_PATTERN.exec(text)) {
     consume(text.slice(cursor, match.index));
     cursor = match.index + match[0].length;
-    const params = match[1] === "" ? [0] : match[1]!.split(";").map(Number);
+    const params = sgrParameters(match[1] ?? "");
     for (let index = 0; index < params.length; index += 1) {
-      const param = params[index]!;
+      const parts = params[index]!.split(":"), param = Number(parts[0]);
+      if (param === 38 || param === 48 || param === 58) {
+        const parsed = sgrColor(params, index);
+        if (parsed.rgb) {
+          const color = [...parsed.rgb] as [number, number, number];
+          if (param === 38) active.foreground = color;
+          else if (param === 48) active.background = color;
+        }
+        index += parsed.consumed - 1;
+        continue;
+      }
+      if (parts.length > 1) continue;
       if (param === 0) {
         active.foreground = undefined;
         active.background = undefined;
@@ -79,16 +93,6 @@ export function widgetSurfaceCellData(cell: WidgetSurfaceCell): WidgetSurfaceCel
       else if (param === 22) active.bold = false;
       else if (param === 39) active.foreground = undefined;
       else if (param === 49) active.background = undefined;
-      else if ((param === 38 || param === 48) && params[index + 1] === 2) {
-        const channel: [number, number, number] = [
-          params[index + 2] ?? 0,
-          params[index + 3] ?? 0,
-          params[index + 4] ?? 0,
-        ];
-        if (param === 38) active.foreground = channel;
-        else active.background = channel;
-        index += 4;
-      }
     }
   }
   consume(text.slice(cursor));
@@ -109,10 +113,14 @@ export class WidgetSurface {
     this.#rows = Math.max(1, Math.floor(rows));
     this.#sink = new MemoryCanvasSink();
     this.#canvas = new Canvas({ sink: this.#sink, size: { columns: this.#columns, rows: this.#rows } });
-    // Passing a canvas makes the Tui headless: no terminal-size management, no
-    // SIGWINCH, no render loop, and it never writes to a real stdout unless
-    // run()/destroy() is called — which this surface never does.
-    this.#tui = new Tui({ canvas: this.#canvas });
+    // Offscreen hosts never borrow OS handles, including when Deno is absent
+    // (browser components). Explicit inert I/O also prevents accidental writes.
+    const stdin = { read: () => Promise.resolve(null), setRaw() {} } as unknown as Stdin;
+    const stdout = {
+      writeSync: (bytes: Uint8Array) => bytes.length,
+      write: (bytes: Uint8Array) => Promise.resolve(bytes.length),
+    } as unknown as Stdout;
+    this.#tui = new Tui({ canvas: this.#canvas, stdin, stdout, manageTerminalSize: false });
   }
 
   get columns(): number {

@@ -17,6 +17,7 @@ import {
   type UnicodeDataPack,
   UnicodeDataPackValidationError,
   unicodeDataSha256,
+  UnicodeGraphemeBoundaryCursor,
   UnicodeGraphemeChunkSegmenter,
   UnicodeGraphemeDataError,
   UnicodeGraphemeSegmenter,
@@ -27,6 +28,32 @@ const GRAPHEME_BREAK_TEST_PATH = new URL(
   import.meta.url,
 );
 const GRAPHEME_BREAK_TEST_SHA256 = "e2d134d2c52919bace503ebb6a551c1855fe1a1faec18478c78fff254a1793ec";
+
+Deno.test("constant-space boundary cursor matches all official Unicode 17 fixture boundaries", async () => {
+  const bytes = await Deno.readFile(GRAPHEME_BREAK_TEST_PATH);
+  assertEquals(unicodeDataSha256(bytes), GRAPHEME_BREAK_TEST_SHA256);
+  const fixtures = parseGraphemeBreakFixture(new TextDecoder().decode(bytes));
+  const cursor = new UnicodeGraphemeBoundaryCursor();
+  assertEquals(fixtures.length, 766);
+  for (const fixture of fixtures) {
+    cursor.reset();
+    const actual: number[] = [];
+    let offset = 0;
+    for (const scalar of fixture.text) {
+      if (cursor.push(scalar.codePointAt(0)!)) actual.push(offset);
+      offset += scalar.length;
+    }
+    actual.push(offset);
+    assertEquals(actual, fixture.boundaries, `official boundary cursor line ${fixture.line}`);
+  }
+  cursor.reset();
+  assertEquals(cursor.push(0x61), true);
+  for (const invalid of [-1, 0x110000, 1.5, Infinity, NaN]) assertThrows(() => cursor.push(invalid), RangeError);
+  assertEquals(cursor.push(0x301), false); // refusals do not mutate the valid streaming state
+  cursor.reset();
+  assertEquals(cursor.push(0xd800), true); // JavaScript isolated surrogates retain their own boundary
+  assertEquals(cursor.push(0xdc00), true);
+});
 
 interface GraphemeBreakFixtureCase {
   readonly line: number;

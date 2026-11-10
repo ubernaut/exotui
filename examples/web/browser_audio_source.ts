@@ -11,10 +11,12 @@ import {
   type ExomuxAudioSource,
 } from "../../packages/exomux/audio.ts";
 
-/** A browser audio source: synth until the mic is granted, mic after. */
+/** Noise generator by default; microphone capture requires an explicit choice. */
 export interface BrowserAudioSource extends ExomuxAudioSource {
   /** Asks for the microphone; call from a user gesture. */
   enableMicrophone(): Promise<void>;
+  useNoise(): void;
+  source(): "noise" | "microphone";
 }
 
 export function browserAudioSource(): BrowserAudioSource {
@@ -24,6 +26,17 @@ export function browserAudioSource(): BrowserAudioSource {
   const domain = new Uint8Array(2048);
   let analyser: AnalyserNode | undefined;
   let context: AudioContext | undefined;
+  let media: MediaStream | undefined;
+  let closed = false;
+  let generation = 0;
+  let pending: Promise<void> | undefined;
+  let seed = 0x51f15e;
+  const noise = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) / 0xffffffff * 2 - 1;
+  };
   let lastBass = 0;
 
   const synthFrame = (now: number): ExomuxAudioFrame => {
@@ -32,7 +45,7 @@ export function browserAudioSource(): BrowserAudioSource {
       bands[band] = Math.max(0, 0.35 + 0.3 * Math.sin(t * 1.7 + band / 2.1) - band / bands.length * 0.3);
     }
     for (let i = 0; i < waveform.length; i += 1) {
-      waveform[i] = Math.sin(t * 4 + i / 9) * 0.35 + Math.sin(t * 7 + i / 23) * 0.2;
+      waveform[i] = Math.sin(t * 4 + i / 9) * 0.35 + Math.sin(t * 7 + i / 23) * 0.2 + noise() * 0.15;
     }
     const bass = 0.4 + 0.3 * Math.sin(t * 2.1);
     const beat = bass > 0.62 && lastBass <= 0.62;
@@ -92,23 +105,54 @@ export function browserAudioSource(): BrowserAudioSource {
         source: "mic",
       };
     },
-    label: () => (analyser ? "mic:web" : "synth"),
-    async enableMicrophone(): Promise<void> {
-      if (analyser) return;
-      try {
-        const media = await navigator.mediaDevices.getUserMedia({ audio: true });
-        context = new AudioContext();
-        const node = context.createAnalyser();
-        node.fftSize = 2048;
-        node.smoothingTimeConstant = 0.6;
-        context.createMediaStreamSource(media).connect(node);
-        analyser = node;
-      } catch {
-        // Refused: the synth stays, honestly labelled.
-      }
+    label: () => (analyser ? "mic:web" : "noise generator"),
+    source: () => analyser ? "microphone" : "noise",
+    enableMicrophone(): Promise<void> {
+      if (analyser || closed) return Promise.resolve();
+      if (pending) return pending;
+      const requestedGeneration = generation;
+      pending = (async () => {
+        let captured: MediaStream | undefined;
+        let opened: AudioContext | undefined;
+        try {
+          captured = await navigator.mediaDevices.getUserMedia({ audio: true });
+          if (closed || generation !== requestedGeneration) {
+            captured.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          opened = new AudioContext();
+          await opened.resume();
+          if (closed || generation !== requestedGeneration) throw new Error("Audio choice changed");
+          const node = opened.createAnalyser();
+          node.fftSize = 2048;
+          node.smoothingTimeConstant = 0.6;
+          opened.createMediaStreamSource(captured).connect(node);
+          context = opened;
+          media = captured;
+          analyser = node;
+        } catch {
+          captured?.getTracks().forEach((track) => track.stop());
+          void opened?.close().catch(() => {});
+        } finally {
+          pending = undefined;
+        }
+      })();
+      return pending;
+    },
+    useNoise() {
+      generation++;
+      media?.getTracks().forEach((track) => track.stop());
+      media = undefined;
+      void context?.close().catch(() => {});
+      analyser = undefined;
+      context = undefined;
     },
     close(): void {
-      void context?.close();
+      closed = true;
+      generation++;
+      media?.getTracks().forEach((track) => track.stop());
+      media = undefined;
+      void context?.close().catch(() => {});
       analyser = undefined;
       context = undefined;
     },

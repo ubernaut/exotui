@@ -515,7 +515,11 @@ class GraphemeRuleState {
       this.#indicLinkerSeen = false;
     }
 
-    this.#precedingRegionalIndicators = current === "Regional_Indicator" ? this.#precedingRegionalIndicators + 1 : 0;
+    // Only parity is used by GB12/13. Keep a truly constant-size cursor even
+    // for a stream with an unbounded regional-indicator run.
+    this.#precedingRegionalIndicators = current === "Regional_Indicator"
+      ? (this.#precedingRegionalIndicators + 1) % 2
+      : 0;
     this.#previous = current;
     this.#previousZwjFollowsExtendedPictographic = zwjFollowsExtendedPictographic;
     return boundary;
@@ -560,6 +564,44 @@ function assertAlgorithmCriticalPackData(pack: UnicodeDataPack): void {
 }
 
 const SEGMENTER_DATA = new WeakMap<object, GraphemeAlgorithmData>();
+
+/**
+ * Constant-space Unicode 17 boundary cursor for hosts that paint scalars as
+ * they arrive. Unlike the chunk segmenter it retains no label text. Inputs are
+ * Unicode code points, including isolated surrogate code units accepted by
+ * JavaScript strings; callers own byte/UTF-16 decoding and control boundaries.
+ */
+export class UnicodeGraphemeBoundaryCursor {
+  readonly #data: GraphemeAlgorithmData;
+  #rules: GraphemeRuleState;
+  #started = false;
+
+  constructor(segmenter: UnicodeGraphemeSegmenter = DEFAULT_UNICODE_GRAPHEME_SEGMENTER) {
+    const data = typeof segmenter === "object" && segmenter !== null ? SEGMENTER_DATA.get(segmenter) : undefined;
+    if (data === undefined || Object.getPrototypeOf(segmenter) !== UnicodeGraphemeSegmenter.prototype) {
+      throw new TypeError("Boundary cursor requires an exact, unproxied UnicodeGraphemeSegmenter instance.");
+    }
+    this.#data = data;
+    this.#rules = new GraphemeRuleState(data);
+  }
+
+  /** Consume one code point and report whether a new cluster starts here (including the first input). */
+  push(codePoint: number): boolean {
+    if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+      throw new RangeError("Grapheme boundary cursor expects a Unicode code point.");
+    }
+    const boundary = this.#rules.consume(codePoint);
+    const first = !this.#started;
+    this.#started = true;
+    return first || boundary;
+  }
+
+  /** Break the printable run without retaining its text or its boundary state. */
+  reset(): void {
+    this.#rules = new GraphemeRuleState(this.#data);
+    this.#started = false;
+  }
+}
 
 function boundarySearch(
   boundaries: readonly number[],

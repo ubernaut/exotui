@@ -91,6 +91,9 @@ library export.
 - Performance discipline: seed-deterministic layout benchmarks with cold/warm separation, CI-gated comparison reports,
   and budgets derived from real terminal, worker, and browser baselines.
 - Browser (`./web`) and remote-terminal (`./remote`) entrypoints that reuse the same controllers and projections.
+- The portable default desktop shares Exomux's cell-native open/close, minimize/restore, maximize and focus effects,
+  plus recursive window-over-window glass. Settings → Windows controls speed, effects and opacity; off, browser reduced
+  motion and viewport resize clear animation ghosts without delaying input or window state.
 - Three.js ASCII renderer (`./three-ascii`) with WebGPU post-processing, glyph/block/mixed output, and adaptive budgets.
 - A headless testing harness: in-memory terminal, interaction pilot, and snapshot helpers — the same tools this
   repository's own suites run on.
@@ -480,6 +483,9 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | --------------------- | ---------------------------------- | -------- | ------------ |
 | `.`                   | `mod.ts`                           | terminal | stable       |
 | `./app`               | `mod.app.ts`                       | terminal | beta         |
+| `./document`          | `mod.document.ts`                  | shared   | beta         |
+| `./mermaid`           | `mod.mermaid.ts`                   | shared   | experimental |
+| `./mermaid/headless`  | `mod.mermaid_headless.ts`          | terminal | experimental |
 | `./web`               | `mod.web.ts`                       | browser  | beta         |
 | `./shell`             | `mod.shell.ts`                     | shared   | beta         |
 | `./remote`            | `mod.remote.ts`                    | remote   | experimental |
@@ -569,6 +575,24 @@ The beta `./app` entrypoint also includes `Markdown` and `MarkdownController`. A
 renderer-neutral document model; the terminal projection adds cell-width wrapping, nested lists and quotes, task items,
 fenced code, links, rules, tables, semantic ANSI styling, scrolling, and responsive reflow. `parseMarkdown()` and
 `renderMarkdown()` can be used without mounting the component.
+
+The optional beta `./document` surface adds width-aware ASCII heading fonts, circuit-routed Mermaid flowcharts,
+clickable wrapped links, and a component-backed `MarkdownSurface` for cell-composed desktop windows. Rendering remains
+terminal-native; no document iframe is needed. See [terminal-native documents](docs/documents.md) for the supported
+flowchart grammar, resource bounds, and browser/terminal integration.
+
+Full Mermaid standard support is being implemented in the isolated experimental `./mermaid` entrypoint. It uses the
+official pinned engine and measured vector/text scenes. `prepareMermaidMarkdown()` supplies full diagrams to the
+existing native Markdown components through an optional prepared-frame hook, keeping the default API compatible. See the
+[full-standard status](docs/documents.md#full-mermaid-standard--in-development) before relying on native feature parity.
+Separated combining marks retain measured ink fragments without replacing neighboring glyphs; exact native font shaping
+remains an explicitly diagnosed limitation of that text-cell adaptation. Measured MathML token fragments retain their
+ink, styles and links under the same scene text budget; ordinary casing does not falsely require split-glyph layout.
+Horizontal unstretched MathML tokens also retain measured visual order, including implicit RTL under LTR parents. This
+is not full MathML ordering or shaping support. The optional `./mermaid/headless` adapter runs that compiler in private
+Chromium for Deno terminal/remote hosts, without installing browser globals in the application.
+`deno task mermaid:document-viewer --help` describes the native viewer and snapshot/review path; Chromium must already
+be installed.
 
 ```ts
 import { Markdown } from "jsr:@ubernaut/exotui/app";

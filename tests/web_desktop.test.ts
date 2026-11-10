@@ -5,7 +5,7 @@
 // wrong. The parser's contract: convert what the demos actually emit, drop
 // what it does not understand, and always return exactly `width` cells.
 
-import { assert, assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
+import { assert, assertEquals } from "./deps.ts";
 import { ansi256ToRgb, ansiLineToCells, hexToRgb } from "../examples/web/ansi_cells.ts";
 import { createBrowserMonitor } from "../examples/web/browser_monitor.ts";
 
@@ -72,7 +72,7 @@ Deno.test("the browser monitor composes a waiting dashboard without a DOM", () =
   assert(monitor.microphone() === "waiting");
 });
 
-Deno.test("the canvas sink clips glyphs wider than their cell", async () => {
+Deno.test("the canvas sink clips font and geometric ink to their owned cell", async () => {
   // 16px monospace advances ~9.6px in a 9px cell; unclipped, the overhang
   // painted into the neighbour and survived as a trail when charts animated.
   const { BrowserCellCanvasSink } = await import("../src/web/cell_canvas_sink.ts");
@@ -104,11 +104,12 @@ Deno.test("the canvas sink clips glyphs wider than their cell", async () => {
   assertEquals(calls, ["fillRect", "save", "clipRect", "clip", "fillText", "restore"]);
   calls.length = 0;
   sink.flush([{ row: 0, column: 1, value: "." }], { flushedCells: 1, dirtyRowRanges: 1 } as never);
-  assertEquals(calls, ["fillRect", "fillText"]);
+  assertEquals(calls, ["fillRect", "save", "clipRect", "clip", "fillText", "restore"]);
+  // Small advance does not bound italic/combining ink or late-loaded fonts.
   // Block elements never go through the font: a full block is two rects \u2014
   // the cell background, then the exact glyph geometry \u2014 and no fillText,
   // so no font's shortfall can leave seams over a shaded background.
   calls.length = 0;
   sink.flush([{ row: 0, column: 2, value: "\u2588" }], { flushedCells: 1, dirtyRowRanges: 1 } as never);
-  assertEquals(calls, ["fillRect", "fillRect"]);
+  assertEquals(calls, ["fillRect", "save", "clipRect", "clip", "fillRect", "restore"]);
 });

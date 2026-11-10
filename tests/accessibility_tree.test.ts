@@ -8,6 +8,7 @@ import {
   type AccessibilityNode,
   TERMINAL_EXPOSABLE_SEMANTICS,
   toAriaAttributes,
+  toAriaAttributesWithDescription,
   toAriaTree,
   toTerminalProjection,
 } from "../mod.ts";
@@ -47,6 +48,27 @@ Deno.test("browser projection serializes real ARIA attributes", () => {
   const aria = toAriaTree(TREE);
   assertEquals(aria.children.length, 2);
   assertEquals(aria.children[0]!.children[0]!.attributes["aria-selected"], "true");
+});
+
+Deno.test("ARIA projection retains its original callback, utility and bound-function signatures", () => {
+  const nodes: AccessibilityNode[] = [
+    { role: "group", label: "First", description: "Host must bind this explicitly." },
+    { role: "button", label: "Second" },
+  ];
+  assertEquals(nodes.map(toAriaAttributes), [
+    { role: "group", "aria-label": "First" },
+    { role: "button", "aria-label": "Second" },
+  ]);
+  const args: Parameters<typeof toAriaAttributes> = [nodes[0]!];
+  const expected: ReturnType<typeof toAriaAttributes> = { role: "group", "aria-label": "First" };
+  assertEquals(toAriaAttributes(...args), expected);
+  assertEquals(toAriaAttributes.bind(undefined, nodes[0]!)(), expected);
+  assertEquals(toAriaAttributes.call(undefined, nodes[0]!), expected);
+  assertEquals(toAriaAttributes.apply(undefined, args), expected);
+  assertEquals(
+    toAriaAttributesWithDescription(nodes[0]!, "owned-description")["aria-describedby"],
+    "owned-description",
+  );
 });
 
 Deno.test("the terminal projection is the documented smaller subset", () => {

@@ -15,6 +15,9 @@ import { type BudgetBaseline, inventoryFromDenoInfo } from "../src/perf/entrypoi
 const ENTRYPOINTS = [
   "mod.ts",
   "mod.app.ts",
+  "mod.document.ts",
+  "mod.mermaid.ts",
+  "mod.mermaid_headless.ts",
   "mod.remote.ts",
   "mod.testing.ts",
   "mod.terminal.ts",

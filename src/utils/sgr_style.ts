@@ -1,10 +1,13 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { readCsiSequenceAt } from "./ansi_text.ts";
+import { sgrColor, sgrParameters } from "./sgr_parameters.ts";
 
 interface SgrStyleState {
   bold: boolean;
   italic: boolean;
-  underline: boolean;
+  underline: string;
+  underlineColor: string[];
+  overline: boolean;
   inverse: boolean;
   foreground: string[];
   background: string[];
@@ -16,7 +19,9 @@ export function mergeSgrStyle(currentStyle: string, sequence: string): string {
   const state: SgrStyleState = {
     bold: false,
     italic: false,
-    underline: false,
+    underline: "",
+    underlineColor: [],
+    overline: false,
     inverse: false,
     foreground: [],
     background: [],
@@ -28,8 +33,7 @@ export function mergeSgrStyle(currentStyle: string, sequence: string): string {
 }
 
 export function isSgrReset(sequence: string): boolean {
-  const params = sgrParams(sequence);
-  return params.length === 0 || params.every((value) => value === 0);
+  return sgrParameters(sequence.slice(2, -1)).every((value) => value === "" || /^0+$/.test(value));
 }
 
 function applySgrSequences(state: SgrStyleState, style: string): void {
@@ -45,27 +49,56 @@ function applySgrSequences(state: SgrStyleState, style: string): void {
 }
 
 function applySgrSequence(state: SgrStyleState, sequence: string): void {
-  const params = sgrParams(sequence);
-  if (params.length === 0 || params.includes(0)) {
-    resetSgrStyleState(state);
-    if (params.length <= 1) return;
-  }
-
+  const params = sgrParameters(sequence.slice(2, -1));
   for (let index = 0; index < params.length; index += 1) {
-    const value = params[index] ?? 0;
-    if (value === 0) continue;
+    const encoded = params[index]!, parts = encoded.split(":"), value = Number(parts[0]);
+    if (parts.length > 1 && value === 4) {
+      if (parts.length === 2 && /^[0-5]$/.test(parts[1]!)) {
+        state.underline = parts[1] === "0" ? "" : parts[1] === "1" ? "4" : encoded;
+      }
+      continue;
+    }
+    if (value === 38 || value === 48 || value === 58) {
+      const color = sgrColor(params, index);
+      const target = value === 38 ? state.foreground : value === 48 ? state.background : state.underlineColor;
+      if (color.rgb || color.palette !== undefined) {
+        target.length = 0;
+        target.push(String(value), color.rgb ? "2" : "5", ...(color.rgb ?? [color.palette!]).map(String));
+      }
+      index += color.consumed - 1;
+      continue;
+    }
+    if (parts.length > 1) {
+      if (!state.extra.includes(encoded)) state.extra.push(encoded);
+      continue;
+    }
+    if (value === 0) {
+      resetSgrStyleState(state);
+      continue;
+    }
     if (value === 1) {
       state.bold = true;
     } else if (value === 22) {
       state.bold = false;
+      state.extra = state.extra.filter((part) => part !== "2");
     } else if (value === 3) {
       state.italic = true;
     } else if (value === 23) {
       state.italic = false;
     } else if (value === 4) {
-      state.underline = true;
+      state.underline = "4";
+    } else if (value === 21) {
+      state.underline = "4:2";
     } else if (value === 24) {
-      state.underline = false;
+      state.underline = "";
+    } else if (value === 29) {
+      state.extra = state.extra.filter((part) => part !== "9");
+    } else if (value === 53) {
+      state.overline = true;
+    } else if (value === 55) {
+      state.overline = false;
+    } else if (value === 59) {
+      state.underlineColor = [];
     } else if (value === 7) {
       state.inverse = true;
     } else if (value === 27) {
@@ -78,34 +111,18 @@ function applySgrSequence(state: SgrStyleState, sequence: string): void {
       state.foreground = [];
     } else if (value === 49) {
       state.background = [];
-    } else if ((value === 38 || value === 48) && params[index + 1] === 2 && index + 4 < params.length) {
-      const target = value === 38 ? state.foreground : state.background;
-      target.length = 0;
-      target.push(String(value), "2", String(params[index + 2]), String(params[index + 3]), String(params[index + 4]));
-      index += 4;
-    } else if ((value === 38 || value === 48) && params[index + 1] === 5 && index + 2 < params.length) {
-      const target = value === 38 ? state.foreground : state.background;
-      target.length = 0;
-      target.push(String(value), "5", String(params[index + 2]));
-      index += 2;
     } else {
-      const encoded = String(value);
-      if (!state.extra.includes(encoded)) state.extra.push(encoded);
+      if (Number.isSafeInteger(value) && value >= 0 && !state.extra.includes(encoded)) state.extra.push(encoded);
     }
   }
-}
-
-function sgrParams(sequence: string): number[] {
-  const body = sequence.slice(2, -1);
-  if (body === "") return [0];
-  const params = body.split(";").map((part) => part === "" ? 0 : Number(part));
-  return params.filter((value) => Number.isFinite(value)).map((value) => Math.max(0, Math.floor(value)));
 }
 
 function resetSgrStyleState(state: SgrStyleState): void {
   state.bold = false;
   state.italic = false;
-  state.underline = false;
+  state.underline = "";
+  state.underlineColor = [];
+  state.overline = false;
   state.inverse = false;
   state.foreground = [];
   state.background = [];
@@ -116,8 +133,9 @@ function formatSgrStyleState(state: SgrStyleState): string {
   const params: string[] = [];
   if (state.bold) params.push("1");
   if (state.italic) params.push("3");
-  if (state.underline) params.push("4");
+  if (state.underline) params.push(state.underline);
+  if (state.overline) params.push("53");
   if (state.inverse) params.push("7");
-  params.push(...state.foreground, ...state.background, ...state.extra);
+  params.push(...state.foreground, ...state.background, ...state.underlineColor, ...state.extra);
   return params.length ? `\x1b[${params.join(";")}m` : "";
 }

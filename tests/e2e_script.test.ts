@@ -169,6 +169,7 @@ Deno.test("health script exposes the expected contributor gates", () => {
     "release-check",
     "api-reference",
     "web-api",
+    "mermaid-api",
     "remote-api",
     "web-demo",
     "web-pages-build",
@@ -230,6 +231,16 @@ Deno.test("health script exposes the expected contributor gates", () => {
   ]);
   assertEquals(commandOf("package-check"), ["deno", "task", "package-check", "--", "--quiet"]);
   assertEquals(commandOf("release-check"), ["deno", "task", "release-check", "--", "--quiet"]);
+  assertEquals(commandOf("mermaid-api"), [
+    "deno",
+    "check",
+    "mod.mermaid.ts",
+    "mod.mermaid_headless.ts",
+    "scripts/mermaid_standard_browser.ts",
+    "scripts/mermaid_headless_conformance.ts",
+    "scripts/mermaid_counter_styles_conformance.ts",
+    "examples/mermaid_document_viewer.ts",
+  ]);
   // --check is what makes reachability a gate rather than a report.
   assertEquals(commandOf("reachability"), ["deno", "run", "-A", "scripts/orphan_modules.ts", "--check", "--quiet"]);
 });
