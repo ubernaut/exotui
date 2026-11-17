@@ -27,7 +27,7 @@ const bundle = runtimeHost.runtime === "bun"
   ? await bundleBrowserForBun(new URL("../mod.mermaid.ts", import.meta.url))
   : await (async () => {
     const bundled = await new runtimeHost.Command(runtimeHost.execPath(), {
-      env: { DENO_NO_PACKAGE_JSON: "1" },
+      env: { DENO_NO_PACKAGE_JSON: "0" },
       args: [
         "bundle",
         "--platform=browser",

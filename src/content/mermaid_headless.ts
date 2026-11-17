@@ -614,8 +614,8 @@ async function browserBundle(options: HeadlessMermaidOptions): Promise<Uint8Arra
   ]);
   const output = await new runtimeHost.Command(options.denoExecutable ?? runtimeHost.execPath(), {
     args,
-    // The browser graph uses Deno's pinned imports, not the parallel Bun manifest.
-    env: { DENO_NO_PACKAGE_JSON: "1" },
+    // Match local lockfile discovery.
+    env: { DENO_NO_PACKAGE_JSON: moduleURL.protocol === "file:" ? "0" : "1" },
     stdout: "piped",
     stderr: "piped",
     signal,
