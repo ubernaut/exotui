@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { type RuntimeFile, type RuntimeFileInfo, runtimeHost } from "@ubernaut/exotui/runtime";
+
 import {
   createExomuxAuthToken,
   decodeExomuxData,
@@ -125,7 +127,7 @@ export interface ConnectedExomuxLocalHost {
 }
 
 interface ExomuxStartupLock {
-  readonly file: Deno.FsFile;
+  readonly file: RuntimeFile;
   readonly token: string;
 }
 
@@ -912,22 +914,22 @@ function attachOnlyUnavailable(recovery?: ExomuxDescriptorRecovery): ExomuxClien
 /** Reads and strictly validates a private local-host descriptor. */
 export async function readExomuxHostDescriptor(path: string): Promise<ExomuxLocalHostDescriptor | undefined> {
   await assertPrivateExistingDirectory(localDirname(path));
-  let info: Deno.FileInfo;
+  let info: RuntimeFileInfo;
   try {
-    info = await Deno.lstat(path);
+    info = await runtimeHost.lstat(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return undefined;
+    if (error instanceof runtimeHost.errors.NotFound) return undefined;
     throw error;
   }
   if (!info.isFile || info.isSymlink) {
     throw new ExomuxClientError("unsafe-descriptor", "Host descriptor is not a file.");
   }
-  if (Deno.build.os !== "windows" && info.mode !== null && (info.mode & 0o077) !== 0) {
+  if (runtimeHost.build.os !== "windows" && info.mode !== null && (info.mode & 0o077) !== 0) {
     throw new ExomuxClientError("unsafe-descriptor", "Host descriptor must not be accessible by other users.");
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await Deno.readTextFile(path));
+    parsed = JSON.parse(await runtimeHost.readTextFile(path));
   } catch {
     return undefined;
   }
@@ -943,9 +945,9 @@ export async function writeExomuxHostDescriptor(
   const parent = localDirname(path);
   await ensurePrivateExomuxStateDirectory(parent);
   const temporary = `${path}.tmp-${crypto.randomUUID()}`;
-  let file: Deno.FsFile | undefined;
+  let file: RuntimeFile | undefined;
   try {
-    file = await Deno.open(temporary, { createNew: true, write: true, mode: 0o600 });
+    file = await runtimeHost.open(temporary, { createNew: true, write: true, mode: 0o600 });
     const bytes = new TextEncoder().encode(`${JSON.stringify(descriptor)}\n`);
     let offset = 0;
     while (offset < bytes.length) {
@@ -956,7 +958,7 @@ export async function writeExomuxHostDescriptor(
     await file.sync();
     file.close();
     file = undefined;
-    await Deno.rename(temporary, path);
+    await runtimeHost.rename(temporary, path);
     await chmodPrivateFile(path);
   } finally {
     file?.close();
@@ -974,10 +976,10 @@ export async function removeExomuxHostDescriptor(path: string, hostId: string): 
 export function defaultExomuxStateDirectory(): string {
   let root: string | undefined;
   try {
-    root = Deno.build.os === "windows"
-      ? Deno.env.get("LOCALAPPDATA") ?? Deno.env.get("USERPROFILE")
-      : Deno.env.get("XDG_STATE_HOME") ??
-        (Deno.env.get("HOME") ? joinLocalPath(Deno.env.get("HOME")!, ".local/state") : undefined);
+    root = runtimeHost.build.os === "windows"
+      ? runtimeHost.env.get("LOCALAPPDATA") ?? runtimeHost.env.get("USERPROFILE")
+      : runtimeHost.env.get("XDG_STATE_HOME") ??
+        (runtimeHost.env.get("HOME") ? joinLocalPath(runtimeHost.env.get("HOME")!, ".local/state") : undefined);
   } catch {
     root = undefined;
   }
@@ -1167,12 +1169,12 @@ async function resolveExistingDescriptor(
  * whose argv is empty is a zombie: it cannot own a listener, so it is dead here.
  */
 export async function probeExomuxHostProcess(pid: number): Promise<ExomuxProcessProbeResult> {
-  if (Deno.build.os !== "linux") return "unknown";
+  if (runtimeHost.build.os !== "linux") return "unknown";
   let cmdline: string;
   try {
-    cmdline = await Deno.readTextFile(`/proc/${pid}/cmdline`);
+    cmdline = await runtimeHost.readTextFile(`/proc/${pid}/cmdline`);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return "dead";
+    if (error instanceof runtimeHost.errors.NotFound) return "dead";
     return "unknown";
   }
   const argv = cmdline.split("\0").filter((argument) => argument.length > 0);
@@ -1193,7 +1195,7 @@ export async function quarantineExomuxHostDescriptor(path: string, hostId: strin
   const target = `${path}.unresponsive`;
   try {
     await removeRegularFile(target);
-    await Deno.rename(path, target);
+    await runtimeHost.rename(path, target);
     return target;
   } catch {
     return undefined;
@@ -1201,9 +1203,9 @@ export async function quarantineExomuxHostDescriptor(path: string, hostId: strin
 }
 
 /**
- * Argv handed to `Deno.execPath()` to bring up the detached host.
+ * Argv handed to `runtimeHost.execPath()` to bring up the detached host.
  *
- * A compiled binary is its own runtime: `Deno.execPath()` points at Exomux
+ * A compiled binary is its own runtime: `runtimeHost.execPath()` points at Exomux
  * rather than at `deno`, so it accepts only Exomux's own flags and rejects a
  * leading `run`. `import.meta.url` is no help either — inside a standalone
  * binary it resolves under the virtual compile root, a path that does not exist
@@ -1214,10 +1216,14 @@ export function exomuxDaemonLaunchArgs(options: {
   readonly mainModuleUrl: URL;
   /** Defaults to the real build mode; tests exercise both branches explicitly. */
   readonly standalone?: boolean;
+  /** Runtime override makes launch arguments testable without spawning. */
+  readonly runtime?: "deno" | "bun";
 }): string[] {
   const daemonFlags = ["--daemon", `--descriptor=${options.descriptorPath}`];
-  if (options.standalone ?? Deno.build.standalone) return daemonFlags;
-  return ["run", "-A", fileUrlToLocalPath(options.mainModuleUrl), ...daemonFlags];
+  if (options.standalone ?? runtimeHost.build.standalone) return daemonFlags;
+  const runtime = options.runtime ?? (typeof (globalThis as { Bun?: unknown }).Bun !== "undefined" ? "bun" : "deno");
+  const runtimeFlags = runtime === "bun" ? ["run"] : ["run", "-A", "--unstable-webgpu"];
+  return [...runtimeFlags, fileUrlToLocalPath(options.mainModuleUrl), ...daemonFlags];
 }
 
 function spawnDetachedExomuxDaemon(options: {
@@ -1230,7 +1236,7 @@ function spawnDetachedExomuxDaemon(options: {
     mainModuleUrl: options.mainModuleUrl,
   });
   const launch = detachedDaemonCommand(daemonArgs);
-  const child = new Deno.Command(launch.command, {
+  const child = new runtimeHost.Command(launch.command, {
     args: launch.args,
     env: { EXOMUX_TOKEN: options.authToken },
     stdin: "null",
@@ -1241,15 +1247,15 @@ function spawnDetachedExomuxDaemon(options: {
 }
 
 function detachedDaemonCommand(daemonArgs: readonly string[]): { command: string; args: string[] } {
-  if (Deno.build.os === "windows") {
+  if (runtimeHost.build.os === "windows") {
     // Windows has no POSIX controlling terminal or session signal group. With
     // all standard handles detached, unref is sufficient to release the UI.
-    return { command: Deno.execPath(), args: [...daemonArgs] };
+    return { command: runtimeHost.execPath(), args: [...daemonArgs] };
   }
-  if (Deno.build.os !== "linux") {
+  if (runtimeHost.build.os !== "linux") {
     throw new ExomuxClientError(
       "daemon-detach-unavailable",
-      `True detached daemon sessions are not supported on ${Deno.build.os}.`,
+      `True detached daemon sessions are not supported on ${runtimeHost.build.os}.`,
     );
   }
   const setsid = trustedSetsidPath();
@@ -1261,16 +1267,16 @@ function detachedDaemonCommand(daemonArgs: readonly string[]): { command: string
   }
   // --fork guarantees the program is not a process-group leader before
   // setsid(2), so the daemon receives a new SID/PGID even in unusual parents.
-  return { command: setsid, args: ["--fork", Deno.execPath(), ...daemonArgs] };
+  return { command: setsid, args: ["--fork", runtimeHost.execPath(), ...daemonArgs] };
 }
 
 function trustedSetsidPath(): string | undefined {
   for (const path of ["/usr/bin/setsid", "/bin/setsid"]) {
     try {
-      const info = Deno.lstatSync(path);
+      const info = runtimeHost.lstatSync(path);
       if (info.isFile && !info.isSymlink) return path;
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
     }
   }
   return undefined;
@@ -1279,21 +1285,21 @@ function trustedSetsidPath(): string | undefined {
 /** Creates or validates one 0700 state directory; sessions and the launcher share it. */
 export async function ensurePrivateExomuxStateDirectory(path: string): Promise<void> {
   let created = false;
-  let info: Deno.FileInfo;
+  let info: RuntimeFileInfo;
   try {
-    info = await Deno.lstat(path);
+    info = await runtimeHost.lstat(path);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
-    await Deno.mkdir(path, { recursive: true, mode: 0o700 });
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
+    await runtimeHost.mkdir(path, { recursive: true, mode: 0o700 });
     created = true;
-    info = await Deno.lstat(path);
+    info = await runtimeHost.lstat(path);
   }
   if (!info.isDirectory || info.isSymlink) {
     throw new ExomuxClientError("unsafe-state-directory", "Exomux state path is not a private directory.");
   }
-  if (Deno.build.os !== "windows") {
-    if (created) await Deno.chmod(path, 0o700);
-    const mode = (await Deno.stat(path)).mode;
+  if (runtimeHost.build.os !== "windows") {
+    if (created) await runtimeHost.chmod(path, 0o700);
+    const mode = (await runtimeHost.stat(path)).mode;
     if (mode !== null && (mode & 0o077) !== 0) {
       throw new ExomuxClientError(
         "unsafe-state-directory",
@@ -1304,11 +1310,11 @@ export async function ensurePrivateExomuxStateDirectory(path: string): Promise<v
 }
 
 async function assertPrivateExistingDirectory(path: string): Promise<void> {
-  let info: Deno.FileInfo;
+  let info: RuntimeFileInfo;
   try {
-    info = await Deno.lstat(path);
+    info = await runtimeHost.lstat(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
+    if (error instanceof runtimeHost.errors.NotFound) {
       throw new ExomuxClientError("unsafe-state-directory", "Exomux descriptor parent does not exist.");
     }
     throw error;
@@ -1316,7 +1322,7 @@ async function assertPrivateExistingDirectory(path: string): Promise<void> {
   if (!info.isDirectory || info.isSymlink) {
     throw new ExomuxClientError("unsafe-state-directory", "Exomux descriptor parent is not a private directory.");
   }
-  if (Deno.build.os !== "windows" && info.mode !== null && (info.mode & 0o077) !== 0) {
+  if (runtimeHost.build.os !== "windows" && info.mode !== null && (info.mode & 0o077) !== 0) {
     throw new ExomuxClientError(
       "unsafe-state-directory",
       "Exomux descriptor parent must not be accessible by other users.",
@@ -1325,20 +1331,20 @@ async function assertPrivateExistingDirectory(path: string): Promise<void> {
 }
 
 async function chmodPrivateFile(path: string): Promise<void> {
-  if (Deno.build.os !== "windows") await Deno.chmod(path, 0o600);
+  if (runtimeHost.build.os !== "windows") await runtimeHost.chmod(path, 0o600);
 }
 
 async function tryAcquireStartupLock(path: string): Promise<ExomuxStartupLock | undefined> {
   const token = crypto.randomUUID();
-  let file: Deno.FsFile;
+  let file: RuntimeFile;
   try {
-    file = await Deno.open(path, { createNew: true, write: true, mode: 0o600 });
+    file = await runtimeHost.open(path, { createNew: true, write: true, mode: 0o600 });
   } catch (error) {
-    if (error instanceof Deno.errors.AlreadyExists) return undefined;
+    if (error instanceof runtimeHost.errors.AlreadyExists) return undefined;
     throw error;
   }
   try {
-    const bytes = new TextEncoder().encode(JSON.stringify({ token, pid: Deno.pid, startedAt: Date.now() }));
+    const bytes = new TextEncoder().encode(JSON.stringify({ token, pid: runtimeHost.pid, startedAt: Date.now() }));
     let offset = 0;
     while (offset < bytes.byteLength) {
       const written = await file.write(bytes.subarray(offset));
@@ -1356,27 +1362,27 @@ async function tryAcquireStartupLock(path: string): Promise<ExomuxStartupLock | 
 
 async function removeStaleStartupLock(path: string): Promise<void> {
   try {
-    const info = await Deno.lstat(path);
+    const info = await runtimeHost.lstat(path);
     if (!info.isFile || info.isSymlink) return;
     const modified = info.mtime?.getTime();
     if (modified === undefined || Date.now() - modified <= STARTUP_LOCK_STALE_MS) return;
-    const owner = normalizeStartupLock(await Deno.readTextFile(path));
+    const owner = normalizeStartupLock(await runtimeHost.readTextFile(path));
     // Lock owners are launching clients, not daemons: only a dead pid is stale.
     if (!owner || (await probeExomuxHostProcess(owner.pid)) !== "dead") return;
     await removeStartupLockIfOwned(path, owner.token);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   }
 }
 
 async function removeStartupLockIfOwned(path: string, token: string): Promise<void> {
   try {
-    const info = await Deno.lstat(path);
+    const info = await runtimeHost.lstat(path);
     if (!info.isFile || info.isSymlink) return;
-    const owner = normalizeStartupLock(await Deno.readTextFile(path));
-    if (owner?.token === token) await Deno.remove(path);
+    const owner = normalizeStartupLock(await runtimeHost.readTextFile(path));
+    if (owner?.token === token) await runtimeHost.remove(path);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   }
 }
 
@@ -1397,10 +1403,10 @@ function normalizeStartupLock(value: string): { token: string; pid: number } | u
 
 async function removeRegularFile(path: string): Promise<void> {
   try {
-    const info = await Deno.lstat(path);
-    if (info.isFile && !info.isSymlink) await Deno.remove(path);
+    const info = await runtimeHost.lstat(path);
+    if (info.isFile && !info.isSymlink) await runtimeHost.remove(path);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   }
 }
 
@@ -1413,7 +1419,7 @@ function normalizeTimeout(value: number | undefined, fallback: number): number {
 }
 
 function joinLocalPath(parent: string, child: string): string {
-  const separator = Deno.build.os === "windows" ? "\\" : "/";
+  const separator = runtimeHost.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
 
@@ -1425,7 +1431,7 @@ function localDirname(path: string): string {
 function fileUrlToLocalPath(url: URL): string {
   if (url.protocol !== "file:") throw new ExomuxClientError("invalid-main-module", "Daemon module must be local.");
   let path = decodeURIComponent(url.pathname);
-  if (Deno.build.os === "windows" && /^\/[A-Za-z]:/.test(path)) path = path.slice(1).replaceAll("/", "\\");
+  if (runtimeHost.build.os === "windows" && /^\/[A-Za-z]:/.test(path)) path = path.slice(1).replaceAll("/", "\\");
   return path;
 }
 

@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost, type RuntimeSignal } from "@ubernaut/exotui/runtime";
+
 import { type AsyncStore, DiagnosticsCollector } from "@ubernaut/exotui";
 import { ThemeLibrary } from "@ubernaut/exotui";
 import { createExomuxThemeStorage } from "./theme_storage.ts";
@@ -287,7 +289,7 @@ async function runExomuxClientSession(
     if (target.mode === "attach-only" && error instanceof ExomuxClientError) {
       console.log(formatExomuxSessionList(await probeExomuxSessions({ stateRoot })));
       console.error(`\nCannot attach to session "${target.name}": ${error.message}`);
-      Deno.exitCode = 1;
+      runtimeHost.exitCode = 1;
       return;
     }
     throw error;
@@ -368,8 +370,8 @@ async function runExomuxClientSession(
   // to answer, and DENO_TUI_KITTY=0/1 still overrides both ways.
   const probe = await probeHostTerminal();
   const graphicsPassthrough = probe.graphics ?? detectKittyGraphicsCapability({
-    env: (name) => Deno.env.get(name),
-    isTty: Deno.stdout.isTerminal(),
+    env: (name) => runtimeHost.env.get(name),
+    isTty: runtimeHost.stdout.isTerminal(),
   }).supported;
   const hostCellPixels = graphicsPassthrough ? probe.cellPixels : undefined;
   const controller = await createExomuxController({
@@ -555,26 +557,26 @@ export function createExomuxSessionRenamer(
 
 async function exomuxPathExists(path: string): Promise<boolean> {
   try {
-    await Deno.lstat(path);
+    await runtimeHost.lstat(path);
     return true;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof runtimeHost.errors.NotFound) return false;
     throw error;
   }
 }
 
 async function exomuxMoveFileIfPresent(from: string, to: string): Promise<void> {
   if (!(await exomuxPathExists(from))) return;
-  await Deno.rename(from, to).catch(async () => {
+  await runtimeHost.rename(from, to).catch(async () => {
     // Cross-device or racing rename: fall back to copy + remove.
-    await Deno.copyFile(from, to);
-    await Deno.remove(from).catch(() => undefined);
+    await runtimeHost.copyFile(from, to);
+    await runtimeHost.remove(from).catch(() => undefined);
   });
 }
 
 async function exomuxRemoveIfPresent(path: string): Promise<void> {
-  await Deno.remove(path).catch((error) => {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  await runtimeHost.remove(path).catch((error) => {
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   });
 }
 
@@ -582,8 +584,8 @@ async function exomuxRemoveEmptyNamedSessionDir(stateRoot: string, name: string)
   if (name === EXOMUX_DEFAULT_SESSION_NAME) return;
   const dir = resolveExomuxSessionPaths(stateRoot, name).stateDirectory;
   try {
-    for await (const _entry of Deno.readDir(dir)) return; // not empty
-    await Deno.remove(dir);
+    for await (const _entry of runtimeHost.readDir(dir)) return; // not empty
+    await runtimeHost.remove(dir);
   } catch {
     // The directory is gone or unreadable; nothing to clean.
   }
@@ -636,7 +638,7 @@ export function createExomuxConfigWriter(
     timer = setTimeout(() => {
       writing = writing.then(() => writeExomuxConfig(configPath, snapshot)).catch(() => undefined);
     }, 150);
-    Deno.unrefTimer?.(timer);
+    runtimeHost.unrefTimer?.(timer);
   };
   return {
     writePreferences(preferences: ExomuxPreferences): void {
@@ -734,14 +736,14 @@ export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
  * probe says what it does, and only the second survives new terminals.
  */
 async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
-  if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) return {};
+  if (!runtimeHost.stdin.isTerminal() || !runtimeHost.stdout.isTerminal()) return {};
   try {
-    Deno.stdin.setRaw(true);
+    runtimeHost.stdin.setRaw(true);
   } catch {
     return {};
   }
   try {
-    await Deno.stdout.write(new TextEncoder().encode(
+    await runtimeHost.stdout.write(new TextEncoder().encode(
       `\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t`,
     ));
     const decoder = new TextDecoder();
@@ -750,7 +752,7 @@ async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
     const deadline = Date.now() + deadlineMs;
     while (Date.now() < deadline) {
       const read = await Promise.race([
-        Deno.stdin.read(buffer),
+        runtimeHost.stdin.read(buffer),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), Math.max(10, deadline - Date.now()))),
       ]);
       if (read === null || read === 0) break;
@@ -764,7 +766,7 @@ async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
     return {};
   } finally {
     try {
-      Deno.stdin.setRaw(false);
+      runtimeHost.stdin.setRaw(false);
     } catch {
       // The TUI re-enables raw mode moments later either way.
     }
@@ -777,8 +779,8 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
   let descriptorPath = options.descriptorPath ?? joinPath(stateDirectory, "host.json");
   let authToken: string | undefined;
   try {
-    authToken = Deno.env.get("EXOMUX_TOKEN");
-    Deno.env.delete("EXOMUX_TOKEN");
+    authToken = runtimeHost.env.get("EXOMUX_TOKEN");
+    runtimeHost.env.delete("EXOMUX_TOKEN");
   } catch {
     authToken = undefined;
   }
@@ -816,7 +818,7 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     hostId: server.controller.id,
     url: address.url,
     token: authToken,
-    pid: Deno.pid,
+    pid: runtimeHost.pid,
     startedAt: Date.now(),
   };
   await writeExomuxHostDescriptor(descriptorPath, descriptor);
@@ -847,7 +849,7 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
 export function createExomuxDaemonFatalHandler(
   server: { shutdown(): Promise<void> },
   removeDescriptor: () => Promise<void>,
-  exit: (code: number) => void = Deno.exit,
+  exit: (code: number) => void = runtimeHost.exit,
   shutdownTimeoutMs = 3_000,
 ): (event: { preventDefault(): void }) => void {
   let faulted = false;
@@ -864,7 +866,7 @@ export function createExomuxDaemonFatalHandler(
     faulted = true;
     const deadline = setTimeout(() => void abandon(), shutdownTimeoutMs);
     // The timer must never keep an otherwise-exiting daemon alive.
-    Deno.unrefTimer(deadline);
+    runtimeHost.unrefTimer(deadline);
     server.shutdown().then(
       () => clearTimeout(deadline),
       () => {
@@ -879,12 +881,12 @@ function bindAwaitedExomuxClientShutdown(
   runtime: ExomuxTerminalAppRuntime,
   switching: () => boolean = () => false,
 ): void {
-  const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
+  const signals: RuntimeSignal[] = runtimeHost.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
   let shutdown: Promise<void> | undefined;
   const removeSignals = () => {
     for (const signal of signals) {
       try {
-        Deno.removeSignalListener(signal, requestShutdown);
+        runtimeHost.removeSignalListener(signal, requestShutdown);
       } catch {
         // Listener was unavailable or already removed.
       }
@@ -903,22 +905,22 @@ function bindAwaitedExomuxClientShutdown(
       // not leave the client alive and animating. Whatever happens, quit quits.
       const deadline = new Promise<void>((resolve) => setTimeout(resolve, 3000));
       await Promise.race([runtime.destroy(), deadline]);
-      Deno.exit(0);
+      runtimeHost.exit(0);
     })();
     void shutdown;
   };
-  for (const signal of signals) Deno.addSignalListener(signal, requestShutdown);
+  for (const signal of signals) runtimeHost.addSignalListener(signal, requestShutdown);
   runtime.app.tui.on("destroy", requestShutdown);
 }
 
 function bindExomuxDaemonSignals(server: ExomuxHostServer): () => void {
-  const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
+  const signals: RuntimeSignal[] = runtimeHost.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
   const shutdown = () => void server.shutdown();
-  for (const signal of signals) Deno.addSignalListener(signal, shutdown);
+  for (const signal of signals) runtimeHost.addSignalListener(signal, shutdown);
   return () => {
     for (const signal of signals) {
       try {
-        Deno.removeSignalListener(signal, shutdown);
+        runtimeHost.removeSignalListener(signal, shutdown);
       } catch {
         // Listener was unavailable or already removed.
       }
@@ -933,7 +935,7 @@ function requiredOption(argument: string, prefix: string): string {
 }
 
 function joinPath(parent: string, child: string): string {
-  const separator = Deno.build.os === "windows" ? "\\" : "/";
+  const separator = runtimeHost.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child}`;
 }
 
@@ -949,7 +951,7 @@ export async function runExomuxCli(argv: readonly string[]): Promise<number> {
   }
   try {
     await runExomuxShowcase(options);
-    return Deno.exitCode ?? 0;
+    return runtimeHost.exitCode ?? 0;
   } catch (error) {
     // A launch that fell over is most often a wedged host or a bad config;
     // show what the flags are and point at the reset that fixes the latter.
@@ -961,11 +963,11 @@ export async function runExomuxCli(argv: readonly string[]): Promise<number> {
 }
 
 if (import.meta.main) {
-  const code = await runExomuxCli(Deno.args);
+  const code = await runExomuxCli(runtimeHost.args);
   // Never force-exit on success: the interactive client returns as soon as its
   // render loop is started and stays alive through its own event listeners, so
-  // a `Deno.exit(0)` here would kill the workbench the instant it attached.
+  // a `runtimeHost.exit(0)` here would kill the workbench the instant it attached.
   // Terminating commands (help, reset, list) leave no pending work and exit on
   // their own. Only a nonzero code needs an explicit exit.
-  if (code !== 0) Deno.exit(code);
+  if (code !== 0) runtimeHost.exit(code);
 }

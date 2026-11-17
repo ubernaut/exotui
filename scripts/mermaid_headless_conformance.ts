@@ -1,10 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
-/** Actual Deno-side full grammar/native preparation; never modifies a live app or fake browser globals. */
+import { runtimeHost } from "../src/runtime/host.ts";
+/** Actual host-side full grammar/native preparation; never modifies a live app or fake browser globals. */
+import { Buffer } from "node:buffer";
 import { createHeadlessMermaidRenderer, type HeadlessMermaidRenderer } from "../mod.mermaid_headless.ts";
 import { type MermaidStandardDiagram, prepareMermaidMarkdown, renderMermaidNativeFrame } from "../mod.mermaid.ts";
 import { PNG } from "pngjs";
 import jpeg from "jpeg-js";
-import { assert, assertEquals, assertRejects } from "../tests/deps.ts";
+
 import { MarkdownSurface } from "../mod.document.ts";
 import { MERMAID_STANDARD_FIXTURES } from "../tests/fixtures/mermaid_standard/catalogue.ts";
 import { verifyMermaidFamilyGrammar } from "../tests/fixtures/mermaid_standard/grammar.ts";
@@ -55,7 +57,9 @@ const pixels = new Uint8Array(32 * 16 * 4);
 for (let y = 0; y < 16; y++) {
   for (let x = 0; x < 32; x++) pixels.set(x < 16 ? [255, 0, 0, 255] : [0, 255, 0, 255], (y * 32 + x) * 4);
 }
-const png = PNG.sync.write({ width: 32, height: 16, data: pixels });
+const pngImage = new PNG({ width: 32, height: 16 });
+pngImage.data = Buffer.from(pixels);
+const png = PNG.sync.write(pngImage);
 const jpg = jpeg.encode({ width: 32, height: 16, data: pixels }, 100).data;
 const vector = new TextEncoder().encode(
   '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16" viewBox="0 0 32 16"><rect width="16" height="16" fill="red"/><rect x="16" width="16" height="16" fill="lime"/></svg>',
@@ -63,8 +67,12 @@ const vector = new TextEncoder().encode(
 const oversized = new Uint8Array(png);
 new DataView(oversized.buffer).setUint32(16, 60_000);
 new DataView(oversized.buffer).setUint32(20, 40_000);
+const assertionModule = runtimeHost.runtime === "bun" ? "../tests/bun_assert.ts" : "../tests/deps.ts";
+const assertions: typeof import("../tests/deps.ts") = await import(assertionModule);
+const assert: typeof assertions.assert = assertions.assert;
+const { assertEquals, assertRejects } = assertions;
 const requests = new Map<string, number>();
-const imageServer = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (request) => {
+const imageServer = runtimeHost.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (request) => {
   const path = new URL(request.url).pathname;
   requests.set(path, (requests.get(path) ?? 0) + 1);
   const body = path === "/image.png" ? png : path === "/image.jpg" ? jpg : path === "/image.svg" ? vector : oversized;
@@ -92,7 +100,7 @@ const capturedIcons: { name: string; diagram: MermaidStandardDiagram }[] = [];
 let imageCases = 0;
 try {
   renderer = await createHeadlessMermaidRenderer({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     chromiumSandbox: false,
     allowResource: (url) => url.origin === imageOrigin && url.pathname !== "/denied.png",
   });
@@ -392,7 +400,7 @@ try {
       host: renderer.inspect(),
     }),
   );
-  if (failures.length || uncovered.length) Deno.exitCode = 1;
+  if (failures.length || uncovered.length) runtimeHost.exitCode = 1;
 } finally {
   try {
     await renderer?.dispose();

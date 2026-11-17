@@ -13,7 +13,7 @@ desktop behind them, remote machines one keystroke away, and a VHS shader over t
 
 ## What it is
 
-**exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno — from a
+**exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno and Bun — from a
 ten-line form to a full desktop environment. It ships as one package with focused entrypoints (published to JSR as
 `@ubernaut/exotui`): a signal-driven core, a retained-mode cell canvas, forty-plus widgets with headless controllers, an
 application runtime, terminal emulation good enough to build a terminal _inside_ your terminal, browser and remote
@@ -22,9 +22,9 @@ hosts, and an optional Three.js ASCII renderer.
 **exomux** is its flagship — a terminal multiplexer that grew into a terminal _desktop_. Shells live in a detachable
 daemon that outlives the UI (tmux's model), but the client is a windowing environment: floating, snapping, transparent
 windows over animated backgrounds, a network panel that reaches your whole tailnet, a MilkDrop audio visualizer, and
-Ghostty shader integration. Exomux imports only the public entrypoints — nothing in it touches `src/` — so it doubles as
-the standing proof that the published API is sufficient for a production-shaped application. Every gap it hit became a
-library export.
+Ghostty shader integration. Exomux's application imports the public entrypoints, so it doubles as the standing proof
+that the published API is sufficient for a production-shaped application. Its Bun compiler additionally embeds the
+runtime bootstrap from this checkout. Every application API gap it hit became a library export.
 
 ## What's cool about it
 
@@ -51,8 +51,8 @@ library export.
 
 ## Who it's for
 
-- **Deno developers** who want a typed, reactive, dependency-light way to build terminal UIs — with a tested path from
-  "one button" to "application shell with routes, commands, themes, and undo history".
+- **Deno and Bun developers** who want a typed, reactive, dependency-light way to build terminal UIs — with a tested
+  path from "one button" to "application shell with routes, commands, themes, and undo history".
 - **tmux/screen users** who want a multiplexer with windows instead of panes — and are willing to have fun.
 - **Tool builders** who need the middle layers à la carte: headless widget controllers, terminal emulation, scrollback,
   process/PTY sessions, layout solvers, or the testing harness, each importable on its own.
@@ -102,7 +102,7 @@ library export.
 
 - Detachable loopback daemon (token-authenticated WebSocket); named sessions tmux-style (`-n` create, `-a` attach,
   `--list-sessions`); crash-safe relaunch over stale or wedged descriptors.
-- PTY-backed shells via the optional `@sigma/pty-ffi` adapter with a pipe fallback.
+- PTY-backed shells via Bun's native terminals or Deno's optional `@sigma/pty-ffi` adapter, with a pipe fallback.
 - Floating window workbench: drag, resize, snap, tile, shelf, taskbar, per-window settings, session rename, responsive
   settings layout on narrow terminals.
 - Phone-aware layout: below 50 columns the desktop hands the whole screen to one window at a time — terminals and the
@@ -219,6 +219,46 @@ import { createTerminalApp } from "jsr:@ubernaut/exotui/app";
 ```
 
 Every entrypoint in the table below is importable the same way.
+
+### Bun
+
+This branch supports Bun **1.4.0 or newer**. From a checkout:
+
+```sh
+bun install --frozen-lockfile
+bun install --cwd packages/exomux --frozen-lockfile --backend=symlink
+bun run desktop:smoke
+bun run exomux
+bun run exomux:test
+bun run exomux:compile
+bun run check
+bun run test
+bun run test:gpu
+```
+
+The Bun task names follow the Deno task catalog, including persistent showcases and GPU probes. Deno remains required
+for its formatter, JSR publishing checks, and source-graph inventory commands. Bun type checks use TypeScript directly;
+the Bun test runner executes the existing suites with isolated processes and lifecycle sanitizers.
+
+The optional `./document`, `./mermaid`, and `./mermaid/headless` exports are available to Bun consumers. Headless
+rendering uses an installed Chromium and bundles the browser module through esbuild; it does not need Deno. If Bun
+leaves an incomplete package while reinstalling exomux's local source dependency, move
+`packages/exomux/node_modules/@ubernaut/exotui` aside and rerun the frozen symlink install.
+
+For a separate Bun application, install this checkout with `bun add /path/to/exotui`, then use the same package names:
+
+```ts
+import { createTerminalApp } from "@ubernaut/exotui/app";
+import { createBunPtyTerminalBackend } from "@ubernaut/exotui/terminal";
+```
+
+Exomux selects native `Bun.Terminal` PTYs on POSIX hosts. Its daemon protocol remains compatible with Deno clients and
+hosts. Native GPU workloads initialize the optional, pinned `bun-webgpu` binding lazily; Three glyph atlases and the
+native binding are embedded in compiled exomux binaries. The GPU verification command requires a working native adapter.
+
+Bun inherits the process's filesystem, subprocess, and network access. The application's permission broker still
+applies, while Deno permission flags apply to Deno execution. Linux source and standalone execution are verified;
+platform-specific terminal and GPU drivers still determine availability on other hosts.
 
 ## Library quick start
 

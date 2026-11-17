@@ -1,4 +1,5 @@
 #!/usr/bin/env -S deno run -A
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // exomonitor — a themeable, responsive system monitor built on @ubernaut/exotui.
 //
 // `-A` rather than a narrow set, and not by laziness: Deno refuses /proc reads
@@ -31,7 +32,7 @@ const SAMPLE_INTERVAL_MS = 1000;
 const AUDIO_HZ = 60;
 const AUDIO_BANDS = 28;
 
-if (Deno.args.includes("--help")) {
+if (runtimeHost.args.includes("--help")) {
   console.log(
     [
       "exomonitor — a themeable, responsive system monitor",
@@ -44,14 +45,14 @@ if (Deno.args.includes("--help")) {
       "flags:  --opaque paints the theme background instead of letting the host show through",
     ].join("\n"),
   );
-  Deno.exit(0);
+  runtimeHost.exit(0);
 }
 
-const palette = new Signal<MonitorPalette>(themeById(Deno.env.get("EXOMONITOR_THEME") ?? "midnight"));
+const palette = new Signal<MonitorPalette>(themeById(runtimeHost.env.get("EXOMONITOR_THEME") ?? "midnight"));
 // Ground cells carry no background unless asked, so a host compositing behind
 // this window — exomux's opacity, a terminal's own transparency — has something
 // to blend. --opaque paints the theme's ground instead.
-const opaque = Deno.args.includes("--opaque");
+const opaque = runtimeHost.args.includes("--opaque");
 
 const tui = new Tui({
   // A style is still required: it is what puts a full-screen object under
@@ -77,7 +78,7 @@ palette.subscribe((next) => {
 const sources = await detectAvailable();
 // What is playing, captured from the default sink's monitor. A machine with no
 // recorder simply has no audio feeds.
-const audio: AudioCapture | undefined = Deno.args.includes("--no-audio")
+const audio: AudioCapture | undefined = runtimeHost.args.includes("--no-audio")
   ? undefined
   : await startAudioCapture({ kind: "system", bands: AUDIO_BANDS, updatesPerSecond: AUDIO_HZ });
 if (audio) sources.push("audio");
@@ -97,7 +98,7 @@ let mic: AudioCapture | undefined;
 // Offered whenever a recorder exists at all, which the system capture proves.
 // Without one, enabling a mic feed still tries, and marks the source
 // unavailable if nothing can record.
-let micOffered = audio !== undefined || Deno.args.includes("--mic");
+let micOffered = audio !== undefined || runtimeHost.args.includes("--mic");
 if (micOffered) sources.push("mic");
 let available: Feed[] = FEEDS.filter((feed) => sources.includes(feed.source));
 
@@ -129,7 +130,7 @@ if (settings.enabled.size === 0) {
 }
 // `--mic` is a request to see it, not just to permit it: without switching a
 // feed on, the flag would open the device and draw nothing.
-if (Deno.args.includes("--mic")) {
+if (runtimeHost.args.includes("--mic")) {
   settings = { ...settings, enabled: new Set([...settings.enabled, "mic:spectrum"]) };
 }
 let menuOpen = false;
@@ -369,7 +370,7 @@ tui.on("keyPress", (event) => {
     audio?.close();
     mic?.close();
     tui.destroy();
-    Deno.exit(0);
+    runtimeHost.exit(0);
   }
 
   if (menuOpen) {

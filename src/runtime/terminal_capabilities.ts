@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import { detectTerminalMultiplexer } from "./terminal_values.ts";
 
@@ -520,7 +521,7 @@ function createEnvReader(
   if (env) return (name) => env[name];
   return (name) => {
     try {
-      return Deno.env.get(name);
+      return runtimeHost.env.get(name);
     } catch {
       return undefined;
     }
@@ -529,7 +530,7 @@ function createEnvReader(
 
 function safeIsTerminal(): boolean {
   try {
-    return Deno.stdout.isTerminal();
+    return runtimeHost.stdout.isTerminal();
   } catch {
     return false;
   }
@@ -554,7 +555,7 @@ function detectColorDepth(options: {
   return options.interactive ? "ansi16" : "none";
 }
 
-function supportsUnicode(env: (name: string) => string | undefined, platform: string = Deno.build.os): boolean {
+function supportsUnicode(env: (name: string) => string | undefined, platform: string = runtimeHost.build.os): boolean {
   if (platform === "windows") {
     return Boolean(env("WT_SESSION") || env("TERMINAL_EMULATOR") || env("TERM_PROGRAM"));
   }

@@ -3,6 +3,7 @@
 import * as esbuild from "esbuild";
 import { chromium, type Page } from "playwright";
 import { semanticAXTree } from "../tests/fixtures/mermaid_standard/semantic_ax.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 
 const build = await esbuild.build({
   entryPoints: [new URL("../tests/fixtures/mermaid_standard/counter_styles.ts", import.meta.url).pathname],
@@ -12,7 +13,7 @@ const build = await esbuild.build({
   target: "es2022",
 });
 esbuild.stop();
-const server = Deno.serve(
+const server = runtimeHost.serve(
   { hostname: "127.0.0.1", port: 0, onListen() {} },
   (request) =>
     new URL(request.url).pathname === "/oracle.js"
@@ -99,7 +100,7 @@ async function checkContexts(page: Page, profile: "chromium-legacy" | "css-accou
 }
 try {
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     args: ["--no-sandbox", "--disable-gpu"],
   });
   const page = await browser.newPage();
@@ -148,7 +149,7 @@ try {
   await checkContexts(page, "chromium-legacy");
   await browser.close();
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     args: ["--no-sandbox", "--disable-gpu", "--enable-blink-features=CSSListCounterAccounting,CSSCounterResetReversed"],
   });
   const enabledPage = await browser.newPage();

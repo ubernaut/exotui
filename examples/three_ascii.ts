@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { crayon } from "crayon";
 import {
   AmbientLight,
@@ -42,7 +43,7 @@ import {
 } from "../app/types.ts";
 import { Computed, Signal, Tui } from "../mod.ts";
 
-const showControlsAtStartup = !Deno.args.some((arg) => arg === "--no-controls" || arg === "--hide-controls");
+const showControlsAtStartup = !runtimeHost.args.some((arg) => arg === "--no-controls" || arg === "--hide-controls");
 
 requireInteractiveTerminal("deno task three-ascii");
 

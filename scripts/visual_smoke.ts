@@ -1,3 +1,5 @@
+import { runtimeTaskCommand } from "./demo_launcher.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import { stripAnsi } from "../src/utils/ansi_text.ts";
 
 export interface VisualSmokeTarget {
@@ -78,8 +80,9 @@ export async function runVisualSmoke(
 
 export async function runVisualSmokeTarget(target: VisualSmokeTarget): Promise<VisualSmokeTargetResult> {
   const started = performance.now();
-  const command = new Deno.Command(target.command[0]!, {
-    args: [...target.command.slice(1)],
+  const argv = runtimeTaskCommand(target.command);
+  const command = new runtimeHost.Command(argv[0]!, {
+    args: [...argv.slice(1)],
     stdout: "piped",
     stderr: "piped",
     signal: AbortSignal.timeout(target.timeoutMs ?? 12_000),
@@ -162,5 +165,5 @@ export function formatVisualSmokeReport(report: VisualSmokeReport): string {
 if (import.meta.main) {
   const report = await runVisualSmoke();
   console.log(formatVisualSmokeReport(report));
-  if (!report.passed) Deno.exit(1);
+  if (!report.passed) runtimeHost.exit(1);
 }

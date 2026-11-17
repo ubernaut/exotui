@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import { Signal, type SignalOptions } from "../signals/mod.ts";
 import { errorMessage } from "../utils/formatting.ts";
@@ -43,9 +44,9 @@ export class JsonFileStore<T = unknown> implements AsyncStore<T> {
       isNotFound?: (error: unknown) => boolean;
     } = {},
   ) {
-    this.readTextFile = fileSystem.readTextFile ?? Deno.readTextFile;
-    this.writeTextFile = fileSystem.writeTextFile ?? Deno.writeTextFile;
-    this.isNotFound = fileSystem.isNotFound ?? ((error) => error instanceof Deno.errors.NotFound);
+    this.readTextFile = fileSystem.readTextFile ?? runtimeHost.readTextFile;
+    this.writeTextFile = fileSystem.writeTextFile ?? runtimeHost.writeTextFile;
+    this.isNotFound = fileSystem.isNotFound ?? ((error) => error instanceof runtimeHost.errors.NotFound);
   }
 
   async get(key: string): Promise<T | undefined> {

@@ -34,9 +34,17 @@ Deno.test("Exomux launches its daemon differently from a script and a compiled b
 
   // Script mode: Deno.execPath() is `deno`, so it needs a subcommand and a real
   // module path on disk.
-  assertEquals(exomuxDaemonLaunchArgs({ mainModuleUrl, descriptorPath, standalone: false }), [
+  assertEquals(exomuxDaemonLaunchArgs({ mainModuleUrl, descriptorPath, standalone: false, runtime: "deno" }), [
     "run",
     "-A",
+    "--unstable-webgpu",
+    "/opt/exomux/main.ts",
+    "--daemon",
+    `--descriptor=${descriptorPath}`,
+  ]);
+
+  assertEquals(exomuxDaemonLaunchArgs({ mainModuleUrl, descriptorPath, standalone: false, runtime: "bun" }), [
+    "run",
     "/opt/exomux/main.ts",
     "--daemon",
     `--descriptor=${descriptorPath}`,

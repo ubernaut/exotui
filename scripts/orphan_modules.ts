@@ -1,3 +1,5 @@
+import type { RuntimeDirEntry } from "../src/runtime/host.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -50,6 +52,10 @@ export const REACHABILITY_SCOPES: readonly ReachabilityScope[] = Object.freeze([
       // Optional entrypoints are reachable from the package's export map and
       // from nowhere else, which is the point of them.
       "src/viz/three/mod.ts",
+      // Bun's compiled Exomux entrypoint explicitly preloads this integration
+      // seam. Its static backend import also covers the implementation hidden
+      // behind host.ts's conditional import for browser bundler isolation.
+      "src/runtime/bun_bootstrap.ts",
     ],
     // Examples and scripts are entrypoints in their own right, and tests are
     // the other thing that legitimately keeps a module alive.
@@ -59,7 +65,13 @@ export const REACHABILITY_SCOPES: readonly ReachabilityScope[] = Object.freeze([
   {
     id: "exomux",
     config: "packages/exomux/deno.json",
-    entrypoints: ["packages/exomux/main.ts", "packages/exomux/mod.ts"],
+    entrypoints: [
+      "packages/exomux/main.ts",
+      "packages/exomux/mod.ts",
+      "packages/exomux/bun_main.ts",
+      "packages/exomux/compile_bun.ts",
+      "packages/exomux/check_runtime_compat.ts",
+    ],
     rootDirectories: ["packages/exomux/tests"],
     sourceDirectories: ["packages/exomux"],
     excludes: ["packages/exomux/tests"],
@@ -123,13 +135,14 @@ export function formatReachabilityReport(report: ReachabilityReport): string {
 }
 
 async function* walkTypeScript(dir: string): AsyncGenerator<string> {
-  let entries: AsyncIterable<Deno.DirEntry>;
+  let entries: AsyncIterable<RuntimeDirEntry>;
   try {
-    entries = Deno.readDir(dir);
+    entries = runtimeHost.readDir(dir);
   } catch {
     return;
   }
   for await (const entry of entries) {
+    if (entry.isSymlink || entry.name === "node_modules" || entry.name === ".git") continue;
     const path = `${dir}/${entry.name}`;
     if (entry.isDirectory) yield* walkTypeScript(path);
     else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) yield path;
@@ -138,11 +151,11 @@ async function* walkTypeScript(dir: string): AsyncGenerator<string> {
 
 /** Every local module `deno info` reaches from the given roots, as repo paths. */
 async function reachableFrom(roots: readonly string[], config: string, cwd: string): Promise<Set<string>> {
-  const temp = await Deno.makeTempFile({ suffix: ".ts" });
+  const temp = await runtimeHost.makeTempFile({ suffix: ".ts" });
   try {
     const body = roots.map((root, index) => `import * as module${index} from "${cwd}/${root}";`).join("\n");
-    await Deno.writeTextFile(temp, `${body}\nexport {};\n`);
-    const output = await new Deno.Command(Deno.execPath(), {
+    await runtimeHost.writeTextFile(temp, `${body}\nexport {};\n`);
+    const output = await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
       args: ["info", "--json", "--config", config, temp],
       cwd,
       stdout: "piped",
@@ -158,12 +171,12 @@ async function reachableFrom(roots: readonly string[], config: string, cwd: stri
     }
     return reached;
   } finally {
-    await Deno.remove(temp).catch(() => {});
+    await runtimeHost.remove(temp).catch(() => {});
   }
 }
 
 /** Runs one scope: collects roots, resolves the graph, lists what it never reached. */
-export async function analyzeScope(scope: ReachabilityScope, cwd = Deno.cwd()): Promise<ReachabilityResult> {
+export async function analyzeScope(scope: ReachabilityScope, cwd = runtimeHost.cwd()): Promise<ReachabilityResult> {
   const roots = [...scope.entrypoints];
   for (const directory of scope.rootDirectories) {
     for await (const file of walkTypeScript(`${cwd}/${directory}`)) roots.push(file.slice(cwd.length + 1));
@@ -182,27 +195,27 @@ export async function analyzeScope(scope: ReachabilityScope, cwd = Deno.cwd()): 
 }
 
 if (import.meta.main) {
-  const check = Deno.args.includes("--check");
-  const update = Deno.args.includes("--update");
-  const quiet = Deno.args.includes("--quiet");
-  const cwd = Deno.cwd();
+  const check = runtimeHost.args.includes("--check");
+  const update = runtimeHost.args.includes("--update");
+  const quiet = runtimeHost.args.includes("--quiet");
+  const cwd = runtimeHost.cwd();
 
   const results: ReachabilityResult[] = [];
   for (const scope of REACHABILITY_SCOPES) results.push(await analyzeScope(scope, cwd));
 
   if (update) {
     const allowed = results.flatMap((result) => [...result.unreachable]).sort();
-    const existing = parseOrphanAllowlist(await Deno.readTextFile(ORPHAN_ALLOWLIST_PATH));
-    await Deno.writeTextFile(
+    const existing = parseOrphanAllowlist(await runtimeHost.readTextFile(ORPHAN_ALLOWLIST_PATH));
+    await runtimeHost.writeTextFile(
       ORPHAN_ALLOWLIST_PATH,
       `${JSON.stringify({ description: existing.description, allowed }, null, 2)}\n`,
     );
     console.log(`wrote ${allowed.length} allowed modules`);
-    Deno.exit(0);
+    runtimeHost.exit(0);
   }
 
-  const allowlist = parseOrphanAllowlist(await Deno.readTextFile(ORPHAN_ALLOWLIST_PATH));
+  const allowlist = parseOrphanAllowlist(await runtimeHost.readTextFile(ORPHAN_ALLOWLIST_PATH));
   const report = evaluateReachability(results, allowlist);
   if (!quiet) console.log(formatReachabilityReport(report));
-  if (check && (report.unexpected.length > 0 || report.stale.length > 0)) Deno.exit(1);
+  if (check && (report.unexpected.length > 0 || report.stale.length > 0)) runtimeHost.exit(1);
 }

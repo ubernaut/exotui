@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { crayon } from "crayon";
 import { Button, Computed, createTerminalApp, Frame, Signal, StatusBar, Text } from "../mod.app.ts";
 
@@ -39,7 +40,7 @@ const app = createTerminalApp<CounterAction>({
     if (action.type === "counter.reset") count.value = 0;
     if (action.type === "app.quit") {
       app.destroy();
-      Deno.exit(0);
+      runtimeHost.exit(0);
     }
   },
   setup(app) {

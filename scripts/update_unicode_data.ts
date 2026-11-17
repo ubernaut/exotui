@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 import {
@@ -909,7 +910,7 @@ function renderDiff(previous: UnicodeDataPack | undefined, next: UnicodeDataPack
 
 async function check(path?: string | URL): Promise<void> {
   const target = path ?? OUTPUT_PATH;
-  const text = await Deno.readTextFile(target);
+  const text = await runtimeHost.readTextFile(target);
   const pack = parseModule(text);
   assertPinnedMetadata(pack);
   if (renderModule(pack) !== text) throw new Error("Generated Unicode module has deterministic formatting drift.");
@@ -922,7 +923,7 @@ async function check(path?: string | URL): Promise<void> {
   console.log(`Unicode data check passed: ${summarize(pack, moduleDigest)}`);
 
   if (path === undefined) {
-    const indicText = await Deno.readTextFile(INDIC_CONJUNCT_BREAK_OUTPUT_PATH);
+    const indicText = await runtimeHost.readTextFile(INDIC_CONJUNCT_BREAK_OUTPUT_PATH);
     const indicData = parseIndicConjunctBreakModule(indicText);
     if (renderIndicConjunctBreakModule(indicData) !== indicText) {
       throw new Error("Generated Indic_Conjunct_Break module has deterministic formatting drift.");
@@ -933,7 +934,7 @@ async function check(path?: string | URL): Promise<void> {
         `Generated Indic_Conjunct_Break module is unreviewed: expected ${REVIEWED_INDIC_CONJUNCT_BREAK_MODULE_SHA256}, received ${indicDigest}`,
       );
     }
-    const graphemeBreakTest = await Deno.readFile(GRAPHEME_BREAK_TEST_OUTPUT_PATH);
+    const graphemeBreakTest = await runtimeHost.readFile(GRAPHEME_BREAK_TEST_OUTPUT_PATH);
     const testDigest = unicodeDataSha256(graphemeBreakTest);
     if (testDigest !== GRAPHEME_BREAK_TEST_SOURCE.sha256) {
       throw new Error(
@@ -946,7 +947,7 @@ async function check(path?: string | URL): Promise<void> {
     }
     const compactData = buildCompactGraphemeData(pack, indicData);
     const expectedCompactText = renderCompactGraphemeModule(compactData);
-    const compactText = await Deno.readTextFile(GRAPHEME_RUNTIME_OUTPUT_PATH);
+    const compactText = await runtimeHost.readTextFile(GRAPHEME_RUNTIME_OUTPUT_PATH);
     if (compactText !== expectedCompactText) {
       throw new Error("Generated compact grapheme module differs from the pinned full Unicode data.");
     }
@@ -962,7 +963,7 @@ async function check(path?: string | URL): Promise<void> {
         `compact ${compactText.length} bytes ${compactDigest}, GraphemeBreakTest ${testDigest}`,
     );
 
-    const widthText = await Deno.readTextFile(WIDTH_RUNTIME_OUTPUT_PATH);
+    const widthText = await runtimeHost.readTextFile(WIDTH_RUNTIME_OUTPUT_PATH);
     const widthData = parseCompactWidthModule(widthText);
     if (widthData.dataPackFingerprint !== pack.fingerprint) {
       throw new Error("Generated compact width data does not reference the pinned full Unicode pack.");
@@ -990,10 +991,10 @@ async function check(path?: string | URL): Promise<void> {
       `Unicode width data check passed: Unicode ${UNICODE_VERSION} assigned ${widthCategories.assigned.length} ranges, ` +
         `compact ${widthText.length} bytes ${widthDigest}`,
     );
-    if (await Deno.readTextFile(ZERO_WIDTH_RUNTIME_OUTPUT_PATH) !== renderZeroWidthModule(widthCategories)) {
+    if (await runtimeHost.readTextFile(ZERO_WIDTH_RUNTIME_OUTPUT_PATH) !== renderZeroWidthModule(widthCategories)) {
       throw new Error("Generated display zero-width projection differs from the reviewed full width profile.");
     }
-    if (await Deno.readTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH) !== renderWideWidthModule(widthData)) {
+    if (await runtimeHost.readTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH) !== renderWideWidthModule(widthData)) {
       throw new Error("Generated display wide-width projection differs from the reviewed full width profile.");
     }
   }
@@ -1002,9 +1003,9 @@ async function check(path?: string | URL): Promise<void> {
 async function update(): Promise<void> {
   let previous: UnicodeDataPack | undefined;
   try {
-    previous = parseModule(await Deno.readTextFile(OUTPUT_PATH));
+    previous = parseModule(await runtimeHost.readTextFile(OUTPUT_PATH));
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   }
   const [sourceFiles, derivedCoreProperties, derivedGeneralCategory, graphemeBreakTest] = await Promise.all([
     downloadSources(),
@@ -1022,16 +1023,16 @@ async function update(): Promise<void> {
   const widthData = buildCompactWidthData(pack, widthCategories);
   const widthText = renderCompactWidthModule(widthData);
   console.log(`Unicode data diff:\n${renderDiff(previous, pack)}`);
-  await Deno.mkdir(new URL("../src/unicode/generated/", import.meta.url), { recursive: true });
-  await Deno.writeTextFile(OUTPUT_PATH, text);
+  await runtimeHost.mkdir(new URL("../src/unicode/generated/", import.meta.url), { recursive: true });
+  await runtimeHost.writeTextFile(OUTPUT_PATH, text);
   const indicText = renderIndicConjunctBreakModule(indicData);
-  await Deno.writeTextFile(INDIC_CONJUNCT_BREAK_OUTPUT_PATH, indicText);
-  await Deno.writeTextFile(GRAPHEME_RUNTIME_OUTPUT_PATH, compactText);
-  await Deno.writeTextFile(WIDTH_RUNTIME_OUTPUT_PATH, widthText);
-  await Deno.writeTextFile(ZERO_WIDTH_RUNTIME_OUTPUT_PATH, renderZeroWidthModule(widthCategories));
-  await Deno.writeTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH, renderWideWidthModule(widthData));
-  await Deno.mkdir(new URL("../tests/fixtures/unicode/", import.meta.url), { recursive: true });
-  await Deno.writeTextFile(GRAPHEME_BREAK_TEST_OUTPUT_PATH, graphemeBreakTest);
+  await runtimeHost.writeTextFile(INDIC_CONJUNCT_BREAK_OUTPUT_PATH, indicText);
+  await runtimeHost.writeTextFile(GRAPHEME_RUNTIME_OUTPUT_PATH, compactText);
+  await runtimeHost.writeTextFile(WIDTH_RUNTIME_OUTPUT_PATH, widthText);
+  await runtimeHost.writeTextFile(ZERO_WIDTH_RUNTIME_OUTPUT_PATH, renderZeroWidthModule(widthCategories));
+  await runtimeHost.writeTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH, renderWideWidthModule(widthData));
+  await runtimeHost.mkdir(new URL("../tests/fixtures/unicode/", import.meta.url), { recursive: true });
+  await runtimeHost.writeTextFile(GRAPHEME_BREAK_TEST_OUTPUT_PATH, graphemeBreakTest);
   const moduleDigest = unicodeDataSha256(text);
   console.log(`Unicode data generated: ${summarize(pack, moduleDigest)}`);
   if (moduleDigest !== REVIEWED_MODULE_SHA256) {
@@ -1075,19 +1076,21 @@ function usage(): never {
   console.error(
     "Usage: deno run [permissions] scripts/update_unicode_data.ts --check [generated-module] | --update | --update-zero-width | --update-display-width",
   );
-  Deno.exit(2);
+  runtimeHost.exit(2);
 }
 
 if (import.meta.main) {
-  if (Deno.args[0] === "--check" && Deno.args.length <= 2) await check(Deno.args[1]);
-  else if (Deno.args[0] === "--update" && Deno.args.length === 1) await update();
-  else if (["--update-zero-width", "--update-display-width"].includes(Deno.args[0]!) && Deno.args.length === 1) {
-    const widthText = await Deno.readTextFile(WIDTH_RUNTIME_OUTPUT_PATH);
+  if (runtimeHost.args[0] === "--check" && runtimeHost.args.length <= 2) await check(runtimeHost.args[1]);
+  else if (runtimeHost.args[0] === "--update" && runtimeHost.args.length === 1) await update();
+  else if (
+    ["--update-zero-width", "--update-display-width"].includes(runtimeHost.args[0]!) && runtimeHost.args.length === 1
+  ) {
+    const widthText = await runtimeHost.readTextFile(WIDTH_RUNTIME_OUTPUT_PATH);
     if (unicodeDataSha256(widthText) !== REVIEWED_WIDTH_RUNTIME_MODULE_SHA256) {
       throw new Error("Cannot project unreviewed width data.");
     }
     const data = parseCompactWidthModule(widthText);
-    await Deno.writeTextFile(
+    await runtimeHost.writeTextFile(
       ZERO_WIDTH_RUNTIME_OUTPUT_PATH,
       renderZeroWidthModule({
         assigned: decodeDeltaRanges(data.assignedRanges, 2, "assigned"),
@@ -1095,8 +1098,8 @@ if (import.meta.main) {
         zeroWidth: decodeDeltaRanges(data.zeroWidthRanges, 2, "zero-width"),
       }),
     );
-    if (Deno.args[0] === "--update-display-width") {
-      await Deno.writeTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH, renderWideWidthModule(data));
+    if (runtimeHost.args[0] === "--update-display-width") {
+      await runtimeHost.writeTextFile(WIDE_WIDTH_RUNTIME_OUTPUT_PATH, renderWideWidthModule(data));
     }
   } else usage();
 }

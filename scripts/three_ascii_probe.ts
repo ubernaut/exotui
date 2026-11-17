@@ -1,9 +1,10 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { ThreeAsciiRenderer, type ThreeAsciiRendererPerformance } from "../src/three_ascii/renderer.ts";
 import { asciiEffectOptions, createDefaultAsciiOptions } from "../src/three_ascii/options.ts";
 import { createNeonThreeScene } from "../app/neon_three.ts";
 import { parseThreeAsciiProbeOptions, threeAsciiProbeReport } from "../src/three_ascii/probe.ts";
 
-const options = parseThreeAsciiProbeOptions(Deno.args);
+const options = parseThreeAsciiProbeOptions(runtimeHost.args);
 const ascii = createDefaultAsciiOptions();
 ascii.terminalGlyphStyle = options.style;
 

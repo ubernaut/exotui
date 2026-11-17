@@ -1,3 +1,4 @@
+import { runtimeHost } from "../runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // A drawn (software) mouse cursor for apps that own their whole surface.
@@ -107,7 +108,7 @@ const DEFAULT_KEEPALIVE_MS = 1_000;
 const anyMotionEncoder = new TextEncoder();
 function defaultAnyMotionWrite(sequence: string): void {
   try {
-    Deno.stdout.writeSync(anyMotionEncoder.encode(sequence));
+    runtimeHost.stdout.writeSync(anyMotionEncoder.encode(sequence));
   } catch {
     // No writable terminal (headless/tests) — nothing to toggle.
   }

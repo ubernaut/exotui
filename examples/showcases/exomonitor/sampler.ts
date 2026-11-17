@@ -1,3 +1,5 @@
+import type { RuntimeDirEntry } from "../../../src/runtime/host.ts";
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // Reads the machine, on a timer, into series the view can draw.
 
 import { cpuBusyFraction, type CpuTimes, parseProcStat } from "./sources/cpu.ts";
@@ -22,14 +24,14 @@ const blocked = new Set<string>();
 
 async function readText(path: string): Promise<string | undefined> {
   try {
-    return await Deno.readTextFile(path);
+    return await runtimeHost.readTextFile(path);
   } catch (error) {
     // "Cannot read" and "not present" are different facts, and conflating them
     // is how a monitor decides a machine has no CPU. Deno gates /proc behind
     // --allow-all specifically — even --allow-read=/proc is refused — so a
     // monitor started with narrower permissions silently loses every reading
     // that comes from there.
-    if (error instanceof Deno.errors.NotCapable) blocked.add(path);
+    if (error instanceof runtimeHost.errors.NotCapable) blocked.add(path);
     return undefined;
   }
 }
@@ -56,7 +58,7 @@ export async function detectAvailable(): Promise<SourceId[]> {
 
 async function sampleGpu(): Promise<GpuSample | undefined> {
   try {
-    const command = new Deno.Command("nvidia-smi", {
+    const command = new runtimeHost.Command("nvidia-smi", {
       args: [
         "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
         "--format=csv,noheader,nounits",
@@ -76,9 +78,9 @@ async function sampleGpu(): Promise<GpuSample | undefined> {
 async function sampleTemperatures(): Promise<TemperatureReading[]> {
   const readings: TemperatureReading[] = [];
   for (const root of ["/sys/class/thermal", "/sys/class/hwmon"]) {
-    let entries: Deno.DirEntry[];
+    let entries: RuntimeDirEntry[];
     try {
-      entries = [...Deno.readDirSync(root)];
+      entries = [...runtimeHost.readDirSync(root)];
     } catch {
       continue;
     }

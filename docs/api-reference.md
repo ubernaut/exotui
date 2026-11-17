@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 19
-- Unique modules: 573
-- Module visits: 1123
-- Unique re-export declarations: 738
-- Re-export declaration visits: 1120
-- Unique symbol declarations: 5143
-- Symbol declaration visits: 10420
-- Documented symbol declarations: 5112
+- Unique modules: 577
+- Module visits: 1132
+- Unique re-export declarations: 743
+- Re-export declaration visits: 1129
+- Unique symbol declarations: 5173
+- Symbol declaration visits: 10482
+- Documented symbol declarations: 5142
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,7 +21,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     455 |    4356 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4386 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
@@ -34,8 +34,8 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      85 |     877 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      21 |     208 |  99.52% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     907 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     210 |  99.52% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -48,10 +48,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 455
-- Re-export declarations: 456
-- Exported symbols: 4356
-- Documented symbols: 4356
+- Modules: 459
+- Re-export declarations: 460
+- Exported symbols: 4386
+- Documented symbols: 4386
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -243,10 +243,10 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Path: `./mod.runtime.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 85
-- Re-export declarations: 84
-- Exported symbols: 877
-- Documented symbols: 877
+- Modules: 89
+- Re-export declarations: 88
+- Exported symbols: 907
+- Documented symbols: 907
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -258,10 +258,10 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Path: `./mod.terminal.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 21
-- Re-export declarations: 20
-- Exported symbols: 208
-- Documented symbols: 207
+- Modules: 22
+- Re-export declarations: 21
+- Exported symbols: 210
+- Documented symbols: 209
 - Documentation coverage: 99.52%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -337,7 +337,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
 | [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         19 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         20 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                              |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                                |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                           | `./three-ascii`                          |          3 |       0 |          0 |
@@ -677,6 +677,8 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/remote/transport_policy.ts`](#src-remote-transport-policy-ts)                                   | `./remote`                               |          0 |       6 |          6 |
 | [`src/runtime/async_channel.ts`](#src-runtime-async-channel-ts)                                       | `.`, `./runtime`                         |          0 |      23 |         23 |
 | [`src/runtime/async_iterable.ts`](#src-runtime-async-iterable-ts)                                     | `.`, `./web`, `./runtime`                |          0 |      31 |         31 |
+| [`src/runtime/bun_pty_backend.ts`](#src-runtime-bun-pty-backend-ts)                                   | `.`, `./runtime`, `./terminal`           |          0 |       2 |          2 |
+| [`src/runtime/bun_webgpu.ts`](#src-runtime-bun-webgpu-ts)                                             | `.`, `./runtime`                         |          0 |       1 |          1 |
 | [`src/runtime/cache_tags.ts`](#src-runtime-cache-tags-ts)                                             | `.`, `./runtime`                         |          0 |       3 |          3 |
 | [`src/runtime/capabilities.ts`](#src-runtime-capabilities-ts)                                         | `.`, `./web`, `./runtime`                |          0 |      16 |         16 |
 | [`src/runtime/cell_screen.ts`](#src-runtime-cell-screen-ts)                                           | `.`, `./runtime`                         |          0 |       6 |          6 |
@@ -691,12 +693,14 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/diagnostics.ts`](#src-runtime-diagnostics-ts)                                           | `.`, `./runtime`                         |          0 |      12 |         12 |
 | [`src/runtime/graphics_surface.ts`](#src-runtime-graphics-surface-ts)                                 | `.`, `./web`, `./runtime`                |          0 |      24 |         24 |
 | [`src/runtime/health_snapshot.ts`](#src-runtime-health-snapshot-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
+| [`src/runtime/host_types.ts`](#src-runtime-host-types-ts)                                             | `.`, `./runtime`                         |          0 |      26 |         26 |
+| [`src/runtime/host.ts`](#src-runtime-host-ts)                                                         | `.`, `./runtime`                         |          1 |       1 |          1 |
 | [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                                     | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/kitty_graphics.ts`](#src-runtime-kitty-graphics-ts)                                     | `.`, `./web`, `./runtime`                |          0 |      25 |         25 |
 | [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                                     | `.`, `./runtime`                         |          0 |       9 |          9 |
 | [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                               | `.`, `./runtime`                         |          0 |       8 |          8 |
 | [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         82 |       0 |          0 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         85 |       0 |          0 |
 | [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                               | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                       | `.`, `./runtime`                         |          0 |       3 |          3 |
 | [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                       | `.`, `./runtime`                         |          0 |      15 |         15 |
@@ -1091,6 +1095,7 @@ _Entrypoints: `./terminal`_
 | `src/runtime/terminal_templates.ts`        | star | -     |
 | `src/runtime/terminal_workspace.ts`        | star | -     |
 | `src/unicode/width.ts`                     | star | -     |
+| `src/runtime/bun_pty_backend.ts`           | star | -     |
 
 _No direct exported symbols._
 
@@ -7115,6 +7120,23 @@ _Entrypoints: `.`, `./web`, `./runtime`_
 | `windowAsyncIterable`                     | function  | no        | yes   |
 | `WindowAsyncIterableOptions`              | interface | yes       | yes   |
 
+### src/runtime/bun_pty_backend.ts
+
+_Entrypoints: `.`, `./runtime`, `./terminal`_
+
+| Symbol                         | Kind      | Type Only | JSDoc |
+| ------------------------------ | --------- | --------- | ----- |
+| `BunPtyTerminalBackendOptions` | interface | yes       | yes   |
+| `createBunPtyTerminalBackend`  | function  | no        | yes   |
+
+### src/runtime/bun_webgpu.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                       | Kind     | Type Only | JSDoc |
+| ---------------------------- | -------- | --------- | ----- |
+| `ensureBunWebGpuInitialized` | function | no        | yes   |
+
 ### src/runtime/cache_tags.ts
 
 _Entrypoints: `.`, `./runtime`_
@@ -7370,6 +7392,51 @@ _Entrypoints: `.`, `./runtime`_
 | `HealthSnapshot`      | interface | yes       | yes   |
 | `SubsystemHealth`     | interface | yes       | yes   |
 
+### src/runtime/host_types.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Symbol                        | Kind      | Type Only | JSDoc |
+| ----------------------------- | --------- | --------- | ----- |
+| `RuntimeChildProcess`         | interface | yes       | yes   |
+| `RuntimeCommand`              | interface | yes       | yes   |
+| `RuntimeCommandOptions`       | interface | yes       | yes   |
+| `RuntimeCommandOutput`        | interface | yes       | yes   |
+| `RuntimeCommandStatus`        | interface | yes       | yes   |
+| `RuntimeConn`                 | interface | yes       | yes   |
+| `RuntimeConsoleSize`          | interface | yes       | yes   |
+| `RuntimeDirEntry`             | interface | yes       | yes   |
+| `RuntimeFile`                 | interface | yes       | yes   |
+| `RuntimeFileInfo`             | interface | yes       | yes   |
+| `RuntimeFsEvent`              | interface | yes       | yes   |
+| `RuntimeHost`                 | interface | yes       | yes   |
+| `RuntimeHttpServer`           | interface | yes       | yes   |
+| `RuntimeNetAddr`              | interface | yes       | yes   |
+| `RuntimeOpenOptions`          | interface | yes       | yes   |
+| `RuntimePermissionDescriptor` | type      | yes       | yes   |
+| `RuntimePermissionState`      | type      | yes       | yes   |
+| `RuntimeServeOptions`         | interface | yes       | yes   |
+| `RuntimeSignal`               | type      | yes       | yes   |
+| `RuntimeStdin`                | interface | yes       | yes   |
+| `RuntimeStdout`               | interface | yes       | yes   |
+| `RuntimeSystemMemoryInfo`     | interface | yes       | yes   |
+| `RuntimeTimer`                | type      | yes       | yes   |
+| `RuntimeUnixAddr`             | interface | yes       | yes   |
+| `RuntimeWatcher`              | interface | yes       | yes   |
+| `RuntimeWriteOptions`         | interface | yes       | yes   |
+
+### src/runtime/host.ts
+
+_Entrypoints: `.`, `./runtime`_
+
+| Re-export Target            | Kind | Names |
+| --------------------------- | ---- | ----- |
+| `src/runtime/host_types.ts` | star | -     |
+
+| Symbol        | Kind  | Type Only | JSDoc |
+| ------------- | ----- | --------- | ----- |
+| `runtimeHost` | const | no        | yes   |
+
 ### src/runtime/infinite_query.ts
 
 _Entrypoints: `.`, `./runtime`_
@@ -7545,6 +7612,9 @@ _Entrypoints: `.`, `./runtime`_
 | `src/runtime/render_accounting.ts`         | star | -     |
 | `src/runtime/stream_ownership.ts`          | star | -     |
 | `src/runtime/console_presenter.ts`         | star | -     |
+| `src/runtime/host.ts`                      | star | -     |
+| `src/runtime/bun_pty_backend.ts`           | star | -     |
+| `src/runtime/bun_webgpu.ts`                | star | -     |
 
 _No direct exported symbols._
 

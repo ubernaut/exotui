@@ -1,3 +1,5 @@
+import { runtimeTaskCommand } from "./demo_launcher.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import { Buffer } from "node:buffer";
 import jpeg from "jpeg-js";
 import { PNG } from "pngjs";
@@ -142,7 +144,7 @@ const targets: ScreenshotTarget[] = [
 const defaultStyle: CellStyle = {};
 
 if (import.meta.main) {
-  await Deno.mkdir("docs/screenshots", { recursive: true });
+  await runtimeHost.mkdir("docs/screenshots", { recursive: true });
   const expected = new Set(targets.map((target) => target.filename));
   const browser = await findBrowser();
   for (const target of targets) {
@@ -152,9 +154,9 @@ if (import.meta.main) {
     await writeJpegScreenshot(frame, `docs/screenshots/${target.filename}`, browser);
   }
 
-  for await (const entry of Deno.readDir("docs/screenshots")) {
+  for await (const entry of runtimeHost.readDir("docs/screenshots")) {
     if (entry.isFile && /\.(?:jpe?g|svg)$/i.test(entry.name) && !expected.has(entry.name)) {
-      await Deno.remove(`docs/screenshots/${entry.name}`);
+      await runtimeHost.remove(`docs/screenshots/${entry.name}`);
     }
   }
 }
@@ -187,9 +189,10 @@ function validateScreenshotFrame(frame: TerminalFrame, target: ScreenshotTarget)
 }
 
 async function captureTarget(target: ScreenshotTarget): Promise<string> {
+  const argv = runtimeTaskCommand(target.command);
   if (target.mode === "stdout") {
-    const output = await new Deno.Command(target.command[0], {
-      args: target.command.slice(1),
+    const output = await new runtimeHost.Command(argv[0]!, {
+      args: argv.slice(1),
       stdout: "piped",
       stderr: "piped",
     }).output();
@@ -201,9 +204,9 @@ async function captureTarget(target: ScreenshotTarget): Promise<string> {
 
   const shellCommand = [
     `stty cols ${target.columns} rows ${target.rows}`,
-    `timeout ${(target.timeoutMs ?? 1000) / 1000}s ${quoteCommand(target.command)}`,
+    `timeout ${(target.timeoutMs ?? 1000) / 1000}s ${quoteCommand(argv)}`,
   ].join("; ");
-  const output = await new Deno.Command("script", {
+  const output = await new runtimeHost.Command("script", {
     args: ["-q", "-c", shellCommand, "/dev/null"],
     stdout: "piped",
     stderr: "piped",
@@ -701,11 +704,11 @@ async function writeJpegScreenshot(frame: TerminalFrame, path: string, browser: 
   const svg = renderSvg(frame);
   const width = Math.ceil(PADDING * 2 + frame.columns * CHAR_WIDTH + 48);
   const height = Math.ceil(PADDING * 2 + TITLE_HEIGHT + frame.rows * LINE_HEIGHT + 32);
-  const tempDir = await Deno.makeTempDir({ prefix: "deno-tui-screenshot-" });
+  const tempDir = await runtimeHost.makeTempDir({ prefix: "deno-tui-screenshot-" });
   const htmlPath = `${tempDir}/frame.html`;
   const pngPath = `${tempDir}/frame.png`;
   try {
-    await Deno.writeTextFile(
+    await runtimeHost.writeTextFile(
       htmlPath,
       [
         "<!doctype html>",
@@ -716,7 +719,7 @@ async function writeJpegScreenshot(frame: TerminalFrame, path: string, browser: 
         "</body></html>",
       ].join(""),
     );
-    const output = await new Deno.Command(browser, {
+    const output = await new runtimeHost.Command(browser, {
       args: [
         "--headless=new",
         "--disable-gpu",
@@ -732,21 +735,21 @@ async function writeJpegScreenshot(frame: TerminalFrame, path: string, browser: 
       throw new Error(`failed to render ${path}: ${decode(output.stderr)}`);
     }
     try {
-      await Deno.stat(pngPath);
+      await runtimeHost.stat(pngPath);
     } catch {
       throw new Error(`failed to render ${path}: browser did not create ${pngPath}: ${decode(output.stderr)}`);
     }
-    const png = PNG.sync.read(Buffer.from(await Deno.readFile(pngPath)));
+    const png = PNG.sync.read(Buffer.from(await runtimeHost.readFile(pngPath)));
     const encoded = jpeg.encode({ data: png.data, width: png.width, height: png.height }, 92);
-    await Deno.writeFile(path, encoded.data);
+    await runtimeHost.writeFile(path, encoded.data);
   } finally {
-    await Deno.remove(tempDir, { recursive: true }).catch(() => undefined);
+    await runtimeHost.remove(tempDir, { recursive: true }).catch(() => undefined);
   }
 }
 
 async function findBrowser(): Promise<string> {
   for (const candidate of ["google-chrome", "chromium", "chrome"]) {
-    const output = await new Deno.Command("which", {
+    const output = await new runtimeHost.Command("which", {
       args: [candidate],
       stdout: "piped",
       stderr: "null",

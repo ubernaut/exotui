@@ -3,13 +3,17 @@ import {
   Color,
   HalfFloatType,
   LinearFilter,
+  type Node,
+  type NodeFrame,
   NodeMaterial,
   NodeUpdateType,
   QuadMesh,
+  type Renderer,
   RendererUtils,
   RenderTarget,
   TempNode,
   type Texture,
+  type TextureNode,
   type UniformNode,
   Vector2,
 } from "three/webgpu";
@@ -51,14 +55,26 @@ import { colorValue } from "./colors.ts";
 const _quadMesh = /* @__PURE__ */ new QuadMesh();
 const _renderSize = /* @__PURE__ */ new Vector2();
 
-let _rendererState: unknown;
+let _rendererState: ReturnType<typeof RendererUtils.saveRendererState> | undefined;
 
-type TslNode = ReturnType<typeof vec4>;
-type TslFragmentFactory = () => TslNode;
-interface AcerolaRenderTargetRenderer {
-  getDrawingBufferSize(target: Vector2): void;
-  setRenderTarget(target: RenderTarget | null): void;
-}
+type TslFragmentFactory = () => Node<"vec4">;
+
+// Color uniforms compile as vec3 in Three, but vec3's overloads omit "color".
+const colorVec3 = vec3 as unknown as (color: Node<"color">) => ReturnType<typeof vec3>;
+
+// PassTextureNode only registers its owning node as a graph dependency. Three's
+// declaration restricts that dependency to PassNode despite supporting custom
+// multi-pass nodes such as this one at runtime.
+const customPassTexture = passTexture as unknown as (
+  pass: Node,
+  output: Texture,
+) => ReturnType<typeof passTexture>;
+
+// The implementation initializes missing state; the declaration requires it.
+const resetRendererState = RendererUtils.resetRendererState as (
+  renderer: Renderer,
+  state?: ReturnType<typeof RendererUtils.saveRendererState>,
+) => ReturnType<typeof RendererUtils.saveRendererState>;
 
 /** Options for configuring acerola Ascii Node. */
 export interface AcerolaAsciiNodeOptions {
@@ -126,46 +142,46 @@ function copyOffsetValue(target: Vector2, input: Vector2 | { x: number; y: numbe
 }
 
 /** Public class implementing an acerola Ascii Node. */
-export class AcerolaAsciiNode extends TempNode {
-  readonly colorNode: TslNode;
-  readonly depthNode: TslNode;
+export class AcerolaAsciiNode extends TempNode<"vec4"> {
+  readonly colorNode: ReturnType<typeof convertToTexture>;
+  readonly depthNode: TextureNode;
   readonly camera: Camera;
   readonly edgesTexture: Texture;
   readonly fillTexture: Texture;
 
   readonly resolutionScale: number;
 
-  readonly zoom: UniformNode = uniform(1);
-  readonly offset: UniformNode = uniform(new Vector2());
-  readonly kernelSize: UniformNode = uniform(2);
-  readonly sigma: UniformNode = uniform(2);
-  readonly sigmaScale: UniformNode = uniform(1.6);
-  readonly tau: UniformNode = uniform(1);
-  readonly threshold: UniformNode = uniform(0.005);
-  readonly useDepth: UniformNode = uniform(true);
-  readonly depthThreshold: UniformNode = uniform(0.1);
-  readonly useNormals: UniformNode = uniform(true);
-  readonly normalThreshold: UniformNode = uniform(0.1);
-  readonly depthCutoff: UniformNode = uniform(0);
-  readonly edgeThreshold: UniformNode = uniform(8);
-  readonly edges: UniformNode = uniform(true);
-  readonly fill: UniformNode = uniform(true);
-  readonly exposure: UniformNode = uniform(1);
-  readonly attenuation: UniformNode = uniform(1);
-  readonly invertLuminance: UniformNode = uniform(false);
-  readonly asciiColor: UniformNode = uniform(new Color(0xffffff));
-  readonly backgroundColor: UniformNode = uniform(new Color(0x000000));
-  readonly blendWithBase: UniformNode = uniform(0);
-  readonly depthFalloff: UniformNode = uniform(0);
-  readonly depthOffset: UniformNode = uniform(0);
-  readonly viewDog: UniformNode = uniform(false);
-  readonly viewUncompressed: UniformNode = uniform(false);
-  readonly viewEdges: UniformNode = uniform(false);
-  readonly cameraNear: UniformNode = uniform(0.1);
-  readonly cameraFar: UniformNode = uniform(1000);
-  readonly renderSize: UniformNode = uniform(new Vector2(1, 1));
-  readonly inverseRenderSize: UniformNode = uniform(new Vector2(1, 1));
-  readonly downscaleSize: UniformNode = uniform(new Vector2(1, 1));
+  readonly zoom: UniformNode<"float", number> = uniform(1);
+  readonly offset: UniformNode<"vec2", Vector2> = uniform(new Vector2());
+  readonly kernelSize: UniformNode<"float", number> = uniform(2);
+  readonly sigma: UniformNode<"float", number> = uniform(2);
+  readonly sigmaScale: UniformNode<"float", number> = uniform(1.6);
+  readonly tau: UniformNode<"float", number> = uniform(1);
+  readonly threshold: UniformNode<"float", number> = uniform(0.005);
+  readonly useDepth: UniformNode<"bool", boolean> = uniform(true);
+  readonly depthThreshold: UniformNode<"float", number> = uniform(0.1);
+  readonly useNormals: UniformNode<"bool", boolean> = uniform(true);
+  readonly normalThreshold: UniformNode<"float", number> = uniform(0.1);
+  readonly depthCutoff: UniformNode<"float", number> = uniform(0);
+  readonly edgeThreshold: UniformNode<"float", number> = uniform(8);
+  readonly edges: UniformNode<"bool", boolean> = uniform(true);
+  readonly fill: UniformNode<"bool", boolean> = uniform(true);
+  readonly exposure: UniformNode<"float", number> = uniform(1);
+  readonly attenuation: UniformNode<"float", number> = uniform(1);
+  readonly invertLuminance: UniformNode<"bool", boolean> = uniform(false);
+  readonly asciiColor: UniformNode<"color", Color> = uniform(new Color(0xffffff));
+  readonly backgroundColor: UniformNode<"color", Color> = uniform(new Color(0x000000));
+  readonly blendWithBase: UniformNode<"float", number> = uniform(0);
+  readonly depthFalloff: UniformNode<"float", number> = uniform(0);
+  readonly depthOffset: UniformNode<"float", number> = uniform(0);
+  readonly viewDog: UniformNode<"bool", boolean> = uniform(false);
+  readonly viewUncompressed: UniformNode<"bool", boolean> = uniform(false);
+  readonly viewEdges: UniformNode<"bool", boolean> = uniform(false);
+  readonly cameraNear: UniformNode<"float", number> = uniform(0.1);
+  readonly cameraFar: UniformNode<"float", number> = uniform(1000);
+  readonly renderSize: UniformNode<"vec2", Vector2> = uniform(new Vector2(1, 1));
+  readonly inverseRenderSize: UniformNode<"vec2", Vector2> = uniform(new Vector2(1, 1));
+  readonly downscaleSize: UniformNode<"vec2", Vector2> = uniform(new Vector2(1, 1));
 
   readonly luminanceTarget: RenderTarget = new RenderTarget(1, 1, { type: HalfFloatType, depthBuffer: false });
   readonly downscaleTarget: RenderTarget = new RenderTarget(1, 1, { type: HalfFloatType, depthBuffer: false });
@@ -185,9 +201,9 @@ export class AcerolaAsciiNode extends TempNode {
   private readonly edgesTextureNode = texture(this.edgesTarget.texture);
   private readonly sobelXTextureNode = texture(this.sobelXTarget.texture);
   private readonly sobelTextureNode = texture(this.sobelTarget.texture);
-  private readonly edgesLutNode: TslNode;
-  private readonly fillLutNode: TslNode;
-  private readonly outputTextureNode: TslNode;
+  private readonly edgesLutNode: TextureNode;
+  private readonly fillLutNode: TextureNode;
+  private readonly outputTextureNode: ReturnType<typeof passTexture>;
 
   private luminanceMaterial?: NodeMaterial;
   private downscaleMaterial?: NodeMaterial;
@@ -209,8 +225,8 @@ export class AcerolaAsciiNode extends TempNode {
   };
 
   constructor(
-    colorNode: TslNode,
-    depthNode: TslNode,
+    colorNode: Node<"vec4">,
+    depthNode: TextureNode,
     camera: Camera,
     luts: { edgesTexture: Texture; fillTexture: Texture },
     options: AcerolaAsciiNodeOptions = {},
@@ -224,7 +240,7 @@ export class AcerolaAsciiNode extends TempNode {
     this.fillTexture = luts.fillTexture;
     this.edgesLutNode = texture(this.edgesTexture);
     this.fillLutNode = texture(this.fillTexture);
-    this.outputTextureNode = passTexture(this, this.asciiTarget.texture);
+    this.outputTextureNode = customPassTexture(this, this.asciiTarget.texture);
     this.outputTextureNode.uvNode = this.colorNode.uvNode;
 
     this.resolutionScale = options.resolutionScale ?? 1;
@@ -388,14 +404,15 @@ export class AcerolaAsciiNode extends TempNode {
     this.downscaleTarget.setSize(downscaleWidth, downscaleHeight);
   }
 
-  updateBefore(frame: { renderer: AcerolaRenderTargetRenderer }): void {
+  updateBefore(frame: NodeFrame): undefined {
     const { renderer } = frame;
+    if (!renderer) return;
 
     if (!this.asciiMaterial) {
       this.setup();
     }
 
-    _rendererState = RendererUtils.resetRendererState(renderer, _rendererState);
+    _rendererState = resetRendererState(renderer, _rendererState);
 
     renderer.getDrawingBufferSize(_renderSize);
     this.setSize(_renderSize.x, _renderSize.y);
@@ -417,8 +434,9 @@ export class AcerolaAsciiNode extends TempNode {
       target.texture.type = textureType;
     }
 
-    this.cameraNear.value = "near" in this.camera ? this.camera.near : 0.1;
-    this.cameraFar.value = "far" in this.camera ? this.camera.far : 1000;
+    const clipCamera = this.camera as Camera & { near?: number; far?: number };
+    this.cameraNear.value = clipCamera.near ?? 0.1;
+    this.cameraFar.value = clipCamera.far ?? 1000;
 
     const renderImage = this.renderProfile.image;
     const renderEdges = renderImage || this.renderProfile.terminalEdges;
@@ -447,13 +465,13 @@ export class AcerolaAsciiNode extends TempNode {
     RendererUtils.restoreRendererState(renderer, _rendererState);
   }
 
-  getTextureNode(): TslNode {
+  getTextureNode(): TextureNode {
     return this.outputTextureNode;
   }
 
-  setup(): TslNode {
+  setup(): TextureNode {
     if (!this.luminanceMaterial) {
-      const sourceSample = (uvNode: TslNode) => {
+      const sourceSample = (uvNode: Node<"vec2">) => {
         const transformed = uvNode.mul(2).sub(1)
           .add(vec2(this.offset.x.negate(), this.offset.y).mul(2))
           .mul(this.zoom)
@@ -472,7 +490,7 @@ export class AcerolaAsciiNode extends TempNode {
         return sample;
       };
 
-      const sourceLinearDepth = (uvNode: TslNode) => {
+      const sourceLinearDepth = (uvNode: Node<"vec2">) => {
         const transformed = uvNode.mul(2).sub(1)
           .add(vec2(this.offset.x.negate(), this.offset.y).mul(2))
           .mul(this.zoom)
@@ -496,18 +514,18 @@ export class AcerolaAsciiNode extends TempNode {
         return rawDepth;
       };
 
-      const sampleNearest = (textureNode: TslNode, pixelCoord: TslNode, sizeNode: TslNode) => {
+      const sampleNearest = (textureNode: TextureNode, pixelCoord: Node<"vec2">, sizeNode: Node<"vec2">) => {
         const texel = clamp(pixelCoord, vec2(0), sizeNode.sub(1));
         return textureNode.sample(texel.add(0.5).div(sizeNode));
       };
 
-      const gaussian = (sigmaNode: TslNode, position: number) => {
+      const gaussian = (sigmaNode: Node<"float">, position: number) => {
         const sigmaSquared = sigmaNode.mul(sigmaNode);
         const coefficient = float(1).div(sqrt(float(2).mul(PI).mul(sigmaSquared)));
         return coefficient.mul(exp(float(-(position * position)).div(float(2).mul(sigmaSquared))));
       };
 
-      const classifyDirection = (thetaNode: TslNode, validNode: TslNode) => {
+      const classifyDirection = (thetaNode: Node<"float">, validNode: Node<"float">) => {
         const direction = float(-1).toVar();
         const absTheta = abs(thetaNode).div(PI).toVar();
 
@@ -725,7 +743,7 @@ export class AcerolaAsciiNode extends TempNode {
         const dominantDirection = float(-1).toVar();
         const maxCount = float(0).toVar();
 
-        const updateDominant = (direction: number, count: TslNode) => {
+        const updateDominant = (direction: number, count: Node<"float">) => {
           If(count.greaterThan(maxCount), () => {
             dominantDirection.assign(direction);
             maxCount.assign(count);
@@ -777,8 +795,8 @@ export class AcerolaAsciiNode extends TempNode {
           asciiMask.assign(fillMask);
         });
 
-        const baseAsciiColor = mix(vec3(this.asciiColor), downscaleInfo.rgb, this.blendWithBase).toVar();
-        const asciiColor = mix(vec3(this.backgroundColor), baseAsciiColor, asciiMask).toVar();
+        const baseAsciiColor = mix(colorVec3(this.asciiColor), downscaleInfo.rgb, this.blendWithBase).toVar();
+        const asciiColor = mix(colorVec3(this.backgroundColor), baseAsciiColor, asciiMask).toVar();
 
         const centerDepth = sampleNearest(this.normalsTextureNode, tileBase.add(4), this.renderSize).a;
         const z = centerDepth.mul(1000);
@@ -786,7 +804,7 @@ export class AcerolaAsciiNode extends TempNode {
           .toVar();
         const fogFactor = exp2(fogValue.mul(fogValue).negate()).toVar();
 
-        asciiColor.assign(mix(vec3(this.backgroundColor), asciiColor, fogFactor));
+        asciiColor.assign(mix(colorVec3(this.backgroundColor), asciiColor, fogFactor));
 
         If(this.viewDog, () => {
           asciiColor.assign(vec3(sampleNearest(this.edgesTextureNode, pixelCoord, this.renderSize).r));
@@ -862,7 +880,7 @@ export class AcerolaAsciiNode extends TempNode {
   }
 
   private renderMaterial(
-    renderer: AcerolaRenderTargetRenderer,
+    renderer: Renderer,
     target: RenderTarget,
     material?: NodeMaterial,
     label = "AcerolaAscii",

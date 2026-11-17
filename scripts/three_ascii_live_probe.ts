@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { asciiEffectOptions, createDefaultAsciiOptions } from "../src/three_ascii/options.ts";
 import { createNeonThreeScene } from "../app/neon_three.ts";
 import { type ThreeSceneMode, threeSceneModes, type ThreeSceneSignal } from "../app/types.ts";
@@ -17,13 +18,13 @@ interface ProbeSample {
   columns: number;
 }
 
-const frames = numberArg(Deno.args, "--frames", 24);
-const columns = numberArg(Deno.args, "--columns", 31);
-const rows = numberArg(Deno.args, "--rows", 15);
-const intervalMs = numberArg(Deno.args, "--interval", 55);
-const mode = choiceArg(Deno.args, "--mode", "studio" as ThreeSceneMode, threeSceneModes);
+const frames = numberArg(runtimeHost.args, "--frames", 24);
+const columns = numberArg(runtimeHost.args, "--columns", 31);
+const rows = numberArg(runtimeHost.args, "--rows", 15);
+const intervalMs = numberArg(runtimeHost.args, "--interval", 55);
+const mode = choiceArg(runtimeHost.args, "--mode", "studio" as ThreeSceneMode, threeSceneModes);
 const readbackStrategy = choiceArg(
-  Deno.args,
+  runtimeHost.args,
   "--readback",
   "deferred" as ThreeAsciiReadbackStrategy,
   [
@@ -34,7 +35,7 @@ const readbackStrategy = choiceArg(
 
 const ascii = {
   ...createDefaultAsciiOptions("sharp"),
-  terminalGlyphStyle: stringArg(Deno.args, "--glyphs", "blocks") as ReturnType<
+  terminalGlyphStyle: stringArg(runtimeHost.args, "--glyphs", "blocks") as ReturnType<
     typeof createDefaultAsciiOptions
   >["terminalGlyphStyle"],
 };

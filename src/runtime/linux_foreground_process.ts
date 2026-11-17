@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /** Stable identity for a Linux process across PID reuse. */
@@ -14,10 +15,10 @@ export interface LinuxProcessStat extends LinuxProcessIdentity {
 }
 
 /** Takes a cheap snapshot of the current process's direct Linux children. */
-export function snapshotLinuxDirectChildren(parentPid = Deno.pid): ReadonlySet<number> | undefined {
-  if (Deno.build.os !== "linux") return undefined;
+export function snapshotLinuxDirectChildren(parentPid = runtimeHost.pid): ReadonlySet<number> | undefined {
+  if (runtimeHost.build.os !== "linux") return undefined;
   try {
-    const value = Deno.readTextFileSync(`/proc/${parentPid}/task/${parentPid}/children`).trim();
+    const value = runtimeHost.readTextFileSync(`/proc/${parentPid}/task/${parentPid}/children`).trim();
     if (!value) return new Set();
     return new Set(
       value.split(/\s+/).map(Number).filter((pid) => Number.isSafeInteger(pid) && pid > 0),
@@ -30,7 +31,7 @@ export function snapshotLinuxDirectChildren(parentPid = Deno.pid): ReadonlySet<n
 /** Finds the direct child synchronously created after a prior child snapshot. */
 export function identifySpawnedLinuxChild(
   previous: ReadonlySet<number> | undefined,
-  parentPid = Deno.pid,
+  parentPid = runtimeHost.pid,
 ): LinuxProcessIdentity | undefined {
   if (!previous) return undefined;
   const current = snapshotLinuxDirectChildren(parentPid);
@@ -47,7 +48,7 @@ export function identifySpawnedLinuxChild(
 
 /** Returns the foreground process name for a retained terminal leader. */
 export function inspectLinuxForegroundProcessTitle(identity: LinuxProcessIdentity): string | undefined {
-  if (Deno.build.os !== "linux") return undefined;
+  if (runtimeHost.build.os !== "linux") return undefined;
   const leader = readLinuxProcessStat(identity.pid);
   if (!leader || leader.startTime !== identity.startTime) return undefined;
   const foregroundPid = leader.foregroundProcessGroupId;
@@ -62,9 +63,9 @@ export function inspectLinuxForegroundProcessTitle(identity: LinuxProcessIdentit
 }
 
 export function readLinuxProcessStat(pid: number): LinuxProcessStat | undefined {
-  if (Deno.build.os !== "linux" || !Number.isSafeInteger(pid) || pid <= 0) return undefined;
+  if (runtimeHost.build.os !== "linux" || !Number.isSafeInteger(pid) || pid <= 0) return undefined;
   try {
-    return parseLinuxProcessStat(Deno.readTextFileSync(`/proc/${pid}/stat`));
+    return parseLinuxProcessStat(runtimeHost.readTextFileSync(`/proc/${pid}/stat`));
   } catch {
     return undefined;
   }
@@ -113,7 +114,7 @@ export function sanitizeLinuxProcessTitle(value: string, maximumLength = 128): s
 
 function readLinuxProcessName(pid: number): string | undefined {
   try {
-    return sanitizeLinuxProcessTitle(Deno.readTextFileSync(`/proc/${pid}/comm`));
+    return sanitizeLinuxProcessTitle(runtimeHost.readTextFileSync(`/proc/${pid}/comm`));
   } catch {
     return undefined;
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env -S deno run --allow-read --allow-env
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // Prints a composed screen, in colour, at a size given on the command line.
 //
 // The monitor's job is to look right at sizes nobody can conveniently resize a
@@ -14,7 +15,7 @@ import { planFeeds } from "./tiles.ts";
 import { themeById } from "./theme.ts";
 import type { Snapshot } from "./sampler.ts";
 
-const [size = "120x36", ...rest] = Deno.args;
+const [size = "120x36", ...rest] = runtimeHost.args;
 const themeArg = rest.find((argument) => argument.startsWith("--theme="))?.slice("--theme=".length) ?? "midnight";
 const coreArg = Number(rest.find((argument) => argument.startsWith("--cores="))?.slice("--cores=".length) ?? "16");
 const wanted = rest.filter((argument) => !argument.startsWith("--"));

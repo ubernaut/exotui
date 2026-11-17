@@ -391,5 +391,7 @@ Small, real, and worth doing when adjacent code is next touched:
 
 ## Not scheduled
 
+- **`054` — Wasmtime host** (`todo/054-wasmtime-host.md`): proposed Linux-first port. First gate is the shared
+  TypeScript app running as a guest; WebGPU and durable storage follow. No runtime implementation started.
 - **`036` / `037`** — Textual and OpenTUI parity, and the 200-feature programme. A backlog to pull specific items from
   when a task or demo needs them, not a queue to run top to bottom.

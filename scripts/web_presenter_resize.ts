@@ -1,27 +1,35 @@
 // Copyright 2023 Im-Beast. MIT license.
 /** Real browser growth/shrink regression for the shared presenter, including Canvas2D pixels. */
 import { chromium } from "playwright";
+import { runtimeHost } from "../src/runtime/host.ts";
+import { bundleBrowserForBun } from "../src/runtime/bun_browser_bundle.ts";
 
 const root = new URL("..", import.meta.url).pathname;
-const bundled = await new Deno.Command(Deno.execPath(), {
-  args: [
-    "bundle",
-    "--platform=browser",
-    "--minify",
-    "--config",
-    `${root}/deno.jsonc`,
-    "--frozen",
-    `${root}/src/web/web_presenter.ts`,
-  ],
-  stdout: "piped",
-  stderr: "piped",
-}).output();
-if (!bundled.success) throw new Error(new TextDecoder().decode(bundled.stderr));
-const server = Deno.serve(
+const bundle = runtimeHost.runtime === "bun"
+  ? await bundleBrowserForBun(new URL("../src/web/web_presenter.ts", import.meta.url))
+  : await (async () => {
+    const bundled = await new runtimeHost.Command(runtimeHost.execPath(), {
+      env: { DENO_NO_PACKAGE_JSON: "1" },
+      args: [
+        "bundle",
+        "--platform=browser",
+        "--minify",
+        "--config",
+        `${root}/deno.jsonc`,
+        "--frozen",
+        `${root}/src/web/web_presenter.ts`,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    if (!bundled.success) throw new Error(new TextDecoder().decode(bundled.stderr));
+    return new Uint8Array(bundled.stdout);
+  })();
+const server = runtimeHost.serve(
   { hostname: "127.0.0.1", port: 0, onListen() {} },
   (request) =>
     new URL(request.url).pathname === "/presenter.js"
-      ? new Response(bundled.stdout, { headers: { "content-type": "text/javascript" } })
+      ? new Response(bundle, { headers: { "content-type": "text/javascript" } })
       : new Response(
         "<!doctype html><style>html,body,#app{margin:0;width:100%;height:100%;overflow:hidden}</style><div id=app></div>",
         { headers: { "content-type": "text/html" } },
@@ -30,7 +38,7 @@ const server = Deno.serve(
 let browser;
 try {
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     args: ["--no-sandbox", "--disable-gpu"],
   });
   let cells = 0;

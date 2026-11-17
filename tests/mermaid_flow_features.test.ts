@@ -1,11 +1,14 @@
 // Copyright 2023 Im-Beast. MIT license.
-import { findPackageJSON } from "node:module";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { assert, assertEquals } from "./deps.ts";
 import { MERMAID_FLOW_SHAPES } from "./fixtures/mermaid_standard/flow_features.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 
-Deno.test("flow feature inventory matches every general-purpose shape/alias in the pinned official engine", () => {
-  const metadata = findPackageJSON("mermaid", import.meta.url);
+Deno.test("flow feature inventory matches every general-purpose shape/alias in the pinned official engine", async () => {
+  const metadata = runtimeHost.runtime === "bun"
+    ? createRequire(import.meta.url).resolve("mermaid/package.json")
+    : (await import("node:module")).findPackageJSON("mermaid", import.meta.url);
   assert(metadata, "Pinned Mermaid package metadata unavailable");
   const packageInfo = JSON.parse(Deno.readTextFileSync(metadata));
   assertEquals(packageInfo.version, "12.1.0");

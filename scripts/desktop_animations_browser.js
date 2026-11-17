@@ -1,18 +1,19 @@
 /** Real default/consumer desktop animation check, using native cells and actual chrome input. */
 import { chromium } from "playwright";
+import { runtimeHost } from "../src/runtime/host.ts";
 
 let server, browser;
 const check = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 try {
-  if (!Deno.args[0]) {
+  if (!runtimeHost.args[0]) {
     const root = new URL("../docs/", import.meta.url);
-    server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+    server = runtimeHost.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
       const path = decodeURIComponent(new URL(request.url).pathname);
       if (path.includes("..")) return new Response("Not found", { status: 404 });
       try {
-        return new Response(await Deno.readFile(new URL(path === "/" ? "index.html" : path.slice(1), root)), {
+        return new Response(await runtimeHost.readFile(new URL(path === "/" ? "index.html" : path.slice(1), root)), {
           headers: {
             "content-type": path.endsWith(".js")
               ? "text/javascript"
@@ -27,19 +28,19 @@ try {
     });
   }
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     args: [
       "--no-sandbox",
       "--disable-gpu",
-      ...(Deno.env.get("TECH_STACK_TLS_SPKI")
-        ? [`--ignore-certificate-errors-spki-list=${Deno.env.get("TECH_STACK_TLS_SPKI")}`]
+      ...(runtimeHost.env.get("TECH_STACK_TLS_SPKI")
+        ? [`--ignore-certificate-errors-spki-list=${runtimeHost.env.get("TECH_STACK_TLS_SPKI")}`]
         : []),
     ],
   });
   const context = await browser.newContext({ viewport: { width: 2100, height: 1100 } });
   const page = await context.newPage(), errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(Deno.args[0] ?? `http://127.0.0.1:${server.addr.port}/`);
+  await page.goto(runtimeHost.args[0] ?? `http://127.0.0.1:${server.addr.port}/`);
   await page.waitForFunction(() => globalThis.__desktop?.windows().length > 0);
   await page.waitForTimeout(2300);
   const consumer = await page.evaluate(() => !!globalThis.__techStack);
@@ -369,7 +370,7 @@ try {
   const reduced = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: "reduce" });
   const reducedPage = await reduced.newPage();
   reducedPage.on("pageerror", (error) => errors.push(error.message));
-  await reducedPage.goto(Deno.args[0] ?? `http://127.0.0.1:${server.addr.port}/`);
+  await reducedPage.goto(runtimeHost.args[0] ?? `http://127.0.0.1:${server.addr.port}/`);
   await reducedPage.waitForFunction(() => globalThis.__desktop?.windows().length > 0);
   await reducedPage.evaluate(() => {
     globalThis.__reducedGhosts = false;

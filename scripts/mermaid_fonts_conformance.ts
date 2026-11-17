@@ -1,34 +1,49 @@
 // Copyright 2023 Im-Beast. MIT license.
 /** Real CSS Font Loading/upstream layout proof in isolated browser and Deno hosts; never serves the internal site. */
-import { findPackageJSON } from "node:module";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { Buffer } from "node:buffer";
 import { type Browser, chromium } from "playwright";
 import { createHeadlessMermaidRenderer, type HeadlessMermaidRenderer } from "../mod.mermaid_headless.ts";
 import { renderMermaidNativeFrame } from "../mod.mermaid.ts";
-import { assert, assertEquals, assertRejects } from "../tests/deps.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
+import { bundleBrowserForBun } from "../src/runtime/bun_browser_bundle.ts";
 
 const root = new URL("..", import.meta.url).pathname;
-const mermaid = findPackageJSON("mermaid", import.meta.url);
-const katex = findPackageJSON("katex", mermaid);
+const assertionModule = runtimeHost.runtime === "bun" ? "../tests/bun_assert.ts" : "../tests/deps.ts";
+const assertions: typeof import("../tests/deps.ts") = await import(assertionModule);
+const assert: typeof assertions.assert = assertions.assert;
+const { assertEquals, assertRejects } = assertions;
+const findPackageJSON = runtimeHost.runtime === "deno" ? (await import("node:module")).findPackageJSON : undefined;
+const mermaid = findPackageJSON?.("mermaid", import.meta.url);
+const katex = runtimeHost.runtime === "bun"
+  ? createRequire(import.meta.resolve("mermaid")).resolve("katex/package.json")
+  : findPackageJSON?.("katex", mermaid);
 if (!katex) throw new Error("The pinned Mermaid installation has no KaTeX font fixture.");
 // Existing dependency asset, covered by KaTeX's SIL Open Font License. No font/browser download.
-const font = await Deno.readFile(resolve(dirname(katex), "dist/fonts/KaTeX_Typewriter-Regular.woff2"));
-const bundled = await new Deno.Command(Deno.execPath(), {
-  args: [
-    "bundle",
-    "--platform=browser",
-    "--minify",
-    "--conditions=browser,import",
-    "--config",
-    `${root}/deno.jsonc`,
-    "--frozen",
-    `${root}/mod.mermaid.ts`,
-  ],
-  stdout: "piped",
-  stderr: "piped",
-}).output();
-if (!bundled.success) throw new Error(new TextDecoder().decode(bundled.stderr));
+const font = await runtimeHost.readFile(resolve(dirname(katex), "dist/fonts/KaTeX_Typewriter-Regular.woff2"));
+const executablePath = runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium";
+const bundle = runtimeHost.runtime === "bun"
+  ? await bundleBrowserForBun(new URL("../mod.mermaid.ts", import.meta.url))
+  : await (async () => {
+    const bundled = await new runtimeHost.Command(runtimeHost.execPath(), {
+      env: { DENO_NO_PACKAGE_JSON: "1" },
+      args: [
+        "bundle",
+        "--platform=browser",
+        "--minify",
+        "--conditions=browser,import",
+        "--config",
+        `${root}/deno.jsonc`,
+        "--frozen",
+        `${root}/mod.mermaid.ts`,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    if (!bundled.success) throw new Error(new TextDecoder().decode(bundled.stderr));
+    return new Uint8Array(bundled.stdout);
+  })();
 const gates = new Map<
   string,
   { requested: Promise<void>; announce: () => void; body: Promise<void>; release: () => void }
@@ -40,9 +55,9 @@ for (const name of ["active", "late", "svg", "abort", "timeout", "passes", "disp
   const body = new Promise<void>((done) => release = done);
   gates.set(name, { requested, announce, body, release });
 }
-const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+const server = runtimeHost.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
   const path = new URL(request.url).pathname;
-  if (path === "/engine.js") return new Response(bundled.stdout, { headers: { "content-type": "text/javascript" } });
+  if (path === "/engine.js") return new Response(bundle, { headers: { "content-type": "text/javascript" } });
   const gate = gates.get(path.slice(1));
   if (gate) {
     gate.announce();
@@ -63,7 +78,7 @@ const canonical = (value: unknown): unknown =>
   JSON.parse(JSON.stringify(value).replace(/exotui-mermaid-standard-\d+/g, "exotui-mermaid-standard-ID"));
 try {
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath,
     args: ["--no-sandbox", "--disable-gpu"],
   });
   const page = await browser.newPage();
@@ -252,9 +267,9 @@ try {
     }`,
   );
   const options = {
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath,
     chromiumSandbox: false,
-    browserBundle: bundled.stdout,
+    browserBundle: bundle,
   };
   const supplied = new Uint8Array(font);
   headless = await createHeadlessMermaidRenderer({

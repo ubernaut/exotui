@@ -66,11 +66,12 @@ export class HeadlessGPUCanvasContext {
     device.queue.submit([encoder.finish()]);
 
     await this.readbackBuffer.mapAsync(GPUMapMode.READ);
-    const source = new Uint8Array(this.readbackBuffer.getMappedRange());
-    const result = compactMappedRgbaRows(source, this.canvas.width, this.canvas.height, alignedBytesPerRow);
-
-    this.readbackBuffer.unmap();
-    return result;
+    try {
+      const source = new Uint8Array(this.readbackBuffer.getMappedRange());
+      return compactMappedRgbaRows(source, this.canvas.width, this.canvas.height, alignedBytesPerRow);
+    } finally {
+      this.readbackBuffer.unmap();
+    }
   }
 
   destroy(): void {

@@ -1,10 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
 /** Isolated browser conformance probe; no writes to the preview or the maintainer's desktop. */
 import * as esbuild from "esbuild";
-import { findPackageJSON } from "node:module";
+import { Buffer } from "node:buffer";
 import { dirname, resolve } from "node:path";
 import { type Browser, chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
+import { runtimeHost } from "../src/runtime/host.ts";
+import { browserRuntimeHostStub } from "../src/runtime/bun_browser_bundle.ts";
 import { MERMAID_STANDARD_FIXTURES } from "../tests/fixtures/mermaid_standard/catalogue.ts";
 import { MERMAID_SCENE_FIXTURES } from "../tests/fixtures/mermaid_standard/scenes.ts";
 import {
@@ -21,6 +23,7 @@ import {
 } from "../tests/fixtures/mermaid_standard/semantic_ax.ts";
 
 const root = new URL("..", import.meta.url).pathname;
+const findPackageJSON = runtimeHost.runtime === "deno" ? (await import("node:module")).findPackageJSON : undefined;
 const outputRoot = resolve(root, ".mermaid-conformance-assets");
 const build = await esbuild.build({
   entryPoints: [
@@ -55,16 +58,16 @@ const build = await esbuild.build({
   format: "esm",
   target: "es2022",
   write: false,
-  plugins: [{
+  plugins: runtimeHost.runtime === "bun" ? [browserRuntimeHostStub] : [{
     name: "deno-npm-resolution",
     setup(build) {
       build.onResolve({ filter: /^[^./]/ }, (args) => {
         // Deno keeps npm packages in its cache, not a repo node_modules tree.
         // Resolve each dependency from its real importing package.
         const name = args.path.startsWith("@") ? args.path.split("/").slice(0, 2).join("/") : args.path.split("/")[0]!;
-        const metadata = findPackageJSON(name, args.importer || import.meta.url);
+        const metadata = findPackageJSON?.(name, args.importer || import.meta.url);
         if (!metadata) throw new Error(`Cannot resolve browser package ${args.path}`);
-        const pkg = JSON.parse(Deno.readTextFileSync(metadata));
+        const pkg = JSON.parse(runtimeHost.readTextFileSync(metadata));
         const subpath = args.path === name ? "." : `.${args.path.slice(name.length)}`;
         const conditions = new Set(["browser", "default", args.kind === "require-call" ? "require" : "import"]);
         const select = (entry: unknown): string | undefined => {
@@ -111,7 +114,7 @@ const build = await esbuild.build({
 });
 esbuild.stop();
 const assets = new Map(build.outputFiles!.map((file) => [file.path.slice(outputRoot.length), file.contents]));
-const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (request) => {
+const server = runtimeHost.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (request) => {
   const path = new URL(request.url).pathname;
   if (path === "/" || path === "/zenuml-worker-denied") {
     return new Response("<!doctype html><title>Mermaid conformance</title>", {
@@ -131,7 +134,7 @@ const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (re
     ? new Response(new Uint8Array(asset), { headers: { "content-type": "text/javascript" } })
     : new Response("Not found", { status: 404 });
 });
-const executablePath = Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium";
+const executablePath = runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium";
 let browser: Browser | undefined;
 const failures: string[] = [];
 async function verifyDetachedInkPage(page: Page) {
@@ -659,7 +662,7 @@ try {
   conformance: {
     browser = await chromium.launch({ executablePath, args: ["--no-sandbox", "--disable-gpu"] });
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
-    if (Deno.args.includes("--svg-only")) {
+    if (runtimeHost.args.includes("--svg-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       const probe = await page.evaluate(async () =>
         (await import("/tests/fixtures/mermaid_standard/svg_browser.js")).verifyMermaidSvgBrowser()
@@ -667,7 +670,7 @@ try {
       console.log(`ok browser:official-svg ${JSON.stringify(probe)}`);
       break conformance;
     }
-    if (Deno.args.includes("--ink-overhang-only")) {
+    if (runtimeHost.args.includes("--ink-overhang-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       const probe = await page.evaluate(async () =>
         (await import("/tests/fixtures/mermaid_standard/wide_cells.js")).verifyBrowserInkOverhang()
@@ -679,7 +682,7 @@ try {
       console.log(`ok browser:owned-planes ${JSON.stringify(planes)}`);
       break conformance;
     }
-    if (Deno.args.includes("--math-fractions-dom-only")) {
+    if (runtimeHost.args.includes("--math-fractions-dom-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       const dom = await page.evaluate(async () =>
         (await import("/tests/fixtures/mermaid_standard/math.js")).verifyMermaidFractionDOM()
@@ -687,27 +690,27 @@ try {
       console.log(`ok browser:math-fractions-dom ${JSON.stringify(dom)}`);
       break conformance;
     }
-    if (Deno.args.includes("--math-fractions-only")) {
+    if (runtimeHost.args.includes("--math-fractions-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       console.log(`ok browser:math-fractions ${JSON.stringify(await verifyFractionPage(page))}`);
       break conformance;
     }
-    if (Deno.args.includes("--math-operators-only")) {
+    if (runtimeHost.args.includes("--math-operators-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       console.log(`ok browser:math-operators ${JSON.stringify(await verifyOperatorPage(page))}`);
       break conformance;
     }
-    if (Deno.args.includes("--math-radicals-only")) {
+    if (runtimeHost.args.includes("--math-radicals-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       console.log(`ok browser:math-radicals ${JSON.stringify(await verifyRadicalPage(page))}`);
       break conformance;
     }
-    if (Deno.args.includes("--text-bidi-only")) {
+    if (runtimeHost.args.includes("--text-bidi-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       console.log(`ok browser:text-bidi ${JSON.stringify(await verifyBidiPage(page))}`);
       break conformance;
     }
-    if (Deno.args.includes("--text-transform-only")) {
+    if (runtimeHost.args.includes("--text-transform-only")) {
       await page.goto(`http://127.0.0.1:${server.addr.port}/`);
       console.log(`ok browser:detached-ink-original ${JSON.stringify(await verifyDetachedInkPage(page))}`);
       const dom = await page.evaluate(async () =>
@@ -793,7 +796,7 @@ try {
         })
       }`,
     );
-    if (Deno.args.includes("--filter-references-only")) {
+    if (runtimeHost.args.includes("--filter-references-only")) {
       console.log("ok browser:filter-references-only (not full catalogue coverage)");
       break conformance;
     }
@@ -925,7 +928,7 @@ try {
     } finally {
       await deniedPage.close();
     }
-    if (Deno.args.includes("--zenuml-parser-only")) {
+    if (runtimeHost.args.includes("--zenuml-parser-only")) {
       console.log("ok browser:zenuml-parser-only (not full catalogue coverage)");
       break conformance;
     }
@@ -951,7 +954,7 @@ try {
     });
     await page.goto(`http://127.0.0.1:${server.addr.port}/`);
     const pixelDifference = (left: Uint8Array, right: Uint8Array) => {
-      const a = PNG.sync.read(left), b = PNG.sync.read(right);
+      const a = PNG.sync.read(Buffer.from(left)), b = PNG.sync.read(Buffer.from(right));
       if (a.width !== b.width || a.height !== b.height) throw new Error("Original decoration screenshot size changes.");
       let pixels = 0;
       const colors: Record<string, number> = {};
@@ -1001,7 +1004,7 @@ try {
         (await import("/tests/fixtures/mermaid_standard/text_decoration.js")).verifyBrowserTextDecorations()
       );
       console.log(`ok browser:text-decoration-pixels ${JSON.stringify({ decorationCases, ...guards, canvas })}`);
-      if (Deno.args.includes("--text-decorations-only")) {
+      if (runtimeHost.args.includes("--text-decorations-only")) {
         console.log("ok browser:text-decorations-only (not full catalogue coverage)");
         break conformance;
       }
@@ -2644,7 +2647,7 @@ A["$$\\notAValidKaTeXCommand{x}$$"]`);
     for (const id of uncovered) console.log(`UNCOVERED upstream diagram: ${id}`);
     console.log(JSON.stringify({ fixtures: MERMAID_STANDARD_FIXTURES.length, failures, catalogue, uncovered }));
     // Unsupported extraction/rendering is never silently counted as coverage.
-    if (failures.length || uncovered.length) Deno.exitCode = 1;
+    if (failures.length || uncovered.length) runtimeHost.exitCode = 1;
   }
 } finally {
   try {

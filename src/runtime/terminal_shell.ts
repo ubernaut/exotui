@@ -1,3 +1,4 @@
+import { type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import { TerminalOutputController } from "../components/terminal_output.ts";
 import { Signal } from "../signals/mod.ts";
@@ -214,12 +215,12 @@ export class TerminalShellController {
     return await this.start();
   }
 
-  async stop(signal: Deno.Signal = "SIGTERM"): Promise<boolean> {
+  async stop(signal: RuntimeSignal = "SIGTERM"): Promise<boolean> {
     return await this.terminate(signal);
   }
 
   /** Explicitly terminates the active backend session. */
-  async terminate(signal: Deno.Signal = "SIGTERM"): Promise<boolean> {
+  async terminate(signal: RuntimeSignal = "SIGTERM"): Promise<boolean> {
     const session = this.#session;
     if (!session) return false;
     const stopped = await session.kill(signal);

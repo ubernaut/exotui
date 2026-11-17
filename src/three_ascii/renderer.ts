@@ -2,6 +2,7 @@ import {
   type Camera,
   ClampToEdgeWrapping,
   type Color,
+  DataTexture,
   LinearFilter,
   NoColorSpace,
   PerspectiveCamera,
@@ -94,6 +95,7 @@ import {
   THREE_ASCII_WORKGROUP_SIZE,
 } from "./shaders.ts";
 import { getCompatibleWebGPUDevice } from "./webgpu_compat.ts";
+import { runtimeHost } from "../runtime/host.ts";
 
 const GPU_MAP_READ = 1;
 const bitmapCache = new Map<string, Promise<ImageBitmap>>();
@@ -105,8 +107,8 @@ function imageSourceUrl(source: URL | string): URL {
 async function loadImageBytes(source: URL | string): Promise<Uint8Array> {
   const url = imageSourceUrl(source);
 
-  if (url.protocol === "file:" && typeof Deno !== "undefined") {
-    return await Deno.readFile(url);
+  if (url.protocol === "file:" && runtimeHost) {
+    return await runtimeHost.readFile(url);
   }
 
   const response = await fetch(url);
@@ -160,6 +162,30 @@ async function loadAsciiLutTextures(
   edgesUrl: URL | string,
   fillUrl: URL | string,
 ) {
+  if ("Bun" in globalThis) {
+    // bun-webgpu has no DOM image decoder/copyExternalImageToTexture. Decode
+    // the packaged PNG masks and upload their RGBA pixels through writeTexture.
+    const moduleName = "pngjs";
+    const { PNG } = await import(moduleName);
+    const bufferModuleName = "node:buffer";
+    const { Buffer } = await import(bufferModuleName);
+    const decode = async (source: URL | string): Promise<Texture> => {
+      const image = PNG.sync.read(Buffer.from(await loadImageBytes(source)));
+      const texture = new DataTexture(new Uint8Array(image.data), image.width, image.height);
+      texture.name = "AcerolaAsciiMask";
+      texture.colorSpace = NoColorSpace;
+      texture.generateMipmaps = false;
+      texture.magFilter = LinearFilter;
+      texture.minFilter = LinearFilter;
+      texture.wrapS = ClampToEdgeWrapping;
+      texture.wrapT = ClampToEdgeWrapping;
+      texture.flipY = false;
+      texture.needsUpdate = true;
+      return texture;
+    };
+    const [edgesTexture, fillTexture] = await Promise.all([decode(edgesUrl), decode(fillUrl)]);
+    return { edgesTexture, fillTexture };
+  }
   const [edgesBitmap, fillBitmap] = await Promise.all([
     loadBitmap(edgesUrl),
     loadBitmap(fillUrl),
@@ -172,6 +198,7 @@ async function loadAsciiLutTextures(
 }
 
 type ThreeBackendRenderer = WebGPURenderer & {
+  _nodes?: { nodeFrame: { update(): void } };
   backend: {
     device: GPUDevice;
     get(object: unknown): { texture?: GPUTexture };
@@ -742,6 +769,10 @@ export class ThreeAsciiRenderer {
     const updateMs = performance.now() - updateStart;
     const renderStart = performance.now();
     this.applyRenderProfile(selection, effectState);
+    // Bun's fast native readback can return within one Three RAF tick. Advance
+    // FRAME nodes for each explicit frame, including an ANSI-to-image switch,
+    // instead of reading an unrendered composite. Keep Deno's cadence intact.
+    if ("Bun" in globalThis) this.renderer?._nodes?.nodeFrame.update();
     this.renderPipeline!.render();
     return { initMs, updateMs, renderMs: performance.now() - renderStart };
   }
@@ -969,6 +1000,7 @@ export class ThreeAsciiRenderer {
     this.renderer?.dispose();
     this.renderer = undefined;
     this.device = undefined;
+    this.canvas.context.destroy();
   }
 
   private async initInternal(): Promise<void> {

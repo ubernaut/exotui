@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { crayon } from "crayon";
 
 import {
@@ -104,6 +105,6 @@ tui.on("keyPress", ({ key }) => {
   if (key === "q") {
     logs.dispose();
     tui.destroy();
-    Deno.exit(0);
+    runtimeHost.exit(0);
   }
 });

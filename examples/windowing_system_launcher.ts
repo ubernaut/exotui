@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   createFileExplorerTree,
   FileExplorerController,
@@ -321,9 +322,9 @@ export function formatWorkspaceDemoScreen(
 }
 
 if (import.meta.main) {
-  if (Deno.args.includes("--help") || Deno.args.includes("-h")) {
+  if (runtimeHost.args.includes("--help") || runtimeHost.args.includes("-h")) {
     console.log(formatWorkspaceLauncherHelp());
-    Deno.exit(0);
+    runtimeHost.exit(0);
   }
   requireInteractiveTerminal("deno task workspace-launcher");
   const launch = await runInteractiveWorkspace();
@@ -355,11 +356,11 @@ async function runInteractiveWorkspace(): Promise<WorkspaceDemoItem | undefined>
   const state = createWorkspaceDemoState();
   let frame = 0;
   let launch: WorkspaceDemoItem | undefined;
-  Deno.stdin.setRaw(true, { cbreak: true });
+  runtimeHost.stdin.setRaw(true, { cbreak: true });
   write("\x1b[?1049h\x1b[?25l\x1b[2J");
   try {
     while (true) {
-      const size = Deno.consoleSize();
+      const size = runtimeHost.consoleSize();
       write(`\x1b[H${formatWorkspaceDemoScreen(state, { width: size.columns, height: size.rows, frame })}`);
       frame += 1;
       const key = await readKey();
@@ -390,7 +391,7 @@ async function runInteractiveWorkspace(): Promise<WorkspaceDemoItem | undefined>
       }
     }
   } finally {
-    Deno.stdin.setRaw(false);
+    runtimeHost.stdin.setRaw(false);
     state.explorer.dispose();
     state.manager.dispose();
     write("\x1b[?25h\x1b[?1049l");
@@ -399,21 +400,21 @@ async function runInteractiveWorkspace(): Promise<WorkspaceDemoItem | undefined>
 }
 
 async function launchTask(task: string): Promise<void> {
-  const command = new Deno.Command(Deno.execPath(), {
-    args: ["task", task],
+  const command = new runtimeHost.Command(runtimeHost.execPath(), {
+    args: ["Bun" in globalThis ? "run" : "task", task],
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   });
   const status = await command.spawn().status;
-  Deno.exit(status.code);
+  runtimeHost.exit(status.code);
 }
 
 async function readKey(): Promise<string> {
   const queued = pendingKeys.shift();
   if (queued) return queued;
   const buffer = new Uint8Array(16);
-  const size = await Deno.stdin.read(buffer);
+  const size = await runtimeHost.stdin.read(buffer);
   const value = decoder.decode(buffer.subarray(0, size ?? 0));
   pendingKeys.push(...decodeWorkspaceKeys(value));
   return pendingKeys.shift() ?? "";
@@ -644,5 +645,5 @@ function fit(value: string, width: number): string {
 }
 
 function write(value: string): void {
-  Deno.stdout.writeSync(encoder.encode(value));
+  runtimeHost.stdout.writeSync(encoder.encode(value));
 }

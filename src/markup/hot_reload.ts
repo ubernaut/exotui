@@ -1,3 +1,4 @@
+import { runtimeHost } from "../runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // C1 hot reload: live markup/CSS source swapping with parse diagnostics and
@@ -202,8 +203,8 @@ export interface MarkupHotReloadWatchOptions {
 }
 
 const defaultWatchIo: MarkupHotReloadWatchIo = {
-  readTextFile: (path) => Deno.readTextFile(path),
-  watch: (paths) => Deno.watchFs([...paths]),
+  readTextFile: (path) => runtimeHost.readTextFile(path),
+  watch: (paths) => runtimeHost.watchFs([...paths]),
 };
 
 /**

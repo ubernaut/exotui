@@ -1,3 +1,4 @@
+import { runtimeHost } from "../../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import type { Rectangle } from "../../src/types.ts";
 import type { LayoutNode, LayoutSolverResult } from "../../src/layout/solver.ts";
@@ -284,24 +285,24 @@ function iterationsArgument(args: readonly string[]): number {
 
 function moduleSpecifier(candidate: string): string {
   if (/^[a-z][a-z+.-]*:/i.test(candidate)) return candidate;
-  const base = new URL(`file://${Deno.cwd().replaceAll("\\", "/")}/`);
+  const base = new URL(`file://${runtimeHost.cwd().replaceAll("\\", "/")}/`);
   return new URL(candidate, base).href;
 }
 
 if (import.meta.main) {
-  const candidate = candidateArgument(Deno.args);
+  const candidate = candidateArgument(runtimeHost.args);
   if (!candidate) {
     console.error(
       "Usage: deno run -A scripts/taffy/probe.ts --module ./path/to/taffy-bridge-wrapper.ts [--iterations 100]",
     );
-    Deno.exit(2);
+    runtimeHost.exit(2);
   }
   const specifier = moduleSpecifier(candidate);
   const report = await runTaffyCandidateProbe(
     specifier,
     () => import(specifier),
-    iterationsArgument(Deno.args),
+    iterationsArgument(runtimeHost.args),
   );
   console.log(JSON.stringify(report, null, 2));
-  if (!report.ok) Deno.exit(1);
+  if (!report.ok) runtimeHost.exit(1);
 }

@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -21,14 +22,17 @@ const DATA_VERSION = "17.0.0";
 const fixtures = new URL("../tests/fixtures/unicode/", import.meta.url);
 const gates = [
   runGraphemeConformance(
-    await Deno.readTextFile(new URL(`GraphemeBreakTest-${DATA_VERSION}.txt`, fixtures)),
+    await runtimeHost.readTextFile(new URL(`GraphemeBreakTest-${DATA_VERSION}.txt`, fixtures)),
     DATA_VERSION,
   ),
   runLineBreakConformance(
-    await Deno.readTextFile(new URL(`LineBreakTest-${DATA_VERSION}.txt`, fixtures)),
+    await runtimeHost.readTextFile(new URL(`LineBreakTest-${DATA_VERSION}.txt`, fixtures)),
     DATA_VERSION,
   ),
-  runBidiConformance(await Deno.readTextFile(new URL(`BidiCharacterTest-${DATA_VERSION}.txt`, fixtures)), DATA_VERSION),
+  runBidiConformance(
+    await runtimeHost.readTextFile(new URL(`BidiCharacterTest-${DATA_VERSION}.txt`, fixtures)),
+    DATA_VERSION,
+  ),
   runWidthConformance(DATA_VERSION),
   runEmojiConformance(DATA_VERSION),
 ];
@@ -36,7 +40,7 @@ const gates = [
 const baselinePath = new URL("../budgets/unicode_conformance.json", import.meta.url);
 let previous: Record<string, { dataVersion: string; total: number; passed: number }> = {};
 try {
-  previous = JSON.parse(await Deno.readTextFile(baselinePath));
+  previous = JSON.parse(await runtimeHost.readTextFile(baselinePath));
 } catch {
   console.log("(no previous baseline)");
 }
@@ -49,7 +53,7 @@ for (const gate of gates) {
     : "new gate";
   console.log(`${gate.gate}: ${gate.passed}/${gate.total} (${gate.dataVersion}) — ${status}`);
 }
-await Deno.writeTextFile(
+await runtimeHost.writeTextFile(
   baselinePath,
   JSON.stringify(
     Object.fromEntries(

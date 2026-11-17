@@ -1,6 +1,6 @@
 # Stack
 
-What this project runs on, and why. Current as of October 6 2026.
+What this project runs on, and why. Current as of November 17 2026.
 
 ## Runtime
 
@@ -125,6 +125,12 @@ resolution across other hosts and advanced primitives remain full-standard work.
 type-checker, test runner, permissions, and `deno compile` — with no build step and no `node_modules`. Permissions
 matter here: exomux spawns PTYs and opens a loopback socket, and the runtime makes that explicit.
 
+**Bun 1.4+** is an additional host. `package.json` mirrors the published entrypoints and pins optional dependencies;
+`bun.lock` records their resolution. Terminal, filesystem, process and socket services pass through `runtimeHost`. Deno
+uses its native APIs through that boundary; Bun uses its native process/server/terminal APIs and Node filesystem
+compatibility. Browser imports leave the host undefined and preserve the existing browser presenters. Bun does not
+provide Deno's permission sandbox; application-level permission checks remain separate from runtime access.
+
 ## Dependencies
 
 The portable desktop's `examples/web/desktop_animations.ts` adapts the existing Exomux surface animator, with no new
@@ -148,8 +154,8 @@ genuinely needed it is isolated behind a module boundary and made optional:
 
 - **Layout solvers** — Yoga and Taffy are available as opt-in entrypoints (`@ubernaut/exotui/layout/yoga`,
   `/layout/taffy`). The built-in flex, grid, and linear layouts have no dependency.
-- **PTY** — exomux uses a sigma PTY backend, selected at runtime through `selectExomuxTerminalBackend`, so the host
-  degrades rather than failing when a backend is unavailable.
+- **PTY** — exomux uses a Sigma PTY backend under Deno and native `Bun.Terminal` under Bun on POSIX, selected at runtime
+  through `selectExomuxTerminalBackend`, so the host degrades rather than failing when a backend is unavailable.
 - **butterchurn** — the MilkDrop-style visualiser backgrounds, GPU where WebGPU exists and a CPU renderer where it does
   not. Confined to exomux's background layer.
 - **Mermaid** — the optional experimental `./mermaid` entrypoint pins the full upstream parser/SVG engine to 12.1.0.
@@ -330,6 +336,9 @@ genuinely needed it is isolated behind a module boundary and made optional:
   owned-page recovery and clear on compiler disposal; no OS font installation or automatic resource grant. Compiled
   applications must supply a prebuilt bundle or explicit Deno CLI; otherwise the factory refuses recursive self-spawn.
   Published JSR runtime verification remains a separate gate.
+- **Native Bun GPU** — lazy `bun-webgpu` initialization shares the existing GPU device contract. Three LUTs use decoded
+  PNG data textures because the binding does not implement `copyExternalImageToTexture`. Native libraries and glyph
+  atlases are embedded by the Bun standalone builder.
 
 exomux is a standalone package with its own import map and lockfile, deliberately **not** a workspace member: a Deno
 workspace shares one npm resolution and `deno compile` materialises all of it, which put ~48 MB of unrelated packages

@@ -1,8 +1,9 @@
 /** Real default-desktop checks; isolated loopback server, never the live exomux daemon. */
 import { chromium } from "playwright";
+import { runtimeHost } from "../src/runtime/host.ts";
 
 const root = new URL("../docs/", import.meta.url);
-const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+const server = runtimeHost.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
   const pathname = decodeURIComponent(new URL(request.url).pathname);
   if (pathname.includes("..")) return new Response("Not found", { status: 404 });
   const path = pathname === "/" ? "index.html" : pathname.slice(1);
@@ -14,7 +15,7 @@ const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, asy
       : path.endsWith(".png")
       ? "image/png"
       : "application/octet-stream";
-    return new Response(await Deno.readFile(new URL(path, root)), { headers: { "content-type": mime } });
+    return new Response(await runtimeHost.readFile(new URL(path, root)), { headers: { "content-type": mime } });
   } catch {
     return new Response("Not found", { status: 404 });
   }
@@ -22,7 +23,7 @@ const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, asy
 let browser;
 try {
   browser = await chromium.launch({
-    executablePath: Deno.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
+    executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM") ?? "/snap/bin/chromium",
     args: ["--no-sandbox", "--disable-gpu"],
   });
   const context = await browser.newContext({

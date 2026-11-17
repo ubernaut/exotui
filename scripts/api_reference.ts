@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { type ApiInventory, type ApiModuleInventory, createApiInventory } from "./api_inventory.ts";
 import { type ApiStabilityTier, packageEntrypoints, type PackageRuntime } from "../src/api_stability.ts";
 import { textWidth } from "../src/utils/strings.ts";
@@ -318,26 +319,26 @@ function formatPercent(value: number): string {
 }
 
 if (import.meta.main) {
-  const checkArgument = Deno.args.find((arg) => arg.startsWith("--check="));
+  const checkArgument = runtimeHost.args.find((arg) => arg.startsWith("--check="));
   const checkPath = checkArgument?.slice("--check=".length);
   if (checkArgument && !checkPath) {
     console.error("--check requires a file path");
-    Deno.exit(2);
+    runtimeHost.exit(2);
   }
-  const entrypoint = Deno.args.find((arg) => !arg.startsWith("--")) ?? "mod.ts";
+  const entrypoint = runtimeHost.args.find((arg) => !arg.startsWith("--")) ?? "mod.ts";
   let markdown: string;
-  if (Deno.args.includes("--single") || Deno.args.some((arg) => !arg.startsWith("--"))) {
+  if (runtimeHost.args.includes("--single") || runtimeHost.args.some((arg) => !arg.startsWith("--"))) {
     const inventory = await createApiInventory(entrypoint);
     markdown = formatApiReferenceMarkdown(inventory);
   } else {
     markdown = formatPackageApiReferenceMarkdown(await createPackageApiReferenceSections());
   }
   if (checkPath) {
-    if (await Deno.readTextFile(checkPath) !== markdown) {
+    if (await runtimeHost.readTextFile(checkPath) !== markdown) {
       console.error(`${checkPath} is stale; regenerate it with deno task api-reference`);
-      Deno.exit(1);
+      runtimeHost.exit(1);
     }
   } else {
-    await Deno.stdout.write(new TextEncoder().encode(markdown));
+    await runtimeHost.stdout.write(new TextEncoder().encode(markdown));
   }
 }

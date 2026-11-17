@@ -120,7 +120,7 @@ export async function verifyMermaidSemantics(renderer: Pick<MermaidStandardRende
   for (const mode of ["none", "uppercase"]) {
     const diagram = await renderer.compile(
       String.raw`flowchart LR
-A["$$\text{Straße}+x$$"]`,
+A["$$\text{${"Straße"}}+x$$"]`,
       {
         trusted: true,
         config: { themeCSS: `mtext, mi { text-transform:${mode}; }` },

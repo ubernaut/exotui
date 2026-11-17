@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { formatLayoutRecipeMarkdown, inspectLayoutRecipe, type ResponsiveLayoutRecipe } from "../mod.ts";
 
 type SlotId = "header" | "nav" | "main" | "details" | "footer";
@@ -38,7 +39,7 @@ const recipe: ResponsiveLayoutRecipe<SlotId> = {
   },
 };
 
-if (Deno.args.includes("--json")) {
+if (runtimeHost.args.includes("--json")) {
   console.log(JSON.stringify(inspectLayoutRecipe(recipe), null, 2));
 } else {
   console.log(formatLayoutRecipeMarkdown(recipe, { title: "Responsive Shell Recipe" }));

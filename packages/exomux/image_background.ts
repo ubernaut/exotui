@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+
 // A picture as the desktop background, rendered in shaded blocks.
 //
 // The image is decoded once, box-filtered down to the cell grid with the
@@ -203,7 +205,7 @@ export class ExomuxImageField {
           this.#dirty = true;
         });
     } else if (options.path) {
-      this.#loading = Deno.readFile(options.path)
+      this.#loading = runtimeHost.readFile(options.path)
         .then(decodeExomuxImage)
         .then((image) => {
           this.#image = image;

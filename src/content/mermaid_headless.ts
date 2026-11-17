@@ -2,6 +2,7 @@
 import type { Browser, BrowserContext, Page } from "playwright";
 import { fileURLToPath } from "node:url";
 import { Buffer } from "node:buffer";
+import { runtimeHost } from "../runtime/host.ts";
 import {
   type MermaidResourceInspection,
   type MermaidResourceLimits,
@@ -42,7 +43,7 @@ export interface HeadlessMermaidOptions {
   timeoutMs?: number;
   maxPending?: number;
   viewport?: { width: number; height: number };
-  /** Prebuilt full browser module; required for compiled applications without a Deno bundler/source tree. */
+  /** Prebuilt full browser module; supply this when running without a bundler/source tree. */
   browserBundle?: Uint8Array;
   /** Deno CLI used to bundle the package's optional browser entrypoint when browserBundle is absent. */
   denoExecutable?: string;
@@ -330,7 +331,8 @@ export class HeadlessMermaidRenderer {
     try {
       await page.goto(origin + "/", { timeout: this.#timeoutMs });
       await page.evaluate(async ({ limits, icons, fonts }) => {
-        const module = await import("/engine.js") as typeof import("../../mod.mermaid.ts");
+        const enginePath: string = "/engine.js";
+        const module = await import(enginePath) as typeof import("../../mod.mermaid.ts");
         const renderer = await module.createMermaidStandardRenderer({
           fonts: {
             limits: fonts?.limits,
@@ -589,12 +591,16 @@ function abortPromise(
 }
 
 async function browserBundle(options: HeadlessMermaidOptions): Promise<Uint8Array> {
-  if (Deno.build.standalone && !options.denoExecutable) {
+  if (runtimeHost.build.standalone && !options.denoExecutable) {
     throw new Error(
       "Compiled applications must supply a prebuilt Mermaid browserBundle or an explicit denoExecutable.",
     );
   }
   const moduleURL = new URL("../../mod.mermaid.ts", import.meta.url);
+  if (runtimeHost.runtime === "bun" && !options.denoExecutable) {
+    const { bundleBrowserForBun } = await import("../runtime/bun_browser_bundle.ts");
+    return await bundleBrowserForBun(moduleURL, options.signal);
+  }
   const jsr = moduleURL.href.match(/^https:\/\/jsr\.io\/(@[^/]+\/[^/]+)\/([^/]+)\//);
   const entry = jsr ? `jsr:${jsr[1]}@${jsr[2]}/mermaid` : moduleURL.href;
   const args = ["bundle", "--platform=browser", "--minify", "--conditions=browser,import"];
@@ -606,8 +612,10 @@ async function browserBundle(options: HeadlessMermaidOptions): Promise<Uint8Arra
     AbortSignal.timeout(options.timeoutMs ?? 30_000),
     ...options.signal ? [options.signal] : [],
   ]);
-  const output = await new Deno.Command(options.denoExecutable ?? Deno.execPath(), {
+  const output = await new runtimeHost.Command(options.denoExecutable ?? runtimeHost.execPath(), {
     args,
+    // The browser graph uses Deno's pinned imports, not the parallel Bun manifest.
+    env: { DENO_NO_PACKAGE_JSON: "1" },
     stdout: "piped",
     stderr: "piped",
     signal,

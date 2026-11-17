@@ -4248,6 +4248,7 @@ Deno.test("Exomux start menu holds every command and frees the bottom rows", asy
     assertEquals(layout.items.map((item) => item.id), [
       "new",
       "network",
+      "files",
       "sessions",
       "config",
       "help",
@@ -4847,6 +4848,7 @@ Deno.test("Exomux right-clicks the desktop to open the menu at the cursor", asyn
 Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an active butterchurn", () => {
   // Off a butterchurn background, the menu is just the standard commands.
   const offButterchurn = exomuxStartMenuItems({
+    folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => undefined },
     backgroundId: { peek: () => "metaballs" },
     isButterchurnFavorite: () => false,
@@ -4856,6 +4858,7 @@ Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an acti
   // Over one, the favorite item sits directly below "Settings" (the config
   // command), and its box is empty for a preset not yet favorited.
   const unfavorited = exomuxStartMenuItems({
+    folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn" },
     isButterchurnFavorite: (_name: string) => false,
@@ -4871,6 +4874,7 @@ Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an acti
   // The box is checked when the showing preset is already a favorite, and the
   // software butterchurn is treated the same as the GPU one.
   const favorited = exomuxStartMenuItems({
+    folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn cpu" },
     isButterchurnFavorite: (name: string) => name === "Some Preset",

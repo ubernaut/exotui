@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 export interface HealthStep {
   name: string;
   command: string[];
@@ -107,7 +108,7 @@ export async function runHealth(
   const results: HealthResult[] = [];
   for (const step of steps) {
     const started = performance.now();
-    const command = new Deno.Command(step.command[0], {
+    const command = new runtimeHost.Command(step.command[0], {
       args: step.command.slice(1),
       cwd: options.cwd,
       stdout: options.stdout ?? "inherit",
@@ -140,6 +141,6 @@ if (import.meta.main) {
     console.log(formatHealthResult(result));
   }
   if (!healthSucceeded(results)) {
-    Deno.exit(1);
+    runtimeHost.exit(1);
   }
 }

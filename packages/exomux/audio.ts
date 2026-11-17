@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { type RuntimeChildProcess, runtimeHost } from "@ubernaut/exotui/runtime";
+
 // System-microphone analyser for reactive Exomux backgrounds.
 //
 // Ported from butterchurnxr's `asciichurn/audio.ts`. Raw PCM is captured from
@@ -105,7 +107,7 @@ const RECORDERS: readonly RecorderCandidate[] = Object.freeze([
 /** The configured capture device, or undefined when the default should be used. */
 function configuredDevice(): string | undefined {
   try {
-    return Deno.env.get(EXOMUX_AUDIO_DEVICE_ENV) || undefined;
+    return runtimeHost.env.get(EXOMUX_AUDIO_DEVICE_ENV) || undefined;
   } catch {
     // No `--allow-env`; fall back to the recorder's own default.
     return undefined;
@@ -231,7 +233,7 @@ export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}):
   let totalSamples = 0;
   let source: ExomuxAudioSourceKind = "starting";
   let recorderName = "";
-  let recorder: Deno.ChildProcess | undefined;
+  let recorder: RuntimeChildProcess | undefined;
   let closed = false;
 
   const hann = new Float32Array(FFT_SIZE);
@@ -376,7 +378,7 @@ export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}):
     if (usable & 1) carry.byte = bytes[bytes.length - 1]!;
   }
 
-  async function readStream(process: Deno.ChildProcess): Promise<void> {
+  async function readStream(process: RuntimeChildProcess): Promise<void> {
     const carry: { byte: number | undefined } = { byte: undefined };
     const reader = process.stdout.getReader();
     try {
@@ -399,9 +401,9 @@ export function createExomuxAudioSource(options: ExomuxAudioSourceOptions = {}):
       // recording the microphone instead.
       if (mode === "system" && !candidate.monitorArgs && !device) continue;
       const extra = device ? [candidate.deviceFlag, device] : mode === "system" ? [...candidate.monitorArgs!] : [];
-      let process: Deno.ChildProcess;
+      let process: RuntimeChildProcess;
       try {
-        process = new Deno.Command(candidate.name, {
+        process = new runtimeHost.Command(candidate.name, {
           args: [...candidate.args, ...extra],
           stdin: "null",
           stdout: "piped",

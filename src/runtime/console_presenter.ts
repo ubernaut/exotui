@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // The console presenter: `ShellPresenter` over a real terminal. The other
@@ -44,7 +45,7 @@ const LEAVE_SCREEN = "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?25h\x1b[?1049l";
  */
 export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPresenter {
   const encoder = new TextEncoder();
-  const stdout = Deno.stdout;
+  const stdout = runtimeHost.stdout;
   const write = (text: string) => stdout.writeSync(encoder.encode(text));
   write(ENTER_SCREEN);
 
@@ -52,7 +53,7 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
   const emitter = new EventEmitter<InputEventRecord>();
   const abort = new AbortController();
   const envelopes = new InputEnvelopeFactory({ now: Date.now });
-  void emitInputEvents(Deno.stdin, emitter, 0, { signal: abort.signal });
+  void emitInputEvents(runtimeHost.stdin, emitter, 0, { signal: abort.signal });
 
   let size: ShellPresenterSize = consoleSizeNow();
   const resizeListeners = new Set<(size: ShellPresenterSize) => void>();
@@ -65,10 +66,10 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
   };
   const resizeTimer = setInterval(pollResize, 250);
   let winch: (() => void) | undefined;
-  if (Deno.build.os !== "windows") {
+  if (runtimeHost.build.os !== "windows") {
     winch = pollResize;
     try {
-      Deno.addSignalListener("SIGWINCH", winch);
+      runtimeHost.addSignalListener("SIGWINCH", winch);
     } catch {
       winch = undefined;
     }
@@ -103,7 +104,7 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
 
   const stores = new Map<string, AsyncStore<unknown>>();
   const storeDirectory = options.storeDirectory ??
-    `${Deno.env.get("HOME") ?? "."}/.exotui`;
+    `${runtimeHost.env.get("HOME") ?? "."}/.exotui`;
 
   let disposed = false;
   const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -151,7 +152,7 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
       let store = stores.get(name);
       if (!store) {
         try {
-          Deno.mkdirSync(storeDirectory, { recursive: true });
+          runtimeHost.mkdirSync(storeDirectory, { recursive: true });
           store = new JsonFileStore(`${storeDirectory}/${name}.json`);
         } catch {
           store = new MemoryStore();
@@ -169,13 +170,13 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
       for (const timer of timers) clearTimeout(timer);
       if (winch) {
         try {
-          Deno.removeSignalListener("SIGWINCH", winch);
+          runtimeHost.removeSignalListener("SIGWINCH", winch);
         } catch {
           // Already removed with the process teardown.
         }
       }
       try {
-        Deno.stdin.setRaw(false);
+        runtimeHost.stdin.setRaw(false);
       } catch {
         // Not a TTY; nothing to restore.
       }
@@ -186,7 +187,7 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
 
 function consoleSizeNow(): ShellPresenterSize {
   try {
-    const { columns, rows } = Deno.consoleSize();
+    const { columns, rows } = runtimeHost.consoleSize();
     return { columns, rows };
   } catch {
     return { columns: 80, rows: 24 };

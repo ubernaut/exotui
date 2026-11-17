@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import {
   createKittyGraphicsDeleteCommand,
@@ -315,7 +316,7 @@ export function createKittyGraphicsSurface(options: KittyGraphicsSurfaceOptions)
 
 /** Detects whether the current tmux session permits Kitty graphics passthrough. */
 export async function detectTmuxPassthroughAllowed(options: DetectTmuxPassthroughOptions = {}): Promise<boolean> {
-  const tmux = options.tmux ?? Deno.env.get("TMUX");
+  const tmux = options.tmux ?? runtimeHost.env.get("TMUX");
   if (!tmux) return true;
 
   try {
@@ -338,7 +339,7 @@ export class WorkbenchKittyGraphicsController {
   static async create(
     options: CreateWorkbenchKittyGraphicsControllerOptions,
   ): Promise<WorkbenchKittyGraphicsController> {
-    const tmux = options.tmux ?? Deno.env.get("TMUX") ?? null;
+    const tmux = options.tmux ?? runtimeHost.env.get("TMUX") ?? null;
     const tmuxPassthroughAllowed = await detectTmuxPassthroughAllowed({ tmux, command: options.command });
     return new WorkbenchKittyGraphicsController({ ...options, tmux, tmuxPassthroughAllowed });
   }
@@ -415,7 +416,7 @@ function cursorMove(row: number, column: number): string {
 }
 
 async function defaultTmuxPassthroughCommand(): Promise<TmuxPassthroughProbeResult> {
-  return await new Deno.Command("tmux", {
+  return await new runtimeHost.Command("tmux", {
     args: ["show-options", "-gqv", "allow-passthrough"],
   }).output();
 }

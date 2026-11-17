@@ -387,3 +387,42 @@ Follow-up fix direction: explicit disconnect notification with retained close co
 host with bounded retry; restore terminal subscriptions from retained sequence positions and update attachment/UI state;
 regression coverage for disconnect after successful attachment and recovery while PTYs continue. Preserve the current
 instance until the user is ready to recover or restart it. Exact original close trigger remains unknown.
+
+## 2026-10-09 — Bun portability feasibility and assistant time estimate
+
+Research requested; no port implementation or plan.md changes. ICC query-only work dossier and source status were
+obtained for registered repo `deno_tui`; status and CLI freshness confirmed current source and derived stores. The work
+dossier suggested unrelated plugin/key-sequence/background work, which was outside this investigation and not pursued.
+
+Evidence on installed Bun 1.3.9, Deno 2.9.2, Linux:
+
+- Direct `bun --no-install` dynamic imports succeeded for 10/16 configured entrypoints: root, shell, remote, showcase,
+  viz, theme, runtime, terminal, testing, and layout/taffy. App failed resolving markdown-it; web, three-ascii, and
+  viz/three failed resolving three; layout/yoga and layout/taffy-wasm failed resolving their optional solver packages.
+  These are import checks, not proof of runtime or declaration compatibility. Deno import-map pins need a Bun package
+  manifest or equivalent distribution resolution.
+- `new Tui({})` failed with `Deno is not defined`. Awaited headless application construction succeeded, but teardown
+  failed on Deno access. Main seams: stdin/stdout and public Deno-derived types, raw/cbreak input semantics, terminal
+  sizing/signals/cleanup, console presenter, filesystem storage/watchers, subprocesses, environment and Linux process
+  inspection. A textual Deno scan matched 24/588 source files, including comments, generated templates and type-only
+  use.
+- Seven unchanged test files (signals, unicode_width, unicode_grapheme, theme_core, theme_tokens, layout_dock,
+  workbench_window_host) were bundled with Deno to an external temporary artifact and executed by Bun. A temporary
+  Deno.test registration/step shim and an explicit reader for the unchanged grapheme fixture yielded 62 top-level tests
+  plus 29 subtests passing, zero failures. Initial fixture test failed because the harness lacked readFile; adding that
+  harness adapter resolved it. This is a selected compatibility probe, not the full suite or Bun-native CI.
+- Bun.spawn with a native terminal ran a shell that printed `bun-pty-ok` and verified `test -t 1`; exit 0. This supports
+  a separate Bun backend behind TerminalBackend instead of porting Sigma's Deno FFI implementation. Interactive input,
+  resizing, backpressure, child cleanup and foreground-title behavior remain to verify.
+- Installed Bun exposes Worker and Bun.Terminal but no navigator.gpu. Native GPU/Three ASCII parity needs an optional
+  GPU integration investigation; it is excluded from the ordinary terminal-port estimate. Browser GPU support remains a
+  separate host capability. Existing build_esm_artifacts.ts covers only remote and theme, not the terminal library.
+- Official Bun documentation and JSR usage documentation were consulted. Current docs describe newer Bun versions;
+  conclusions about this machine are grounded in the installed-version probes. No runtime was upgraded.
+
+Assistant active-work estimates, cumulative for the library on Linux: 1–2 hours for a basic demo prototype; 4–8 hours
+for usable core terminal support; 8–16 hours for packaged non-GPU library support including optional host adapters,
+consumer types, meaningful Bun checks, Deno regression checks and documentation. Exomux adds a tentative 16–32 hours for
+daemon, WebSocket, persistence, PTY and launcher migration, with lower confidence. Windows/macOS verification and native
+GPU parity are not included. Recommendation: preserve a shared Deno/Bun core with explicit host adapters. No performance
+improvement is established by these probes. Runtime artifacts stayed outside the repository.

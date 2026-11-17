@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -17,7 +18,7 @@ import { EXOMUX_BUTTERCHURN_CATALOG } from "../packages/exomux/butterchurn_catal
 import { ExomuxButterchurnPreset } from "../packages/exomux/butterchurn_preset.ts";
 import { EXOMUX_AUDIO_BANDS, EXOMUX_AUDIO_WAVEFORM } from "../packages/exomux/audio.ts";
 
-const TARGET = Deno.args[0] ?? "Ego Decontructor";
+const TARGET = runtimeHost.args[0] ?? "Ego Decontructor";
 const FRAMES = 60;
 const STRIDE = 10;
 const WATCH = [
@@ -47,18 +48,18 @@ const WATCH = [
   "q8",
 ];
 
-const scratch = await Deno.makeTempDir({
+const scratch = await runtimeHost.makeTempDir({
   prefix: "bc-eq-",
-  ...(Deno.env.get("BC_AB_TMP") ? { dir: Deno.env.get("BC_AB_TMP")! } : {}),
+  ...(runtimeHost.env.get("BC_AB_TMP") ? { dir: runtimeHost.env.get("BC_AB_TMP")! } : {}),
 });
 
 async function fetchTarball(url: string, into: string): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`fetch failed: ${url}`);
   const tarPath = `${into}.tgz`;
-  await Deno.writeFile(tarPath, new Uint8Array(await response.arrayBuffer()));
-  await Deno.mkdir(into, { recursive: true });
-  const untar = new Deno.Command("tar", { args: ["xzf", tarPath, "-C", into] });
+  await runtimeHost.writeFile(tarPath, new Uint8Array(await response.arrayBuffer()));
+  await runtimeHost.mkdir(into, { recursive: true });
+  const untar = new runtimeHost.Command("tar", { args: ["xzf", tarPath, "-C", into] });
   if (!(await untar.output()).success) throw new Error(`untar failed: ${url}`);
 }
 
@@ -68,8 +69,11 @@ await fetchTarball(
   "https://registry.npmjs.org/milkdrop-preset-converter-aws/-/milkdrop-preset-converter-aws-0.1.6.tgz",
   `${scratch}/mpc`,
 );
-await Deno.copyFile(`${scratch}/bc/package/lib/butterchurn.js`, `${scratch}/butterchurn.unmin.js`);
-await Deno.copyFile(`${scratch}/bcp/package/lib/butterchurnPresets.min.js`, `${scratch}/butterchurnPresets.min.js`);
+await runtimeHost.copyFile(`${scratch}/bc/package/lib/butterchurn.js`, `${scratch}/butterchurn.unmin.js`);
+await runtimeHost.copyFile(
+  `${scratch}/bcp/package/lib/butterchurnPresets.min.js`,
+  `${scratch}/butterchurnPresets.min.js`,
+);
 
 async function convertEquations(
   init: string,
@@ -87,7 +91,7 @@ async function convertEquations(
       "", ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)},
     )).then((result) => console.log(JSON.stringify(result)));
   `;
-  const run = new Deno.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
+  const run = new runtimeHost.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
   const output = await run.output();
   if (!output.success) throw new Error("conversion failed: " + new TextDecoder().decode(output.stderr));
   return JSON.parse(new TextDecoder().decode(output.stdout).trim().split("\n").pop()!);
@@ -173,13 +177,13 @@ const page = `<!doctype html>
 })();
 </script>
 </body></html>`;
-await Deno.writeTextFile(`${scratch}/index.html`, page);
+await runtimeHost.writeTextFile(`${scratch}/index.html`, page);
 
-const server = Deno.serve({ port: 8143, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
+const server = runtimeHost.serve({ port: 8143, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
   const path = new URL(request.url).pathname;
   const file = path === "/" ? "/index.html" : path;
   try {
-    const body = await Deno.readFile(`${scratch}${file}`);
+    const body = await runtimeHost.readFile(`${scratch}${file}`);
     const type = file.endsWith(".js") ? "text/javascript" : "text/html";
     return new Response(body, { headers: { "content-type": type } });
   } catch {
@@ -189,7 +193,7 @@ const server = Deno.serve({ port: 8143, hostname: "127.0.0.1", onListen: () => {
 let realResult = "";
 for (const binary of ["google-chrome", "chromium"]) {
   try {
-    const run = new Deno.Command(binary, {
+    const run = new runtimeHost.Command(binary, {
       args: [
         "--headless",
         "--no-sandbox",
@@ -224,7 +228,7 @@ const real = JSON.parse(realResult) as {
 if (real.error) throw new Error("real side failed: " + real.error);
 
 // ── our side: same preset, silence, 30 fps ────────────────────────────
-const preset = new ExomuxButterchurnPreset(catalogEntry, 96, 28);
+const preset = new ExomuxButterchurnPreset(catalogEntry, { meshWidth: 96, meshHeight: 28 });
 preset.debugWatch(WATCH);
 const bands = new Float32Array(EXOMUX_AUDIO_BANDS);
 const waveform = new Float32Array(EXOMUX_AUDIO_WAVEFORM);

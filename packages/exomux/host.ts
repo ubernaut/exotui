@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost, type RuntimeHttpServer } from "@ubernaut/exotui/runtime";
+
 import type { ProcessSessionInspection } from "@ubernaut/exotui/terminal";
 import { ExomuxTerminalModeTracker } from "./terminal_modes.ts";
 import { exomuxChildEnvironment } from "./terminal_env.ts";
@@ -8,7 +10,7 @@ import {
   type TerminalBackend,
   type TerminalSessionHandle,
 } from "@ubernaut/exotui/terminal";
-import { createSigmaPtyTerminalBackend } from "@ubernaut/exotui/terminal";
+import { createBunPtyTerminalBackend, createSigmaPtyTerminalBackend } from "@ubernaut/exotui/terminal";
 import {
   decodeExomuxClientMessage,
   decodeExomuxData,
@@ -191,6 +193,7 @@ interface HostSession {
   handle: TerminalSessionHandle;
   title: string;
   titleCheckedAt: number;
+  titleRefreshTimer?: ReturnType<typeof setTimeout>;
   columns: number;
   rows: number;
   createdAt: number;
@@ -469,7 +472,9 @@ export class ExomuxHostController {
         if (!accepted) throw hostError("input-rejected", "Terminal backend rejected input.");
         session.updatedAt = this.#now();
         connection.enqueue(ack(request.requestId, "input", session.id));
-        setTimeout(() => {
+        clearTimeout(session.titleRefreshTimer);
+        session.titleRefreshTimer = setTimeout(() => {
+          session.titleRefreshTimer = undefined;
           if (this.#sessions.get(session.id) !== session || session.terminated) return;
           if (this.#refreshSessionTitle(session, true)) this.#broadcastState(session);
         }, SESSION_TITLE_REFRESH_MS);
@@ -574,7 +579,7 @@ export class ExomuxHostController {
           // here and painted kitty graphics into a screen model that, at the
           // time, printed the base64 as text.
           env: exomuxChildEnvironment({
-            inherited: Deno.env.toObject(),
+            inherited: runtimeHost.env.toObject(),
             ...(request.env ? { requested: request.env } : {}),
           }),
           columns: request.columns ?? 80,
@@ -827,6 +832,8 @@ export class ExomuxHostController {
 
   async #performTermination(session: HostSession): Promise<void> {
     session.terminating = true;
+    clearTimeout(session.titleRefreshTimer);
+    session.titleRefreshTimer = undefined;
     let disposalFailed = false;
     try {
       await session.handle.kill("SIGTERM").catch(() => false);
@@ -1291,11 +1298,18 @@ export interface ExomuxHostBackendInspection {
   readonly degradedReason?: string;
 }
 
+/** Load the native PTY implementation for the current runtime. */
+async function createRuntimePtyBackend(options: { readonly pollingIntervalMs: number }): Promise<TerminalBackend> {
+  return typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
+    ? createBunPtyTerminalBackend(options)
+    : await createSigmaPtyTerminalBackend(options);
+}
+
 /** Picks the PTY backend when it loads and records the failure when it does not. */
 export async function selectExomuxTerminalBackend(
   createPtyBackend: (
     options: { readonly pollingIntervalMs: number },
-  ) => Promise<TerminalBackend> = createSigmaPtyTerminalBackend,
+  ) => Promise<TerminalBackend> = createRuntimePtyBackend,
 ): Promise<ExomuxTerminalBackendSelection> {
   try {
     const backend = await createPtyBackend({ pollingIntervalMs: EXOMUX_PTY_POLLING_INTERVAL_MS });
@@ -1313,7 +1327,7 @@ export async function selectExomuxTerminalBackend(
 export async function createDefaultExomuxTerminalBackend(
   createPtyBackend: (
     options: { readonly pollingIntervalMs: number },
-  ) => Promise<TerminalBackend> = createSigmaPtyTerminalBackend,
+  ) => Promise<TerminalBackend> = createRuntimePtyBackend,
 ): Promise<TerminalBackend> {
   return (await selectExomuxTerminalBackend(createPtyBackend)).backend;
 }
@@ -1356,9 +1370,9 @@ export function serveExomuxHost(options: ServeExomuxHostOptions): ExomuxHostServ
     rejectAddress = reject;
   });
 
-  let server: Deno.HttpServer<Deno.NetAddr>;
+  let server: RuntimeHttpServer;
   try {
-    server = Deno.serve(
+    server = runtimeHost.serve(
       {
         hostname,
         port,
@@ -1388,7 +1402,7 @@ export function serveExomuxHost(options: ServeExomuxHostOptions): ExomuxHostServ
             headers: { "cache-control": "no-store", upgrade: "websocket" },
           });
         }
-        const { socket, response } = Deno.upgradeWebSocket(request);
+        const { socket, response } = runtimeHost.upgradeWebSocket(request);
         const connection = controller.connect({
           async send(message, signal) {
             const messageBytes = OUTPUT_ENCODER.encode(message).byteLength;

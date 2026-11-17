@@ -4,12 +4,13 @@ import { Markdown, MarkdownSurface, TITLE_HEADING_FONTS } from "../mod.document.
 import { prepareMermaidMarkdown } from "../mod.mermaid.ts";
 import { createHeadlessMermaidRenderer } from "../mod.mermaid_headless.ts";
 import { createAnsiStyle } from "../src/theme.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 
 const accepted = new Set(["--snapshot", "--animate", "--no-chromium-sandbox", "--help"]);
-for (const argument of Deno.args) {
+for (const argument of runtimeHost.args) {
   if (argument.startsWith("--") && !accepted.has(argument)) throw new Error(`Unknown option: ${argument}`);
 }
-if (Deno.args.includes("--help")) {
+if (runtimeHost.args.includes("--help")) {
   console.log(
     "deno task mermaid:document-viewer [document.md] [--snapshot] [--animate] [--no-chromium-sandbox]\n" +
       "Set EXOTUI_CHROMIUM to an installed Chromium executable. No browser is downloaded.\n" +
@@ -18,11 +19,11 @@ if (Deno.args.includes("--help")) {
       "--snapshot prints one native 120x40 frame without terminal input.\n" +
       "--animate opts into host-clock playback; omit it for a deterministic/reduced-motion frame.",
   );
-  Deno.exit(0);
+  runtimeHost.exit(0);
 }
-const paths = Deno.args.filter((argument) => !argument.startsWith("--"));
+const paths = runtimeHost.args.filter((argument) => !argument.startsWith("--"));
 if (paths.length > 1) throw new Error("Pass at most one Markdown document.");
-const source = paths[0] ? await Deno.readTextFile(paths[0]) : [
+const source = paths[0] ? await runtimeHost.readTextFile(paths[0]) : [
   "# Full Mermaid",
   "",
   "Official grammar and layout, composed with ordinary ExotUI cells. No HTML overlay or source-text substitute.",
@@ -72,10 +73,10 @@ const source = paths[0] ? await Deno.readTextFile(paths[0]) : [
 ].join("\n");
 const horizontalOffset = new Signal(0);
 const animationTime = new Signal(0);
-const animate = Deno.args.includes("--animate") && !Deno.args.includes("--snapshot");
+const animate = runtimeHost.args.includes("--animate") && !runtimeHost.args.includes("--snapshot");
 const renderer = await createHeadlessMermaidRenderer({
-  executablePath: Deno.env.get("EXOTUI_CHROMIUM"),
-  chromiumSandbox: !Deno.args.includes("--no-chromium-sandbox"),
+  executablePath: runtimeHost.env.get("EXOTUI_CHROMIUM"),
+  chromiumSandbox: !runtimeHost.args.includes("--no-chromium-sandbox"),
 });
 const prepared = await (async () => {
   try {
@@ -96,7 +97,7 @@ const prepared = await (async () => {
   }
 })();
 for (const diagnostic of prepared.diagnostics) console.error(`Mermaid fidelity: ${diagnostic}`);
-if (Deno.args.includes("--snapshot")) {
+if (runtimeHost.args.includes("--snapshot")) {
   const surface = new MarkdownSurface({ source, render: prepared.render });
   try {
     await surface.ready;
@@ -123,7 +124,7 @@ if (Deno.args.includes("--snapshot")) {
         if (timer !== undefined) clearInterval(timer);
         animationTime.dispose();
         app.destroy();
-        Deno.exit(0);
+        runtimeHost.exit(0);
       }
       horizontalOffset.value = Math.max(0, horizontalOffset.value + action.delta);
       document?.controller.invalidate();

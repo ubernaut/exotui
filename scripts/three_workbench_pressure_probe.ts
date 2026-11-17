@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   prepareWorkbenchFrame,
   renderFrameRow,
@@ -35,7 +36,7 @@ import {
 } from "../src/app/workbench_three_terminal_pressure.ts";
 import { WorkbenchThreeCadenceMeter } from "../src/app/workbench_three_runtime.ts";
 
-const options = parseWorkbenchThreePressureProbeCliOptions<ThreeSceneMode>(Deno.args, {
+const options = parseWorkbenchThreePressureProbeCliOptions<ThreeSceneMode>(runtimeHost.args, {
   initialCells: WORKBENCH_THREE_INITIAL_CELLS,
   readbackStrategy: WORKBENCH_THREE_READBACK_STRATEGY,
   mode: "studio",
@@ -173,7 +174,7 @@ if (check) {
   });
   if (!validation.ok) {
     console.error(`three-workbench pressure probe check failed: ${validation.errors.join("; ")}`);
-    Deno.exit(1);
+    runtimeHost.exit(1);
   }
 }
 

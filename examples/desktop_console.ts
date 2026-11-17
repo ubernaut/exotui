@@ -1,4 +1,5 @@
 #!/usr/bin/env -S deno run -A --unstable-webgpu
+import { runtimeHost } from "../src/runtime/host.ts";
 // The exotui desktop, in a terminal — the other thin end of plan 045.
 //
 // This is the zero-additional-code-paths proof: the exact application object
@@ -20,20 +21,20 @@ const handle = runShellApp(presenter, createDesktopApp({}));
 
 // --smoke: paint a few frames and leave — the CI gate that proves the shared
 // application object boots and renders on this host.
-if (Deno.args.includes("--smoke")) {
+if (runtimeHost.args.includes("--smoke")) {
   setTimeout(() => {
     handle.stop();
-    Deno.exit(0);
+    runtimeHost.exit(0);
   }, 400);
 }
 
 const leave = () => {
   handle.stop();
-  Deno.exit(0);
+  runtimeHost.exit(0);
 };
 try {
-  Deno.addSignalListener("SIGINT", leave);
-  Deno.addSignalListener("SIGTERM", leave);
+  runtimeHost.addSignalListener("SIGINT", leave);
+  runtimeHost.addSignalListener("SIGTERM", leave);
 } catch {
   // Signal listeners are best-effort; Ctrl+C still ends the process.
 }

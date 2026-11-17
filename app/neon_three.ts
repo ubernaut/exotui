@@ -297,7 +297,7 @@ export function neonThreeSceneModeLabel(mode: ThreeSceneMode): string {
   return modeLabels[mode];
 }
 
-const asciiWireOverlay = Symbol("asciiWireOverlay");
+const asciiWireOverlays = new WeakSet<THREE.Object3D>();
 
 function asciiWireRadius(thickness = 2): number {
   return Math.max(0.002, Math.min(0.04, thickness * 0.0045));
@@ -324,12 +324,12 @@ function createThickSegmentsFromGeometry(
   if (!positions || positions.count < 2) return undefined;
 
   const overlay = new THREE.Group();
-  overlay.userData[asciiWireOverlay] = true;
+  asciiWireOverlays.add(overlay);
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92 });
   const maxSegments = Math.min(segmented ? positions.count / 2 : positions.count - 1, 520);
   const segmentGeometry = new THREE.CylinderGeometry(radius, radius, 1, 6, 1, false);
   const segments = new THREE.InstancedMesh(segmentGeometry, material, maxSegments);
-  segments.userData[asciiWireOverlay] = true;
+  asciiWireOverlays.add(segments);
   const start = new THREE.Vector3();
   const end = new THREE.Vector3();
   const midpoint = new THREE.Vector3();
@@ -375,7 +375,7 @@ function addAsciiWireOverlays(root: THREE.Object3D, thickness = 2): void {
   const overlays: Array<{ parent: THREE.Object3D; overlay: THREE.Object3D }> = [];
 
   root.traverse((object: THREE.Object3D) => {
-    if (object.userData[asciiWireOverlay]) return;
+    if (asciiWireOverlays.has(object)) return;
     if (object instanceof THREE.LineSegments) {
       const overlay = createThickSegmentsFromGeometry(object.geometry, true, materialColor(object.material), radius);
       if (overlay) overlays.push({ parent: object, overlay });
@@ -760,7 +760,7 @@ export function createNeonThreeScene(mode: ThreeSceneMode, options: NeonThreeSce
           group.add(line);
           busLines[index] = line;
         }
-        const bars: { bar: THREE.Mesh; baseY: number }[] = new Array(30);
+        const bars: { bar: ReturnType<typeof addSolidBox>; baseY: number }[] = new Array(30);
         for (let index = 0; index < bars.length; index++) {
           const column = index % 5;
           const row = Math.floor(index / 5);
@@ -967,7 +967,7 @@ export function createNeonThreeScene(mode: ThreeSceneMode, options: NeonThreeSce
           group.add(trace);
           scribbles[index] = trace;
         }
-        const nodes: THREE.Group[] = new Array(10);
+        const nodes: ReturnType<typeof createTopologyNode>[] = new Array(10);
         for (let index = 0; index < nodes.length; index++) {
           const node = createTopologyNode(index % 3 === 0 ? colors.alarm : colors.amber, 0.055);
           node.position.set(Math.sin(index * 1.7) * 1.8, Math.cos(index * 1.1) * 0.96, 0.2);
@@ -1026,7 +1026,7 @@ export function createNeonThreeScene(mode: ThreeSceneMode, options: NeonThreeSce
       }
       case "heat": {
         camera.position.set(0, 0.15, 6.0);
-        const tiles: THREE.Group[] = new Array(55);
+        const tiles: ReturnType<typeof createHexTile>[] = new Array(55);
         for (let index = 0; index < tiles.length; index++) {
           const row = Math.floor(index / 11);
           const column = index % 11;

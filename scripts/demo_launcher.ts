@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   findVisualizationLaunchTarget,
   formatVisualizationUsage,
@@ -11,6 +12,14 @@ const decoder = new TextDecoder();
 const CONTROL_CHARACTER_PATTERN = new RegExp(
   `[${String.fromCharCode(0)}-${String.fromCharCode(31)}${String.fromCharCode(127)}]`,
 );
+/** Runs a catalog task with the current host runtime while preserving explicit external commands. */
+export function runtimeTaskCommand(command: readonly string[]): readonly string[] {
+  if (runtimeHost?.runtime !== "bun" || command[0] !== "deno" || command[1] !== "task") return command;
+  const args = command.slice(3);
+  if (args[0] === "--") args.shift();
+  return [runtimeHost.execPath(), "run", command[2]!, ...args];
+}
+
 export interface DemoLauncherSelection {
   index: number;
   query: string;
@@ -78,7 +87,7 @@ export function formatDemoLauncherScreen(
 }
 
 if (import.meta.main) {
-  await main(Deno.args);
+  await main(runtimeHost.args);
 }
 
 async function main(args: string[]): Promise<void> {
@@ -96,7 +105,7 @@ async function main(args: string[]): Promise<void> {
     if (!target) {
       console.error(`unknown visualization: ${targetArg}`);
       console.error(formatVisualizationUsage("./visualization"));
-      Deno.exit(64);
+      runtimeHost.exit(64);
     }
     await launchTask(target.task, rest);
     return;
@@ -108,14 +117,14 @@ async function main(args: string[]): Promise<void> {
 
 async function selectDemo(): Promise<VisualizationLaunchTarget | undefined> {
   const allTargets = queryVisualizationLaunchTargets().filter((target) => target.category !== "check");
-  const interactive = Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
+  const interactive = runtimeHost.stdin.isTerminal() && runtimeHost.stdout.isTerminal();
   if (!interactive) {
     console.log(formatVisualizationUsage("./visualization"));
     return undefined;
   }
 
   let selection: DemoLauncherSelection = { index: 0, query: "" };
-  Deno.stdin.setRaw(true, { cbreak: true });
+  runtimeHost.stdin.setRaw(true, { cbreak: true });
   try {
     while (true) {
       const targets = filterDemoTargets(allTargets, selection.query);
@@ -130,13 +139,13 @@ async function selectDemo(): Promise<VisualizationLaunchTarget | undefined> {
       else selection = appendDemoLauncherInput(selection, key);
     }
   } finally {
-    Deno.stdin.setRaw(false);
+    runtimeHost.stdin.setRaw(false);
     write("\x1b[?25h\x1b[2J\x1b[H");
   }
 }
 
 function render(targets: readonly VisualizationLaunchTarget[], selection: DemoLauncherSelection): void {
-  const size = Deno.consoleSize();
+  const size = runtimeHost.consoleSize();
   write(`\x1b[?25l\x1b[2J\x1b[H${
     formatDemoLauncherScreen(targets, selection, {
       width: Math.max(40, size.columns),
@@ -147,7 +156,7 @@ function render(targets: readonly VisualizationLaunchTarget[], selection: DemoLa
 
 async function readKey(): Promise<string> {
   const buffer = new Uint8Array(16);
-  const size = await Deno.stdin.read(buffer);
+  const size = await runtimeHost.stdin.read(buffer);
   const value = decoder.decode(buffer.subarray(0, size ?? 0));
   if (value === "\r" || value === "\n") return "enter";
   if (value === "\x1b") return "escape";
@@ -158,14 +167,14 @@ async function readKey(): Promise<string> {
 }
 
 async function launchTask(task: string, args: string[]): Promise<void> {
-  const command = new Deno.Command(Deno.execPath(), {
-    args: ["task", task, ...args],
+  const command = new runtimeHost.Command(runtimeHost.execPath(), {
+    args: ["Bun" in globalThis ? "run" : "task", task, ...args],
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   });
   const status = await command.spawn().status;
-  Deno.exit(status.code);
+  runtimeHost.exit(status.code);
 }
 
 function formatTargetLine(
@@ -220,5 +229,5 @@ function wrap(value: number, length: number): number {
 }
 
 function write(value: string): void {
-  Deno.stdout.writeSync(encoder.encode(value));
+  runtimeHost.stdout.writeSync(encoder.encode(value));
 }

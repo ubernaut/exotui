@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { crayon } from "crayon";
 
 import {
@@ -210,7 +211,7 @@ app.commands.register({
   binding: { key: "q" },
   action: () => {
     app.destroy();
-    Deno.exit(0);
+    runtimeHost.exit(0);
   },
 });
 

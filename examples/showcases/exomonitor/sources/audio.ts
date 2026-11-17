@@ -1,3 +1,5 @@
+import type { RuntimeChildProcess } from "../../../../src/runtime/host.ts";
+import { runtimeHost } from "../../../../src/runtime/host.ts";
 // Live audio capture, as a stream of equaliser bands.
 //
 // The capture end is a subprocess reading raw PCM; everything that decides what
@@ -166,9 +168,9 @@ export async function startAudioCapture(options: AudioCaptureOptions = {}): Prom
   for (const recorder of RECORDERS) {
     const args = recorder.args(kind, sampleRate, channels);
     if (!args) continue;
-    let process: Deno.ChildProcess;
+    let process: RuntimeChildProcess;
     try {
-      process = new Deno.Command(recorder.command, { args, stdout: "piped", stderr: "null" }).spawn();
+      process = new runtimeHost.Command(recorder.command, { args, stdout: "piped", stderr: "null" }).spawn();
     } catch {
       continue;
     }

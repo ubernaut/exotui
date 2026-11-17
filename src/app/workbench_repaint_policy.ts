@@ -1,3 +1,4 @@
+import { runtimeHost } from "../runtime/host.ts";
 import type { ConsoleSize, Rectangle } from "../types.ts";
 
 export const DEFAULT_WORKBENCH_FULL_REPAINT_INTERVAL_MS = 15_000;
@@ -89,7 +90,7 @@ export function normalizeWorkbenchFullRepaintInterval(value: number | undefined)
 /** Synchronizes a canvas-size signal with the host terminal size. */
 export function syncWorkbenchTerminalSize(
   target: WorkbenchScreenSizeTarget,
-  readSize: WorkbenchConsoleSizeReader = () => Deno.consoleSize(),
+  readSize: WorkbenchConsoleSizeReader = () => runtimeHost.consoleSize(),
 ): WorkbenchScreenSizeSyncResult {
   try {
     const next = normalizeWorkbenchScreenRepaintSize(readSize());
@@ -115,7 +116,7 @@ export function syncWorkbenchTerminalSize(
 export function readWorkbenchVerifiedConsoleSize(
   options: WorkbenchVerifiedConsoleSizeReaderOptions = {},
 ): ConsoleSize {
-  const consoleSize = normalizeWorkbenchScreenRepaintSize((options.consoleSize ?? (() => Deno.consoleSize()))());
+  const consoleSize = normalizeWorkbenchScreenRepaintSize((options.consoleSize ?? (() => runtimeHost.consoleSize()))());
   const now = options.now?.() ?? performance.now();
   const cacheMs = Math.max(0, Math.floor(options.cacheMs ?? 250));
   const cached = cachedVerifiedSttySize;
@@ -152,11 +153,11 @@ function normalizeOptionalWorkbenchScreenRepaintSize(size: ConsoleSize | undefin
 }
 
 function readWorkbenchSttyConsoleSize(): ConsoleSize | undefined {
-  if (Deno.build.os === "windows") return undefined;
+  if (runtimeHost.build.os === "windows") return undefined;
   try {
-    const permission = Deno.permissions.querySync({ name: "run", command: "stty" });
+    const permission = runtimeHost.permissions.querySync({ name: "run", command: "stty" });
     if (permission.state !== "granted") return undefined;
-    const output = new Deno.Command("stty", {
+    const output = new runtimeHost.Command("stty", {
       args: ["size"],
       stdin: "inherit",
       stdout: "piped",

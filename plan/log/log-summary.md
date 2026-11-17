@@ -1293,6 +1293,26 @@ Package/API/release-dry-run and browser interaction/subpath checks pass. `docume
 review. No version bump, push, or publication; the authorized library release awaits maintainer visual review. See
 [`feature/document-renderers`](detail/feature--document-renderers.md).
 
+## October 27 2026 — Exomux Files and Markdown viewer
+
+Added a read-only local Files window, opened from the start menu or Ctrl-N e, using the same composited Tree widget as
+Network. Folders load on expansion; parent navigation, refresh, mouse and touch work at desktop and phone widths.
+Selecting a Markdown file opens the existing Markdown widget in a separate scrollable document window; ordinary UTF-8
+text stays literal. Previews and listings are bounded, with visible errors and truncation. The windows and their
+contents stay local to each client. All health gates pass: 3,699 library tests, 569 Exomux tests, 62 web tests and 54
+worker tests. The six focused filesystem and interaction tests also pass on Bun 1.4, and both cross-runtime client/host
+checks pass. See [the branch log](detail/feature--bun-support.md).
+
+## October 9 2026 — Bun runtime support
+
+Implemented the full library and Exomux port on `feature/bun-support`, including native PTYs, source and standalone
+daemon execution, all 16 packaged entrypoints and optional native WebGPU through bun-webgpu. Bun 1.4+ is required.
+Actual GPU compute, turbulence, Three ASCII and Exomux Butterchurn probes pass on the NVIDIA adapter. All four Deno/Bun
+client-daemon combinations pass real input, resizing, shell job control and retained replay. Bun suites pass 3,707
+library and 563 Exomux tests; all 52 health gates pass, preserving Deno and browser execution. The branch is prepared
+locally, without publishing or merging. See [the branch log](detail/feature--bun-support.md) and
+[completed task](../todo/done/049-bun-support.md).
+
 ## September 24 2026 — Multi-row links and a link pointer
 
 Long links now open from any row. Claude Code hard-wraps URLs with indented continuations (measured from its raw

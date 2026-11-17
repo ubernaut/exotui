@@ -1342,13 +1342,13 @@ Chromium must be installed by the host; the adapter never downloads a browser or
 browser/profile. Omit `executablePath` only when Playwright's browser is already installed. Default sandboxing stays
 enabled; a host must explicitly set `chromiumSandbox: false` if its environment cannot support the sandbox. This is a
 security tradeoff, not an automatic fallback. Deno needs subprocess and browser-host permissions. The default source
-bundling path uses the Deno CLI's browser-targeted bundler (tested on Deno 2.9.2). Compiled applications or deployments
-without a source tree/CLI must provide `browserBundle: Uint8Array` from a prebuilt `./mermaid` browser module instead;
-`denoExecutable` can select an available bundler. A newly published JSR installation still needs separate runtime
-verification. An actual Deno 2.9.2 compiled fixture verifies capability refusal without recursive self-spawn and
-full-engine execution with prebuilt bytes. This does not make the compiler lightweight: under the repository import map,
-that fixture embeds about 213 MB of unique npm files. Keep it out of existing lightweight binaries unless the host
-explicitly needs it.
+bundling path uses the Deno CLI on Deno and the optional esbuild dependency on Bun 1.4+. Compiled applications or
+deployments without a source tree/CLI must provide `browserBundle: Uint8Array` from a prebuilt `./mermaid` browser
+module instead; `denoExecutable` can select an available bundler. A newly published JSR installation still needs
+separate runtime verification. An actual Deno 2.9.2 compiled fixture verifies capability refusal without recursive
+self-spawn and full-engine execution with prebuilt bytes. This does not make the compiler lightweight: under the
+repository import map, that fixture embeds about 213 MB of unique npm files. Keep it out of existing lightweight
+binaries unless the host explicitly needs it.
 
 All engine code is local to the isolated context. HTTP(S) images/fonts are denied unless `allowResource(url)` returns
 exactly `true`; policy exceptions deny access. Approved resources are fetched by the host and fulfilled locally, without

@@ -305,6 +305,15 @@ quickly, but the affected entrypoint or module family should be named here.
   before composing with HTML-label DOMMatrix inputs; computed CSS path data overrides attributes. Translucent
   fill/stroke, blend modes and CSS/SMIL animation now report explicit native fidelity diagnostics.
 
+### Bun support
+
+- Bun 1.4+ support for all library entrypoints, application examples and Exomux, with portable runtime host types,
+  native PTYs, standalone compilation and Deno/Bun client-daemon compatibility.
+- Native WebGPU rendering and compute through optional `bun-webgpu`, including Three ASCII, turbulence and Exomux
+  Butterchurn. Compiled Exomux embeds its native binding and glyph assets.
+- Bun package exports, strict consumer checks, task/test tooling and a compatibility CI workflow. Deno and browser
+  execution remain supported; Linux source and standalone Bun execution are verified.
+
 ## exotui 0.8.1 / exomux 0.4.1 — 2026-09-24
 
 ### Added

@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -94,7 +95,7 @@ function translate(source: string): { body: string; samplers: string[] } | undef
 
 /** Reads `presets["name"] = require("./path")` pairs out of a pack index. */
 async function readPack(root: string, pack: string): Promise<Map<string, string>> {
-  const source = await Deno.readTextFile(`${root}/${pack}`);
+  const source = await runtimeHost.readTextFile(`${root}/${pack}`);
   const entries = new Map<string, string>();
   const pattern = /presets\[("(?:[^"\\]|\\.)*")\]\s*=\s*require\("((?:[^"\\]|\\.)*)"\)/g;
   for (const match of source.matchAll(pattern)) {
@@ -107,11 +108,11 @@ if (import.meta.main) {
   // Parsed by hand rather than with `@std/cli`: this is a build-time script for
   // a checked-in artifact, and it should not put a dependency in the root
   // lockfile that nothing in the library or the app ever imports.
-  const flag = Deno.args.indexOf("--presets");
-  const root = flag === -1 ? undefined : Deno.args[flag + 1];
+  const flag = runtimeHost.args.indexOf("--presets");
+  const root = flag === -1 ? undefined : runtimeHost.args[flag + 1];
   if (!root) {
     console.error("Pass --presets <path to butterchurn-presets package>");
-    Deno.exit(2);
+    runtimeHost.exit(2);
   }
 
   const entries = new Map<string, string>();
@@ -124,7 +125,7 @@ if (import.meta.main) {
   const untranslatable: string[] = [];
   for (const [name, path] of entries) {
     const resolved = `${root}/${path.replace(/^\.\//, "")}`;
-    const preset = JSON.parse(await Deno.readTextFile(resolved)) as Record<string, unknown>;
+    const preset = JSON.parse(await runtimeHost.readTextFile(resolved)) as Record<string, unknown>;
     const warpSource = (preset.warp as string | undefined) ?? "";
     const compSource = (preset.comp as string | undefined) ?? "";
     for (const source of [warpSource, compSource]) if (source.trim()) authored += 1;
@@ -245,9 +246,13 @@ export const EXOMUX_BUTTERCHURN_CATALOG: readonly ExomuxButterchurnPresetSource[
   ${JSON.stringify(payload)},
 );
 `;
-  await Deno.writeTextFile(OUTPUT, module);
+  await runtimeHost.writeTextFile(OUTPUT, module);
   // Formatted here so regenerating never leaves the tree failing `deno fmt`.
-  await new Deno.Command(Deno.execPath(), { args: ["fmt", OUTPUT.pathname], stdout: "null", stderr: "null" }).output();
+  await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
+    args: ["fmt", OUTPUT.pathname],
+    stdout: "null",
+    stderr: "null",
+  }).output();
   const bytes = new TextEncoder().encode(module).length;
   const translated = presets.reduce(
     (total, preset) => total + (preset.warp ? 1 : 0) + (preset.comp ? 1 : 0),

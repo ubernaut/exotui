@@ -1,8 +1,9 @@
 import { Computed, createTerminalApp, StatusBar } from "../mod.app.ts";
 import { ASCII_HEADING_FONTS, Markdown } from "../mod.document.ts";
 import { createAnsiStyle } from "../src/theme.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 
-const source = Deno.args[0] ? await Deno.readTextFile(Deno.args[0]) : [
+const source = runtimeHost.args[0] ? await runtimeHost.readTextFile(runtimeHost.args[0]) : [
   "# DOCUMENTS",
   "",
   "## Native Markdown",
@@ -39,7 +40,7 @@ const app = createTerminalApp<{ type: "quit" }>({
   commands: [{ id: "quit", label: "Quit", binding: { key: "q" }, action: { type: "quit" } }],
   onAction() {
     app.destroy();
-    Deno.exit(0);
+    runtimeHost.exit(0);
   },
   setup(app) {
     const document = new Markdown({

@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   capitalize,
   type ComponentCapability,
@@ -9,8 +10,8 @@ import {
 } from "../mod.ts";
 
 if (import.meta.main) {
-  const args = new Set(Deno.args);
-  const query = parseQuery(Deno.args);
+  const args = new Set(runtimeHost.args);
+  const query = parseQuery(runtimeHost.args);
   if (args.has("--json")) {
     console.log(JSON.stringify(createComponentCatalogReport({ query }), null, 2));
   } else if (args.has("--terminal") || args.has("--compact")) {

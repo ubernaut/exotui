@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { BoxObject } from "../src/canvas/box.ts";
 import { TextObject, type TextRectangle } from "../src/canvas/text.ts";
 import { handleInput } from "../src/input.ts";
@@ -54,9 +55,9 @@ tui.dispatch();
 
 const phase = new Signal(0);
 const source = new Signal<NeonSuiteSource>("opentui");
-const section = new Signal<NeonSuiteSection>(initialSection(Deno.args));
+const section = new Signal<NeonSuiteSection>(initialSection(runtimeHost.args));
 const selectedIndex = new Signal(0);
-const maximized = new Signal(Deno.args.includes("--maximized"));
+const maximized = new Signal(runtimeHost.args.includes("--maximized"));
 const volume = new Signal(70);
 const threeAsciiAvailable = new Signal(await probeCompatibleWebGPUDevice());
 const ascii = new Signal<AsciiOptions>({
@@ -451,5 +452,5 @@ function clampVolume(value: number) {
 
 function playCue() {
   if (volume.peek() <= 0) return;
-  Deno.stdout.writeSync(new Uint8Array([7]));
+  runtimeHost.stdout.writeSync(new Uint8Array([7]));
 }

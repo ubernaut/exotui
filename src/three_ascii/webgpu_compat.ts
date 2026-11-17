@@ -1,3 +1,5 @@
+import { ensureBunWebGpuInitialized } from "../runtime/bun_webgpu.ts";
+
 let compatibleDevicePromise: Promise<GPUDevice> | undefined;
 let compatibleDevice: GPUDevice | undefined;
 type RafCallback = (time: number) => void;
@@ -187,9 +189,12 @@ async function verifyCompatibleDeviceReadback(device: GPUDevice): Promise<void> 
 }
 
 async function requestCompatibleAdapter(forceFallbackAdapter = false): Promise<GPUAdapter> {
-  const adapterOptions: GPURequestAdapterOptions & { featureLevel: "compatibility" } = {
-    featureLevel: "compatibility",
+  const adapterOptions: GPURequestAdapterOptions & { featureLevel: "core" | "compatibility" } = {
+    // Retain Deno's compatibility adapter policy; Dawn on Bun supports the
+    // core path used by Three's GPU render targets and compute passes.
+    featureLevel: "Bun" in globalThis ? "core" : "compatibility",
     forceFallbackAdapter,
+    ...("Bun" in globalThis ? { powerPreference: "high-performance" as const } : {}),
   };
   const adapter = await navigator.gpu.requestAdapter(adapterOptions);
   if (!adapter) {
@@ -205,7 +210,9 @@ async function requestCompatibleDevice(adapter: GPUAdapter): Promise<GPUDevice> 
     // Requesting every exposed adapter feature can fail on lower-memory
     // runtimes even though the ASCII pipeline only uses baseline WebGPU.
     requiredFeatures: [],
-    requiredLimits: {},
+    // An empty object makes bun-webgpu materialize limits which can exceed
+    // this adapter. Omitting it requests the binding's baseline device.
+    ...("Bun" in globalThis ? {} : { requiredLimits: {} }),
   });
   const nativeLost = hasNativeDeviceLostPromise(device);
   const patched = patchMappedAtCreationBuffers(
@@ -227,8 +234,9 @@ export async function getCompatibleWebGPUDevice(): Promise<GPUDevice> {
 
   if (compatibleDevice) return compatibleDevice;
   const promise = compatibleDevicePromise ??= (async () => {
+    await ensureBunWebGpuInitialized();
     if (typeof navigator === "undefined" || navigator.gpu === undefined) {
-      throw new Error("WebGPU is not available in this Deno runtime.");
+      throw new Error("WebGPU is not available in this runtime.");
     }
 
     const adapter = await requestCompatibleAdapter();

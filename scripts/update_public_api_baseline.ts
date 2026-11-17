@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -23,7 +24,7 @@ const ENTRYPOINTS = [
 const baselinePath = new URL("../budgets/public_api.json", import.meta.url);
 let previous: Record<string, string[]> = {};
 try {
-  previous = JSON.parse(await Deno.readTextFile(baselinePath));
+  previous = JSON.parse(await runtimeHost.readTextFile(baselinePath));
 } catch {
   console.log("(no previous baseline)");
 }
@@ -44,5 +45,5 @@ for (const entrypoint of ENTRYPOINTS) {
     for (const name of removed) console.log(`  - ${name} (breaking: downstream migration required)`);
   }
 }
-await Deno.writeTextFile(baselinePath, JSON.stringify(next, null, 2) + "\n");
+await runtimeHost.writeTextFile(baselinePath, JSON.stringify(next, null, 2) + "\n");
 console.log("baseline written");

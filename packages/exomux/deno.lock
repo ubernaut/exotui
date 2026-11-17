@@ -120,6 +120,14 @@
       "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0"
     ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@types/bun@1.4.0",
+        "npm:bun-webgpu@0.1.7",
+        "npm:jpeg-js@0.4.4",
+        "npm:markdown-it@15.0.0"
+      ]
+    },
     "links": {
       "jsr:@ubernaut/exotui@0.8.1": {
         "dependencies": [
@@ -128,6 +136,24 @@
           "npm:@mermaid-js/mermaid-zenuml@1.0.1",
           "npm:@noble/hashes@2.0.1",
           "npm:@zenuml/core@3.50.1",
+          "npm:esbuild@0.28.2",
+          "npm:jpeg-js@0.4.4",
+          "npm:markdown-it@15.0.0",
+          "npm:mermaid@12.1.0",
+          "npm:playwright@1.55.1",
+          "npm:pngjs@7.0.0",
+          "npm:taffy-layout@2.0.3",
+          "npm:three@0.185.1",
+          "npm:yoga-layout@3.2.1"
+        ]
+      },
+      "npm:@ubernaut/exotui@0.8.1": {
+        "optionalDependencies": [
+          "npm:@mermaid-js/mermaid-zenuml@1.0.1",
+          "npm:@noble/hashes@2.0.1",
+          "npm:@types/three@0.185.0",
+          "npm:@zenuml/core@3.50.1",
+          "npm:bun-webgpu@0.1.7",
           "npm:esbuild@0.28.2",
           "npm:jpeg-js@0.4.4",
           "npm:markdown-it@15.0.0",

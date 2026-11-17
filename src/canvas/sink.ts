@@ -558,6 +558,9 @@ function writeCanvasRowRangeUpdate(
 }
 
 function defaultAnsiFlushLimit(): number {
-  const deno = globalThis as typeof globalThis & { Deno?: { build?: { os?: string } } };
-  return deno.Deno?.build?.os === "windows" ? 1024 : 16384;
+  const host = globalThis as typeof globalThis & {
+    Deno?: { build?: { os?: string } };
+    process?: { platform?: string };
+  };
+  return host.Deno?.build?.os === "windows" || host.process?.platform === "win32" ? 1024 : 16384;
 }

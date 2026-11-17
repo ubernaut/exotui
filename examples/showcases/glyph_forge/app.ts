@@ -1,3 +1,4 @@
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // GlyphForge terminal studio (vertical slice): a mouse-and-keyboard cell
@@ -144,7 +145,7 @@ export function createGlyphForgeTerminalApp(options: {
           browserOpeningKey = true;
           break;
         case "app.quit":
-          void runtime.destroy().then(() => Deno.exit(0));
+          void runtime.destroy().then(() => runtimeHost.exit(0));
           break;
       }
     },
