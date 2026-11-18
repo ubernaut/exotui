@@ -45,6 +45,60 @@ interface Hook {
   selection(): string;
 }
 
+Deno.test("a quick touch swipe coasts briefly, but a pause or new press stops it", async () => {
+  const size = { columns: 42, rows: 30 };
+  let client!: Rectangle;
+  let offset = 0;
+  const app = createDesktopApp({
+    initialWindow: "touch-coast",
+    viewportWidth: () => 390,
+    applications: [{
+      id: "touch-coast",
+      title: "Touch coast",
+      summary: "Long document",
+      window: { width: 40, height: 28, minWidth: 15, minHeight: 10 },
+      render: (width, height) =>
+        Array.from({ length: height }, () => Array.from({ length: width }, () => ({ char: " " }))),
+      onWheel: (direction) => (offset += direction * 3, true),
+      vscroll: () => ({ offset, total: 500 }),
+    }],
+    onWindows: (windows) => client = windows.find((window) => window.id === "touch-coast")!.clientRect,
+  });
+  await app.init!({ size: () => size, store: () => new MemoryStore() } as unknown as ShellPresenter);
+  const frame = (now: number) => app.frame(now, size);
+  frame(0);
+  const touch = (kind: "down" | "move" | "up", y: number, timestamp: number) =>
+    app.pointer!({ ...pointer(kind, client.column + 2, client.row + y), device: "touch", timestamp });
+  const swipe = (start: number, hold = 0) => {
+    touch("down", 15, start);
+    touch("move", 12, start + 20);
+    touch("move", 9, start + 40);
+    touch("up", 9, start + 45 + hold);
+  };
+  swipe(100);
+  const release = offset;
+  assertEquals(release, 6);
+  frame(205);
+  assert(offset > release, "a flick travels farther after release");
+  frame(500);
+  assert(offset - release <= 9, "coasting is intentionally short");
+  const settled = offset;
+  frame(800);
+  assertEquals(offset, settled);
+
+  swipe(900, 150);
+  const paused = offset;
+  frame(1200);
+  assertEquals(offset, paused, "holding still before release does not fling");
+
+  swipe(1300);
+  touch("down", 9, 1360);
+  const stopped = offset;
+  frame(1500);
+  assertEquals(offset, stopped, "a new touch interrupts the coast");
+  touch("up", 9, 1510);
+});
+
 Deno.test("desktop UX shares focus, selection, menus, alert and exact viewport policies", async () => {
   const hook = () => (globalThis as unknown as { __desktop: Hook }).__desktop;
   let viewportWidth = 1920, level = .02, resets = 0, activations = 0;
@@ -275,4 +329,47 @@ Deno.test("saved old default drift migrates once while non-default and versioned
     await app.init!({ size: () => ({ columns: 90, rows: 28 }), store: () => store } as unknown as ShellPresenter);
     assertEquals(rate, expected);
   }
+});
+
+Deno.test("a document scrollbar seeks without activating the underlying content", async () => {
+  let client: Rectangle | undefined;
+  let offset = 0, total = 100, activations = 0;
+  const size = { columns: 100, rows: 36 };
+  const document: DesktopDemo = {
+    id: "seek-test",
+    title: "Seek test",
+    summary: "Scrollable document",
+    window: { width: 40, height: 16, minWidth: 20, minHeight: 8 },
+    render: () => [],
+    vscroll: () => ({ offset, total }),
+    scrollTo: (row) => offset = row,
+    onPointerUp: () => activations++,
+  };
+  const app = createDesktopApp({
+    initialWindow: document.id,
+    applications: [document],
+    onWindows: (windows) => client = windows.find((window) => window.id === document.id)?.clientRect,
+  });
+  await app.init!({ size: () => size, store: () => new MemoryStore() } as unknown as ShellPresenter);
+  const frame = () => app.frame(1000, size);
+  frame();
+  assert(client);
+  const right = client.column + client.width - 1;
+  const bottom = client.row + client.height - 1;
+  const press = (x: number, y: number, device: "mouse" | "touch") => {
+    app.pointer!({ ...pointer("down", x, y), device });
+    app.pointer!({ ...pointer("up", x, y), device });
+    frame();
+  };
+  press(right, bottom, "mouse");
+  assertEquals(offset, total - client.height);
+  press(right, client.row, "touch");
+  assertEquals(offset, 0);
+  assertEquals(activations, 0);
+  press(right - 1, client.row, "mouse");
+  assertEquals(activations, 1, "the adjacent document cell still handles clicks");
+  total = client.height;
+  frame();
+  press(right, bottom, "mouse");
+  assertEquals(activations, 2, "no overflow means no scrollbar hit target");
 });

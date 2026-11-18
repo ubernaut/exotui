@@ -73,6 +73,7 @@ import {
   type ExomuxAttachResult,
   exomuxBorderGlyphs,
   type ExomuxClientPort,
+  exomuxControlColor,
   type ExomuxOutputFrame,
   type ExomuxSessionSummary,
   type ExomuxSpawnOptions,
@@ -2940,7 +2941,11 @@ function touchPointerWithoutCell(kind: "up" | "cancel", sequence: number): Point
 Deno.test("Exomux mouse selection highlights and copies frozen text through both input paths", async () => {
   const initial = session("selection-shell", "selection shell", 0);
   const client = new FakeExomuxClient([initial]);
-  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const controller = await createExomuxController({
+    client,
+    initialSessions: [initial],
+    readClipboard: () => Promise.resolve("pasted\x1b[201~\x03"),
+  });
   const mount: ExomuxAppMountRef = {};
   const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
   const harness = await createTestTerminalApp({ ...options, size: { columns: 80, rows: 24 } });
@@ -2968,12 +2973,49 @@ Deno.test("Exomux mouse selection highlights and copies frozen text through both
     assertEquals(controller.clipboardCopy.peek()?.text, "world");
     assertStringIncludes(harness.stdout.text, "\x1b]52;c;d29ybGQ=\x1b\\");
     assertEquals(client.inputs, []);
+    const chord = (shift: boolean) =>
+      harness.app.tui.emit(
+        "keyPress",
+        createTestKeyPress("c", { ctrl: true, shift, buffer: new Uint8Array([3]) }),
+      );
+    let explicitNonce = controller.clipboardCopy.peek()!.nonce;
+    for (const shift of [false, true]) {
+      chord(shift);
+      await mounted.whenIdle();
+      assertEquals(controller.clipboardCopy.peek()?.nonce, ++explicitNonce);
+      assertEquals(runtime.selection.selectedText(), "world");
+    }
+    await mounted.handlePointer(mousePointer("down", x + 7, y, 1200, 2));
+    await mounted.whenIdle();
+    const menuItems = exomuxStartMenuItems(controller);
+    assertEquals(menuItems.map((item) => item.id), ["terminal-copy", "terminal-cut", "terminal-paste"]);
+    const copy = exomuxStartMenuLayout(harness.app.tui.rectangle.peek(), { column: x + 7, row: y }, menuItems)
+      .items[0]!;
+    await mounted.handlePointer(mousePointer("down", copy.rect.column, copy.rect.row, 1250));
+    await mounted.whenIdle();
+    assertEquals(controller.clipboardCopy.peek()?.nonce, ++explicitNonce);
     await harness.pilot.press("escape");
     await mounted.whenIdle();
     assertEquals(runtime.selection.active, false);
     assertEquals(client.inputs, []);
 
     // Shift forces local selection even inside alternate-screen mouse apps.
+    for (const shift of [false, true]) chord(shift);
+    await mounted.whenIdle();
+    assertEquals(client.inputs.map(({ data }) => data).join(""), "\x03\x03");
+    client.inputs.length = 0;
+    runtime.screen.write("\x1b[?2004h");
+    await mounted.handlePointer(mousePointer("down", x + 7, y, 1400, 2));
+    await mounted.whenIdle();
+    const pasteItems = exomuxStartMenuItems(controller);
+    assertEquals(pasteItems.map((item) => item.id), ["terminal-paste"]);
+    const paste = exomuxStartMenuLayout(harness.app.tui.rectangle.peek(), { column: x + 7, row: y }, pasteItems)
+      .items[0]!;
+    await mounted.handlePointer(mousePointer("down", paste.rect.column, paste.rect.row, 1450));
+    await mounted.whenIdle();
+    assertEquals(client.inputs, [{ sessionId: initial.id, data: "\x1b[200~pasted[201~\x1b[201~" }]);
+    client.inputs.length = 0;
+    runtime.screen.write("\x1b[?2004l");
     runtime.screen.write("\x1b[?1049h\x1b[?1002;1006hhello world");
     for (
       const event of [
@@ -4848,6 +4890,7 @@ Deno.test("Exomux right-clicks the desktop to open the menu at the cursor", asyn
 Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an active butterchurn", () => {
   // Off a butterchurn background, the menu is just the standard commands.
   const offButterchurn = exomuxStartMenuItems({
+    terminalMenuSessionId: { peek: () => undefined },
     folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => undefined },
     backgroundId: { peek: () => "metaballs" },
@@ -4858,6 +4901,7 @@ Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an acti
   // Over one, the favorite item sits directly below "Settings" (the config
   // command), and its box is empty for a preset not yet favorited.
   const unfavorited = exomuxStartMenuItems({
+    terminalMenuSessionId: { peek: () => undefined },
     folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn" },
@@ -4874,6 +4918,7 @@ Deno.test("exomuxStartMenuItems adds a favorite item below Settings over an acti
   // The box is checked when the showing preset is already a favorite, and the
   // software butterchurn is treated the same as the GPU one.
   const favorited = exomuxStartMenuItems({
+    terminalMenuSessionId: { peek: () => undefined },
     folderMenuPath: { peek: () => undefined },
     startMenuPreset: { peek: () => "Some Preset" },
     backgroundId: { peek: () => "butterchurn cpu" },
@@ -5611,6 +5656,86 @@ Deno.test("Exomux sessions panel lists host sessions and switches on click (UX-0
     await controller.dispose();
   }
 });
+
+for (const panel of ["Sessions", "Network"] as const) {
+  Deno.test(`Exomux narrow ${panel} paints the same rows and scrollbar before and after settling`, async () => {
+    const sessions = panel === "Sessions"
+      ? Array.from({ length: 12 }, (_, i) => session(`shell-${i}`, `row-${i} with a very long title 界`, i))
+      : [];
+    const controller = await createExomuxController({
+      client: new FakeExomuxClient(sessions),
+      initialSessions: sessions,
+      hostSessionsSource: { probe: () => Promise.resolve([]) },
+      tailnetSource: { fetchStatus: () => Promise.resolve({ availability: "unavailable", detail: "fixture" }) },
+    });
+    const mount: ExomuxAppMountRef = {};
+    const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+    const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 100, rows: 28 } });
+    try {
+      const mounted = mount.current!;
+      const id = panel === "Sessions" ? EXOMUX_SESSIONS_WINDOW_ID : EXOMUX_NETWORK_WINDOW_ID;
+      if (panel === "Network") {
+        await clickStartMenuItem(harness, mounted, "network");
+        await mounted.whenIdle();
+        controller.networkTree.nodes.value = Array.from({ length: 12 }, (_, i) => ({
+          id: `peer-${i}`,
+          label: `row-${i} with a very long peer name 界`,
+          children: [{ id: `child-${i}`, label: "child" }],
+          expanded: false,
+        }));
+      } else controller.openSessionManager(mounted.bodyRect.peek());
+      controller.windowHost.execute({
+        kind: "set-placement",
+        id,
+        placement: "floating",
+        rect: { column: 4, row: 4, width: 24, height: 10 },
+      }, mounted.bodyRect.peek());
+      await mounted.whenIdle();
+      const rect = mounted.windowProjection.peek().windows.find((window) => window.id === id)!.clientRect;
+      const first = rect.row + (panel === "Sessions" ? 3 : 1);
+      const bottom = rect.row + rect.height - 1;
+      const right = rect.column + rect.width - 1;
+      const listCells = () =>
+        harness.canvas.frameBuffer.slice(first, bottom + 1)
+          .map((row) => row.slice(rect.column, right + 1).map(canvasCell));
+
+      harness.canvas.render();
+      await harness.pilot.waitFor(() => listCells().flat().some((cell) => stripAnsi(cell).includes("r")));
+      await harness.pilot.hover(rect.column + 3, bottom);
+      // Dispatch a native wheel event, then capture the next paint before any offscreen work could settle.
+      await harness.app.mouse.dispatch(createTestMouseScroll(1, { x: rect.column + 3, y: bottom }));
+      harness.canvas.render();
+      const firstPaint = listCells();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await harness.pilot.settle();
+      assertEquals(firstPaint, listCells(), "scroll must not switch to a different row layout for one frame");
+      const paintedRows = firstPaint.map((row) => stripAnsi(row.join("")));
+      assert(paintedRows.every((row) => row.includes("...")), "all long labels should be ellipsized");
+      const scrollThumb = exomuxControlColor(controller.theme.peek(), "scrollbar:thumb", controller.theme.peek().muted);
+      assert(firstPaint.some((row) => row.at(-1)?.includes(`48;2;${scrollThumb.join(";")}`)));
+      if (panel === "Network") {
+        const tree = controller.networkTree;
+        assertEquals(tree.selectedIndex.peek(), 1, "wheel moves selection once; hover does not move it");
+        const target = tree.visible(bottom - first + 1).at(-1)!;
+        await harness.pilot.click(rect.column + 3, bottom);
+        await mounted.whenIdle();
+        assertEquals(tree.selected()?.id, target.id);
+        assertEquals(tree.selected()?.expanded, true);
+      } else {
+        assertStringIncludes(paintedRows[0]!, "row-1");
+        assert(!paintedRows.some((row) => row.startsWith(">")), "the selection scrolled out of view");
+        const target = sessions.find((entry) => paintedRows.at(-1)?.includes(entry.title.split(" ")[0]!));
+        assert(target, `expected a session on the bottom row: ${paintedRows.at(-1)}`);
+        await harness.pilot.click(rect.column + 3, bottom);
+        await mounted.whenIdle();
+        assertEquals(controller.windowHost.controller.inspect().activeWindowId, exomuxWindowId(target.id));
+      }
+    } finally {
+      harness.destroy();
+      await controller.dispose();
+    }
+  });
+}
 
 Deno.test("Exomux network tree carries per-machine action rows (TSM-010)", () => {
   const nodes = buildExomuxNetworkNodes(

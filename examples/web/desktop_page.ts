@@ -100,7 +100,25 @@ runShellApp(
   presenter,
   createDesktopApp({
     reducedMotion: () => globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    openExternal: (url) => globalThis.open(url, "_blank", "noopener"),
+    openExternal: (url) => {
+      if (!/^mailto:/i.test(url)) {
+        globalThis.open(url, "_blank", "noopener");
+        return;
+      }
+      // Dispatch mailto as a native hyperlink, without replacing the desktop
+      // even when the browser handles the protocol with a webmail site.
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.hidden = true;
+      document.body.append(link);
+      try {
+        link.click();
+      } finally {
+        link.remove();
+      }
+    },
     createMonitor: () => createBrowserMonitor({ header: false }),
     threeOverlay: threeOverlayService(),
     copyText: (text) => copyBrowserText(text),

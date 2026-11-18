@@ -155,6 +155,8 @@ export interface DesktopDemo {
   onWheel?(direction: 1 | -1, column: number, row: number): boolean;
   /** Vertical scroll state; overflowing windows get a right-edge scrollbar. */
   vscroll?(width: number, height: number): { readonly offset: number; readonly total: number };
+  /** Set the absolute vertical offset in content rows. */
+  scrollTo?(offset: number): void;
   /** Tappable buttons for every key the demo answers to — the mobile hands. */
   readonly controls?: readonly DemoControl[];
 }
@@ -343,6 +345,9 @@ function themesDemo(): DesktopDemo {
     vscroll() {
       return { offset, total: SHELL_THEMES.length };
     },
+    scrollTo(row) {
+      offset = row;
+    },
     controls: [
       { label: "▲", key: "up" },
       { label: "▼", key: "down" },
@@ -529,6 +534,9 @@ function settingsDemo(): DesktopDemo {
     },
     vscroll() {
       return { offset: scrollTop, total: rowsOf().length };
+    },
+    scrollTo(row) {
+      scrollTop = row;
     },
     controls: [
       { label: "▲", key: "up" },
@@ -840,6 +848,9 @@ function aboutDemo(): DesktopDemo {
     },
     vscroll(width) {
       return { offset: scrollTop, total: layout(Math.max(12, width - 3)).length };
+    },
+    scrollTo(row) {
+      scrollTop = row;
     },
     controls: [
       { label: "▲", key: "up" },
@@ -1396,7 +1407,56 @@ interface SelectionPoint {
 /** A selection lives inside ONE window's client area, in local cells. */
 let selectionAnchor: { readonly windowId: string; readonly local: SelectionPoint } | undefined;
 /** A finger inside a client scrolls the content; selection is for the mouse. */
-let touchScroll: { windowId: string; startY: number; applied: number; active: boolean } | undefined;
+let touchScroll: {
+  windowId: string;
+  startY: number;
+  lastY: number;
+  lastMove: number;
+  velocity: number;
+  applied: number;
+  active: boolean;
+} | undefined;
+let touchCoast:
+  | { windowId: string; started: number; distance: number; applied: number; x: number; y: number }
+  | undefined;
+
+function advanceTouchCoast(now: number): void {
+  const coast = touchCoast;
+  if (!coast) return;
+  const window = activeDemoWindow();
+  const demo = demoById.get(coast.windowId);
+  if (window?.id !== coast.windowId || !demo?.onWheel || services.reducedMotion?.()) {
+    touchCoast = undefined;
+    return;
+  }
+  const elapsed = Math.max(0, Math.min(270, now - coast.started));
+  const distance = coast.distance * (1 - Math.exp(-elapsed / 90));
+  const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
+  if (scroll && demo.scrollTo) {
+    const rows = Math.trunc(distance);
+    const maxOffset = Math.max(0, scroll.total - window.clientRect.height);
+    const requested = scroll.offset + rows - coast.applied;
+    const next = Math.max(0, Math.min(maxOffset, requested));
+    if (next !== scroll.offset) demo.scrollTo(next);
+    coast.applied = rows;
+    if (elapsed >= 270 || requested !== next) touchCoast = undefined;
+    return;
+  }
+  const ticks = Math.trunc(distance / 3);
+  while (coast.applied !== ticks) {
+    const direction = ticks > coast.applied ? 1 : -1;
+    const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
+    if (
+      (scroll && (direction < 0 ? scroll.offset <= 0 : scroll.offset >= scroll.total - window.clientRect.height)) ||
+      !demo.onWheel(direction, coast.x, coast.y)
+    ) {
+      touchCoast = undefined;
+      return;
+    }
+    coast.applied += direction;
+  }
+  if (elapsed >= 270) touchCoast = undefined;
+}
 let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
   | undefined;
@@ -1849,7 +1909,7 @@ function paintWindow(frame: VizCell[][], window: WorkbenchWindowChromeProjection
     // the render above has already clamped the demo's own offset.
     const scroll = demo.vscroll?.(client.width, client.height);
     if (scroll && scroll.total > client.height && client.height >= 2 && client.width >= 2) {
-      const track = client.height;
+      const track = scrollbarTrackLength(demo, client.height);
       const thumb = Math.max(1, Math.floor(track * client.height / scroll.total));
       const maxOffset = Math.max(1, scroll.total - client.height);
       const position = Math.min(track - thumb, Math.round(scroll.offset / maxOffset * (track - thumb)));
@@ -2224,6 +2284,8 @@ function paintDesktop(now: number): VizCell[][] {
 /** One frame of the desktop: sample the demos, compose, sync the overlay. */
 function composeDesktopFrame(now: number): VizCell[][] {
   updateDegaussAlert();
+  if (degaussAlertOpen || startMenuOpen || contextMenu) touchCoast = undefined;
+  advanceTouchCoast(now);
   for (const demo of DEMOS) demo.sample?.(now);
   const frame = paintDesktop(now);
   syncThreeOverlay();
@@ -2245,12 +2307,31 @@ function contains(rect: Rectangle, column: number, row: number): boolean {
     row >= rect.row && row < rect.row + rect.height;
 }
 
+function scrollbarTrackLength(demo: DesktopDemo, height: number): number {
+  // The control strip owns the bottom row when present.
+  return height - (height >= 3 && demo.controls?.length ? 1 : 0);
+}
+
+function seekScrollbar(demo: DesktopDemo | undefined, client: Rectangle, x: number, y: number): boolean {
+  const { width, height } = client;
+  if (!demo?.scrollTo || width < 2 || height < 2 || x !== client.column + width - 1) return false;
+  const row = y - client.row;
+  const trackLength = scrollbarTrackLength(demo, height);
+  if (row >= trackLength) return false;
+  const scroll = demo.vscroll?.(width, height);
+  if (!scroll || scroll.total <= height) return false;
+  demo.scrollTo(Math.round((scroll.total - height) * row / (trackLength - 1)));
+  return true;
+}
+
 function activeDemoWindow(): WorkbenchWindowChromeProjection | undefined {
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   return projection.windows.find((window) => window.active);
 }
 
 function handleDesktopPointer(event: PointerInputEvent): void {
+  if (event.device === "touch" && !event.primary) return;
+  if (event.kind === "down" || event.kind === "cancel") touchCoast = undefined;
   lastPointerEvent = event;
   const cell = event.coordinates.cell;
   if (!cell) return;
@@ -2308,11 +2389,23 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     if (inClient && event.primary && !top.active) {
       windowHost.execute({ kind: "focus", id: top.id }, bodyBounds(), projectionOptions());
     }
+    if (
+      inClient && event.primary && (event.button === 0 || event.device === "touch") &&
+      !startMenuOpen && !projection.switcher && y !== barBounds().row &&
+      seekScrollbar(demoById.get(top.id), top.clientRect, x, y)
+    ) {
+      releaseAction = undefined;
+      selectionAnchor = undefined;
+      selection = undefined;
+      return;
+    }
     releaseAction = inClient && demoById.get(top.id)?.onPointerUp ? { windowId: top.id, x, y } : undefined;
     if (inClient && event.device === "touch") {
       // Touch convention: a drag moves the CONTENT. Selection stays with the
       // mouse and the pen, where a drag has always meant selecting.
-      touchScroll = { windowId: top.id, startY: y, applied: 0, active: false };
+      touchScroll = demoById.get(top.id)?.onWheel
+        ? { windowId: top.id, startY: y, lastY: y, lastMove: event.timestamp, velocity: 0, applied: 0, active: false }
+        : undefined;
       selectionAnchor = undefined;
     } else {
       touchScroll = undefined;
@@ -2321,7 +2414,13 @@ function handleDesktopPointer(event: PointerInputEvent): void {
         : undefined;
     }
     if (selection) selection = undefined;
-  } else if (event.kind === "move" && touchScroll) {
+  } else if (event.kind === "move" && event.device === "touch" && touchScroll) {
+    if (touchScroll.lastY !== y) {
+      const dt = event.timestamp - touchScroll.lastMove;
+      touchScroll.velocity = dt > 0 && dt <= 90 ? (touchScroll.lastY - y) / dt : 0;
+      touchScroll.lastY = y;
+      touchScroll.lastMove = event.timestamp;
+    }
     const delta = touchScroll.startY - y;
     if (touchScroll.active || Math.abs(delta) >= 2) {
       if (!touchScroll.active) {
@@ -2367,6 +2466,23 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     }
   } else if (event.kind === "up" || event.kind === "cancel") {
     if (touchScroll?.active) {
+      const owner = activeDemoWindow();
+      const age = event.timestamp - touchScroll.lastMove;
+      if (
+        event.kind === "up" && event.device === "touch" && owner?.id === touchScroll.windowId && age >= 0 && age < 75
+      ) {
+        const distance = Math.max(-9, Math.min(9, touchScroll.velocity * 90 * (1 - age / 75)));
+        if (Math.abs(distance) >= 3.25) {
+          touchCoast = {
+            windowId: owner.id,
+            started: event.timestamp,
+            distance,
+            applied: 0,
+            x: x - owner.clientRect.column,
+            y: y - owner.clientRect.row,
+          };
+        }
+      }
       touchScroll = undefined;
       releaseAction = undefined;
       return;
@@ -2478,6 +2594,7 @@ function handleDesktopPointer(event: PointerInputEvent): void {
 }
 
 function handleDesktopWheel(event: MouseScrollEvent): void {
+  touchCoast = undefined;
   if (degaussAlertOpen || contextMenu) return;
   const direction: 1 | -1 = event.scroll >= 0 ? 1 : -1;
   const { x, y } = event;
@@ -2493,6 +2610,7 @@ function handleDesktopWheel(event: MouseScrollEvent): void {
 }
 
 function handleDesktopKey(event: KeyPressEvent): void {
+  touchCoast = undefined;
   if (degaussAlertOpen) {
     if (event.key === "return" || event.key === "space") degaussDesktop();
     return;
@@ -2624,6 +2742,8 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
   services = givenServices;
   windowAnimations.resize();
   windowAnimations.setSettings(undefined);
+  touchScroll = undefined;
+  touchCoast = undefined;
   closeDegaussAlert();
   magnetAlarmArmed = false;
   selection = undefined;
@@ -2751,6 +2871,7 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
     pointer: handleDesktopPointer,
     wheel: handleDesktopWheel,
     resize(size) {
+      touchCoast = undefined;
       windowAnimations.resize();
       presentedSize = size;
       fitWindowsToViewport();

@@ -81,6 +81,8 @@ export interface TerminalScreenControllerOptions {
    * model only knows the query arrived.
    */
   onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
+  /** Cursor position requested by CSI 6 n, in one-based terminal coordinates. */
+  onCursorPositionQuery?: (row: number, column: number) => void;
 }
 
 /** Clone-safe diagnostics for terminal glyph retention, including explicit whole-cluster refusals. */
@@ -198,6 +200,7 @@ export class TerminalScreenController {
   #discardingString = false;
   #onKittyGraphics?: (data: string, cursor: { row: number; column: number }) => void;
   #onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
+  #onCursorPositionQuery?: (row: number, column: number) => void;
   /**
    * Kitty graphics sequences consumed without being drawn.
    *
@@ -230,6 +233,7 @@ export class TerminalScreenController {
     this.#tabStops = defaultTabStops(this.#columns);
     this.#onKittyGraphics = options.onKittyGraphics;
     this.#onWindowSizeQuery = options.onWindowSizeQuery;
+    this.#onCursorPositionQuery = options.onCursorPositionQuery;
   }
 
   get columns(): number {
@@ -802,6 +806,14 @@ export class TerminalScreenController {
   }
 
   #applyControl(sequence: ParsedTerminalControlSequence): void {
+    if (
+      sequence.kind === "csi" && sequence.command === "n" && !sequence.prefix &&
+      !sequence.intermediates && sequence.params === "6"
+    ) {
+      const { row, column } = this.#state.cursor;
+      this.#onCursorPositionQuery?.(Math.max(1, row + 1 - (this.#originMode ? this.#scrollRegion.top : 0)), column + 1);
+      return;
+    }
     // Any control sequence other than a pure style change (SGR `m`) breaks the
     // printable run, so the deferred-wrap latch no longer applies. SGR keeps it
     // so autowrap streams that recolor mid-line (pagers, syntax highlighting)

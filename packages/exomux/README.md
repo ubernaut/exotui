@@ -94,6 +94,11 @@ select inside an application that uses mouse reporting. Shift-drag also works wh
 reserve Shift-drag for its own selection, so use Alt-drag there. Turning off Mouse reporting in the window's settings
 allows an ordinary drag to select.
 
+Ctrl+C or Ctrl+Shift+C also copies when text is highlighted; with no selection those keys go to the child terminal.
+Right-click a selection for Copy, or use Paste to insert text from the viewer machine's clipboard. Paste needs a local
+clipboard helper (`wl-paste` on Wayland, `xclip` on X11, `pbpaste` on macOS, or PowerShell on Windows). Over SSH without
+a local clipboard provider, use your outer terminal's Paste command. Cut is unavailable for read-only terminal output.
+
 Selection stays within the pane and freezes its displayed text while selected; the child keeps running. Escape clears
 the selection without sending Escape to the child. Typing, pasting, scrolling, or starting another mouse gesture clears
 it too. Wheel into history before selecting older output. Touch continues to scroll and interact with applications.

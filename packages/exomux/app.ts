@@ -41,6 +41,7 @@ import {
   type Style,
   type TerminalCellStyleOptions,
   terminalLinkAt,
+  terminalMouseRoutingFromPrivateModes,
   type TreeController,
   type TreeRow,
   windowResizeGlyphAt,
@@ -149,9 +150,7 @@ import { ExomuxSettingsSurface } from "./settings_surface.ts";
 import { type ExomuxOptionControlSpec, ExomuxSettingsOptions } from "./settings_options.ts";
 import { ExomuxInputField } from "./input_field.ts";
 import { ExomuxBackgroundList } from "./background_list.ts";
-import { ExomuxSessionList, type ExomuxSessionListRow } from "./session_list.ts";
 import { formatExomuxUptime } from "./sessions.ts";
-import { ExomuxNetworkTree } from "./network_tree.ts";
 import { ExomuxStartMenu } from "./start_menu.ts";
 import { widgetSurfaceCellData } from "./widget_surface.ts";
 import {
@@ -309,7 +308,19 @@ export function exomuxMetaballsMayAdvance(
   return !hasPendingBarrier;
 }
 
-type ExomuxMenuId = "new" | "network" | "files" | "sessions" | "config" | "help" | "quit" | "favorite" | "folder-shell";
+type ExomuxMenuId =
+  | "new"
+  | "network"
+  | "files"
+  | "sessions"
+  | "config"
+  | "help"
+  | "quit"
+  | "favorite"
+  | "folder-shell"
+  | "terminal-copy"
+  | "terminal-cut"
+  | "terminal-paste";
 
 /** One entry in the start menu, before layout assigns it a rect. */
 interface ExomuxStartMenuItem {
@@ -327,6 +338,15 @@ interface ExomuxStartMenuItem {
  * computed (paint, hit-test, keyboard).
  */
 export function exomuxStartMenuItems(controller: ExomuxController): readonly ExomuxStartMenuItem[] {
+  const terminalId = controller.terminalMenuSessionId.peek();
+  if (terminalId !== undefined) {
+    return [
+      ...(controller.runtime(terminalId)?.selection.selectedText()
+        ? [{ id: "terminal-copy", label: "Copy" }, { id: "terminal-cut", label: "Cut (read-only)" }] as const
+        : []),
+      { id: "terminal-paste", label: "Paste" },
+    ];
+  }
   if (controller.folderMenuPath.peek() !== undefined) {
     return [{ id: "folder-shell", label: "Open terminal here" }];
   }
@@ -820,7 +840,7 @@ export function createExomuxTerminalOptions(
     // focused child terminal instead of the kernel killing the multiplexer.
     // External signals (kill, closing the outer terminal) still shut down.
     input: { captureKeyboardSignals: true },
-    tuiOptions: { refreshRate: 1000 / 60 },
+    tuiOptions: { refreshRate: 1000 / 60, enableFocusEvents: true },
     commands: exomuxCommands(),
     onAction: (action) => handleExomuxAction(action, mount),
     setup(app) {
@@ -1373,9 +1393,7 @@ export function mountExomuxDesktop(
       },
     }),
   );
-  // The sessions panel's rows as a real composited List (WS-003). The wheel
-  // scrolls this viewport top without touching the selection; -1 re-follows it.
-  const sessionList = own(new ExomuxSessionList(bumpSettingsWidgets));
+  // Wheel scrolls this viewport without touching the selection; -1 follows it.
   const sessionListScrollTop = own(new Signal(-1));
   // Host-session listing (UX-006): probe once at mount and re-probe (gently
   // throttled) whenever the sessions panel takes focus.
@@ -1389,12 +1407,8 @@ export function mountExomuxDesktop(
   };
   controller.windowHost.viewRevision.subscribe(maybeRefreshHostSessions, subscriptions.signal);
   void controller.refreshHostSessions();
-  // The network panel's hierarchy as a real composited Tree (WS-004). A tree
-  // rebuild (tailnet status, saved hosts) repaints the desktop, which was
-  // otherwise only repainted by interaction-driven signals.
-  const networkTreeView = own(new ExomuxNetworkTree(bumpSettingsWidgets));
-  // Files uses the same real Tree surface and selection painting as Network.
-  const fileTreeView = own(new ExomuxNetworkTree(bumpSettingsWidgets));
+  // Tree rebuilds (e.g. a tailnet refresh or folder expansion) repaint even
+  // when selection has not changed.
   controller.files.tree.nodes.subscribe(bumpSettingsWidgets, subscriptions.signal);
   controller.networkTree.nodes.subscribe(() => {
     settingsWidgetRevision.value += 1;
@@ -1949,6 +1963,7 @@ export function mountExomuxDesktop(
         controller.startMenuAnchor.value?.column,
         controller.startMenuAnchor.value?.row,
         controller.folderMenuPath.value,
+        controller.terminalMenuSessionId.value,
         controller.sessionName.value,
         controller.sessionNameDraft.value,
         controller.globalConfigVisible.value,
@@ -2041,10 +2056,7 @@ export function mountExomuxDesktop(
         windowConfigOptionControls,
         shaderManagerControls,
         shaderPathField,
-        sessionList,
         sessionListScrollTop: sessionListScrollTop.peek(),
-        networkTreeView,
-        fileTreeView,
         killModalSelection: killModal.selectedAction()?.id,
         quitModalSelection: quitModal.selectedAction()?.id,
         startMenuView,
@@ -2146,7 +2158,30 @@ export function mountExomuxDesktop(
 
   const choosePopupItem = (id: ExomuxMenuId): Promise<void> => {
     const cwd = controller.folderMenuPath.peek();
+    const terminalId = controller.terminalMenuSessionId.peek();
     controller.closeStartMenu();
+    if (terminalId !== undefined) {
+      const runtime = controller.runtime(terminalId);
+      if (id === "terminal-copy") {
+        const text = runtime?.selection.selectedText();
+        if (text) controller.copyTerminalText(text);
+      } else if (id === "terminal-cut") {
+        controller.status.value = "Terminal output is read-only; use Copy.";
+      } else if (id === "terminal-paste" && runtime?.attached.peek() && runtime.summary.peek().running) {
+        return controller.readClipboard().then(async (text) => {
+          if (disposed || controller.runtime(terminalId) !== runtime || controller.activeRuntime() !== runtime) return;
+          if (text === undefined) {
+            controller.status.value = "Clipboard unavailable here; use your host terminal's Paste command.";
+            return;
+          }
+          if (!text) return;
+          const bracketed = runtime.screen.inspect().privateModes.includes(2004);
+          terminalSelection.clear();
+          await controller.writeSession(terminalId, bracketed ? `\x1b[200~${text}\x1b[201~` : text);
+        });
+      }
+      return Promise.resolve();
+    }
     return performMenu(id, cwd);
   };
 
@@ -2829,6 +2864,23 @@ export function mountExomuxDesktop(
     return true;
   };
 
+  const openTerminalContextAt = (column: number, row: number): boolean => {
+    const projection = windowProjection.peek();
+    const window = clientWindowAt(projection, column, row);
+    const sessionId = window && exomuxSessionIdFromWindow(window.id);
+    const runtime = sessionId ? controller.runtime(sessionId) : undefined;
+    if (!window || !sessionId || !runtime) return false;
+    if (
+      !runtime.selection.selectedText() && runtime.scrollback.mode === "live" &&
+      controller.windowSettingsFor(sessionId).mouseReporting &&
+      terminalMouseRoutingFromPrivateModes(runtime.screen.inspect().privateModes).mouseTracking !== "none"
+    ) return false;
+    controller.windowHost.execute({ kind: "focus", id: window.id }, projection.bounds);
+    controller.syncActiveSession();
+    controller.openStartMenu({ column, row }, undefined, undefined, sessionId);
+    return true;
+  };
+
   const routeWindowPointer = async (event: MousePressEvent): Promise<boolean> => {
     // Free motion is reported only so the pointer can follow links. Without
     // the block cursor that is all it does: backgrounds, the drawn cursor and
@@ -2844,7 +2896,7 @@ export function mountExomuxDesktop(
     const target = pointerTargetAt(event.x, event.y)?.payload;
     const targetRegion = pointerTargetAt(event.x, event.y)?.region;
     if (modalOpen()) {
-      terminalSelection.clear();
+      if (controller.terminalMenuSessionId.peek() === undefined) terminalSelection.clear();
       if (terminalMouse.hasLegacyCapture) {
         const packet = terminalMouse.routeLegacyPress(
           { ...event, drag: false, release: true },
@@ -2866,6 +2918,10 @@ export function mountExomuxDesktop(
     if (
       !terminalMouse.hasLegacyCapture && !event.drag && !event.release && event.button === 0 && event.ctrl &&
       openTerminalLinkAt(event.x, event.y)
+    ) return true;
+    if (
+      !terminalMouse.hasLegacyCapture && !event.drag && !event.release && event.button === 2 &&
+      openTerminalContextAt(event.x, event.y)
     ) return true;
     if (
       !terminalMouse.hasLegacyCapture && terminalSelection.route(
@@ -3036,7 +3092,10 @@ export function mountExomuxDesktop(
         if (settingsHandled) return true;
       }
       if (clientWindow) handled = true;
-      if (clientWindow && clientWindow.id !== EXOMUX_SESSIONS_WINDOW_ID) controller.syncActiveSession();
+      if (clientWindow && clientWindow.id !== EXOMUX_SESSIONS_WINDOW_ID) {
+        controller.syncActiveSession();
+        controller.syncTerminalGeometry(windowProjection.peek(), true);
+      }
     }
     if (result.handled) controller.syncTerminalGeometry(windowProjection.peek());
     if (result.command) {
@@ -3130,7 +3189,7 @@ export function mountExomuxDesktop(
   const routeSemanticPointerFast = (event: PointerInputEvent): boolean | undefined => {
     const projection = windowProjection.peek();
     if (modalOpen()) {
-      terminalSelection.clear();
+      if (controller.terminalMenuSessionId.peek() === undefined) terminalSelection.clear();
       for (const packet of terminalMouse.cancelPointerCaptures(projection, event)) {
         void enqueueRaw(packet.bytes, packet.sessionId);
       }
@@ -3141,6 +3200,10 @@ export function mountExomuxDesktop(
       return true;
     }
     const selectionPoint = event.coordinates.cell;
+    if (
+      event.device === "mouse" && event.kind === "down" && event.button === 2 && selectionPoint &&
+      openTerminalContextAt(selectionPoint.x, selectionPoint.y)
+    ) return true;
     if (
       event.device === "mouse" && event.kind === "down" && event.button === 0 && event.modifiers.ctrl &&
       selectionPoint && openTerminalLinkAt(selectionPoint.x, selectionPoint.y)
@@ -3196,6 +3259,7 @@ export function mountExomuxDesktop(
       controller.windowHost.handlePointer(event, bodyRect.peek(), projectionOptions());
       if (routeTerminalPointer(event, projection) || event.device === "mouse") {
         controller.syncActiveSession();
+        controller.syncTerminalGeometry(windowProjection.peek(), true);
         return true;
       }
       return undefined;
@@ -4253,6 +4317,13 @@ export function mountExomuxDesktop(
     // prefix/control work can observe the next decoded key instead.
     const event = snapshotKeyPress(readerEvent);
     if (!modalOpen()) {
+      if (event.ctrl && !event.meta && event.key.toLowerCase() === "c") {
+        const text = controller.activeRuntime()?.selection.selectedText();
+        if (text) {
+          controller.copyTerminalText(text);
+          return;
+        }
+      }
       const selected = controller.activeRuntime()?.selection.active;
       terminalSelection.clear();
       if (selected && event.key === "escape") return;
@@ -4326,6 +4397,9 @@ export function mountExomuxDesktop(
     void enqueueGuardedRaw(paste, allowPasteInBarrier);
   }));
 
+  unsubscribers.push(app.tui.on("terminalFocus", (event) => {
+    if (!disposed && event.focused) controller.syncTerminalGeometry(windowProjection.peek(), true);
+  }));
   const scheduleGeometry = (): void => {
     if (disposed) return;
     controller.syncTerminalGeometry(windowProjection.peek());
@@ -4563,12 +4637,6 @@ interface RenderExomuxDesktopOptions {
   shaderManagerControls?: ExomuxSettingsOptions;
   /** Hosts the shader manager's add-a-shader path prompt as a real Input. */
   shaderPathField?: ExomuxInputField;
-  /** Hosts the sessions panel's rows as a real composited List. */
-  sessionList?: ExomuxSessionList;
-  /** Hosts the network panel's hierarchy as a real composited Tree. */
-  networkTreeView?: ExomuxNetworkTree;
-  /** Independent tree surface for local files. */
-  fileTreeView?: ExomuxNetworkTree;
   /** Selected action id of the kill confirmation's ModalController. */
   killModalSelection?: string;
   /** Selected action id of the end-session modal's ModalController. */
@@ -4916,11 +4984,8 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
         options.settingsPickers,
         options.settingsOptions,
         options.sessionNameField,
-        options.sessionList,
         options.sessionListScrollTop,
-        options.networkTreeView,
         options.killModalSelection,
-        options.fileTreeView,
       );
       flyIn.capture(window.id, scratch.rows, window.rect);
       if (flyIn.suppressed.has(window.id)) return;
@@ -4935,11 +5000,8 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.settingsPickers,
       options.settingsOptions,
       options.sessionNameField,
-      options.sessionList,
       options.sessionListScrollTop,
-      options.networkTreeView,
       options.killModalSelection,
-      options.fileTreeView,
     );
     exomuxSceneGround.commitWindow();
   };
@@ -5438,11 +5500,8 @@ function paintWindow(
   settingsPickers?: ExomuxSettingsSurface,
   settingsOptions?: ExomuxSettingsOptions,
   sessionNameField?: ExomuxInputField,
-  sessionList?: ExomuxSessionList,
   sessionListScrollTop = -1,
-  networkTreeView?: ExomuxNetworkTree,
   killSelection?: string,
-  fileTreeView?: ExomuxNetworkTree,
 ): void {
   const theme = controller.theme.peek();
   const global = controller.globalSettings.peek();
@@ -5506,13 +5565,12 @@ function paintWindow(
       selectedSessionIndex,
       window.active,
       ground,
-      sessionList,
       sessionListScrollTop,
     );
     return;
   }
   if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
-    paintNetworkPanel(painter, window.clientRect, controller, window.active, ground, networkTreeView);
+    paintNetworkPanel(painter, window.clientRect, controller, window.active, ground);
     return;
   }
   if (window.id === EXOMUX_FILES_WINDOW_ID) {
@@ -5532,7 +5590,6 @@ function paintWindow(
         controller,
         window.active,
         ground,
-        fileTreeView,
         controller.files.tree,
         controller.files.message.peek(),
       );
@@ -5586,7 +5643,6 @@ function paintNetworkPanel(
   controller: ExomuxController,
   active: boolean,
   ground: ExomuxGround = () => controller.theme.peek().surface,
-  networkTreeView?: ExomuxNetworkTree,
   tree: TreeController = controller.networkTree,
   hint = "Enter open · ←/→ fold · Del forget · r refresh",
 ): void {
@@ -5600,87 +5656,29 @@ function paintNetworkPanel(
     ground,
   );
   const height = Math.max(0, rect.height - NETWORK_LIST_START);
-  networkTreeView?.sync({
-    width: Math.max(1, rect.width),
-    height: Math.max(1, height),
-    nodes: tree.nodes.peek(),
-    selectedIndex: tree.selectedIndex.peek(),
-    active,
-    foreground: theme.text,
-    mutedForeground: theme.muted,
-    headingForeground: theme.accent,
-    background: theme.surface,
-    selectedForeground: theme.background,
-    selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
-    selectedUnfocusedForeground: exomuxControlColor(
-      theme,
-      "control:foreground-selected-unfocused",
-      theme.background,
-    ),
-    selectedUnfocusedBackground: exomuxControlColor(
-      theme,
-      "control:background-selected-unfocused",
-      theme.surfaceStrong,
-    ),
-    scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
-    scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
-  });
-  if (networkTreeView?.ready()) {
-    // Blit the real Tree's cells, re-grounding cells that kept the base
-    // surface background so a translucent panel shows the desktop through its
-    // rows; deliberate colour (the accent selection, the scrollbar) stays.
-    for (let visibleIndex = 0; visibleIndex < height; visibleIndex += 1) {
-      const row = rect.row + NETWORK_LIST_START + visibleIndex;
-      for (let column = 0; column < rect.width; column += 1) {
-        const x = rect.column + column;
-        const cell = widgetSurfaceCellData(networkTreeView.cellAt(visibleIndex, column));
-        if (!cell || cell.glyph === "") {
-          painter.write(x, row, " ", { foreground: theme.text, background: ground(x, row) });
-          continue;
-        }
-        const keepBackground = cell.background !== undefined &&
-          !exomuxRgbEquals(cell.background, theme.surface);
-        painter.write(x, row, cell.glyph, {
-          foreground: cell.foreground ?? theme.text,
-          background: keepBackground ? cell.background! : ground(x, row),
-          bold: cell.bold,
-        });
-        column += Math.max(0, exomuxGlyphColumns(cell.glyph) - 1);
-      }
-    }
-    return;
-  }
-  // Hand-drawn fallback until the composited snapshot lands.
   const visible = tree.visible(height);
-  const selected = tree.selected();
-  for (let visibleIndex = 0; visibleIndex < visible.length; visibleIndex += 1) {
-    const row = visible[visibleIndex]!;
-    const paintRow = rect.row + NETWORK_LIST_START + visibleIndex;
-    const width = Math.max(0, rect.width - 2);
-    const isSelected = active && selected?.index === row.index;
-    const note = row.node.note === true;
-    const heading = row.depth === 0;
-    const offline = row.node.status === "offline";
-    const foreground = isSelected
-      ? theme.background
-      : heading
-      ? theme.accent
-      : note || offline
-      ? theme.muted
-      : theme.text;
-    if (isSelected) {
-      painter.fill({ column: rect.column, row: paintRow, width: rect.width, height: 1 }, " ", {
-        foreground,
-        background: theme.accent,
-        bold: true,
-      });
-    }
-    painter.write(rect.column + 1, paintRow, fitText(row.text, width), {
-      foreground,
-      background: isSelected ? theme.accent : theme.surface,
-      bold: isSelected || heading,
-    });
-  }
+  const total = tree.visibleRows().length;
+  const selected = tree.selectedIndex.peek();
+  const viewport = { ...rect, row: rect.row + NETWORK_LIST_START, height };
+  paintNativeList(
+    painter,
+    viewport,
+    theme,
+    ground,
+    active,
+    total,
+    visible[0]?.index ?? 0,
+    visible.map((row) => ({
+      label: row.text,
+      selected: row.index === selected,
+      foreground: row.depth === 0
+        ? theme.accent
+        : row.node.note || row.node.status === "offline"
+        ? theme.muted
+        : theme.text,
+      bold: row.depth === 0,
+    })),
+  );
 }
 
 const documentGraphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -5746,7 +5744,6 @@ function paintSessionManager(
   selectedSessionIndex: number,
   active: boolean,
   ground: ExomuxGround = () => controller.theme.peek().surface,
-  sessionList?: ExomuxSessionList,
   sessionListScrollTop = -1,
 ): void {
   const theme = controller.theme.peek();
@@ -5774,98 +5771,89 @@ function paintSessionManager(
   }
   const selected = clampIndex(selectedSessionIndex, Math.max(1, controller.sessions.peek().length));
   const available = Math.max(0, rect.height - SESSION_LIST_START);
-  // Headings and the current session's row recede like stopped terminals; an
-  // attachable host session reads as live.
-  const rows: ExomuxSessionListRow[] = managerRows.map((row) => ({
-    label: row.label,
-    running: row.kind === "terminal"
-      ? row.running
-      : row.kind === "host-session"
-      ? row.attachable && !row.current
-      : false,
-  }));
-  sessionList?.sync({
-    width: Math.max(1, rect.width),
-    height: Math.max(1, available),
-    rows,
-    selectedIndex: selected,
-    scrollTop: sessionListScrollTop,
+  const offset = exomuxSessionListWindowStart(managerRows.length, selected, available, sessionListScrollTop);
+  const viewport = { ...rect, row: rect.row + SESSION_LIST_START, height: available };
+  paintNativeList(
+    painter,
+    viewport,
+    theme,
+    ground,
     active,
-    foreground: theme.text,
-    mutedForeground: theme.muted,
-    background: theme.surface,
-    selectedForeground: theme.background,
-    selectedBackground: exomuxControlColor(theme, "control:background-selected", theme.accent),
-    selectedUnfocusedForeground: exomuxControlColor(
-      theme,
-      "control:foreground-selected-unfocused",
-      theme.background,
-    ),
-    selectedUnfocusedBackground: exomuxControlColor(
-      theme,
-      "control:background-selected-unfocused",
-      theme.surfaceStrong,
-    ),
-    scrollbarTrack: exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong),
-    scrollbarThumb: exomuxControlColor(theme, "scrollbar:thumb", theme.muted),
-  });
-  if (sessionList?.ready()) {
-    // Blit the real List's cells, re-grounding each cell that kept the base
-    // surface background so a translucent panel shows the desktop through its
-    // rows — the same only-default-backgrounds-see-through rule the terminal
-    // uses. Deliberate colour (the accent selection block, the scrollbar) stays.
-    for (let visibleIndex = 0; visibleIndex < available; visibleIndex += 1) {
-      const row = rect.row + SESSION_LIST_START + visibleIndex;
-      for (let column = 0; column < rect.width; column += 1) {
-        const x = rect.column + column;
-        const cell = widgetSurfaceCellData(sessionList.cellAt(visibleIndex, column));
-        if (!cell || cell.glyph === "") {
-          painter.write(x, row, " ", { foreground: theme.text, background: ground(x, row) });
-          continue;
-        }
-        const keepBackground = cell.background !== undefined &&
-          !exomuxRgbEquals(cell.background, theme.surface);
-        painter.write(x, row, cell.glyph, {
-          foreground: cell.foreground ?? theme.text,
-          background: keepBackground ? cell.background! : ground(x, row),
-          bold: cell.bold,
-        });
-        column += Math.max(0, exomuxGlyphColumns(cell.glyph) - 1);
-      }
-    }
-    return;
-  }
-  // Hand-drawn fallback until the composited snapshot lands, on the same
-  // window math as the List so the swap never shifts a row.
-  const offset = exomuxSessionListWindowStart(rows.length, selected, available, sessionListScrollTop);
-  for (let visibleIndex = 0; visibleIndex < available; visibleIndex += 1) {
-    const index = offset + visibleIndex;
-    const entry = rows[index];
-    if (!entry) break;
-    const isSelected = active && index === selected && managerRows[index]?.kind === "terminal";
-    const row = rect.row + SESSION_LIST_START + visibleIndex;
-    const rowRect = { column: rect.column, row, width: rect.width, height: 1 };
-    const foreground = isSelected ? theme.background : entry.running ? theme.text : theme.muted;
-    const label = fitText(
-      `${isSelected ? ">" : " "} ${entry.label}`,
-      Math.max(0, rect.width - 2),
-    );
-    // The selected row is a deliberate block of colour and stays opaque; the
-    // rest take the window ground, so the desktop shows through them.
-    if (isSelected) {
-      const selected = exomuxControlColor(theme, "control:background-selected", theme.accent);
-      painter.fill(rowRect, " ", { foreground, background: selected, bold: true });
-      painter.write(rect.column + 1, row, label, { foreground, background: selected, bold: true });
-    } else {
-      fillWithGround(painter, rowRect, theme, ground);
-      writeOnGround(painter, rect.column + 1, row, label, { foreground }, ground);
-    }
-  }
+    managerRows.length,
+    offset,
+    managerRows.slice(offset, offset + available).map((row, index) => ({
+      label: row.label,
+      selected: row.kind === "terminal" && offset + index === selected,
+      foreground:
+        (row.kind === "terminal" ? row.running : row.kind === "host-session" && row.attachable && !row.current)
+          ? theme.text
+          : theme.muted,
+    })),
+  );
 }
 
-/** True when two theme colours are the same RGB triple. */
-function exomuxRgbEquals(a: ExomuxRgb, b: ExomuxRgb): boolean {
-  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+/**
+ * Paint the current viewport directly into the desktop frame. Remounting an
+ * offscreen List/Tree after every selection or scroll used to interleave its
+ * cells with a differently laid out fallback (different gutter, text, and ink).
+ * The controller still owns the same window of rows for input and painting.
+ */
+function paintNativeList(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  theme: ExomuxThemeSpec,
+  ground: ExomuxGround,
+  active: boolean,
+  total: number,
+  top: number,
+  rows: readonly { label: string; selected: boolean; foreground: ExomuxRgb; bold?: boolean }[],
+): void {
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const scrollbar = total > rect.height && rect.width > 1;
+  const width = rect.width - Number(scrollbar);
+  for (const [index, row] of rows.entries()) {
+    const y = rect.row + index;
+    const background = row.selected
+      ? active
+        ? exomuxControlColor(theme, "control:background-selected", theme.accent)
+        : exomuxControlColor(theme, "control:background-selected-unfocused", theme.surfaceStrong)
+      : undefined;
+    const foreground = !row.selected
+      ? row.foreground
+      : active
+      ? theme.background
+      : exomuxControlColor(theme, "control:foreground-selected-unfocused", theme.background);
+    const bold = row.selected ? active : row.bold;
+    if (background) {
+      painter.fill({ column: rect.column, row: y, width, height: 1 }, " ", { foreground, background, bold });
+    }
+    const label = `${row.selected ? active ? ">" : "·" : " "} ${row.label}`;
+    // Fit and paint the same graphemes so a wide glyph cannot straddle the gutter.
+    const glyphs = Array.from(documentGraphemes.segment(label), ({ segment }) => segment);
+    const truncated = glyphs.reduce((columns, glyph) => columns + exomuxGlyphColumns(glyph), 0) > width;
+    const ellipsis = truncated && width > 3 ? "..." : "";
+    const limit = rect.column + width - ellipsis.length;
+    let x = rect.column;
+    for (const glyph of glyphs) {
+      const columns = exomuxGlyphColumns(glyph);
+      if (x + columns > limit) break;
+      painter.cell(x, y, glyph, { foreground, background: background ?? ground(x, y), bold });
+      x += columns;
+    }
+    for (const glyph of ellipsis) {
+      painter.cell(x, y, glyph, { foreground, background: background ?? ground(x, y), bold });
+      x += 1;
+    }
+  }
+  if (!scrollbar) return;
+  const thumbSize = Math.max(1, Math.round(rect.height * rect.height / total));
+  const thumbStart = Math.round((rect.height - thumbSize) * top / (total - rect.height));
+  const track = exomuxControlColor(theme, "scrollbar:track", theme.surfaceStrong);
+  const thumb = exomuxControlColor(theme, "scrollbar:thumb", theme.muted);
+  for (let index = 0; index < rect.height; index += 1) {
+    const color = index >= thumbStart && index < thumbStart + thumbSize ? thumb : track;
+    painter.cell(rect.column + width, rect.row + index, " ", { foreground: color, background: color });
+  }
 }
 
 /** Unthemed terminal defaults used when a window opts out of theme recoloring. */
@@ -8117,8 +8105,7 @@ class ExomuxDesktopDrawObject extends DrawObject<"exomux-desktop"> {
 /**
  * Top item index of the sessions list viewport: an explicit wheel-scrolled top,
  * or the selection-following window otherwise. One function serves painting,
- * hit-testing, and wheel stepping — and matches the composited List's own
- * window math — so they can never disagree.
+ * hit-testing, and wheel stepping so they can never disagree.
  */
 export function exomuxSessionListWindowStart(
   length: number,

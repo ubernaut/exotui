@@ -1,107 +1,61 @@
 // Copyright 2023 Im-Beast. MIT license.
 
-// 044 slice D. Two sessions panels on screen, one holding the keyboard: the
-// focused one accents its current row, the other keeps its place muted. Before
-// this, an unfocused panel drew no highlight at all, which loses the user's
-// place rather than de-emphasising it.
+import { createTestTerminalApp } from "@ubernaut/exotui/testing";
+import { createExomuxTerminalOptions, type ExomuxAppMountRef } from "../app.ts";
+import { createExomuxController, EXOMUX_SESSIONS_WINDOW_ID } from "../controller.ts";
+import { exomuxControlColor, exomuxWindowId } from "../model.ts";
+import { widgetSurfaceCellData } from "../widget_surface.ts";
+import { assert, assertEquals } from "./deps.ts";
+import { FakeExomuxClient, session } from "./fakes.ts";
 
-import { assert } from "./deps.ts";
-import { ExomuxSessionList } from "../session_list.ts";
-
-const SGR = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g");
-
-function plainRow(list: ExomuxSessionList, row: number, width: number): string {
-  let text = "";
-  for (let column = 0; column < width; column += 1) {
-    const cell = list.cellAt(row, column);
-    text += typeof cell === "string" ? cell.replace(SGR, "") : " ";
-  }
-  return text;
-}
-
-/** The raw cell, SGR intact, so a background colour can be asserted. */
-function styledRow(list: ExomuxSessionList, row: number, width: number): string {
-  let text = "";
-  for (let column = 0; column < width; column += 1) {
-    const cell = list.cellAt(row, column);
-    if (typeof cell === "string") text += cell;
-  }
-  return text;
-}
-
-async function settle(pending: () => boolean, limit = 60) {
-  for (let attempt = 0; attempt < limit && pending(); attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-}
-
-const ACCENT = [255, 105, 180] as const;
-const MUTED = [64, 70, 90] as const;
-const background = (rgb: readonly number[]) => `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
-
-const BASE = {
-  width: 24,
-  height: 4,
-  selectedIndex: 1,
-  scrollTop: -1,
-  rows: [
-    { label: "1: build", running: true },
-    { label: "2: logs", running: true },
-    { label: "3: shell", running: false },
-  ],
-  foreground: [220, 230, 255] as const,
-  mutedForeground: [120, 130, 160] as const,
-  background: [30, 40, 70] as const,
-  selectedForeground: [10, 10, 20] as const,
-  selectedBackground: ACCENT,
-  selectedUnfocusedForeground: [200, 210, 230] as const,
-  selectedUnfocusedBackground: MUTED,
-  scrollbarTrack: [40, 50, 80] as const,
-  scrollbarThumb: [120, 130, 160] as const,
-};
-
-async function render(active: boolean): Promise<ExomuxSessionList> {
-  const list = new ExomuxSessionList(() => {});
-  list.sync({ ...BASE, active });
-  await settle(() => !list.ready());
-  assert(list.ready(), `the ${active ? "focused" : "unfocused"} panel renders`);
-  return list;
-}
-
-Deno.test("only the panel holding the keyboard shows an active selection", async () => {
-  const focused = await render(true);
-  const unfocused = await render(false);
-
+Deno.test("Sessions keeps its selected row and mutes it when another window takes focus", async () => {
+  const shell = session("shell", "logs", 0);
+  const controller = await createExomuxController({
+    client: new FakeExomuxClient([shell]),
+    initialSessions: [shell],
+    hostSessionsSource: { probe: () => Promise.resolve([]) },
+    tailnetSource: { fetchStatus: () => Promise.resolve({ availability: "unavailable", detail: "fixture" }) },
+  });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...options } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...options, size: { columns: 100, rows: 28 } });
   try {
-    // Both still show which row is current — that fact does not depend on focus.
-    assert(plainRow(focused, 1, 24).trimStart().startsWith(">"), "the focused panel points at its row");
-    assert(plainRow(unfocused, 1, 24).trimStart().startsWith("·"), "the unfocused panel still marks its row");
+    const mounted = mount.current!;
+    await mounted.whenIdle();
+    const body = mounted.bodyRect.peek();
+    controller.openSessionManager(body);
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: EXOMUX_SESSIONS_WINDOW_ID,
+      placement: "floating",
+      rect: { column: 4, row: 4, width: 24, height: 10 },
+    }, body);
+    controller.windowHost.execute({
+      kind: "set-placement",
+      id: exomuxWindowId(shell.id),
+      placement: "floating",
+      rect: { column: 40, row: 4, width: 30, height: 10 },
+    }, body);
+    const selectionCell = () => {
+      const panel = mounted.windowProjection.peek().windows.find((window) => window.id === EXOMUX_SESSIONS_WINDOW_ID);
+      assert(panel);
+      return widgetSurfaceCellData(harness.canvas.frameBuffer[panel.clientRect.row + 3]?.[panel.clientRect.column]);
+    };
+    const theme = controller.theme.peek();
+    controller.windowHost.execute({ kind: "focus", id: EXOMUX_SESSIONS_WINDOW_ID }, body);
+    await harness.pilot.settle();
+    assertEquals(selectionCell()?.glyph, ">");
+    assertEquals(selectionCell()?.background, exomuxControlColor(theme, "control:background-selected", theme.accent));
 
-    // But only one of them is painted as where typing goes.
-    const focusedRow = styledRow(focused, 1, 24);
-    const unfocusedRow = styledRow(unfocused, 1, 24);
-    assert(focusedRow.includes(background(ACCENT)), "the focused selection is the accent");
-    assert(!unfocusedRow.includes(background(ACCENT)), "the unfocused selection is NOT the accent");
-    assert(unfocusedRow.includes(background(MUTED)), "the unfocused selection is muted, not absent");
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(shell.id) }, body);
+    await harness.pilot.settle();
+    assertEquals(selectionCell()?.glyph, "·");
+    assertEquals(
+      selectionCell()?.background,
+      exomuxControlColor(theme, "control:background-selected-unfocused", theme.surfaceStrong),
+    );
   } finally {
-    focused.dispose();
-    unfocused.dispose();
-  }
-});
-
-Deno.test("a panel losing focus repaints rather than reusing its accented frame", async () => {
-  // The signature decides whether a frame is reused. An unfocused colour left
-  // out of it would freeze the accent on a panel that had lost focus.
-  const list = new ExomuxSessionList(() => {});
-  try {
-    list.sync({ ...BASE, active: true });
-    await settle(() => !list.ready());
-    assert(styledRow(list, 1, 24).includes(background(ACCENT)));
-
-    list.sync({ ...BASE, active: false });
-    await settle(() => !styledRow(list, 1, 24).includes(background(MUTED)));
-    assert(styledRow(list, 1, 24).includes(background(MUTED)), "losing focus repainted the row muted");
-  } finally {
-    list.dispose();
+    harness.destroy();
+    await controller.dispose();
   }
 });

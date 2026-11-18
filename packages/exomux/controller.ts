@@ -29,6 +29,7 @@ import {
 import { themeDocumentId, ThemeEditorController, type ThemeLibrary } from "@ubernaut/exotui";
 import { renameThemeDocument } from "@ubernaut/exotui/theme";
 import { openExomuxLocalLink } from "./open_link.ts";
+import { readExomuxLocalClipboard, sanitizeExomuxClipboard } from "./clipboard.ts";
 import type { ThemeDocument } from "@ubernaut/exotui/theme";
 import { exomuxThemeDocument, exomuxThemeSpecFromDocument } from "./theme_documents.ts";
 import {
@@ -685,6 +686,8 @@ export interface ExomuxControllerOptions {
   readonly client: ExomuxClientPort;
   /** Opens a terminal URL on this client machine; defaults to the local OS browser launcher. */
   readonly openLink?: (url: string) => Promise<void>;
+  /** Reads the viewer's clipboard for an explicit Paste command. */
+  readonly readClipboard?: () => Promise<string | undefined>;
   readonly initialSessions?: readonly ExomuxSessionSummary[];
   readonly store?: AsyncStore<unknown>;
   readonly storageKey?: string;
@@ -831,6 +834,7 @@ export class ExomuxController {
    */
   readonly startMenuPreset: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   readonly folderMenuPath: Signal<string | undefined> = new Signal<string | undefined>(undefined);
+  readonly terminalMenuSessionId: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** The tmux-style name of the attached session, editable from settings. */
   readonly sessionName: Signal<string> = new Signal<string>("main");
   /** True while a rename is in flight, to gate concurrent attempts. */
@@ -928,9 +932,11 @@ export class ExomuxController {
   readonly #warningTimers = new Map<string, ReturnType<typeof setTimeout>>();
   readonly #pendingResizes = new Map<string, { columns: number; rows: number; repaint?: boolean }>();
   readonly #resizeFlights = new Map<string, Promise<void>>();
+  #focusedGeometryWindow: string | undefined;
   readonly #killFlights = new Map<string, Promise<boolean>>();
   readonly #defaultCommand: string;
   readonly #openLink: (url: string) => Promise<void>;
+  readonly #readClipboard: () => Promise<string | undefined>;
   /** Whether kitty graphics from children are relayed to the host terminal. */
   readonly #graphicsPassthrough: boolean;
   /**
@@ -952,6 +958,10 @@ export class ExomuxController {
 
   /** Bound once so every runtime shares one identity for the size answerer. */
   readonly #sizeQuery = (sessionId: string, kind: 14 | 16 | 18): void => this.answerWindowSizeQuery(sessionId, kind);
+  readonly #cursorQuery = (sessionId: string, row: number, column: number): void => {
+    // writeSession only writes to an attached runtime, not during replay.
+    void this.writeSession(sessionId, `\x1b[${row};${column}R`).catch(() => false);
+  };
   readonly #defaultArgs?: readonly string[];
   readonly #defaultCwd?: string;
   #terminalOrdinal = 1;
@@ -1014,6 +1024,7 @@ export class ExomuxController {
     if (options.initialShaders) this.shaderConfig.value = options.initialShaders;
     this.#defaultCommand = options.defaultCommand ?? defaultExomuxShell();
     this.#openLink = options.openLink ?? openExomuxLocalLink;
+    this.#readClipboard = options.readClipboard ?? readExomuxLocalClipboard;
     this.#graphicsPassthrough = options.graphicsPassthrough ?? false;
     this.#hostCellPixels = options.hostCellPixels;
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
@@ -1022,7 +1033,10 @@ export class ExomuxController {
     const initialSessions = normalizeSessionList(options.initialSessions ?? []);
     this.sessions = new Signal<readonly ExomuxSessionSummary[]>(initialSessions);
     for (const session of initialSessions) {
-      this.#runtimes.set(session.id, createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery));
+      this.#runtimes.set(
+        session.id,
+        createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery),
+      );
     }
 
     const provider = new ExomuxClientProvider(this.client);
@@ -1152,12 +1166,14 @@ export class ExomuxController {
     anchor?: { readonly column: number; readonly row: number },
     presetName?: string,
     folderPath?: string,
+    terminalSessionId?: string,
   ): void {
     this.#assertActive();
     this.prefixPending.value = false;
     this.startMenuAnchor.value = anchor;
     this.startMenuPreset.value = presetName;
     this.folderMenuPath.value = folderPath;
+    this.terminalMenuSessionId.value = terminalSessionId;
     this.startMenuVisible.value = true;
   }
 
@@ -1168,6 +1184,7 @@ export class ExomuxController {
     this.startMenuAnchor.value = undefined;
     this.startMenuPreset.value = undefined;
     this.folderMenuPath.value = undefined;
+    this.terminalMenuSessionId.value = undefined;
   }
 
   /** True when the session can be renamed (discovered through the state root). */
@@ -2281,6 +2298,16 @@ export class ExomuxController {
     this.status.value = "Selection sent to terminal clipboard · Escape clears selection";
   }
 
+  /** Reads bounded plain text after a user requests Paste. */
+  async readClipboard(): Promise<string | undefined> {
+    try {
+      const text = await this.#readClipboard();
+      return text === undefined ? undefined : sanitizeExomuxClipboard(text);
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Starts (or restarts) the network panel's fuzzy filter. */
   beginNetworkFilter(): void {
     this.#assertActive();
@@ -2805,7 +2832,7 @@ export class ExomuxController {
     });
     try {
       const session = normalizeSession(await this.client.spawn(spawnOptions));
-      const runtime = createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery);
+      const runtime = createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
       const candidateRuntimes = new Map(this.#runtimes);
       candidateRuntimes.set(session.id, runtime);
       const reconciliation = await this.#reconcileWindows(
@@ -3173,7 +3200,7 @@ export class ExomuxController {
     while (this.#spawnFlight) await this.#spawnFlight;
     if (this.#disposed || this.#runtimes.has(summary.id)) return;
     if (this.#runtimes.size >= EXOMUX_MAX_SESSIONS) return;
-    const runtime = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery);
+    const runtime = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
     const candidates = new Map(this.#runtimes);
     candidates.set(summary.id, runtime);
     const reconciliation = await this.#reconcileWindows(this.#windowDescriptors(candidates));
@@ -3456,9 +3483,12 @@ export class ExomuxController {
     this.#persistActiveSession();
   }
 
-  /** Resizes host PTYs only when projected client geometry actually changes. */
-  syncTerminalGeometry(projection: WorkbenchWindowHostProjection): void {
+  /** Reconcile local layout changes and reclaim the focused PTY after another viewer resized it. */
+  syncTerminalGeometry(projection: WorkbenchWindowHostProjection, focusIn = false): void {
     if (this.#disposed) return;
+    const focused = projection.windows.find((window) => window.active)?.id;
+    const focusChanged = focused !== this.#focusedGeometryWindow;
+    this.#focusedGeometryWindow = focused;
     for (const window of projection.windows) {
       const sessionId = exomuxSessionIdFromWindow(window.id);
       const runtime = sessionId ? this.#runtimes.get(sessionId) : undefined;
@@ -3466,7 +3496,16 @@ export class ExomuxController {
       const columns = clampDimension(window.clientRect.width, runtime.requestedColumns, EXOMUX_MAX_COLUMNS);
       const rows = clampDimension(window.clientRect.height, runtime.requestedRows, EXOMUX_MAX_ROWS);
       runtime.scrollback.setViewportRows(rows);
-      if (columns === runtime.requestedColumns && rows === runtime.requestedRows) continue;
+      if (columns === runtime.requestedColumns && rows === runtime.requestedRows) {
+        const host = runtime.summary.peek();
+        if (
+          window.id === focused && (focusIn || focusChanged) && runtime.attached.peek() && host.running &&
+          (host.columns !== columns || host.rows !== rows) && !this.#resizeFlights.has(runtime.sessionId)
+        ) {
+          this.#scheduleTerminalResize(runtime, columns, rows);
+        }
+        continue;
+      }
       runtime.requestedColumns = columns;
       runtime.requestedRows = rows;
       runtime.selection.clear();
@@ -3492,7 +3531,7 @@ export class ExomuxController {
       const runtime = this.#runtimes.get(summary.id);
       if (runtime) candidateRuntimes.set(summary.id, runtime);
       else {
-        const created = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery);
+        const created = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
         createdRuntimes.push(created);
         candidateRuntimes.set(summary.id, created);
       }
@@ -4030,6 +4069,7 @@ export class ExomuxController {
     this.startMenuVisible.dispose();
     this.startMenuPreset.dispose();
     this.folderMenuPath.dispose();
+    this.terminalMenuSessionId.dispose();
     await this.#tailnetPoller?.dispose();
     this.networkTree.dispose();
     this.files.dispose();
@@ -4093,6 +4133,7 @@ function createTerminalRuntime(
   summary: ExomuxSessionSummary,
   graphicsPassthrough: boolean,
   onSizeQuery?: (sessionId: string, kind: 14 | 16 | 18) => void,
+  onCursorQuery?: (sessionId: string, row: number, column: number) => void,
 ): ExomuxTerminalRuntime {
   // A disjoint host-id block per relay, so two sessions both calling their
   // image `i=1` cannot collide at the host. The base skips low ids that the
@@ -4106,6 +4147,7 @@ function createTerminalRuntime(
     rows: summary.rows,
     scrollbackLimit: 2_000,
     ...(onSizeQuery ? { onWindowSizeQuery: (kind) => onSizeQuery(summary.id, kind) } : {}),
+    ...(onCursorQuery ? { onCursorPositionQuery: (row, column) => onCursorQuery(summary.id, row, column) } : {}),
     ...(relay
       ? {
         onKittyGraphics: (data, cursor) => {
