@@ -461,6 +461,19 @@ Deno.test("TerminalScreenController supports DEC autowrap mode", () => {
   assertEquals(screen.inspect().cursor, { column: 1, row: 1 });
 });
 
+Deno.test("cursor position queries preserve pending wrap and respect origin mode", () => {
+  const reports: number[][] = [];
+  const screen = new TerminalScreenController({
+    columns: 4,
+    rows: 5,
+    onCursorPositionQuery: (row, column) => reports.push([row, column]),
+  });
+  screen.write("abcd\x1b[6ne");
+  assertEquals(screen.textRows().slice(0, 2), ["abcd", "e"]);
+  screen.write("\x1b[2;5r\x1b[?6h\x1b[2;3H\x1b[6n\x1b[5n");
+  assertEquals(reports, [[1, 4], [2, 3]]);
+});
+
 Deno.test("TerminalScreenController supports insert and replace character modes", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 2 });
 

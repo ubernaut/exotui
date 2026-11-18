@@ -2,6 +2,10 @@
 
 Status: In progress — 2026-10-04.
 
+Follow-up on branch `feature/markdown-table-wrap` (2026-11-18, from `main` at `fca01c3e`, not merged): opt-in
+`tableCells: "wrap"` for complete table cells and word-wrapped plain headings, both needed by the tech-stack consumer's
+62-page information packet. Default table rendering is unchanged. See `log/detail/feature--markdown-table-wrap.md`.
+
 ## Outcome
 
 Reusable ExotUI document authoring: terminal-native Markdown, ASCII heading fonts, and Mermaid flowchart parsing/layout

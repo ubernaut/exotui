@@ -97,6 +97,11 @@ export interface MarkdownRenderOptions {
   mermaidStyle?: "plain" | "circuit";
   /** Host-precompiled Mermaid cells; no diagram engine enters the document/core import graph. */
   diagram?: (source: string, width: number) => MarkdownDiagramFrame | undefined;
+  /**
+   * "wrap" keeps every table cell complete: cells wrap onto extra rows with their inline marks and links, and a
+   * table too narrow for its columns becomes labelled records. The default truncates each cell to a single row.
+   */
+  tableCells?: "truncate" | "wrap";
 }
 
 /** Portable diagram cell, with native styling rather than embedded ANSI/HTML. */
@@ -699,6 +704,10 @@ function renderTable(
 ): void {
   const columns = Math.max(0, ...blocks.map((block) => block.cells?.length ?? 0));
   if (columns === 0) return;
+  if (options.tableCells === "wrap") {
+    renderWrappedTable(lines, blocks, blockIndex, width, columns, options);
+    return;
+  }
   const quote = quotePrefix(blocks[0]?.quoteDepth);
   const tableWidth = Math.max(1, width - textWidth(quote));
   if (tableWidth < columns * 4 + 1) {
@@ -747,6 +756,138 @@ function renderTable(
       wroteHeaderRule = true;
     }
   }
+}
+
+/** Complete-cell table: a wrapped grid while every column stays readable, labelled records below that. */
+function renderWrappedTable(
+  lines: MarkdownRenderLine[],
+  blocks: readonly MarkdownBlock[],
+  blockIndex: number,
+  width: number,
+  columns: number,
+  options: MarkdownRenderOptions,
+): void {
+  const quote = quotePrefix(blocks[0]?.quoteDepth);
+  const tableWidth = Math.max(1, width - textWidth(quote));
+  const linkDestinations = options.showLinkDestinations ?? true;
+  const inlines = (block: MarkdownBlock, index: number) =>
+    withLinkDestinations(block.cells?.[index]?.inlines ?? [], linkDestinations);
+  const natural = new Array<number>(columns).fill(1);
+  const longest = new Array<number>(columns).fill(1);
+  for (const block of blocks) {
+    for (let index = 0; index < columns; index += 1) {
+      const text = inlines(block, index).map((inline) => inline.text).join("");
+      for (const row of text.split("\n")) natural[index] = Math.max(natural[index]!, textWidth(row.trim()));
+      for (const word of text.split(/\s+/u)) longest[index] = Math.max(longest[index]!, textWidth(word));
+    }
+  }
+  const widths = wrapTableWidths(natural, longest, tableWidth - (columns * 3 + 1));
+  if (!widths) {
+    renderTableRecords(lines, blocks, blockIndex, width, columns, quote, inlines);
+    return;
+  }
+  const wrapCell = (block: MarkdownBlock, index: number): MarkdownRenderSegment[][] => {
+    const cell: MarkdownRenderLine[] = [];
+    wrapInlines(
+      cell,
+      blockIndex,
+      inlines(block, index),
+      widths[index]!,
+      "",
+      "",
+      block.header ? "table-header" : "text",
+    );
+    return cell.map((line) => [...line.segments]);
+  };
+  const rows = blocks.map((block) => widths.map((_, index) => wrapCell(block, index)));
+  const rule = (): void => {
+    const segments: MarkdownRenderSegment[] = [segment(quote, "quote"), segment("|", "table-border")];
+    for (const cellWidth of widths) segments.push(segment(`${"-".repeat(cellWidth + 2)}|`, "table-border"));
+    appendLine(lines, blockIndex, segments);
+  };
+  // Rules between body rows keep multi-row records apart; a table of single rows stays compact.
+  const separated = rows.some((row, index) => !blocks[index]!.header && row.some((cell) => cell.length > 1));
+  let wroteHeaderRule = false;
+  rows.forEach((row, rowIndex) => {
+    const block = blocks[rowIndex]!;
+    const height = Math.max(1, ...row.map((cell) => cell.length));
+    for (let line = 0; line < height; line += 1) {
+      const segments: MarkdownRenderSegment[] = [segment(quote, "quote"), segment("|", "table-border")];
+      row.forEach((cell, index) => {
+        const content = cell[line] ?? [];
+        const padding = Math.max(0, widths[index]! - content.reduce((sum, part) => sum + textWidth(part.text), 0));
+        const align = block.cells?.[index]?.align;
+        const left = align === "right" ? padding : align === "center" ? Math.floor(padding / 2) : 0;
+        segments.push(segment(" " + " ".repeat(left), "table-border"), ...content);
+        segments.push(segment(" ".repeat(padding - left) + " |", "table-border"));
+      });
+      appendLine(lines, blockIndex, segments);
+    }
+    if (block.header && !wroteHeaderRule) {
+      rule();
+      wroteHeaderRule = true;
+    } else if (separated && rowIndex < rows.length - 1) rule();
+  });
+}
+
+/**
+ * Column widths for a wrapped table, or undefined when a readable grid does not fit. Every column first gets
+ * room for its longest word (capped), then spare cells go to the narrowest columns still short of their content.
+ */
+function wrapTableWidths(
+  natural: readonly number[],
+  longest: readonly number[],
+  available: number,
+): number[] | undefined {
+  const widths = natural.map((value, index) => Math.min(value, Math.max(1, Math.min(longest[index]!, 24))));
+  let spare = Math.floor(available) - widths.reduce((sum, value) => sum + value, 0);
+  if (spare < 0) return undefined;
+  while (spare > 0) {
+    const open = widths.map((_, index) => index).filter((index) => widths[index]! < natural[index]!);
+    if (!open.length) break;
+    const lowest = Math.min(...open.map((index) => widths[index]!));
+    for (const index of open) {
+      if (spare > 0 && widths[index] === lowest) {
+        widths[index]! += 1;
+        spare -= 1;
+      }
+    }
+  }
+  // A column squeezed below eight cells while it still wraps is no longer a readable grid.
+  return widths.some((value, index) => value < Math.min(natural[index]!, 8)) ? undefined : widths;
+}
+
+/** Narrow fallback: each body row is a record titled by its first cell, with later cells under their headers. */
+function renderTableRecords(
+  lines: MarkdownRenderLine[],
+  blocks: readonly MarkdownBlock[],
+  blockIndex: number,
+  width: number,
+  columns: number,
+  quote: string,
+  inlines: (block: MarkdownBlock, index: number) => MarkdownInlineSpan[],
+): void {
+  const header = blocks.find((block) => block.header);
+  const body = blocks.filter((block) => block !== header);
+  const records = body.length ? body : blocks;
+  records.forEach((block, record) => {
+    if (record > 0) appendLine(lines, blockIndex, [segment(quote, "quote")]);
+    for (let index = 0; index < columns; index += 1) {
+      const content = inlines(block, index);
+      if (!content.some((inline) => inline.text.trim())) continue;
+      if (index === 0) {
+        wrapInlines(lines, blockIndex, content, width, quote, quote, "table-header");
+        continue;
+      }
+      const label = header && block !== header
+        ? inlines(header, index).map((inline) => inline.text).join("").trim()
+        : "";
+      const labelled: MarkdownInlineSpan[] = label
+        ? [{ text: `${label}: `, marks: ["emphasis"] }, ...content]
+        : content;
+      wrapInlines(lines, blockIndex, labelled, width, `${quote}  `, `${quote}  `, "text");
+    }
+  });
 }
 
 function wrapInlines(

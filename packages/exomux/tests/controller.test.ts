@@ -416,6 +416,69 @@ Deno.test("Exomux coalesces a live resize burst to the first and latest PTY geom
   }
 });
 
+Deno.test("Exomux answers Codex's cursor query after a resize without replaying old queries", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("codex-cursor", "codex");
+  host.emit(session.id, "\x1b[2;3H\x1b[6n");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    assertEquals(client.inputs, [], "replayed queries must not send input");
+    controller.syncTerminalGeometry(controller.windowHost.project(BOUNDS));
+    host.emit(session.id, "\x1b[7;12H\x1b[6");
+    host.emit(session.id, "n\x1b[13;1H");
+    assertEquals(client.inputs, [{ sessionId: session.id, data: "\x1b[7;12R" }]);
+    assertEquals(await controller.writeSession(session.id, "a"), true);
+    host.emit(session.id, "next output");
+    assert(client.inputs.some((input) => input.data === "a"));
+    assert(controller.runtime(session.id)!.screen.textRows().some((row) => row.includes("next output")));
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux reclaims remote PTY geometry on focus without fighting remote resizes while idle", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("shared-geometry", "shared geometry");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    const terminalId = exomuxWindowId(session.id);
+    controller.presentWindow(terminalId, BOUNDS);
+    const project = () => controller.windowHost.project(BOUNDS);
+    controller.syncTerminalGeometry(project());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const runtime = controller.runtime(session.id)!;
+    const local = { columns: runtime.requestedColumns, rows: runtime.requestedRows };
+    controller.openSessionManager(BOUNDS);
+    controller.syncTerminalGeometry(project());
+    client.resizes.length = 0;
+    const remote = host.sessions.get(session.id)!;
+    remote.columns = 30;
+    remote.rows = 12;
+    host.emit(session.id, "remote frame");
+    controller.syncTerminalGeometry(project());
+    assertEquals(client.resizes, [], "the viewer must not fight the other device in the background");
+    controller.presentWindow(terminalId, BOUNDS);
+    controller.syncTerminalGeometry(project());
+    controller.syncTerminalGeometry(project());
+    assertEquals(client.resizes, [{ sessionId: session.id, ...local }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    host.emit(session.id, "local frame");
+    controller.syncTerminalGeometry(project(), true);
+    assertEquals(client.resizes.length, 1, "focus-in at the right size does not resize");
+    remote.columns = 32;
+    remote.rows = 14;
+    host.emit(session.id, "other device resized again");
+    controller.syncTerminalGeometry(project());
+    assertEquals(client.resizes.length, 1, "passive updates do not take over an already-focused view");
+    controller.syncTerminalGeometry(project(), true);
+    assertEquals(client.resizes, [{ sessionId: session.id, ...local }, { sessionId: session.id, ...local }]);
+  } finally {
+    await controller.dispose();
+  }
+});
+
 Deno.test("Exomux cycles the complete theme catalog in both directions with exact wraparound", async () => {
   const host = new FakeExomuxHost();
   const session = host.seed("theme-cycle", "theme cycle");
