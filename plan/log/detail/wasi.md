@@ -44,4 +44,10 @@ example (`771b101`) used QuickJS and a WASI 0.3 command export; Mesa lavapipe re
 A deliberately wrong expected result trapped and reported the actual values. No windowing shims or hardware adapter were
 exercised. A WASI 0.2 command export returned without running the asynchronous assertion, so exit status alone was
 insufficient. StarlingMonkey still panics on the reduced GPU WIT world. The plugin works for the compute guest, but the
-existing desktop does not load it. No production dependency changed.
+the compute guest, but the existing desktop does not load it. No production dependency changed.
+
+## 2026-11-18 — Main integration
+
+The clean release dry run exposed a workspace lock rewrite when manifest discovery was disabled. Keep the npm manifest
+visible to Deno CI and to the release dry run, matching the committed lock. The merge scope is the CPU-rendered Linux
+desktop; the WebGPU probe is evidence only, and there is no version bump or release tag.

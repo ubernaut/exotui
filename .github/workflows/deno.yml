@@ -28,11 +28,7 @@ jobs:
           cache-hash: ${{ hashFiles('deno.jsonc') }}
 
       - name: Run contributor health gate
-        env:
-          DENO_NO_PACKAGE_JSON: "1"
         run: deno task health
 
       - name: Verify clean release candidate
-        env:
-          DENO_NO_PACKAGE_JSON: "1"
         run: deno task release-check -- --clean

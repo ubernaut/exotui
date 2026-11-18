@@ -68,7 +68,8 @@ function commandText(output: CommandOutput): string {
 async function runDeno(args: string[]): Promise<CommandOutput> {
   return await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
     args,
-    env: { DENO_NO_PACKAGE_JSON: "1" },
+    // Match the checked-in workspace lock, including package.json dependencies.
+    env: { DENO_NO_PACKAGE_JSON: "0" },
     stdout: "piped",
     stderr: "piped",
   }).output();
