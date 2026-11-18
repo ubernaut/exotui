@@ -57,9 +57,13 @@ const document = new Markdown({
 ```
 
 The existing controller owns wrapping, table layout, caching, wheel/key scrolling, viewport inspection, and link hit
-testing. Applications decide what link protocols mean; the renderer never opens URLs or executes callbacks named in
-content. Markdown HTML is disabled by the parser. The built-in `mermaid: true` option is a deliberately bounded
-flowchart subset. The separate full engine below supplies prepared cells without changing that default.
+testing. Table cells are truncated to one row by default. `render: { tableCells: "wrap" }` keeps every cell complete:
+cells wrap onto extra rows with their inline marks and links, body rows that wrap are separated by rules, and a table
+too narrow for its longest words (or with a column squeezed below eight cells) becomes labelled records, one per body
+row. Plain (non-art) headings wrap between words; only a word wider than the row splits between glyphs. Applications
+decide what link protocols mean; the renderer never opens URLs or executes callbacks named in content. Markdown HTML is
+disabled by the parser. The built-in `mermaid: true` option is a deliberately bounded flowchart subset. The separate
+full engine below supplies prepared cells without changing that default.
 
 ## Full Mermaid standard — in development
 
