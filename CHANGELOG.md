@@ -6,6 +6,15 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.10.0 / exomux 0.6.0 — 2026-11-18
+
+- Markdown documents can opt into wrapped table cells, with labeled records when the table is too narrow for a grid.
+  Plain headings wrap at word boundaries.
+- Exowebtui adds bounded touch-scroll momentum and scrollbar track seeking. Email links no longer replace the desktop.
+- Exomux keeps Sessions and Network rendering consistent during scroll, reconciles shared PTY size on focus, and
+  responds to live cursor-position queries. Copy shortcuts act on a selection or pass through to the child; the terminal
+  menu provides Copy and Paste.
+
 ## exotui 0.9.0 / exomux 0.5.0 — 2026-11-18
 
 - Bun 1.4+ support for the toolkit and Exomux, verified on Linux, and a CPU-rendered Linux WASI desktop with durable

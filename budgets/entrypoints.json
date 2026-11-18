@@ -501,7 +501,7 @@
   },
   "mod.app.ts": {
     "modules": 152,
-    "bytes": 2049640,
+    "bytes": 2056371,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/accessibility_tree.ts": 5721,
@@ -575,8 +575,8 @@
       "src/content/document_accessibility.ts": 4333,
       "src/content/document_interactions.ts": 11170,
       "src/content/document_semantics.ts": 8610,
-      "src/content/heading_fonts.ts": 5471,
-      "src/content/markdown.ts": 33553,
+      "src/content/heading_fonts.ts": 5971,
+      "src/content/markdown.ts": 39784,
       "src/content/mermaid.ts": 35477,
       "src/event_emitter.ts": 4163,
       "src/focus.ts": 8860,
@@ -659,7 +659,7 @@
   },
   "mod.document.ts": {
     "modules": 76,
-    "bytes": 706466,
+    "bytes": 713197,
     "paths": {
       "mod.document.ts": 680,
       "src/app/accessibility_tree.ts": 5721,
@@ -686,8 +686,8 @@
       "src/content/document_interactions.ts": 11170,
       "src/content/document_semantics.ts": 8610,
       "src/content/flex_markdown_surface.ts": 34398,
-      "src/content/heading_fonts.ts": 5471,
-      "src/content/markdown.ts": 33553,
+      "src/content/heading_fonts.ts": 5971,
+      "src/content/markdown.ts": 39784,
       "src/content/markdown_surface.ts": 10371,
       "src/content/mermaid.ts": 35477,
       "src/event_emitter.ts": 4163,
@@ -741,7 +741,7 @@
   },
   "mod.mermaid.ts": {
     "modules": 132,
-    "bytes": 1564235,
+    "bytes": 1570966,
     "paths": {
       "mod.mermaid.ts": 552,
       "src/app/accessibility_tree.ts": 5721,
@@ -767,8 +767,8 @@
       "src/content/document_interactions.ts": 11170,
       "src/content/document_semantics.ts": 8610,
       "src/content/flex_markdown_surface.ts": 34398,
-      "src/content/heading_fonts.ts": 5471,
-      "src/content/markdown.ts": 33553,
+      "src/content/heading_fonts.ts": 5971,
+      "src/content/markdown.ts": 39784,
       "src/content/markdown_surface.ts": 10371,
       "src/content/mermaid.ts": 35477,
       "src/content/mermaid_accessibility_dom.ts": 10224,
@@ -879,7 +879,7 @@
   },
   "mod.mermaid_headless.ts": {
     "modules": 136,
-    "bytes": 1601032,
+    "bytes": 1607763,
     "paths": {
       "mod.mermaid.ts": 552,
       "mod.mermaid_headless.ts": 190,
@@ -906,8 +906,8 @@
       "src/content/document_interactions.ts": 11170,
       "src/content/document_semantics.ts": 8610,
       "src/content/flex_markdown_surface.ts": 34398,
-      "src/content/heading_fonts.ts": 5471,
-      "src/content/markdown.ts": 33553,
+      "src/content/heading_fonts.ts": 5971,
+      "src/content/markdown.ts": 39784,
       "src/content/markdown_surface.ts": 10371,
       "src/content/mermaid.ts": 35477,
       "src/content/mermaid_accessibility_dom.ts": 10224,
