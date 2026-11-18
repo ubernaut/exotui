@@ -1,6 +1,5 @@
-/// <reference path="./optional_sigma.d.ts" />
-import { type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
+import type { RuntimeSignal } from "./host.ts";
 import { TerminalOutputController } from "../components/terminal_output.ts";
 import type { TerminalOutputSource } from "../components/terminal_output.ts";
 import {
@@ -187,6 +186,7 @@ export async function probeSigmaPtyAvailability(
 }
 
 async function importSigmaPtyModule(): Promise<SigmaPtyModule> {
+  // @ts-ignore: Deno-only JSR import.
   return await import("@sigma/pty-ffi") as SigmaPtyModule;
 }
 
