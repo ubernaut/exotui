@@ -35,17 +35,17 @@ function errorText(error: unknown): string {
 /** Local, read-only filesystem state. Directories load only when expanded. */
 export class ExomuxFileExplorer {
   readonly directory: Signal<string>;
-  readonly message = new Signal("Enter open · ←/→ fold · Backspace parent · r refresh");
-  readonly documentPath = new Signal("");
-  readonly document = new MarkdownController();
-  readonly revision = new Signal(0);
+  readonly message: Signal<string> = new Signal("Enter open · ←/→ fold · Backspace parent · r refresh");
+  readonly documentPath: Signal<string> = new Signal("");
+  readonly document: MarkdownController = new MarkdownController();
+  readonly revision: Signal<number> = new Signal(0);
   readonly tree: TreeController;
   #directoryGeneration = 0;
   #documentGeneration = 0;
   #loaded = false;
   #disposed = false;
 
-  constructor(directory = runtimeHost.cwd()) {
+  constructor(directory: string = runtimeHost.cwd()) {
     this.directory = new Signal(resolve(directory));
     this.tree = new TreeController({
       nodes: [],
