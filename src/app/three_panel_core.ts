@@ -21,12 +21,19 @@ export interface ThreePanelInteractionState {
 }
 
 interface ThreePanelVectorLike {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
   clone(): ThreePanelVectorLike;
   copy(value: ThreePanelVectorLike): this;
   multiplyScalar(value: number): this;
 }
 
 interface ThreePanelQuaternionLike {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly w: number;
   clone(): ThreePanelQuaternionLike;
   copy(value: ThreePanelQuaternionLike): this;
 }

@@ -1,28 +1,164 @@
 # Priority queue
 
-Ordered list of open work. A task not in this list is not expected of anyone. Updated August 25 2026.
+Ordered list of open work. A task not in this list is not expected of anyone. Updated October 6 2026.
 
 ## Active
 
-1. **`046` Exomux remote sessions — design proposals, awaiting a call on D1.**
+- **`054` — Wasmtime host** (`todo/054-wasmtime-host.md`, branch `wasi`): Linux terminal launcher and SQLite settings
+  pass private PTY and Deno/Wasmtime/Bun interchange checks. WebGPU and storage failure-path tests remain release gates.
+  Node follows WASI.
+
+Final SVG implementation verification is complete: renewed53unique health gates pass, as do SVG57/lifecycle7/
+isolation4, complete fallback hosts, API/package/release dry run and consumer HTTP/HTTPS/navigation/Copy/prefix checks.
+All owned jobs reaped. Next is private visual review; no further native parity work or publication without direction.
+Older pending-reconciliation notes below are chronology, not live work.
+
+Approved browser SVG/flex integration is implemented and live privately. Upstream57, lifecycle/isolation and consumer
+HTTP/HTTPS chart/select/Copy, history, scroll, resize, routes/prefix, transitions/glass checks pass. Reconcile the
+expected additive-API baseline and final broad receipts, then owner visual review. No further native fidelity research
+or public publication. Task050's new acceptance supersedes its retained historical native chronology.
+
+October 6 approved scope pivot: task 050 now presents official Mermaid SVG inside browser document windows. Preserve the
+real terminal-style desktop/Markdown/flex renderer and keep circuit/native output optional; do not pursue further
+bespoke SVG/MathML-to-cell parity. Implement the reusable browser adapter, integrate tech-stack, verify private HTTPS/
+offline Pages and desktop behavior, then ask for visual review before publication. Historical native-fidelity work below
+is chronology, not the current queue or a claim of completion.
+
+Task050 native ink ownership now fixes advance-only overhang clearing and independently reproduced fractional-device
+paint-order/seam defects. Logical font anchors stay unchanged; clipped rounded-device spans own background, glyphs,
+circuit/block geometry and decorations. Complete browser/headless and53independently audited health gates pass on
+unchanged1468-input final freeze: root4131/42steps, Exomux559, web63, workers54/87benchmarks.600ink/3600repaint,
+15plane/390repaint/87172solid-pixel and48actual disposed-MathML browser profiles/288frames pass. Fonts/counters/
+66focused/types/API/package/release pass; strict five-module lint passes, with an unchanged legacy desktop-test
+direct-URL import still flagged separately. Next repair independently pixel-proven radical rule centers/thickness, then
+continue every original family/feature/fidelity/configuration/capability/consumer/review requirement. All ten gates
+unchecked. Default build changes to899391bytes; consumer/downloads/owner plans/preview/protocol/publication unchanged.
+Receipt: mermaid-ink-repaint.woAffJ/.
+
+Previous fraction continuation: resolved fraction thickness/axis and affine metrics passed336original pixel
+controls,676DOM cases/1344snapshots, four refusal/recovery checks and16real compiles/256disposed snapshots.
+ForeignObject viewport clipping and ordinary math density repair the visible-denominator regression. Next repair the
+clipped zero-advance combining carrier exposed by the unchanged broad assertion: Liberation Mono U+0333 has20visible
+original pixels, but its NBSP carrier at columnOffset-1 is clipped. Retain correct clipping and the old assertion; then
+renew complete/frozen browser/headless/health/font/counter/package evidence. Initial health finishes0 but source changes
+invalidate a final-source claim. Every original structural/font/family/feature/capability/consumer/review requirement
+and all ten gates remain open. No publication or preview switch; receipts in mermaid-math-rules.mlQmiM/.
+
+Desktop UX, window animations and overlapping glass are implemented in both private builds (tasks 051–053); maintainer
+visual approval/publication remain separate.
+
+Historical verification chronology is retained in task 050 and the branch/summary logs, not duplicated as live queue
+items here.
+
+0. **`050` Full Mermaid diagram standard.** [Full-standard implementation](050-full-mermaid-standard.md). User
+   explicitly requests every Mermaid diagram family and documented feature, not just the prior flowchart subset.
+   Integrate the official version-pinned engine behind an optional boundary, retain native cell composition, and verify
+   full syntax/rendering/interaction coverage. This goal remains active until full completion is proved. Browser and
+   isolated Deno/headless compilation now cover the upstream catalogue and native preparation. Next complete advanced
+   paint fidelity beyond the new bounded alpha/group/gradient/blend, CSS/SVG filter graphs and local reference
+   instancing and bounded captured images, advanced clip/mask/filter and stroke fidelity, advanced images/animation,
+   complete vector/embedded decode bounds and font readiness, responsive async document lifecycle and safe interaction
+   transport, then integrate the consumer and prove per-feature coverage/review. Default MathML labels now retain
+   structural native notation/density and have real-engine regressions. Static/lazy host icon packs, native vector icons
+   and small-viewport density now have feature probes; CSS icon fonts, advanced math/legacy HTML and remaining
+   capabilities still need completion. The internal tech-stack preview was taken down on request, then restored on the
+   user's explicit new request, serving its unchanged bounded-renderer build. Reactive source/theme/width refresh and a
+   bounded host cache now have model/mounted verification in both real-engine hosts and a passing full health run.
+   Full-Mermaid flex panels now share measuring/ painting models, retain live reading anchors, handle structural
+   ownership and avoid stale-view resize loops. Both hosts pass the full family catalogue in responsive flex cards.
+   Explicit font bytes and current-load/late-load readiness now have both-host probes, bounded relayout and owned
+   cleanup. Next complete advanced asset/font memory and typography, exhaustive responsive syntax/configuration evidence
+   and remaining lifecycle/interaction/native fidelity work. Authored start/mid/end SVG markers now retain curve
+   directions, original styles, context gradients, nested local definitions and measured viewport/source clipping.
+   Current Chromium edge behavior and bounded cleanup have probes; remaining shape equivalents, marker text/use
+   contexts, paint order and full stroke fidelity still require work. Native links/targets/plain tooltips and callback
+   metadata now reach explicit Markdown/flex host hooks, with strict policy, bounded declarative data, no source/global
+   execution and painted hit geometry. Both hosts verify interactions after compiler disposal. Native keyboard action
+   navigation and bounded tooltip chrome now use generic painted spans/Text rows, preserve Tab/window modifiers and own
+   focus separately from borrowed models. Both engine hosts add keyboard/tooltip probes, including after compiler
+   disposal. Final corrected-source verification passes 167 focused tests and all 53 health gates; native review
+   preserves the selected caption and failed-render cache retries cannot expose old actions. Advanced
+   family/animation/accessibility parity, remaining native/assets/fonts/ feature/configuration work, consumer
+   integration and the original full-standard gates remain open. The next slice adds measured portable numeric
+   paint/group animation with borrowed native clocks, official fast/slow/class edges and CSS timing/easing. Renewed
+   verification passes 170 focused tests, both catalogues/font hosts, 468 independent browser timing samples and all 53
+   health gates (3859 root tests). Host ticks add no compile jobs. Advanced animated geometry,
+   inherited/coupled/additive properties, full accessibility and maintainer review remain open. The next slice fixes
+   handDrawn curve oversampling and unsnapped centerline/dash-cell traversal without raising point limits. Canonical
+   shapes now have three-look evidence, aliases match the installed pinned registry, and eleven themes/HTML labels have
+   both-host native/transport probes. Full stroke outlines and exhaustive feature coverage remain open; current
+   verification is recorded in task 050. Renewed verification passes 170 focused tests and all 53 health gates (3,870
+   root tests). Root title/description/role now reach native document semantic targets and an explicit owned browser
+   companion, preserving terminal capability limits. Nine measured common-preamble family gaps are repaired; all 39
+   catalogue preambles, nine visual baselines and actual Chromium AX metadata have probes. Renewed focused tests pass
+   178; final full health passes all 53 gates (3,877 root tests) with 80 frozen source hashes. A late TypeScript
+   callback/utility probe preserves the unchanged one-argument ARIA helper and adds a separate owned-description
+   helper/regression; inventory/e2e and renewed broad checks pass. Both engines/font hosts pass; root ID scans occur
+   once per diagram. Next complete remaining source placements, structured label/math/action accessibility, consumer/AT
+   integration and the other original full-standard requirements—not just root metadata. Structured label/MathML/action
+   trees now retain bounded inert JSON through the painted Markdown/flex models. Explicit browser hooks match current
+   painted actions, preserve owned reflow focus and reject stale/offscreen/disposed actions; no raw SVG/resources/global
+   callback execution is installed. Eighteen actual Chromium content subtrees and 146 focused tests pass; both engine/
+   font hosts and all 53 renewed health gates pass (3,882 root tests/84 frozen source files). Remaining full
+   semantic/source-placement/AT/consumer/visual coverage and all original task 050 requirements stay open. The exposure
+   continuation now checks actual nested trees/whitespace, preserves div/pre/NBSP spaces, named groups and bounded local
+   use/symbol text, and avoids fabricated presentational-root names. Wide stroke outlines now retain authored affine
+   metrics, caps/joins/miter limits and dash seams. Final verification passes 158 focused tests, 37 independent outline
+   cases, both full engine/font hosts and all 53 health gates (3,894 root tests/89 frozen files). Remaining advanced
+   strokes/native/assets/fonts/animation/configuration/family/consumer/AT/review requirements stay open; all ten
+   original full-standard acceptance gates remain unchecked. Host-space non-scaling strokes and shape/marker paint order
+   now have portable metrics, split-owner compositing and independent decoded-paint/animation/limit probes; expanded
+   frozen-source verification is in task 050. Text-outline/ advanced
+   stroke/animation/assets/fonts/family/configuration/AT/consumer/review scope remains open.
+
+   Zero-pathLength dashes now follow measured finite/solid Chromium paint, with documented SVG2 differences and
+   unchanged pattern bounds. Final combined verification passes 163 focused tests, 62-file lint, both engine/font hosts
+   and all 53 health gates (3,899 root tests/92 frozen files); the earlier stale-record failure is corrected. Next fix
+   actual rotated XY-chart labels and density: negative height/narrow transformed width currently produces a 601x216
+   native frame with horizontal labels. All original full-standard gates remain open.
+
+   Measured SVG grapheme placement now corrects that XY label/density defect (100x72), including nested style runs and
+   portable upright glyphs. The architecture caption regression is repaired; renewed 169-test/82-file-lint/three-types,
+   both complete engines/font hosts and all 53 health gates pass on 96 unchanged hashes. Twenty prior raw cases pass.
+   Next actual themeCSS casing/Unicode expansion is corrected in SVG/HTML with bounded text-only owned selection,
+   preserving app selection/focus. Twenty-four raw cases/six refusal-recovery checks and eight actual headless casing
+   examples pass. Final combined-source verification passes both full engines/font hosts, 128 disposed casing snapshots
+   per host, 169 tests/84-file lint/three types and all 53 health gates on 98 unchanged hashes for that visual revision.
+   Actual Chromium AX casing now drives a shared bounded semantic/reference resolver, preserving literal metadata and
+   multiline descriptions, hidden-reference distinctions and MathML automatic versus explicit casing. Current targeted
+   capture passes 31 examples; 39 actual browser SVG subtrees, 172 focused tests, 87-file lint/three types and font
+   hosts now pass on the frozen revision. Named generic nodes retain actual roles/descriptions, with explicit
+   definitions and uninstanced/reference distinctions. Final browser/headless catalogues finish zero and health passes
+   all 53 gates; complete receipts are in task 050. The latest user request prioritizes the tech-stack circuit-chart
+   visual pass. Then repair the newly reproduced mixed MathML token order and invented legacy ms quotes; raw and actual
+   flowchart audits are in task 050. Shaping/advanced text/family/assets/animation/configuration/consumer/ AT/review and
+   all original acceptance gates remain open.
+
+1. **`049` Markdown and Mermaid document renderers.** [`todo/049-document-renderers.md`](049-document-renderers.md).
+   User-requested reusable document rendering for tech-stack: one width-aware Standard title banner, plain subheadings,
+   circuit-package flowcharts, flexbox PDF-style component layouts, safe HTML/SVG, and Markdown-authored site content.
+   The user authorized a new ExotUI version once components are complete and release gates pass. The separate tech-stack
+   site still awaits preview approval before its push/deployment.
+
+2. **`046` Exomux remote sessions — design proposals, awaiting a call on D1.**
    [`todo/046-exomux-remote-session.md`](046-exomux-remote-session.md). Full-screen a remote exomux over SSH from a
    control beside the top-bar `[ ✕ ]`, and paste or drop a local image into a remote `codex`/`claude` so the application
    actually receives it. Three transport shapes are proposed — nested PTY, an SSH stdio relay speaking the existing v1
    protocol, and relay-plus-spaces — with the relay recommended as the engine because it is the only one that gives the
    image transfer an authenticated channel to use. Six open decisions; nothing implemented. Slice 0 is a measurement,
    not a build: find out what `codex` and `claude` actually accept before designing around a guess.
-2. **`047` Kitty Unicode placeholder relay.**
+3. **`047` Kitty Unicode placeholder relay.**
    [`todo/047-kitty-unicode-placeholder-relay.md`](047-kitty-unicode-placeholder-relay.md). The corruption is fixed — a
    combining mark no longer takes a column of its own, so a relayed image is no longer twice as wide as its pane and no
    bare mark escapes into the host's stream. The image still does not render: the relay remaps `i=` but a virtual
    placement also carries its id in the cell foreground, which the relay cannot reach, and `U` is not in its vocabulary
    at all. Recommendation is to namespace by the id's high byte so the foreground stays untouched.
-3. **`048` The corruption background.** [`todo/048-corruption-background.md`](048-corruption-background.md). The
+4. **`048` The corruption background.** [`todo/048-corruption-background.md`](048-corruption-background.md). The
    kitty-placeholder glitch fixed on Aug 24 — doubled columns, cascading wrap, lurid id-coloured runs — rebuilt on
    purpose as an animated field that reclaims idle windows through the existing overgrowth machinery. One hard
    constraint: it must never emit a real `U+10EEEE` or a bare combining mark, because a terminal that understands the
    placeholder protocol would bind those cells to whatever image id the foreground happens to encode.
-4. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
+5. **Visualisation follow-ups, from building exomonitor on the published package.** The dimensional model and the
    fitness ranking are in and green; these are the gaps building a real application found and did not close:
    - **No `2dt` renderer.** The kind exists and a stream can carry it; nothing draws it. A matrix over time is the
      natural shape for per-core load _and_ history together, which is the one thing exomonitor cannot show.
@@ -34,7 +170,7 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
      repository as the worked example for `./viz`. The standalone `~/projects/exomonitor` checkout is now a second copy
      of the same code; it should be retired rather than kept, because two copies of a thing is the drift this release
      spent a day undoing.
-5. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
+6. **`025` Production demo application showcases.** Reactivated Aug 17. Orbital Command and GlyphForge are the named
    targets; the remaining eight concepts stay parked until those two have fixture-backed hero slices.
 
 ## `deno task health` — seven red gates, fixed August 18 2026

@@ -166,6 +166,7 @@ export class Component extends EventEmitter<
     });
 
     queueMicrotask(() => {
+      if (this.#destroyed) return;
       this.tui.addChild(this);
     });
   }

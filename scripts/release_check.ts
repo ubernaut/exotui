@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 export interface ReleaseArtifactSummary {
   packageId: string;
   fileCount: number;
@@ -65,27 +66,28 @@ function commandText(output: CommandOutput): string {
 }
 
 async function runDeno(args: string[]): Promise<CommandOutput> {
-  return await new Deno.Command(Deno.execPath(), {
+  return await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
     args,
-    env: { DENO_NO_PACKAGE_JSON: "1" },
+    // Match the checked-in workspace lock, including package.json dependencies.
+    env: { DENO_NO_PACKAGE_JSON: "0" },
     stdout: "piped",
     stderr: "piped",
   }).output();
 }
 
 if (import.meta.main) {
-  const args = normalizeReleaseCheckArgs(Deno.args);
+  const args = normalizeReleaseCheckArgs(runtimeHost.args);
   const knownArgs = new Set(["--clean", "--json", "--quiet"]);
   const unknownArg = args.find((arg) => !knownArgs.has(arg));
   if (unknownArg) {
     console.error(`unknown release-check option: ${unknownArg}`);
-    Deno.exit(2);
+    runtimeHost.exit(2);
   }
 
   const packageCheck = await runDeno(["run", "-A", "./scripts/package_check.ts", "--quiet"]);
   if (!packageCheck.success) {
     console.error(commandText(packageCheck).trimEnd());
-    Deno.exit(packageCheck.code);
+    runtimeHost.exit(packageCheck.code);
   }
 
   const publishArgs = ["publish", "--dry-run"];
@@ -94,7 +96,7 @@ if (import.meta.main) {
   const output = commandText(publish);
   if (!publish.success) {
     console.error(output.trimEnd());
-    Deno.exit(publish.code);
+    runtimeHost.exit(publish.code);
   }
 
   const summary = parseReleaseArtifactSummary(output);

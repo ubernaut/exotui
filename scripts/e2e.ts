@@ -1,3 +1,5 @@
+import { runtimeTaskCommand } from "./demo_launcher.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import { stripAnsi } from "../src/utils/ansi_text.ts";
 
 export interface E2ECommandTarget {
@@ -216,8 +218,9 @@ export async function runE2ECommandTarget(
   options: { cwd?: string } = {},
 ): Promise<E2ECommandResult> {
   const started = performance.now();
-  const command = new Deno.Command(target.command[0]!, {
-    args: [...target.command.slice(1)],
+  const argv = runtimeTaskCommand(target.command);
+  const command = new runtimeHost.Command(argv[0]!, {
+    args: [...argv.slice(1)],
     cwd: options.cwd,
     stdout: "piped",
     stderr: "piped",
@@ -265,7 +268,7 @@ export async function inspectE2EArtifactTarget(
 ): Promise<E2EArtifactResult> {
   const path = options.cwd ? `${options.cwd.replace(/\/$/, "")}/${target.path}` : target.path;
   try {
-    const data = await Deno.readFile(path);
+    const data = await runtimeHost.readFile(path);
     const text = isLikelyText(target.path) ? new TextDecoder().decode(data) : "";
     return inspectE2EArtifactData(target, data.byteLength, text);
   } catch (error) {
@@ -373,13 +376,13 @@ function previewText(value: string): string {
 }
 
 if (import.meta.main) {
-  const json = Deno.args.includes("--json");
-  const quiet = Deno.args.includes("--quiet");
+  const json = runtimeHost.args.includes("--json");
+  const quiet = runtimeHost.args.includes("--quiet");
   const report = await runE2ESuite();
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else if (!quiet) {
     console.log(formatE2EReport(report));
   }
-  if (!report.passed) Deno.exit(1);
+  if (!report.passed) runtimeHost.exit(1);
 }

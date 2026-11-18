@@ -1,9 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { readCsiSequenceAt } from "./ansi_text.ts";
 import { isSgrReset, mergeSgrStyle } from "./sgr_style.ts";
+import { DEFAULT_UNICODE_GRAPHEME_SEGMENTER } from "../unicode/grapheme.ts";
+import { measureCharacterWidth } from "./character_width.ts";
 
 /**
- * Regexp that allows for extracting unicode sequences that are supposed to represent single character
+ * Legacy Unicode matcher retained for public compatibility. Rendering helpers
+ * use the pinned UAX #29 segmenter; this regex is not a full grapheme profile.
  *
  * Used reference: https://github.com/lodash/lodash/blob/master/.internal/unicodeSize.js
  */
@@ -30,16 +33,14 @@ export function getMultiCodePointCharacters(text: string): string[] {
   const plainAscii = getPlainAsciiCharacters(text);
   if (plainAscii) return plainAscii;
 
-  const matched = text.match(UNICODE_CHAR_REGEXP);
-
-  return matched ?? empty;
+  return Array.from(DEFAULT_UNICODE_GRAPHEME_SEGMENTER.iterate(text), (cluster) => cluster.segment);
 }
 
 function getPlainAsciiCharacters(text: string): string[] | undefined {
   const cells = new Array<string>(text.length);
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
-    if (code >= 0x80) return undefined;
+    if (code >= 0x80 || code === 0x0d) return undefined;
     cells[index] = text[index] ?? "";
   }
   return cells;
@@ -48,6 +49,7 @@ function getPlainAsciiCharacters(text: string): string[] | undefined {
 function getStyledCharacters(text: string): string[] {
   const simpleStyledAscii = getSimpleStyledAsciiCharacters(text);
   if (simpleStyledAscii) return simpleStyledAscii;
+  if (hasComplexGraphemes(text)) return getStyledGraphemes(text);
 
   const cells: string[] = [];
   let style = "";
@@ -67,7 +69,7 @@ function getStyledCharacters(text: string): string[] {
       }
     }
 
-    const char = nextTextCharacter(text, index);
+    const char = text[index]!;
     if (style === lastStyle && char === lastChar) {
       cells.push(lastCell);
     } else {
@@ -106,7 +108,7 @@ function getSimpleStyledAsciiCharacters(text: string): string[] | undefined {
   if (bodyEnd <= bodyStart) return undefined;
   for (let index = bodyStart; index < bodyEnd; index += 1) {
     const code = text.charCodeAt(index);
-    if (code === 0x1b || code >= 0x80) return undefined;
+    if (code < 0x20 || code === 0x7f || code >= 0x80) return undefined;
   }
 
   const bodyLength = bodyEnd - bodyStart;
@@ -154,19 +156,9 @@ export function textWidth(text: string, start = 0): number {
   if (narrowAnsiWidth !== undefined) return narrowAnsiWidth;
 
   let width = 0;
-  for (let index = Math.max(0, Math.floor(start)); index < text.length;) {
-    if (text.charCodeAt(index) === 0x1b) {
-      const sequence = readAnsiSequenceAt(text, index);
-      if (sequence) {
-        index += sequence.length;
-        continue;
-      }
-    }
-
-    const char = nextTextCharacter(text, index);
-    if (char === "\n") break;
+  for (const { char } of displayGraphemes(text, Math.max(0, Math.floor(start)))) {
+    if (char.includes("\n")) break;
     width += characterWidth(char);
-    index += char.length;
   }
 
   return width;
@@ -181,20 +173,9 @@ export function cropToWidth(text: string, width: number): string {
 
   let cropped = "";
   let croppedWidth = 0;
-  let prefix = "";
-
-  for (let index = 0; index < text.length;) {
-    if (text.charCodeAt(index) === 0x1b) {
-      const sequence = readAnsiSequenceAt(text, index);
-      if (sequence) {
-        prefix += sequence;
-        index += sequence.length;
-        continue;
-      }
-    }
-
-    const char = nextTextCharacter(text, index);
-    if (char === "\n") break;
+  let end = 0;
+  for (const { char, prefix, raw, rawEnd } of displayGraphemes(text)) {
+    if (char.includes("\n")) return cropped + prefix;
     const charWidth = characterWidth(char);
 
     if (croppedWidth + charWidth > width) {
@@ -204,22 +185,16 @@ export function cropToWidth(text: string, width: number): string {
       if (croppedWidth + 1 === width) {
         cropped += " ";
       }
-      prefix = "";
-      break;
+      return cropped;
     } else {
       croppedWidth += charWidth;
     }
 
-    cropped += prefix + char;
-    prefix = "";
-    index += char.length;
+    cropped += prefix + raw;
+    end = rawEnd;
   }
 
-  if (prefix) {
-    cropped += prefix;
-  }
-
-  return cropped;
+  return cropped + text.slice(end);
 }
 
 function plainAsciiWidth(text: string, start = 0): number | undefined {
@@ -227,7 +202,7 @@ function plainAsciiWidth(text: string, start = 0): number | undefined {
   for (let index = offset; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
     if (code === 0x0a) return index - offset;
-    if (code === 0x1b || code >= 0x80) return undefined;
+    if (code < 0x20 || code === 0x7f || code >= 0x80) return undefined;
   }
   return Math.max(0, text.length - offset);
 }
@@ -238,7 +213,7 @@ function cropPlainAsciiToWidth(text: string, width: number): string | undefined 
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
     if (code === 0x0a) return text.slice(0, Math.min(index, safeWidth));
-    if (code === 0x1b || code >= 0x80) return undefined;
+    if (code < 0x20 || code === 0x7f || code >= 0x80) return undefined;
   }
   return text.length <= safeWidth ? text : text.slice(0, limit);
 }
@@ -302,14 +277,67 @@ function isFastNarrowCodePoint(code: number): boolean {
   return (code >= 0x20 && code < 0x7f) || code === 0x2588 || code === 0x2587;
 }
 
-function nextTextCharacter(text: string, index: number): string {
-  const codeUnit = text.charCodeAt(index);
-  if (codeUnit < 0x80) return text[index] ?? "";
+function hasComplexGraphemes(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) >= 0x80 || text.charCodeAt(i) === 0x0d) return true;
+  }
+  return false;
+}
 
-  UNICODE_CHAR_REGEXP.lastIndex = index;
-  const match = UNICODE_CHAR_REGEXP.exec(text);
-  if (match?.index === index) return match[0];
-  return String.fromCodePoint(text.codePointAt(index) ?? codeUnit);
+/** ANSI controls have no grapheme boundaries. Track raw spans without an offset entry per UTF-16 unit. */
+function* displayGraphemes(text: string, start = 0) {
+  const runs: Array<{ start: number; end: number; rawStart: number }> = [];
+  let plain = "";
+  for (let i = start; i < text.length;) {
+    const sequence = readAnsiSequenceAt(text, i);
+    if (sequence) {
+      i += sequence.length;
+      continue;
+    }
+    const rawStart = i;
+    // An invalid escape remains an ordinary control character, not an infinite loop.
+    i++;
+    while (i < text.length && text.charCodeAt(i) !== 0x1b) i++;
+    const visible = text.slice(rawStart, i), at = plain.length;
+    plain += visible;
+    runs.push({ start: at, end: plain.length, rawStart });
+  }
+  let firstRun = 0, lastRun = 0, previousEnd = start;
+  for (const cluster of DEFAULT_UNICODE_GRAPHEME_SEGMENTER.iterate(plain)) {
+    while (cluster.start >= runs[firstRun]!.end) firstRun++;
+    while (cluster.end > runs[lastRun]!.end) lastRun++;
+    const first = runs[firstRun]!, last = runs[lastRun]!;
+    const rawStart = first.rawStart + cluster.start - first.start;
+    const rawEnd = last.rawStart + cluster.end - last.start;
+    yield {
+      char: cluster.segment,
+      prefix: text.slice(previousEnd, rawStart),
+      raw: text.slice(rawStart, rawEnd),
+      rawEnd,
+    };
+    previousEnd = rawEnd;
+  }
+}
+
+function updateSgrStyle(style: string, raw: string): string {
+  for (let i = raw.indexOf("\x1b"); i !== -1; i = raw.indexOf("\x1b", i + 1)) {
+    const sequence = readCsiSequenceAt(raw, i);
+    if (sequence?.endsWith("m")) style = mergeSgrStyle(style, sequence);
+  }
+  return style;
+}
+
+function getStyledGraphemes(text: string): string[] {
+  const cells: string[] = [];
+  let style = "";
+  for (const { char, prefix, raw } of displayGraphemes(text)) {
+    style = updateSgrStyle(style, prefix);
+    // The terminal cell's base scalar owns its style. Internal SGR still
+    // changes subsequent cells, but cannot split the visible grapheme.
+    cells.push(style ? `${style}${char}\x1b[0m` : char);
+    style = updateSgrStyle(style, raw);
+  }
+  return cells;
 }
 
 function isAnsiResetOnly(value: string): boolean {
@@ -357,103 +385,7 @@ export function isFinalAnsiByte(character: string): boolean {
  * Originally created by sindresorhus: https://github.com/sindresorhus/is-fullwidth-code-point/blob/main/index.js
  */
 export function characterWidth(character: string): number {
-  const plain = character.includes("\x1b") ? stripStyles(character) : character;
-  if (!plain) return 0;
-
-  if (plain.length === 1) {
-    return codePointWidth(plain.charCodeAt(0));
-  }
-  const firstCodePoint = plain.codePointAt(0) ?? 0;
-  if (plain.length === 2 && firstCodePoint > 0xffff) {
-    return codePointWidth(firstCodePoint);
-  }
-
-  let firstScannedCodePoint = 0;
-  let count = 0;
-  let allRegional = true;
-  let hasZeroWidthJoiner = false;
-  let hasEmojiVariation = false;
-  let hasEmoji = false;
-
-  for (let index = 0; index < plain.length;) {
-    const codePoint = plain.codePointAt(index) ?? 0;
-    if (count === 0) firstScannedCodePoint = codePoint;
-    count += 1;
-    if (codePoint === 0x200d) hasZeroWidthJoiner = true;
-    if (codePoint === 0xfe0f) hasEmojiVariation = true;
-    if (isEmojiSymbol(codePoint)) hasEmoji = true;
-    if (!isRegionalIndicator(codePoint)) allRegional = false;
-    index += codePoint > 0xffff ? 2 : 1;
-  }
-
-  if (hasZeroWidthJoiner) return 2;
-  if (count === 2 && allRegional) return 2;
-  if (hasEmojiVariation && hasEmoji) return 2;
-
-  return codePointWidth(firstScannedCodePoint);
-}
-
-function codePointWidth(codePoint: number): number {
-  if (
-    codePoint === 0x200b ||
-    codePoint === 0x200d ||
-    isCombiningMark(codePoint) ||
-    isVariationSelector(codePoint) ||
-    isEmojiModifier(codePoint)
-  ) {
-    return 0;
-  }
-
-  if (
-    codePoint >= 0x1100 &&
-    (codePoint <= 0x115f ||
-      codePoint === 0x2329 ||
-      codePoint === 0x232a ||
-      (0x2e80 <= codePoint && codePoint <= 0x3247 && codePoint !== 0x303f) ||
-      (0x3250 <= codePoint && codePoint <= 0x4dbf) ||
-      (0x4e00 <= codePoint && codePoint <= 0xa4c6) ||
-      (0xa960 <= codePoint && codePoint <= 0xa97c) ||
-      (0xac00 <= codePoint && codePoint <= 0xd7a3) ||
-      (0xf900 <= codePoint && codePoint <= 0xfaff) ||
-      (0xfe10 <= codePoint && codePoint <= 0xfe19) ||
-      (0xfe30 <= codePoint && codePoint <= 0xfe6b) ||
-      (0xff01 <= codePoint && codePoint <= 0xff60) ||
-      (0xffe0 <= codePoint && codePoint <= 0xffe6) ||
-      (0x1b000 <= codePoint && codePoint <= 0x1b001) ||
-      (0x1f000 <= codePoint && codePoint <= 0x1faff) ||
-      (0x1f200 <= codePoint && codePoint <= 0x1f251) ||
-      (0x20000 <= codePoint && codePoint <= 0x3fffd))
-  ) {
-    return 2;
-  }
-
-  return 1;
-}
-
-function isCombiningMark(codePoint: number): boolean {
-  return (0x0300 <= codePoint && codePoint <= 0x036f) ||
-    (0x1ab0 <= codePoint && codePoint <= 0x1aff) ||
-    (0x1dc0 <= codePoint && codePoint <= 0x1dff) ||
-    (0x20d0 <= codePoint && codePoint <= 0x20ff) ||
-    (0xfe20 <= codePoint && codePoint <= 0xfe2f);
-}
-
-function isVariationSelector(codePoint: number): boolean {
-  return (0xfe00 <= codePoint && codePoint <= 0xfe0f) ||
-    (0xe0100 <= codePoint && codePoint <= 0xe01ef);
-}
-
-function isEmojiModifier(codePoint: number): boolean {
-  return 0x1f3fb <= codePoint && codePoint <= 0x1f3ff;
-}
-
-function isRegionalIndicator(codePoint: number): boolean {
-  return 0x1f1e6 <= codePoint && codePoint <= 0x1f1ff;
-}
-
-function isEmojiSymbol(codePoint: number): boolean {
-  return (0x2600 <= codePoint && codePoint <= 0x27bf) ||
-    (0x1f000 <= codePoint && codePoint <= 0x1faff);
+  return measureCharacterWidth(character.includes("\x1b") ? stripStyles(character) : character);
 }
 
 /** Returns capitalized string created from {text} */

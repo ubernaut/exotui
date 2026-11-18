@@ -22,6 +22,22 @@ import { textWidth } from "../utils/strings.ts";
 /** One colour, the way every painter in both consumers already spells it. */
 export type ShellRgb = readonly [number, number, number];
 
+/**
+ * Color a styled cell deposits beneath translucent windows. This is Exomux's
+ * glyph-coverage convention: shade blocks carry 25/50/75/100% ink, ordinary
+ * text/lines 55%, and blanks only their ground. Upper windows retain their own
+ * glyphs; the scene below contributes color, not duplicate foreground text.
+ */
+export function shellCellImpression(glyph: string, foreground: ShellRgb | undefined, background: ShellRgb): ShellRgb {
+  if (!foreground || glyph === " " || glyph === "") return background;
+  const coverage = glyph === "░" ? .25 : glyph === "▒" ? .5 : glyph === "▓" ? .75 : glyph === "█" ? 1 : .55;
+  return [
+    Math.round(background[0] + (foreground[0] - background[0]) * coverage),
+    Math.round(background[1] + (foreground[1] - background[1]) * coverage),
+    Math.round(background[2] + (foreground[2] - background[2]) * coverage),
+  ];
+}
+
 /** A cell style; absent fields are the surface's business. */
 export interface ShellStyle {
   readonly foreground?: ShellRgb;

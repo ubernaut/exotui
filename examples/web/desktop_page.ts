@@ -11,6 +11,7 @@ import { webPresenter } from "../../src/web/web_presenter.ts";
 import type { Rectangle } from "../../src/types.ts";
 import { createBrowserMonitor } from "./browser_monitor.ts";
 import { browserAudioSource } from "./browser_audio_source.ts";
+import { copyBrowserText } from "./browser_clipboard.ts";
 import type { ShellAnimatedBackground } from "../../src/app/backgrounds/mod.ts";
 import { createDesktopApp, type DesktopThreeOverlayService } from "./desktop_app.ts";
 import type { ThreeWindowOverlay } from "./desktop_three.ts";
@@ -95,17 +96,16 @@ function lazyButterchurn(): ShellAnimatedBackground {
   };
   return wrapper as unknown as ShellAnimatedBackground;
 }
-// A click anywhere is the user gesture the microphone needs; the synth keeps
-// butterchurn alive until then.
-presenter.host.element.addEventListener("pointerdown", () => void audio.enableMicrophone(), { once: false });
-
 runShellApp(
   presenter,
   createDesktopApp({
+    reducedMotion: () => globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches,
     openExternal: (url) => globalThis.open(url, "_blank", "noopener"),
     createMonitor: () => createBrowserMonitor({ header: false }),
     threeOverlay: threeOverlayService(),
-    copyText: (text) => void navigator.clipboard?.writeText(text).catch(() => {}),
+    copyText: (text) => copyBrowserText(text),
+    selectionText: () => globalThis.getSelection()?.toString() ?? "",
+    audio,
     shader: presenter.shader,
     extraBackgrounds: [
       {

@@ -26,6 +26,9 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
   assertEquals(packageEntrypoints.map((entrypoint) => entrypoint.specifier), [
     ".",
     "./app",
+    "./document",
+    "./mermaid",
+    "./mermaid/headless",
     "./web",
     "./shell",
     "./remote",
@@ -49,10 +52,13 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
   assertEquals(filterPackageEntrypoints({ runtime: "terminal" }).map((entrypoint) => entrypoint.specifier), [
     ".",
     "./app",
+    "./mermaid/headless",
     "./terminal",
     "./testing",
   ]);
   assertEquals(filterPackageEntrypoints({ stability: "experimental" }).map((entrypoint) => entrypoint.specifier), [
+    "./mermaid",
+    "./mermaid/headless",
     "./remote",
     "./three-ascii",
     "./viz/three",
@@ -62,6 +68,7 @@ Deno.test("package entrypoint manifest separates terminal web and remote surface
   ]);
   assertEquals(filterPackageEntrypoints({ stability: "beta" }).map((entrypoint) => entrypoint.specifier), [
     "./app",
+    "./document",
     "./web",
     "./shell",
     "./viz",
@@ -82,6 +89,9 @@ Deno.test("api surface policies mark public experimental and demo-only code", ()
   assertEquals(filterApiSurfacePolicies({ public: true }).map((policy) => policy.pattern), [
     "mod.ts",
     "mod.app.ts",
+    "mod.document.ts",
+    "mod.mermaid.ts",
+    "mod.mermaid_headless.ts",
     "mod.web.ts",
     "mod.remote.ts",
     "mod.three_ascii.ts",
@@ -154,6 +164,9 @@ Deno.test("package export validation compares deno export maps with the stabilit
       exports: {
         ".": "./mod.ts",
         "./app": "./mod.app.ts",
+        "./document": "./mod.document.ts",
+        "./mermaid": "./mod.mermaid.ts",
+        "./mermaid/headless": "./mod.mermaid_headless.ts",
         "./web": "./mod.web.ts",
         "./shell": "./mod.shell.ts",
         "./remote": "./mod.remote.ts",
@@ -205,6 +218,9 @@ Deno.test("package export validation compares deno export maps with the stabilit
   assertEquals(invalid.ok, false);
   assertEquals(invalid.missingExports, [
     "./app",
+    "./document",
+    "./mermaid",
+    "./mermaid/headless",
     "./shell",
     "./remote",
     "./three-ascii",
@@ -240,6 +256,8 @@ Deno.test("package export validation compares deno export maps with the stabilit
     { specifier: "./web", expected: "./mod.web.ts", actual: "./wrong.ts" },
   ]);
   assertEquals(invalid.byStability.experimental.missingExports, [
+    "./mermaid",
+    "./mermaid/headless",
     "./remote",
     "./three-ascii",
     "./viz/three",

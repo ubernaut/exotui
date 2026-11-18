@@ -1,3 +1,4 @@
+import type { RuntimeSystemMemoryInfo } from "../src/runtime/host.ts";
 import {
   AnsiCanvasSink,
   AsyncScheduler,
@@ -1679,7 +1680,7 @@ class BenchmarkMetricsProvider implements SystemMetricsProvider {
     return 16;
   }
 
-  systemMemoryInfo(): Deno.SystemMemoryInfo {
+  systemMemoryInfo(): RuntimeSystemMemoryInfo {
     return {
       total: 64 * 1024 ** 3,
       free: 16 * 1024 ** 3,

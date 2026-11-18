@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { CLEAR_SCREEN, moveCursor } from "../utils/ansi_codes.ts";
 import { readCsiSequenceAt } from "../utils/ansi_text.ts";
+import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 import type { CanvasRenderStats } from "./canvas.ts";
 
 const textEncoder = new TextEncoder();
@@ -224,7 +225,7 @@ export class AnsiCanvasSink implements CanvasCellSink {
     let drawSequence = "";
     for (const range of ranges) {
       drawSequence += moveCursor(range.row, range.startColumn);
-      const text = compactAnsiCellRange(range.values);
+      const text = compactAnsiCellRange(range);
       if (drawSequence.length + text.length > this.#flushLimit) {
         this.#write(drawSequence);
         drawSequence = moveCursor(range.row, range.startColumn);
@@ -261,10 +262,11 @@ function compactAnsiUpdateSpan(updates: readonly CanvasCellUpdate[], start: numb
   let text = first.text;
   let index = start + 1;
   let column = firstUpdate.column;
-  while (index < updates.length) {
+  while (isCompactAsciiText(first.text) && index < updates.length) {
     const update = updates[index]!;
     if (update.row !== firstUpdate.row || update.column !== column + 1) break;
     const current = splitAnsiCellValue(update.value);
+    if (!isCompactAsciiText(current.text)) break;
     if (current.prefix !== first.prefix || current.suffix !== first.suffix) break;
     text += current.text;
     column = update.column;
@@ -281,6 +283,9 @@ function compactAnsiUpdateSpan(updates: readonly CanvasCellUpdate[], start: numb
 function compactAnsiCellSpan(values: readonly (string | Uint8Array)[], start: number): AnsiCellSpan {
   const firstValue = values[start]!;
   const first = splitAnsiCellValue(firstValue);
+  // Separate authored cells are not one Unicode text run. Keep non-ASCII
+  // cells (and empty wide followers) distinct so CUP can retain boundaries.
+  if (!isCompactAsciiText(first.text)) return { text: first.text, cells: 1, first };
   let repeatedCells = 1;
   while (start + repeatedCells < values.length && values[start + repeatedCells] === firstValue) {
     repeatedCells += 1;
@@ -297,6 +302,7 @@ function compactAnsiCellSpan(values: readonly (string | Uint8Array)[], start: nu
   let index = start + 1;
   while (index < values.length) {
     const current = splitAnsiCellValue(values[index]!);
+    if (!isCompactAsciiText(current.text)) break;
     if (current.prefix !== first.prefix || current.suffix !== first.suffix) break;
     text += current.text;
     index += 1;
@@ -308,15 +314,22 @@ function compactAnsiCellSpan(values: readonly (string | Uint8Array)[], start: nu
   };
 }
 
-function compactAnsiCellRange(values: readonly (string | Uint8Array)[]): string {
+function compactAnsiCellRange(range: CanvasRowRangeUpdate): string {
+  const { values } = range;
   let output = "";
   let activePrefix = "";
   let activeState = ansiPrefixState("");
   let needsReset = false;
+  let isolateNext = false;
 
   for (let index = 0; index < values.length;) {
     const span = compactAnsiCellSpan(values, index);
     const { first } = span;
+    const isolated = !isCompactAsciiText(first.text);
+    if (first.text) {
+      if (isolated || isolateNext) output += moveCursor(range.row, range.startColumn + index);
+      isolateNext = isolated;
+    }
     if (first.prefix !== activePrefix) {
       const nextState = ansiPrefixState(first.prefix);
       if (needsReset && !ansiPrefixCanOverrideActive(activeState, nextState)) {
@@ -336,6 +349,15 @@ function compactAnsiCellRange(values: readonly (string | Uint8Array)[]): string 
   return output;
 }
 
+function isCompactAsciiText(text: string): boolean {
+  if (!text) return false;
+  for (let index = 0; index < text.length; index++) {
+    const unit = text.charCodeAt(index);
+    if (unit < 32 || unit > 126) return false;
+  }
+  return true;
+}
+
 interface AnsiPrefixState {
   foreground: boolean;
   background: boolean;
@@ -346,11 +368,33 @@ function ansiPrefixState(prefix: string): AnsiPrefixState {
   if (!prefix) return emptyAnsiPrefixState;
   const cached = ansiPrefixStateCache.get(prefix);
   if (cached) return cached;
-  const state = {
-    foreground: prefix.includes("[38;") || prefix.includes(";38;"),
-    background: prefix.includes("[48;") || prefix.includes(";48;"),
-    other: prefix.includes("[0m") || prefix.includes("[1m") || prefix.includes(";1m"),
-  };
+  const state = { foreground: false, background: false, other: false };
+  // Only complete color-only prefixes can safely replace a previous prefix
+  // without resetting. Attributes may be combined with color parameters;
+  // channel values and colon subparameters are not independent SGR commands.
+  for (let offset = 0; offset < prefix.length;) {
+    const sequence = readCsiSequenceAt(prefix, offset);
+    if (!sequence?.endsWith("m") || !/^[\d;:]*$/.test(sequence.slice(2, -1))) {
+      state.other = true;
+      break;
+    }
+    const parameters = sgrParameters(sequence.slice(2, -1));
+    for (let index = 0; index < parameters.length;) {
+      const command = Number(parameters[index]!.split(":")[0]);
+      if (command === 38 || command === 48) {
+        const color = sgrColor(parameters, index);
+        if (color.rgb || color.palette !== undefined) {
+          if (command === 38) state.foreground = true;
+          else state.background = true;
+        } else state.other = true;
+        index += color.consumed;
+      } else {
+        state.other = true;
+        index++;
+      }
+    }
+    offset += sequence.length;
+  }
   if (ansiPrefixStateCache.size > MAX_ANSI_PREFIX_STATE_CACHE_SIZE) {
     ansiPrefixStateCache.clear();
   }
@@ -382,7 +426,8 @@ function splitAnsiCellValue(value: string | Uint8Array): AnsiCellParts {
     textStart += sequence.length;
   }
 
-  const text = Array.from(cell.slice(textStart))[0];
+  const nextControl = cell.indexOf("\x1b[", textStart);
+  const text = cell.slice(textStart, nextControl < 0 ? cell.length : nextControl);
   if (!text || text.charCodeAt(0) === 0x1b) {
     return { prefix: "", text: cell, suffix: "" };
   }
@@ -513,6 +558,9 @@ function writeCanvasRowRangeUpdate(
 }
 
 function defaultAnsiFlushLimit(): number {
-  const deno = globalThis as typeof globalThis & { Deno?: { build?: { os?: string } } };
-  return deno.Deno?.build?.os === "windows" ? 1024 : 16384;
+  const host = globalThis as typeof globalThis & {
+    Deno?: { build?: { os?: string } };
+    process?: { platform?: string };
+  };
+  return host.Deno?.build?.os === "windows" || host.process?.platform === "win32" ? 1024 : 16384;
 }

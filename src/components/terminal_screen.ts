@@ -10,6 +10,7 @@ import { textWidth } from "../utils/strings.ts";
 import type { TerminalScreenController } from "../runtime/terminal_screen.ts";
 import type { TerminalScrollbackController } from "../runtime/terminal_scrollback.ts";
 import {
+  type ResolvedTerminalCellStyle,
   resolveTerminalCellStyle,
   type TerminalCellStyleOptions,
   type TerminalRgb,
@@ -120,15 +121,46 @@ export class TerminalScreen extends Component {
     screen.draw();
   }
 
-  #style(foreground: TerminalRgb, background: TerminalRgb, bold: boolean): Style {
-    const key = `${foreground.join(",")}|${background.join(",")}|${bold ? 1 : 0}`;
+  #style(spec: Omit<ResolvedTerminalCellStyle, "glyph">): Style {
+    const {
+      foreground,
+      background,
+      bold,
+      dim,
+      italic,
+      underline,
+      underlineStyle,
+      underlineColor,
+      overline,
+      strikethrough,
+    } = spec;
+    const flags = (bold ? 1 : 0) | (dim ? 2 : 0) | (italic ? 4 : 0) | (underline ? 8 : 0) |
+      (overline ? 16 : 0) | (strikethrough ? 32 : 0);
+    const key = `${foreground.join(",")}|${background.join(",")}|${flags}|${underlineStyle ?? ""}|${
+      underlineColor?.join(",") ?? ""
+    }`;
     let style = this.#styleCache.get(key);
     if (!style) {
       style = createAnsiStyle({
-        foreground: [...foreground] as [number, number, number],
-        background: [...background] as [number, number, number],
+        foreground,
+        background,
         bold,
+        dim,
+        italic,
+        underline,
+        underlineStyle,
+        underlineColor,
+        overline,
+        strikethrough,
       });
+      // Program output can choose arbitrarily many colors; keep retained styles bounded.
+      if (this.#styleCache.size >= 4096) {
+        let count = 2048;
+        for (const stale of this.#styleCache.keys()) {
+          if (count-- <= 0) break;
+          this.#styleCache.delete(stale);
+        }
+      }
       this.#styleCache.set(key, style);
     }
     return style;
@@ -172,7 +204,7 @@ export class TerminalScreen extends Component {
         // A double-width glyph on the last column has nowhere to park its
         // follower, so it degrades to a blank inside the viewport.
         const glyph = textWidth(resolved.glyph) === 2 && column + 1 >= rectangle.width ? " " : resolved.glyph;
-        target[column] = this.#style(resolved.foreground, resolved.background, resolved.bold)(glyph);
+        target[column] = this.#style(resolved)(glyph);
       }
       rendered.push(target);
     }
@@ -180,7 +212,7 @@ export class TerminalScreen extends Component {
     if (warning && rectangle.height > 0) {
       const warningForeground = colors.warningForeground ?? colors.defaultForeground;
       const warningBackground = colors.warningBackground ?? colors.defaultBackground;
-      const style = this.#style(warningForeground, warningBackground, true);
+      const style = this.#style({ foreground: warningForeground, background: warningBackground, bold: true });
       const text = `! ${warning}`.slice(0, Math.max(0, rectangle.width));
       const bottom = rendered[rectangle.height - 1]!;
       for (let column = 0; column < rectangle.width; column += 1) {

@@ -237,6 +237,33 @@ Deno.test("canvas resize clears retained buffers and redraws only the new screen
   ]);
 });
 
+Deno.test("canvas resize redraws stationary rows while clipped rows are erased", () => {
+  const canvas = new Canvas({ sink: new MemoryCanvasSink(), size: { columns: 4, rows: 3 } });
+  const rows = ["top!", "mid!", "end!"].map((value, row) =>
+    new TextObject({
+      canvas,
+      value,
+      rectangle: { column: 0, row, width: 4 },
+      overwriteRectangle: true,
+      style: (text) => text,
+      zIndex: 1,
+    })
+  );
+  for (const row of rows) row.draw();
+  canvas.render();
+
+  // Visibility/layout updates can mark a row as moved without changing its
+  // rectangle. The erased bottom row supplies a disjoint dirty region; resize
+  // nevertheless discards the whole frame, so every remaining row must paint.
+  rows[2]!.erase();
+  rows[0]!.draw();
+  rows[1]!.draw();
+  canvas.size.value = { columns: 4, rows: 2 };
+  canvas.render();
+  assertEquals(canvas.frameBuffer.map((row) => row.join("")), ["top!", "mid!"]);
+  assertEquals(canvas.inspectRender().renderedObjects, 2);
+});
+
 Deno.test("ansi canvas sink preserves stdout terminal output path", () => {
   const chunks: Uint8Array[] = [];
   const sink = new AnsiCanvasSink({

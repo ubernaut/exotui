@@ -80,4 +80,7 @@ export * from "./offscreen_surface.ts";
 export * from "./kitty_keyboard.ts";
 export * from "./render_accounting.ts";
 export * from "./stream_ownership.ts";
-export * from "./console_presenter.ts";
+export { consolePresenter, type ConsolePresenterOptions, runConsoleShellApp } from "./console_presenter.ts";
+export * from "./host.ts";
+export * from "./bun_pty_backend.ts";
+export * from "./bun_webgpu.ts";

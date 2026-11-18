@@ -40,6 +40,11 @@ export type AnsiStyleSpec = {
   dim?: boolean;
   italic?: boolean;
   underline?: boolean;
+  /** Extended terminal underline; ignored when underline is false or absent. Hosts without support may degrade. */
+  underlineStyle?: "solid" | "double" | "wavy" | "dotted" | "dashed";
+  /** Independent underline ink (SGR 58); reset with the surrounding style. */
+  underlineColor?: AnsiColor;
+  overline?: boolean;
   inverse?: boolean;
   strikethrough?: boolean;
 };
@@ -115,16 +120,30 @@ function createAnsiStyleMap<TokenName extends string>(
   return styles;
 }
 
-function ansiStyleCodes(spec: AnsiStyleSpec): number[] {
-  const codes: number[] = [];
+function ansiStyleCodes(spec: AnsiStyleSpec): (number | string)[] {
+  const codes: (number | string)[] = [];
   if (spec.bold) codes.push(1);
   if (spec.dim) codes.push(2);
   if (spec.italic) codes.push(3);
-  if (spec.underline) codes.push(4);
+  if (spec.underline) {
+    const style = spec.underlineStyle ?? "solid";
+    const index = ["solid", "double", "wavy", "dotted", "dashed"].indexOf(style);
+    codes.push(index <= 0 ? 4 : `4:${index + 1}`);
+  }
+  if (spec.overline) codes.push(53);
   if (spec.inverse) codes.push(7);
   if (spec.strikethrough) codes.push(9);
   if (spec.foreground !== undefined) codes.push(...ansiColorCodes(spec.foreground, false));
   if (spec.background !== undefined) codes.push(...ansiColorCodes(spec.background, true));
+  if (spec.underlineColor !== undefined) {
+    const color = spec.underlineColor;
+    codes.push(
+      58,
+      ...typeof color === "string"
+        ? [5, Math.max(0, ANSI_COLOR_NAMES.indexOf(color))]
+        : ansiColorCodes(color, false).slice(1),
+    );
+  }
   return codes;
 }
 

@@ -1,11 +1,22 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+import {
+  EXOMUX_DOCUMENT_START,
+  EXOMUX_DOCUMENT_WINDOW_ID,
+  EXOMUX_FILE_TREE_START,
+  EXOMUX_FILES_WINDOW_ID,
+  exomuxFileLabel,
+} from "./file_explorer.ts";
+import { exomuxDocumentSegmentStyle } from "./document_view.ts";
+
 import { ExomuxTerminalSelectionRouter } from "./terminal_selection.ts";
 
 import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@ubernaut/exotui/app";
 import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/exotui/app";
 import type { SurfaceTransition } from "@ubernaut/exotui";
 import {
+  type AnsiStyleSpec,
   clampContextMenuSelection,
   Component,
   type ComponentOptions,
@@ -30,6 +41,7 @@ import {
   type Style,
   type TerminalCellStyleOptions,
   terminalLinkAt,
+  type TreeController,
   type TreeRow,
   windowResizeGlyphAt,
   type WorkbenchWindowChromeProjection,
@@ -44,6 +56,7 @@ import {
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellWindowChrome,
+  shellCellImpression,
   writeOnGround,
 } from "@ubernaut/exotui";
 import { wrapTextBoxLines } from "@ubernaut/exotui";
@@ -259,6 +272,7 @@ const START_MENU_ITEMS: readonly { readonly id: ExomuxMenuId; readonly label: st
   Object.freeze([
     { id: "new", label: "New terminal" },
     { id: "network", label: "Network" },
+    { id: "files", label: "Files" },
     { id: "sessions", label: "Sessions" },
     { id: "config", label: "Settings" },
     { id: "help", label: "Help" },
@@ -295,7 +309,7 @@ export function exomuxMetaballsMayAdvance(
   return !hasPendingBarrier;
 }
 
-type ExomuxMenuId = "new" | "network" | "sessions" | "config" | "help" | "quit" | "favorite";
+type ExomuxMenuId = "new" | "network" | "files" | "sessions" | "config" | "help" | "quit" | "favorite" | "folder-shell";
 
 /** One entry in the start menu, before layout assigns it a rect. */
 interface ExomuxStartMenuItem {
@@ -313,6 +327,9 @@ interface ExomuxStartMenuItem {
  * computed (paint, hit-test, keyboard).
  */
 export function exomuxStartMenuItems(controller: ExomuxController): readonly ExomuxStartMenuItem[] {
+  if (controller.folderMenuPath.peek() !== undefined) {
+    return [{ id: "folder-shell", label: "Open terminal here" }];
+  }
   const preset = controller.startMenuPreset.peek();
   const id = controller.backgroundId.peek();
   const overButterchurn = id === "butterchurn" || id === "butterchurn cpu";
@@ -773,7 +790,7 @@ function startGraphicsPassthroughFlush(
     if (orphaned.length > 0) write(orphaned.map((emission) => apc(emission.data)).join(""));
   };
   const timer = setInterval(flush, 33);
-  if (typeof Deno !== "undefined" && typeof Deno.unrefTimer === "function") Deno.unrefTimer(timer);
+  if (typeof runtimeHost !== "undefined" && typeof runtimeHost.unrefTimer === "function") runtimeHost.unrefTimer(timer);
   const unsubscribe = app.tui.on("terminalApc", (event) => {
     void controller.routeGraphicsReply(event.data);
   });
@@ -1376,6 +1393,9 @@ export function mountExomuxDesktop(
   // rebuild (tailnet status, saved hosts) repaints the desktop, which was
   // otherwise only repainted by interaction-driven signals.
   const networkTreeView = own(new ExomuxNetworkTree(bumpSettingsWidgets));
+  // Files uses the same real Tree surface and selection painting as Network.
+  const fileTreeView = own(new ExomuxNetworkTree(bumpSettingsWidgets));
+  controller.files.tree.nodes.subscribe(bumpSettingsWidgets, subscriptions.signal);
   controller.networkTree.nodes.subscribe(() => {
     settingsWidgetRevision.value += 1;
   }, subscriptions.signal);
@@ -1642,7 +1662,7 @@ export function mountExomuxDesktop(
   // Client teardown releases the GPU deterministically: every field with a
   // device-side renderer or a recorder child is disposed, then the shared
   // device itself is destroyed. Relying on process exit is not enough — a
-  // shutdown that hangs before `Deno.exit` leaves a live render loop holding
+  // shutdown that hangs before `runtimeHost.exit` leaves a live render loop holding
   // the machine's only WebGPU seat.
   unsubscribers.push(() => {
     releaseExomuxIdleBackgrounds(backgroundFields);
@@ -1659,7 +1679,7 @@ export function mountExomuxDesktop(
   // on a real terminal.
   const surfaceAnimationsEnabled = (() => {
     try {
-      return Deno.stdout.isTerminal();
+      return runtimeHost.stdout.isTerminal();
     } catch {
       return false;
     }
@@ -1928,6 +1948,7 @@ export function mountExomuxDesktop(
         startMenuSelection.value,
         controller.startMenuAnchor.value?.column,
         controller.startMenuAnchor.value?.row,
+        controller.folderMenuPath.value,
         controller.sessionName.value,
         controller.sessionNameDraft.value,
         controller.globalConfigVisible.value,
@@ -1940,6 +1961,11 @@ export function mountExomuxDesktop(
         killModal.selectedActionIndex.value,
         quitModal.selectedActionIndex.value,
         controller.networkTree.selectedIndex.value,
+        controller.files.tree.selectedIndex.value,
+        controller.files.directory.value,
+        controller.files.message.value,
+        controller.files.revision.value,
+        controller.files.document.offset.value,
         controller.backgroundConfigVisible.value,
         controller.shaderManagerVisible.value,
         controller.shaderManagerIndex.value,
@@ -2018,6 +2044,7 @@ export function mountExomuxDesktop(
         sessionList,
         sessionListScrollTop: sessionListScrollTop.peek(),
         networkTreeView,
+        fileTreeView,
         killModalSelection: killModal.selectedAction()?.id,
         quitModalSelection: quitModal.selectedAction()?.id,
         startMenuView,
@@ -2080,8 +2107,11 @@ export function mountExomuxDesktop(
     })();
   };
 
-  const performMenu = async (id: ExomuxMenuId): Promise<void> => {
+  const performMenu = async (id: ExomuxMenuId, cwd?: string): Promise<void> => {
     switch (id) {
+      case "folder-shell":
+        if (cwd !== undefined) await controller.spawn({ cwd, bounds: bodyRect.peek() });
+        break;
       case "new":
         await controller.spawn({ bounds: bodyRect.peek() });
         break;
@@ -2090,6 +2120,9 @@ export function mountExomuxDesktop(
         break;
       case "network":
         controller.toggleNetworkPanel(bodyRect.peek());
+        break;
+      case "files":
+        await controller.openFiles(bodyRect.peek());
         break;
       case "config":
         controller.openGlobalConfig(bodyRect.peek());
@@ -2109,6 +2142,12 @@ export function mountExomuxDesktop(
       }
     }
     await syncWindows();
+  };
+
+  const choosePopupItem = (id: ExomuxMenuId): Promise<void> => {
+    const cwd = controller.folderMenuPath.peek();
+    controller.closeStartMenu();
+    return performMenu(id, cwd);
   };
 
   const activateNetworkNode = async (row: TreeRow, forceNew = false): Promise<void> => {
@@ -2205,6 +2244,31 @@ export function mountExomuxDesktop(
       return;
     }
     await activateNetworkNode(row);
+  };
+
+  const fileRowAt = (column: number, row: number): TreeRow | undefined => {
+    const window = clientWindowAt(windowProjection.peek(), column, row);
+    if (window?.id !== EXOMUX_FILES_WINDOW_ID) return;
+    const relative = row - window.clientRect.row - EXOMUX_FILE_TREE_START;
+    if (relative < 0) return;
+    return controller.files.tree.visible(Math.max(0, window.clientRect.height - EXOMUX_FILE_TREE_START))[relative];
+  };
+
+  const openFileContextAt = (column: number, row: number): boolean => {
+    if (clientWindowAt(windowProjection.peek(), column, row)?.id !== EXOMUX_FILES_WINDOW_ID) return false;
+    const meta = fileRowAt(column, row)?.node.meta;
+    if ((meta?.kind === "directory" || meta?.kind === "parent") && typeof meta.path === "string") {
+      controller.openStartMenu({ column, row }, undefined, meta.path);
+    }
+    return true;
+  };
+
+  const activateFileHit = async (column: number, row: number): Promise<void> => {
+    const tree = controller.files.tree;
+    const target = fileRowAt(column, row);
+    if (!target) return;
+    tree.setSelectedIndex(target.index);
+    await controller.openSelectedFile(bodyRect.peek());
   };
 
   const activateMenu = (id: ExomuxMenuId): Promise<void> =>
@@ -2433,6 +2497,15 @@ export function mountExomuxDesktop(
       controller.networkTree.move(listScrollStep(windowId, delta));
       return true;
     }
+    if (windowId === EXOMUX_FILES_WINDOW_ID) {
+      controller.files.tree.move(listScrollStep(windowId, delta));
+      return true;
+    }
+    if (windowId === EXOMUX_DOCUMENT_WINDOW_ID) {
+      const rect = windowProjection.peek().windows.find((window) => window.id === windowId)?.clientRect;
+      if (rect) controller.files.document.scrollBy(delta, rect.width, Math.max(0, rect.height - EXOMUX_DOCUMENT_START));
+      return true;
+    }
     if (windowId === EXOMUX_SETTINGS_WINDOW_ID) {
       controller.moveGlobalConfigSelection(listScrollStep(windowId, delta));
       return true;
@@ -2545,8 +2618,7 @@ export function mountExomuxDesktop(
       );
       const item = layout.items.find((candidate) => contains(candidate.rect, column, row));
       if (item) {
-        controller.closeStartMenu();
-        await performMenu(item.id);
+        await choosePopupItem(item.id);
         return true;
       }
       // Anywhere else — including the start button itself — simply dismisses.
@@ -2843,6 +2915,7 @@ export function mountExomuxDesktop(
     // Right-click opens the Exomux menu under the cursor. A terminal with mouse
     // reporting on owns its own right-click, so the menu yields to it there.
     if (event.button === 2 && !event.drag && !event.release && contains(bodyRect.peek(), event.x, event.y)) {
+      if (openFileContextAt(event.x, event.y)) return true;
       const overReportingTerminal = (() => {
         const hit = pointerTargetAt(event.x, event.y);
         const payload = hit?.payload;
@@ -2943,6 +3016,10 @@ export function mountExomuxDesktop(
           await enqueue(() => activateNetworkHit(networkRow));
           return true;
         }
+      }
+      if (clientWindow?.id === EXOMUX_FILES_WINDOW_ID) {
+        await enqueue(() => activateFileHit(event.x, event.y));
+        return true;
       }
       if (clientWindow?.id === EXOMUX_THEME_EDITOR_WINDOW_ID) {
         let editorHandled = false;
@@ -3113,6 +3190,7 @@ export function mountExomuxDesktop(
       return true;
     }
     if (event.kind !== "down" || !point) return undefined;
+    if (event.device === "mouse" && event.button === 2 && openFileContextAt(point.x, point.y)) return true;
     const clientWindow = clientWindowAt(projection, point.x, point.y);
     if (clientWindow && clientWindow.id !== EXOMUX_SESSIONS_WINDOW_ID) {
       controller.windowHost.handlePointer(event, bodyRect.peek(), projectionOptions());
@@ -3203,8 +3281,7 @@ export function mountExomuxDesktop(
         return true;
       case "start-item":
         if (controller.startMenuVisible.peek()) {
-          controller.closeStartMenu();
-          await performMenu(target.id);
+          await choosePopupItem(target.id);
         }
         return true;
       case "modal":
@@ -3261,6 +3338,8 @@ export function mountExomuxDesktop(
         } else if (window.id === EXOMUX_NETWORK_WINDOW_ID) {
           const networkRow = networkRowAt(point.x, point.y);
           if (networkRow) await activateNetworkHit(networkRow);
+        } else if (window.id === EXOMUX_FILES_WINDOW_ID) {
+          await activateFileHit(point.x, point.y);
         } else if (window.id === EXOMUX_SETTINGS_WINDOW_ID) {
           activateSettingsHit(point.x, point.y);
         }
@@ -3429,6 +3508,7 @@ export function mountExomuxDesktop(
         const networkRow = networkRowAt(point.x, point.y);
         if (networkRow) await activateNetworkHit(networkRow);
       }
+      if (clientWindow.id === EXOMUX_FILES_WINDOW_ID) await activateFileHit(point.x, point.y);
       handled = true;
     } else if (touchLike && event.kind === "down" && activation && clientWindow) {
       rememberTouchGesture(touchGestures, event, point, { kind: "client", windowId: clientWindow.id });
@@ -3555,6 +3635,37 @@ export function mountExomuxDesktop(
   // warped (and control-snapped) cell — dedicated raw-rect router targets
   // would hit-test undistorted coordinates and miss under the pincushion.
 
+  const handleFileKey = async (event: KeyPressEvent): Promise<boolean> => {
+    const id = controller.windowHost.controller.inspect().activeWindowId;
+    if (id !== EXOMUX_FILES_WINDOW_ID && id !== EXOMUX_DOCUMENT_WINDOW_ID) return false;
+    const rect = windowProjection.peek().windows.find((window) => window.id === id)?.clientRect;
+    if (!rect) return true;
+    if (id === EXOMUX_DOCUMENT_WINDOW_ID) {
+      if (event.key === "escape") controller.presentWindow(EXOMUX_FILES_WINDOW_ID, bodyRect.peek());
+      else {
+        const key = event.key === "j"
+          ? "down"
+          : event.key === "k"
+          ? "up"
+          : event.key === "space"
+          ? "pagedown"
+          : event.key;
+        controller.files.document.handleKeyPress(
+          { ...event, key },
+          rect.width,
+          Math.max(0, rect.height - EXOMUX_DOCUMENT_START),
+        );
+      }
+      return true;
+    }
+    if (event.ctrl || event.meta) return true;
+    if (event.key === "backspace") await controller.files.parent();
+    else if (event.key.toLowerCase() === "r") await controller.files.refresh();
+    else if (event.key === "return") await controller.openSelectedFile(bodyRect.peek());
+    else controller.files.tree.handleKeyPress(event, Math.max(1, rect.height - EXOMUX_FILE_TREE_START));
+    return true;
+  };
+
   const handleNetworkKey = async (event: KeyPressEvent): Promise<boolean> => {
     if (controller.windowHost.controller.inspect().activeWindowId !== EXOMUX_NETWORK_WINDOW_ID) return false;
     const tree = controller.networkTree;
@@ -3640,8 +3751,7 @@ export function mountExomuxDesktop(
       if (event.key === "return" || event.key === "space") {
         const item = menuItems[clampContextMenuSelection(menuItems, startMenuSelection.peek())];
         if (item) {
-          controller.closeStartMenu();
-          await performMenu(item.id);
+          await choosePopupItem(item.id);
         }
         return;
       }
@@ -3983,6 +4093,10 @@ export function mountExomuxDesktop(
       if (hostResult.handled) {
         if (hostResult.command) await runWindowCommand(hostResult.command, true, activeWindowId);
         else await syncWindows();
+        return;
+      }
+      if (await handleFileKey(event)) {
+        await syncWindows();
         return;
       }
       if (await handleNetworkKey(event)) {
@@ -4364,6 +4478,7 @@ function shouldRouteAsWorkbenchKey(controller: ExomuxController, event: KeyPress
   if (event.key === "f1" && !event.ctrl && !event.meta) return true;
   if (event.meta || controller.windowHost.inspect().switcherOpen) return true;
   const activeWindowId = controller.windowHost.controller.inspect().activeWindowId;
+  if (activeWindowId === EXOMUX_FILES_WINDOW_ID || activeWindowId === EXOMUX_DOCUMENT_WINDOW_ID) return true;
   if (activeWindowId === EXOMUX_NETWORK_WINDOW_ID) {
     // An active fuzzy filter captures all typing until Escape.
     if (controller.networkFilter.peek() !== undefined) return true;
@@ -4452,6 +4567,8 @@ interface RenderExomuxDesktopOptions {
   sessionList?: ExomuxSessionList;
   /** Hosts the network panel's hierarchy as a real composited Tree. */
   networkTreeView?: ExomuxNetworkTree;
+  /** Independent tree surface for local files. */
+  fileTreeView?: ExomuxNetworkTree;
   /** Selected action id of the kill confirmation's ModalController. */
   killModalSelection?: string;
   /** Selected action id of the end-session modal's ModalController. */
@@ -4518,9 +4635,7 @@ type ExomuxBackdrop = (column: number, row: number) => ExomuxRgb;
  * content. A blank cell is pure ground; ink-free glyphs must not tint it.
  */
 function exomuxDepositColor(glyph: string, foreground: ExomuxRgb, background: ExomuxRgb): ExomuxRgb {
-  if (glyph === " " || glyph === "") return background;
-  const coverage = BACKDROP_COVERAGE[glyph] ?? DEFAULT_BACKDROP_COVERAGE;
-  return mixExomuxRgb(background, foreground, coverage);
+  return shellCellImpression(glyph, foreground, background);
 }
 
 /**
@@ -4805,6 +4920,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
         options.sessionListScrollTop,
         options.networkTreeView,
         options.killModalSelection,
+        options.fileTreeView,
       );
       flyIn.capture(window.id, scratch.rows, window.rect);
       if (flyIn.suppressed.has(window.id)) return;
@@ -4823,6 +4939,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionListScrollTop,
       options.networkTreeView,
       options.killModalSelection,
+      options.fileTreeView,
     );
     exomuxSceneGround.commitWindow();
   };
@@ -5325,6 +5442,7 @@ function paintWindow(
   sessionListScrollTop = -1,
   networkTreeView?: ExomuxNetworkTree,
   killSelection?: string,
+  fileTreeView?: ExomuxNetworkTree,
 ): void {
   const theme = controller.theme.peek();
   const global = controller.globalSettings.peek();
@@ -5397,6 +5515,34 @@ function paintWindow(
     paintNetworkPanel(painter, window.clientRect, controller, window.active, ground, networkTreeView);
     return;
   }
+  if (window.id === EXOMUX_FILES_WINDOW_ID) {
+    const rect = window.clientRect;
+    writeOnGround(
+      painter,
+      rect.column + 1,
+      rect.row,
+      fitText(exomuxFileLabel(controller.files.directory.peek()), Math.max(0, rect.width - 2)),
+      { foreground: theme.accent },
+      ground,
+    );
+    if (rect.height > 1) {
+      paintNetworkPanel(
+        painter,
+        { ...rect, row: rect.row + 1, height: rect.height - 1 },
+        controller,
+        window.active,
+        ground,
+        fileTreeView,
+        controller.files.tree,
+        controller.files.message.peek(),
+      );
+    }
+    return;
+  }
+  if (window.id === EXOMUX_DOCUMENT_WINDOW_ID) {
+    paintDocument(painter, window.clientRect, controller, ground);
+    return;
+  }
   if (window.id === EXOMUX_THEME_EDITOR_WINDOW_ID) {
     paintThemeEditorWindow(painter, window.clientRect, controller, ground);
     return;
@@ -5441,17 +5587,18 @@ function paintNetworkPanel(
   active: boolean,
   ground: ExomuxGround = () => controller.theme.peek().surface,
   networkTreeView?: ExomuxNetworkTree,
+  tree: TreeController = controller.networkTree,
+  hint = "Enter open · ←/→ fold · Del forget · r refresh",
 ): void {
   const theme = controller.theme.peek();
   writeOnGround(
     painter,
     rect.column + 1,
     rect.row,
-    fitText("Enter open · ←/→ fold · Del forget · r refresh", Math.max(0, rect.width - 2)),
+    fitText(hint, Math.max(0, rect.width - 2)),
     { foreground: theme.muted },
     ground,
   );
-  const tree = controller.networkTree;
   const height = Math.max(0, rect.height - NETWORK_LIST_START);
   networkTreeView?.sync({
     width: Math.max(1, rect.width),
@@ -5534,6 +5681,62 @@ function paintNetworkPanel(
       bold: isSelected || heading,
     });
   }
+}
+
+const documentGraphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+function paintDocument(
+  painter: DesktopPainter,
+  rect: Rectangle,
+  controller: ExomuxController,
+  ground: ExomuxGround,
+): void {
+  const theme = controller.theme.peek();
+  const files = controller.files;
+  const height = Math.max(0, rect.height - EXOMUX_DOCUMENT_START);
+  writeOnGround(
+    painter,
+    rect.column + 1,
+    rect.row,
+    fitText(exomuxFileLabel(files.documentPath.peek()), Math.max(0, rect.width - 2)),
+    { foreground: theme.accent },
+    ground,
+  );
+  if (rect.height > 1) {
+    const max = height > 0 ? files.document.maxOffset(rect.width, height) : 0;
+    const offset = Math.min(max, files.document.offset.peek());
+    const progress = max > 0 ? `${Math.floor(offset * 100 / max)}%` : "";
+    const hintWidth = Math.max(0, rect.width - 2 - (progress ? progress.length + 1 : 0));
+    writeOnGround(
+      painter,
+      rect.column + 1,
+      rect.row + 1,
+      fitText("↑/↓ scroll · PgUp/PgDn · Home/End · Esc files", hintWidth),
+      { foreground: theme.muted },
+      ground,
+    );
+    if (progress && rect.width >= progress.length + 2) {
+      writeOnGround(painter, rect.column + rect.width - progress.length - 1, rect.row + 1, progress, {
+        foreground: theme.accent,
+      }, ground);
+    }
+  }
+  if (height === 0 || rect.width <= 0) return;
+  // Paint the same cached layout that clamps scrolling. Remounting an offscreen
+  // widget on every offset made fast scrolling alternate styled and plain frames.
+  files.document.visible(rect.width, height).forEach((line, index) => {
+    const y = rect.row + EXOMUX_DOCUMENT_START + index;
+    let x = rect.column;
+    for (const segment of line.segments) {
+      const style = exomuxDocumentSegmentStyle(segment, theme);
+      for (const { segment: glyph } of documentGraphemes.segment(segment.text)) {
+        const width = exomuxGlyphColumns(glyph);
+        if (x + width > rect.column + rect.width) return;
+        painter.cell(x, y, glyph, { ...style, background: style.background ?? ground(x, y) });
+        x += width;
+      }
+    }
+  });
 }
 
 function paintSessionManager(
@@ -5727,6 +5930,13 @@ function paintTerminal(
         foreground: runtime.selection.contains(column, row) ? theme.background : resolved.foreground,
         background: runtime.selection.contains(column, row) ? theme.accent : resolved.background,
         bold: resolved.bold,
+        dim: resolved.dim,
+        italic: resolved.italic,
+        underline: resolved.underline,
+        underlineStyle: resolved.underlineStyle,
+        underlineColor: resolved.underlineColor,
+        overline: resolved.overline,
+        strikethrough: resolved.strikethrough,
       });
     }
   }
@@ -5803,6 +6013,7 @@ const EXOMUX_HELP_ENTRIES: readonly ExomuxHelpEntry[] = [
   { keys: "Ctrl-N n / p", action: "next / previous" },
   { keys: "Ctrl-N w", action: "window switcher" },
   { keys: "Ctrl-N s", action: "session manager" },
+  { keys: "Ctrl-N e", action: "file explorer" },
   { keys: "Ctrl-N r", action: "refresh and recover" },
   { keys: "Ctrl-N t", action: "cycle theme" },
   { keys: "Ctrl-N Ctrl-N", action: "send literal prefix" },
@@ -6401,7 +6612,7 @@ function exomuxBrowseRows(path: string): ExomuxBackgroundConfigListRow[] {
   const directories: ExomuxBackgroundConfigListRow[] = [];
   const files: ExomuxBackgroundConfigListRow[] = [];
   try {
-    for (const entry of Deno.readDirSync(path)) {
+    for (const entry of runtimeHost.readDirSync(path)) {
       if (entry.name.startsWith(".")) continue;
       const full = `${path.replace(/\/+$/, "")}/${entry.name}`;
       if (entry.isDirectory) directories.push({ label: `${entry.name}/`, directory: true, path: full });
@@ -7502,6 +7713,13 @@ interface PaintedStyle {
   foreground: ExomuxRgb;
   background: ExomuxRgb;
   bold?: boolean;
+  dim?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  underlineStyle?: AnsiStyleSpec["underlineStyle"];
+  underlineColor?: ExomuxRgb;
+  overline?: boolean;
+  strikethrough?: boolean;
 }
 
 /** Small paint buffer that caches ANSI style functions by exact cell style. */
@@ -7545,10 +7763,15 @@ const glyphColumnCache = new Map<string, 1 | 2>();
  * every cell painted, which at desktop scale was the single largest cost in the
  * frame.
  */
-function paintedStyleKey(spec: PaintedStyle): number {
+function paintedStyleKey(spec: PaintedStyle): number | string {
   const foreground = (spec.foreground[0] << 16) | (spec.foreground[1] << 8) | spec.foreground[2];
   const background = (spec.background[0] << 16) | (spec.background[1] << 8) | spec.background[2];
-  return foreground * 33_554_432 + background * 2 + (spec.bold ? 1 : 0);
+  const base = foreground * 33_554_432 + background * 2 + (spec.bold ? 1 : 0);
+  const flags = (spec.dim ? 1 : 0) | (spec.italic ? 2 : 0) | (spec.underline ? 4 : 0) |
+    (spec.overline ? 8 : 0) | (spec.strikethrough ? 16 : 0);
+  // Preserve the allocation-free numeric hot path for wallpaper and ordinary cells.
+  if (flags === 0 && spec.underlineStyle === undefined && spec.underlineColor === undefined) return base;
+  return `${base}|${flags}|${spec.underlineStyle ?? ""}|${spec.underlineColor?.join(",") ?? ""}`;
 }
 
 // Butterchurn's quantized palette alone can reach ~10k distinct keys
@@ -7562,13 +7785,13 @@ const MAX_PAINT_STYLE_CACHE = 32768;
  * per-instance cache re-ran `createAnsiStyle` for every colour on every frame —
  * and an animated background paints hundreds of distinct colours per frame.
  */
-const paintStyleCache = new Map<number, Style>();
+const paintStyleCache = new Map<number | string, Style>();
 
 function paintedStyle(spec: PaintedStyle): Style {
   const key = paintedStyleKey(spec);
   let style = paintStyleCache.get(key);
   if (style) return style;
-  style = createAnsiStyle({ foreground: spec.foreground, background: spec.background, bold: spec.bold });
+  style = createAnsiStyle(spec);
   // A long-lived session cannot grow this without limit — but overflow
   // evicts only the OLDEST half (Map iteration is insertion order), so a
   // pathological palette can never wipe the whole desktop's styles

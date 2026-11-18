@@ -1,3 +1,4 @@
+import { runtimeHost, type RuntimeSignal } from "./runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import { BoxObject, Canvas } from "./canvas/mod.ts";
 import type { Component } from "./component.ts";
@@ -89,8 +90,8 @@ export class Tui extends EventEmitter<
 
   constructor(options: TuiOptions) {
     super();
-    this.stdin = options.stdin ?? Deno.stdin;
-    this.stdout = options.stdout ?? Deno.stdout;
+    this.stdin = options.stdin ?? runtimeHost.stdin;
+    this.stdout = options.stdout ?? runtimeHost.stdout;
     this.refreshRate = options.refreshRate ?? 1000 / 60;
     this.enableMouse = options.enableMouse ?? false;
     this.manageTerminalSize = options.manageTerminalSize ?? options.canvas === undefined;
@@ -139,11 +140,11 @@ export class Tui extends EventEmitter<
 
     if (this.manageTerminalSize) this.updateCanvasSize();
 
-    if (this.manageTerminalSize && Deno.build.os === "windows") {
+    if (this.manageTerminalSize && runtimeHost.build.os === "windows") {
       this.resizePollTimer = setInterval(this.updateCanvasSize, this.refreshRate);
     } else if (this.manageTerminalSize) {
       this.sigwinchResizeHandler = () => this.updateCanvasSize({ verifyWithStty: true });
-      Deno.addSignalListener("SIGWINCH", this.sigwinchResizeHandler);
+      runtimeHost.addSignalListener("SIGWINCH", this.sigwinchResizeHandler);
       this.resizePollTimer = setInterval(
         () => this.updateCanvasSize({ verifyWithStty: true }),
         Math.max(1_000, this.refreshRate * 10),
@@ -197,9 +198,9 @@ export class Tui extends EventEmitter<
 
     this.renderLoop.stop();
     if (this.resizePollTimer !== undefined) clearInterval(this.resizePollTimer);
-    if (Deno.build.os !== "windows" && this.sigwinchResizeHandler) {
+    if (runtimeHost.build.os !== "windows" && this.sigwinchResizeHandler) {
       try {
-        Deno.removeSignalListener("SIGWINCH", this.sigwinchResizeHandler);
+        runtimeHost.removeSignalListener("SIGWINCH", this.sigwinchResizeHandler);
       } catch { /**/ }
     }
 
@@ -224,33 +225,33 @@ export class Tui extends EventEmitter<
     const destroyDispatcher = () => {
       this.emit("destroy");
     };
-    const signalNames: Deno.Signal[] = [];
+    const signalNames: RuntimeSignal[] = [];
 
-    if (Deno.build.os === "windows") {
-      Deno.addSignalListener("SIGBREAK", destroyDispatcher);
+    if (runtimeHost.build.os === "windows") {
+      runtimeHost.addSignalListener("SIGBREAK", destroyDispatcher);
       signalNames.push("SIGBREAK");
 
       this.on("keyPress", ({ key, ctrl }) => {
         if (ctrl && key === "c") destroyDispatcher();
       });
     } else {
-      Deno.addSignalListener("SIGTERM", destroyDispatcher);
+      runtimeHost.addSignalListener("SIGTERM", destroyDispatcher);
       signalNames.push("SIGTERM");
     }
 
-    Deno.addSignalListener("SIGINT", destroyDispatcher);
+    runtimeHost.addSignalListener("SIGINT", destroyDispatcher);
     signalNames.push("SIGINT");
 
     const stopDestroy = this.on("destroy", async () => {
       this.destroy();
       await Promise.resolve();
-      Deno.exit(0);
+      runtimeHost.exit(0);
     });
     this.stopDispatch = () => {
       stopDestroy();
       for (const signal of signalNames) {
         try {
-          Deno.removeSignalListener(signal, destroyDispatcher);
+          runtimeHost.removeSignalListener(signal, destroyDispatcher);
         } catch { /**/ }
       }
     };
@@ -263,7 +264,7 @@ function terminalSize(options: {
   verified?: () => RecentlyVerifiedTerminalSize | undefined;
 } = {}): { columns: number; rows: number } {
   try {
-    const denoSize = Deno.consoleSize();
+    const denoSize = runtimeHost.consoleSize();
     if (options.verifyWithStty) {
       const sttySize = sttyTerminalSize();
       if (sttySize) {
@@ -303,10 +304,10 @@ export function shouldUseRecentlyVerifiedTerminalSize(
 }
 
 function sttyTerminalSize(): { columns: number; rows: number } | undefined {
-  if (Deno.build.os === "windows") return undefined;
+  if (runtimeHost.build.os === "windows") return undefined;
   try {
     if (!canRunStty()) return undefined;
-    const output = new Deno.Command("stty", {
+    const output = new runtimeHost.Command("stty", {
       args: ["size"],
       stdin: "inherit",
       stdout: "piped",
@@ -327,7 +328,7 @@ function sttyTerminalSize(): { columns: number; rows: number } | undefined {
 function canRunStty(): boolean {
   if (canRunSttyCached !== undefined) return canRunSttyCached;
   try {
-    canRunSttyCached = Deno.permissions.querySync({ name: "run", command: "stty" }).state === "granted";
+    canRunSttyCached = runtimeHost.permissions.querySync({ name: "run", command: "stty" }).state === "granted";
     return canRunSttyCached;
   } catch {
     canRunSttyCached = false;

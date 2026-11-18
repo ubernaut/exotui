@@ -1,3 +1,4 @@
+import { type RuntimeHost, runtimeHost } from "../runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 import { type AsyncStore, MemoryStore } from "../runtime/storage.ts";
@@ -566,7 +567,7 @@ function encodedBytes(value: string): number {
 }
 
 function resolveDenoPermissionGateway(): ShowcaseTerminalPermissionGateway | undefined {
-  const deno = (globalThis as typeof globalThis & { Deno?: typeof Deno }).Deno;
+  const deno = runtimeHost;
   if (!deno?.permissions?.query) return undefined;
   return {
     async query(query) {
@@ -577,7 +578,7 @@ function resolveDenoPermissionGateway(): ShowcaseTerminalPermissionGateway | und
 }
 
 function resolveDenoFileAdapter(): ShowcaseTerminalFileAdapter | undefined {
-  const deno = (globalThis as typeof globalThis & { Deno?: typeof Deno }).Deno;
+  const deno = runtimeHost;
   if (!deno?.mkdir || !deno.open || !deno.rename || !deno.remove) return undefined;
   return {
     createDirectory: (path) => deno.mkdir(path, { recursive: true }),
@@ -589,7 +590,7 @@ function resolveDenoFileAdapter(): ShowcaseTerminalFileAdapter | undefined {
   };
 }
 
-async function readDenoTextFile(deno: typeof Deno, path: string, maxBytes: number): Promise<string> {
+async function readDenoTextFile(deno: RuntimeHost, path: string, maxBytes: number): Promise<string> {
   const file = await deno.open(path, { read: true });
   try {
     const output = new Uint8Array(maxBytes + 1);
@@ -606,7 +607,7 @@ async function readDenoTextFile(deno: typeof Deno, path: string, maxBytes: numbe
   }
 }
 
-async function writeDenoTextFile(deno: typeof Deno, path: string, data: string): Promise<void> {
+async function writeDenoTextFile(deno: RuntimeHost, path: string, data: string): Promise<void> {
   const bytes = new TextEncoder().encode(data);
   const file = await deno.open(path, { write: true, createNew: true, mode: 0o600 });
   try {

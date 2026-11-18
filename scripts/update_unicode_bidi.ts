@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // Generates the pinned UAX #9 bidi data module and test fixture, under the
@@ -179,12 +180,12 @@ async function build(): Promise<{ moduleText: string; testText: string }> {
 }
 
 async function check(): Promise<void> {
-  const moduleText = await Deno.readTextFile(OUTPUT_PATH);
+  const moduleText = await runtimeHost.readTextFile(OUTPUT_PATH);
   const digest = await sha256(moduleText);
   if (digest !== REVIEWED_MODULE_SHA256) {
     throw new Error(`bidi module is unreviewed: ${digest} (expected ${REVIEWED_MODULE_SHA256})`);
   }
-  const fixture = await Deno.readTextFile(TEST_FIXTURE_PATH);
+  const fixture = await runtimeHost.readTextFile(TEST_FIXTURE_PATH);
   const fixtureDigest = await sha256(fixture);
   if (fixtureDigest !== SOURCES.test.sha256) {
     throw new Error(`BidiCharacterTest fixture drifted: ${fixtureDigest} (expected ${SOURCES.test.sha256})`);
@@ -192,12 +193,12 @@ async function check(): Promise<void> {
   console.log(`bidi data verified: module ${digest}`);
 }
 
-if (Deno.args.includes("--check")) {
+if (runtimeHost.args.includes("--check")) {
   await check();
 } else {
   const { moduleText, testText } = await build();
-  await Deno.writeTextFile(OUTPUT_PATH, moduleText);
-  await Deno.writeTextFile(TEST_FIXTURE_PATH, testText);
+  await runtimeHost.writeTextFile(OUTPUT_PATH, moduleText);
+  await runtimeHost.writeTextFile(TEST_FIXTURE_PATH, testText);
   console.log(`wrote ${OUTPUT_PATH.pathname}`);
   console.log(`module sha256: ${await sha256(moduleText)} (update REVIEWED_MODULE_SHA256)`);
 }

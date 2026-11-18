@@ -1,3 +1,5 @@
+import type { RuntimeSignal } from "../../../src/runtime/host.ts";
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 import { DiagnosticsCollector } from "../../../mod.ts";
@@ -63,10 +65,10 @@ export async function runOrbitalCommandShowcase(options: OrbitalCommandLaunchOpt
 
 function defaultOrbitalSessionPath(): string | undefined {
   try {
-    const root = Deno.build.os === "windows"
-      ? Deno.env.get("LOCALAPPDATA") ?? Deno.env.get("USERPROFILE")
-      : Deno.env.get("XDG_STATE_HOME") ??
-        (Deno.env.get("HOME") ? `${Deno.env.get("HOME")}/.local/state` : undefined);
+    const root = runtimeHost.build.os === "windows"
+      ? runtimeHost.env.get("LOCALAPPDATA") ?? runtimeHost.env.get("USERPROFILE")
+      : runtimeHost.env.get("XDG_STATE_HOME") ??
+        (runtimeHost.env.get("HOME") ? `${runtimeHost.env.get("HOME")}/.local/state` : undefined);
     return root ? `${root.replace(/[\\/]+$/g, "")}/deno-tui/orbital-command-session.json` : undefined;
   } catch {
     return undefined;
@@ -74,12 +76,12 @@ function defaultOrbitalSessionPath(): string | undefined {
 }
 
 function bindAwaitedShutdown(runtime: OrbitalCommandRuntime): void {
-  const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
+  const signals: RuntimeSignal[] = runtimeHost.build.os === "windows" ? ["SIGINT", "SIGBREAK"] : ["SIGINT", "SIGTERM"];
   let shutdown: Promise<void> | undefined;
   const removeSignals = () => {
     for (const signal of signals) {
       try {
-        Deno.removeSignalListener(signal, requestShutdown);
+        runtimeHost.removeSignalListener(signal, requestShutdown);
       } catch { /* listener was not installed or was already removed */ }
     }
   };
@@ -87,12 +89,12 @@ function bindAwaitedShutdown(runtime: OrbitalCommandRuntime): void {
     shutdown ??= (async () => {
       removeSignals();
       await runtime.destroy();
-      Deno.exit(0);
+      runtimeHost.exit(0);
     })();
     void shutdown;
   };
-  for (const signal of signals) Deno.addSignalListener(signal, requestShutdown);
+  for (const signal of signals) runtimeHost.addSignalListener(signal, requestShutdown);
   runtime.app.tui.on("destroy", requestShutdown);
 }
 
-if (import.meta.main) await runOrbitalCommandShowcase(parseOrbitalCommandArgs(Deno.args));
+if (import.meta.main) await runOrbitalCommandShowcase(parseOrbitalCommandArgs(runtimeHost.args));

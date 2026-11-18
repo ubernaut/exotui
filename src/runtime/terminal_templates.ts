@@ -1,3 +1,4 @@
+import { runtimeHost } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import type {
   TerminalBackend,
@@ -295,7 +296,7 @@ function cloneSpawnTerminalTemplate(template: SpawnTerminalTemplate): SpawnTermi
 }
 
 function defaultShellCommand(): string {
-  if (Deno.build.os === "windows") return readEnv("COMSPEC") ?? "cmd.exe";
+  if (runtimeHost.build.os === "windows") return readEnv("COMSPEC") ?? "cmd.exe";
   return readEnv("SHELL") ?? "sh";
 }
 
@@ -306,7 +307,7 @@ function slugTerminalId(value: string): string {
 
 function readEnv(name: string): string | undefined {
   try {
-    return Deno.env.get(name);
+    return runtimeHost.env.get(name);
   } catch {
     return undefined;
   }

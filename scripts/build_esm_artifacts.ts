@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -15,12 +16,12 @@ export const SUPPORTED_ESM_ENTRYPOINTS = ["mod.remote.ts", "mod.theme.ts"] as co
 
 if (import.meta.main) {
   const root = new URL("..", import.meta.url);
-  await Deno.mkdir(new URL("dist/", root), { recursive: true });
+  await runtimeHost.mkdir(new URL("dist/", root), { recursive: true });
   const artifacts: { entrypoint: string; file: string; sha256: string; denoFree: boolean }[] = [];
   for (const entrypoint of SUPPORTED_ESM_ENTRYPOINTS) {
     const outName = entrypoint.replace(/^mod\./, "").replace(/\.ts$/, "") + ".mjs";
     const outPath = new URL(`dist/${outName}`, root);
-    const bundle = new Deno.Command("deno", {
+    const bundle = new runtimeHost.Command("deno", {
       args: ["bundle", entrypoint, "-o", outPath.pathname],
       cwd: root.pathname,
       stdout: "null",
@@ -30,7 +31,7 @@ if (import.meta.main) {
     if (!result.success) {
       throw new Error(`bundle failed for ${entrypoint}: ${new TextDecoder().decode(result.stderr)}`);
     }
-    const bytes = await Deno.readFile(outPath);
+    const bytes = await runtimeHost.readFile(outPath);
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     const sha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
     const text = new TextDecoder().decode(bytes);
@@ -41,7 +42,7 @@ if (import.meta.main) {
       denoFree: !/\bDeno\.\w+/.test(text),
     });
   }
-  await Deno.writeTextFile(
+  await runtimeHost.writeTextFile(
     new URL("dist/manifest.json", root),
     JSON.stringify(
       {

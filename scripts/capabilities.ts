@@ -1,3 +1,5 @@
+import { ensureBunWebGpuInitialized } from "../src/runtime/bun_webgpu.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   createRuntimePlan,
   createRuntimeProfileCatalogReport,
@@ -18,6 +20,9 @@ import {
   terminalEnvironmentDiagnostics,
 } from "../mod.ts";
 
+// Probe the optional Bun backend before reporting the currently available synchronous capabilities.
+await ensureBunWebGpuInitialized().catch(() => undefined);
+
 const capabilities = detectRuntimeCapabilities();
 const plan = createRuntimePlan(capabilities);
 const profiles = createRuntimeProfileCatalogReport({ capabilities });
@@ -26,7 +31,7 @@ const terminal = detectTerminalCapabilities();
 const terminalEnvironment = detectTerminalEnvironment();
 const terminalPlan = createTerminalPlan(terminal);
 
-if (Deno.args.includes("--json")) {
+if (runtimeHost.args.includes("--json")) {
   console.log(JSON.stringify(
     {
       ...summarizeRuntimeCapabilities(capabilities),

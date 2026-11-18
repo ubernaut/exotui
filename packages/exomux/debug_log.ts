@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { type RuntimeFile, runtimeHost } from "@ubernaut/exotui/runtime";
+
 // Opt-in debug logging.
 //
 // Two settings open loggers with `createExomuxDebugLogger()`: the global
@@ -90,7 +92,7 @@ export interface ExomuxDebugLoggerOptions {
 export function createExomuxDebugLogger(options: ExomuxDebugLoggerOptions = {}): ExomuxDebugLogger {
   const prefix = options.prefix ?? "butterchurn";
   const encoder = new TextEncoder();
-  let file: Deno.FsFile | undefined;
+  let file: RuntimeFile | undefined;
   let failed = false;
   let resolvedPath: string | undefined;
 
@@ -101,22 +103,22 @@ export function createExomuxDebugLogger(options: ExomuxDebugLoggerOptions = {}):
   const candidateDirs = (): string[] => {
     const dirs: string[] = [];
     try {
-      dirs.push(`${Deno.cwd()}/logs`);
+      dirs.push(`${runtimeHost.cwd()}/logs`);
     } catch { /* no --allow-read for cwd */ }
     try {
-      const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
+      const home = runtimeHost.env.get("HOME") ?? runtimeHost.env.get("USERPROFILE");
       if (home) dirs.push(`${home}/.exomux/logs`);
     } catch { /* no --allow-env */ }
     return dirs;
   };
 
-  const openFile = (): Deno.FsFile | undefined => {
+  const openFile = (): RuntimeFile | undefined => {
     if (file || failed) return file;
     for (const dir of candidateDirs()) {
       try {
-        Deno.mkdirSync(dir, { recursive: true });
+        runtimeHost.mkdirSync(dir, { recursive: true });
         const path = `${dir}/${prefix}-${logStamp()}.log`;
-        file = Deno.openSync(path, { create: true, write: true, append: true });
+        file = runtimeHost.openSync(path, { create: true, write: true, append: true });
         resolvedPath = path;
         return file;
       } catch { /* try the next candidate */ }

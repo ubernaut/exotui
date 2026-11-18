@@ -10,3 +10,6 @@ export * from "../src/app/animated_background.ts";
 export * from "../src/app/backgrounds/gpu_device.ts";
 export type { Rectangle } from "../src/types.ts";
 export type { AnsiFlushTelemetry } from "../src/canvas/sink.ts";
+
+export { runtimeHost } from "../src/runtime/host.ts";
+export type * from "../src/runtime/host_types.ts";

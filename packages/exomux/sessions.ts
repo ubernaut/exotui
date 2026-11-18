@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { type RuntimeDirEntry, runtimeHost } from "@ubernaut/exotui/runtime";
+
 import {
   connectExomuxWebSocket,
   defaultExomuxStateDirectory,
@@ -119,11 +121,11 @@ export async function discoverExomuxSessions(stateRoot: string): Promise<readonl
   const main = resolveExomuxSessionPaths(stateRoot, EXOMUX_DEFAULT_SESSION_NAME);
   if (await regularFileExists(main.descriptorPath) || await regularFileExists(main.layoutPath)) sessions.push(main);
   const namedRoot = joinPath(stateRoot, "sessions");
-  const entries: Deno.DirEntry[] = [];
+  const entries: RuntimeDirEntry[] = [];
   try {
-    for await (const entry of Deno.readDir(namedRoot)) entries.push(entry);
+    for await (const entry of runtimeHost.readDir(namedRoot)) entries.push(entry);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
   }
   entries.sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
@@ -187,13 +189,13 @@ async function reclaimStoppedExomuxSession(
 ): Promise<void> {
   if (paths.stateDirectory === stateRoot) return;
   if (await exomuxSessionIsLaunching(paths.descriptorPath, now)) return;
-  await Deno.remove(paths.stateDirectory, { recursive: true }).catch(() => undefined);
+  await runtimeHost.remove(paths.stateDirectory, { recursive: true }).catch(() => undefined);
 }
 
 /** True while a client holds this session's startup lock and has not gone stale. */
 async function exomuxSessionIsLaunching(descriptorPath: string, now: () => number): Promise<boolean> {
   try {
-    const info = await Deno.lstat(`${descriptorPath}.lock`);
+    const info = await runtimeHost.lstat(`${descriptorPath}.lock`);
     if (!info.isFile || info.isSymlink) return false;
     const modified = info.mtime?.getTime();
     // An unreadable timestamp is treated as a live launch: refusing to sweep
@@ -201,7 +203,7 @@ async function exomuxSessionIsLaunching(descriptorPath: string, now: () => numbe
     if (modified === undefined) return true;
     return now() - modified <= EXOMUX_STARTUP_LOCK_STALE_MS;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof runtimeHost.errors.NotFound) return false;
     throw error;
   }
 }
@@ -298,16 +300,16 @@ function describeExomuxSessionActivity(probe: ExomuxSessionProbe): string {
 
 async function regularFileExists(path: string): Promise<boolean> {
   try {
-    const info = await Deno.lstat(path);
+    const info = await runtimeHost.lstat(path);
     return info.isFile && !info.isSymlink;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof runtimeHost.errors.NotFound) return false;
     throw error;
   }
 }
 
 function joinPath(parent: string, child: string): string {
-  const separator = Deno.build.os === "windows" ? "\\" : "/";
+  const separator = runtimeHost.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
 

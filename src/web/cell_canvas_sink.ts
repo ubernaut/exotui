@@ -1,8 +1,10 @@
 // Copyright 2023 Im-Beast. MIT license.
 import type { CanvasCellSink, CanvasCellUpdate, CanvasRowRangeUpdate } from "../canvas/sink.ts";
 import type { CanvasRenderStats } from "../canvas/canvas.ts";
-import { stripStyles } from "../utils/strings.ts";
+import { characterWidth, stripStyles } from "../utils/strings.ts";
 import { ansi256Color, ansiColor } from "./ansi_color.ts";
+import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
+import type { AnsiStyleSpec } from "../theme.ts";
 
 const textDecoder = new TextDecoder();
 
@@ -29,7 +31,7 @@ const BOX_LIGHT_ARMS: ReadonlyMap<number, number> = new Map([
   [0x2577, 0b0010], // ╷
 ]);
 const ESCAPE = String.fromCharCode(27);
-const SGR_PATTERN = new RegExp(`${ESCAPE}\\[([0-9;]*)m`, "g");
+const SGR_PATTERN = new RegExp(`${ESCAPE}\\[([0-9;:]*)m`, "g");
 
 /** Options for drawing terminal cells into a browser Canvas2D surface. */
 export interface BrowserCellCanvasSinkOptions {
@@ -63,7 +65,6 @@ interface CellCanvasContext {
   fillText(text: string, x: number, y: number): void;
   scale(x: number, y: number): void;
   setTransform?(a: number, b: number, c: number, d: number, e: number, f: number): void;
-  measureText?(text: string): { width: number };
   save?(): void;
   restore?(): void;
   beginPath?(): void;
@@ -78,6 +79,13 @@ export interface ParsedAnsiCell {
   background?: string;
   bold: boolean;
   dim: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  underlineStyle?: AnsiStyleSpec["underlineStyle"];
+  underlineColor?: string;
+  overline?: boolean;
+  strikethrough?: boolean;
+  inverse?: boolean;
 }
 
 /** Canvas2D-backed cell sink for browser-hosted TUI rendering. */
@@ -95,8 +103,9 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
   #cellWidth: number;
   #cellHeight: number;
   #lastStats?: CanvasRenderStats;
-  /** Advance per glyph at this font, cached — measured once, asked constantly. */
-  readonly #glyphAdvance = new Map<string, number>();
+  /** Source cells, not pixels: dirty followers must repaint their retained wide owner. */
+  #cells: (string | undefined)[] = [];
+  readonly #wideOwners = new Set<number>();
 
   constructor(options: BrowserCellCanvasSinkOptions) {
     const context = options.canvas.getContext("2d");
@@ -116,8 +125,15 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
   }
 
   resize(columns: number, rows: number): void {
-    this.#columns = Math.max(1, Math.floor(columns));
-    this.#rows = Math.max(1, Math.floor(rows));
+    columns = Math.max(1, Math.floor(columns));
+    rows = Math.max(1, Math.floor(rows));
+    if (!Number.isSafeInteger(columns * rows) || columns * rows > 2_000_000) {
+      throw new RangeError("Browser cell surfaces support at most 2,000,000 finite cells.");
+    }
+    this.#columns = columns;
+    this.#rows = rows;
+    this.#cells = new Array(columns * rows);
+    this.#wideOwners.clear();
     this.#canvas.width = Math.ceil(this.#columns * this.#cellWidth * this.#pixelRatio);
     this.#canvas.height = Math.ceil(this.#rows * this.#cellHeight * this.#pixelRatio);
     this.#context.setTransform?.(1, 0, 0, 1, 0, 0);
@@ -125,13 +141,15 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     this.#context.font = this.#font;
     this.#context.textBaseline = "top";
     this.#context.fillStyle = this.#background;
-    this.#context.fillRect(0, 0, this.#columns * this.#cellWidth, this.#rows * this.#cellHeight);
+    this.#context.fillRect(0, 0, this.#canvas.width / this.#pixelRatio, this.#canvas.height / this.#pixelRatio);
   }
 
   flush(updates: readonly CanvasCellUpdate[], stats: CanvasRenderStats): void {
+    const dirty = new Set<number>();
     for (const update of updates) {
-      this.#paintCell(update.row, update.column, update.value);
+      this.#stage(update.row, update.column, update.value, dirty);
     }
+    this.#paintDirty(dirty);
     this.#lastStats = { ...stats };
   }
 
@@ -140,13 +158,15 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     stats: CanvasRenderStats,
     _updates: readonly CanvasCellUpdate[] = [],
   ): void {
+    const dirty = new Set<number>();
     for (const range of ranges) {
       let column = range.startColumn;
       for (const value of range.values) {
-        this.#paintCell(range.row, column, value);
+        this.#stage(range.row, column, value, dirty);
         column += 1;
       }
     }
+    this.#paintDirty(dirty);
     this.#lastStats = { ...stats };
   }
 
@@ -162,44 +182,170 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     };
   }
 
-  #paintCell(row: number, column: number, rawValue: string | Uint8Array): void {
-    const value = typeof rawValue === "string" ? rawValue : textDecoder.decode(rawValue);
-    const parsed = parseAnsiCell(value);
+  #stage(row: number, column: number, value: string | Uint8Array, dirty: Set<number>): void {
+    if (
+      !Number.isInteger(row) || !Number.isInteger(column) || row < 0 || row >= this.#rows || column < 0 ||
+      column >= this.#columns
+    ) return;
+    const index = row * this.#columns + column;
+    dirty.add(index);
+    if (this.#wideOwners.has(index)) dirty.add(index + 1);
+    if (column > 0 && this.#wideOwners.has(index - 1)) dirty.add(index - 1);
+    // Decode at the boundary so borrowed bytes cannot mutate retained state later.
+    this.#cells[index] = typeof value === "string" ? value : textDecoder.decode(value);
+  }
+
+  #paintDirty(dirty: Set<number>): void {
+    const parsed = new Map<number, ParsedAnsiCell>();
+    const read = (index: number) => {
+      let value = parsed.get(index);
+      if (!value) {
+        value = parseAnsiCell(this.#cells[index] ?? "");
+        parsed.set(index, value);
+      }
+      return value;
+    };
+    // TextObject styles empty continuation cells too. A present, styled empty
+    // marker still belongs to the owner; an ordinary space or absent cell does not.
+    const follower = (index: number) => this.#cells[index] !== undefined && read(index).text === "";
+    const span = (index: number): 0 | 1 | 2 => {
+      if (characterWidth(read(index).text) !== 2) return 1;
+      return index % this.#columns + 1 < this.#columns && follower(index + 1) ? 2 : 0;
+    };
+    // Stage every update before closing old/new pairs; order and separate row
+    // ranges must not let a follower's background erase its owner's pixels.
+    for (const index of dirty) {
+      if (span(index) === 2) dirty.add(index + 1);
+      if (index % this.#columns > 0 && follower(index) && span(index - 1) === 2) {
+        dirty.add(index - 1);
+      }
+    }
+    for (const index of dirty) {
+      this.#wideOwners.delete(index);
+      if (index % this.#columns > 0 && follower(index) && span(index - 1) === 2) {
+        continue;
+      }
+      const style = read(index), width = span(index);
+      this.#paintCell(Math.floor(index / this.#columns), index % this.#columns, style, width);
+      if (width === 2) this.#wideOwners.add(index);
+    }
+  }
+
+  #paintCell(row: number, column: number, parsed: ParsedAnsiCell, span: 0 | 1 | 2): void {
     const x = column * this.#cellWidth;
     const y = row * this.#cellHeight;
-    this.#context.fillStyle = parsed.background ?? this.#background;
-    this.#context.fillRect(x, y, this.#cellWidth, this.#cellHeight);
+    const width = Math.max(1, span) * this.#cellWidth;
+    // Fractional device pixels cannot be shared between independently dirty
+    // cells: antialiased clears otherwise retain ink and depend on paint order.
+    // Partition at rounded device boundaries, including the ceil-sized edge.
+    const left = Math.round(x * this.#pixelRatio) / this.#pixelRatio;
+    const top = Math.round(y * this.#pixelRatio) / this.#pixelRatio;
+    const right =
+      (column + Math.max(1, span) === this.#columns ? this.#canvas.width : Math.round((x + width) * this.#pixelRatio)) /
+      this.#pixelRatio;
+    const bottom =
+      (row + 1 === this.#rows ? this.#canvas.height : Math.round((y + this.#cellHeight) * this.#pixelRatio)) /
+      this.#pixelRatio;
+    this.#context.fillStyle = parsed.inverse
+      ? parsed.foreground ?? this.#foreground
+      : parsed.background ?? this.#background;
+    this.#context.fillRect(left, top, right - left, bottom - top);
 
-    const text = parsed.text || stripStyles(value) || " ";
-    if (text.trim().length === 0) return;
-    const foreground = parsed.dim
-      ? dimColor(parsed.foreground ?? this.#foreground)
-      : parsed.foreground ?? this.#foreground;
+    const text = span === 0 ? " " : parsed.text || " ";
+    const ink = parsed.inverse ? parsed.background ?? this.#background : parsed.foreground ?? this.#foreground;
+    const foreground = parsed.dim ? dimColor(ink) : ink;
+    if (text.trim().length === 0 && !parsed.underline && !parsed.overline && !parsed.strikethrough) return;
+    // Advance is not an ink bound: marks, italics and late-loaded fonts can
+    // paint outside it. Clip the whole ink plane, including geometric glyphs
+    // and decorations, while retaining original logical font positions.
+    if (
+      this.#context.save && this.#context.restore && this.#context.beginPath && this.#context.rect && this.#context.clip
+    ) {
+      this.#context.save();
+      try {
+        this.#context.beginPath();
+        this.#context.rect(left, top, right - left, bottom - top);
+        this.#context.clip();
+        this.#paintCellInk(parsed, span, text, x, y, foreground, left, top, right - left, bottom - top);
+      } finally {
+        this.#context.restore();
+      }
+    } else this.#paintCellInk(parsed, span, text, x, y, foreground, left, top, right - left, bottom - top);
+  }
+
+  #paintCellInk(
+    parsed: ParsedAnsiCell,
+    span: 0 | 1 | 2,
+    text: string,
+    x: number,
+    y: number,
+    foreground: string,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+  ): void {
+    if (text.trim().length === 0) {
+      this.#paintDecorations(parsed, x, y, foreground);
+      return;
+    }
     // Block elements never go through the font: no monospace face fills its
     // cell box exactly, and the shortfall reads as a grid of seams over any
     // shaded background. Halves, eighths, and quadrants become exact rects;
     // shades become alpha fills — full coverage no matter the font metrics.
     if (text.length === 1) {
       const code = text.codePointAt(0)!;
-      if (code >= 0x2500 && code <= 0x257f && this.#paintBoxGlyph(code, x, y, foreground)) return;
-      if (this.#paintBlockGlyph(code, x, y, foreground)) return;
+      if (
+        (code >= 0x2500 && code <= 0x257f && this.#paintBoxGlyph(code, left, top, foreground, width, height)) ||
+        this.#paintBlockGlyph(code, left, top, foreground, width, height)
+      ) {
+        this.#paintDecorations(parsed, x, y, foreground);
+        return;
+      }
     }
-    this.#context.font = parsed.bold ? `700 ${this.#font}` : this.#font;
+    this.#context.font = `${parsed.italic ? "italic " : ""}${parsed.bold ? "700 " : ""}${this.#font}`;
     this.#context.fillStyle = foreground;
-    // A glyph whose advance exceeds the cell bleeds into the neighbour, and
-    // when the neighbour never repaints the residue reads as a trail — the
-    // whole reason animated charts smeared. Wide glyphs are clipped to their
-    // cell; the advance is measured once per (weight, glyph) and cached.
-    if (this.#glyphOverflows(text, parsed.bold === true) && this.#context.save && this.#context.clip) {
-      this.#context.save();
-      this.#context.beginPath?.();
-      this.#context.rect?.(x, y, this.#cellWidth, this.#cellHeight);
-      this.#context.clip();
-      this.#context.fillText(text, x, y);
-      this.#context.restore?.();
-      return;
-    }
     this.#context.fillText(text, x, y);
+    this.#paintDecorations(parsed, x, y, foreground);
+    if (span === 2) this.#paintDecorations(parsed, x + this.#cellWidth, y, foreground);
+  }
+
+  /** Conventional terminal lines stay inside the cell and clear with its next background paint. */
+  #paintDecorations(style: ParsedAnsiCell, x: number, y: number, color: string): void {
+    if (!style.underline && !style.strikethrough && !style.overline) return;
+    const thickness = Math.min(this.#cellHeight, Math.max(1, Math.round(this.#cellHeight / 16)));
+    this.#context.fillStyle = color;
+    if (style.overline) this.#context.fillRect(x, y, this.#cellWidth, thickness);
+    if (style.strikethrough) {
+      this.#context.fillRect(x, y + Math.floor((this.#cellHeight - thickness) / 2), this.#cellWidth, thickness);
+    }
+    if (!style.underline) return;
+    this.#context.fillStyle = style.underlineColor ?? color;
+    const bottom = y + this.#cellHeight - thickness;
+    const line = style.underlineStyle ?? "solid";
+    if (line === "solid" || line === "double") {
+      this.#context.fillRect(x, bottom, this.#cellWidth, thickness);
+      if (line === "double" && this.#cellHeight > thickness * 2) {
+        this.#context.fillRect(x, Math.max(y, bottom - thickness * 2), this.#cellWidth, thickness);
+      }
+    } else {
+      // Global screen-coordinate phase keeps adjacent cells and dirty ranges continuous.
+      // Rect samples avoid depending on optional Canvas path methods and never escape this cell.
+      const period = line === "dotted" ? thickness * 2 : line === "dashed" ? thickness * 6 : thickness * 8;
+      const step = Math.max(1, this.#cellWidth / 512);
+      for (let offset = 0; offset < this.#cellWidth; offset += step) {
+        const phase = (x + offset) % period;
+        if (line === "dotted" && phase >= thickness || line === "dashed" && phase >= thickness * 4) continue;
+        const top = line === "wavy"
+          ? Math.max(
+            y,
+            bottom - Math.min(this.#cellHeight - thickness, thickness * 2) *
+                (1 + Math.sin((x + offset) * Math.PI * 2 / period)) / 2,
+          )
+          : bottom;
+        this.#context.fillRect(x + offset, top, Math.min(step, this.#cellWidth - offset), thickness);
+      }
+    }
   }
 
   /**
@@ -208,10 +354,8 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
    * span the full cell, and the shortfall reads as gaps along every wire and
    * window border; exact rects meet at the cell edges instead.
    */
-  #paintBoxGlyph(code: number, x: number, y: number, foreground: string): boolean {
+  #paintBoxGlyph(code: number, x: number, y: number, foreground: string, w: number, h: number): boolean {
     const context = this.#context;
-    const w = this.#cellWidth;
-    const h = this.#cellHeight;
     const t = Math.max(1, Math.round(Math.min(w, h) / 8));
     const heavy = Math.max(2, t * 2);
     const cx = x + Math.floor((w - t) / 2);
@@ -325,11 +469,9 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     }
   }
 
-  #paintBlockGlyph(code: number, x: number, y: number, foreground: string): boolean {
+  #paintBlockGlyph(code: number, x: number, y: number, foreground: string, w: number, h: number): boolean {
     if (code < 0x2580 || code > 0x259f) return false;
     const context = this.#context;
-    const w = this.#cellWidth;
-    const h = this.#cellHeight;
     context.fillStyle = foreground;
     if (code === 0x2580) {
       context.fillRect(x, y, w, h / 2);
@@ -360,18 +502,6 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
     }
     return true;
   }
-
-  #glyphOverflows(text: string, bold: boolean): boolean {
-    if (!this.#context.measureText) return false;
-    const key = `${bold ? "b" : "n"}:${text}`;
-    let advance = this.#glyphAdvance.get(key);
-    if (advance === undefined) {
-      advance = this.#context.measureText(text).width;
-      if (this.#glyphAdvance.size >= 4096) this.#glyphAdvance.clear();
-      this.#glyphAdvance.set(key, advance);
-    }
-    return advance > this.#cellWidth + 0.01;
-  }
 }
 
 /** Parses SGR styling from a single terminal cell string. */
@@ -381,18 +511,80 @@ export function parseAnsiCell(value: string): ParsedAnsiCell {
   const matches = value.matchAll(SGR_PATTERN);
   for (const match of matches) {
     if (match.index !== undefined && match.index > textIndex) break;
-    const params = parseSgrParams(match[1] ?? "");
+    const params = sgrParameters(match[1] ?? "");
     for (let index = 0; index < params.length; index += 1) {
-      const param = params[index] ?? 0;
+      const parts = params[index]!.split(":"), param = Number(parts[0]);
+      if (parts.length > 1 && param === 4) {
+        if (parts.length === 2 && /^[0-5]$/.test(parts[1]!)) {
+          if (parts[1] === "0") {
+            delete style.underline;
+            delete style.underlineStyle;
+          } else {
+            style.underline = true;
+            style.underlineStyle = (["solid", "double", "wavy", "dotted", "dashed"] as const)[Number(parts[1]) - 1];
+          }
+        }
+        continue;
+      }
+      if (param === 38 || param === 48 || param === 58) {
+        const decoded = sgrColor(params, index);
+        const color = decoded.rgb
+          ? `rgb(${decoded.rgb.join(",")})`
+          : decoded.palette !== undefined
+          ? ansi256Color(decoded.palette)
+          : undefined;
+        if (color !== undefined) {
+          if (param === 38) style.foreground = color;
+          else if (param === 48) style.background = color;
+          else style.underlineColor = color;
+        }
+        index += decoded.consumed - 1;
+        continue;
+      }
+      if (parts.length > 1) continue;
       if (param === 0) {
         style.foreground = undefined;
         style.background = undefined;
         style.bold = false;
         style.dim = false;
+        delete style.italic;
+        delete style.underline;
+        delete style.strikethrough;
+        delete style.underlineColor;
+        delete style.underlineStyle;
+        delete style.overline;
+        delete style.inverse;
       } else if (param === 1) {
         style.bold = true;
       } else if (param === 2) {
         style.dim = true;
+      } else if (param === 3) {
+        style.italic = true;
+      } else if (param === 4) {
+        style.underline = true;
+        delete style.underlineStyle;
+      } else if (param === 21) {
+        style.underline = true;
+        style.underlineStyle = "double";
+      } else if (param === 53) {
+        style.overline = true;
+      } else if (param === 55) {
+        delete style.overline;
+      } else if (param === 59) {
+        delete style.underlineColor;
+      } else if (param === 9) {
+        style.strikethrough = true;
+      } else if (param === 7) {
+        style.inverse = true;
+      } else if (param === 27) {
+        delete style.inverse;
+      } else if (param === 23) {
+        delete style.italic;
+      } else if (param === 24) {
+        delete style.underline;
+        delete style.underlineStyle;
+      } else if (param === 29) {
+        delete style.strikethrough;
       } else if (param === 22) {
         style.bold = false;
         style.dim = false;
@@ -408,35 +600,10 @@ export function parseAnsiCell(value: string): ParsedAnsiCell {
         style.background = ansiColor(param - 40);
       } else if (param >= 100 && param <= 107) {
         style.background = ansiColor(param - 100 + 8);
-      } else if ((param === 38 || param === 48) && params[index + 1] === 2) {
-        const color = `rgb(${clampByte(params[index + 2])},${clampByte(params[index + 3])},${
-          clampByte(params[index + 4])
-        })`;
-        if (param === 38) style.foreground = color;
-        else style.background = color;
-        index += 4;
-      } else if ((param === 38 || param === 48) && params[index + 1] === 5) {
-        const color = ansi256Color(params[index + 2] ?? 15);
-        if (param === 38) style.foreground = color;
-        else style.background = color;
-        index += 2;
       }
     }
   }
   return style;
-}
-
-function parseSgrParams(value: string): number[] {
-  if (!value) return [0];
-  const params: number[] = [];
-  let start = 0;
-  for (let index = 0; index <= value.length; index += 1) {
-    if (index !== value.length && value[index] !== ";") continue;
-    const part = value.slice(start, index);
-    params.push(part ? Number(part) : 0);
-    start = index + 1;
-  }
-  return params;
 }
 
 function firstPrintableIndex(value: string): number {
@@ -449,8 +616,4 @@ function firstPrintableIndex(value: string): number {
 
 function dimColor(color: string): string {
   return color.startsWith("#") ? `${color}aa` : color;
-}
-
-function clampByte(value: number | undefined): number {
-  return Math.max(0, Math.min(255, Math.floor(Number.isFinite(value) ? value! : 0)));
 }

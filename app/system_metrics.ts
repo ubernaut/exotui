@@ -1,3 +1,5 @@
+import type { RuntimeSystemMemoryInfo } from "../src/runtime/host.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import { Signal } from "../src/signals/mod.ts";
 import type { DiagnosticsCollector } from "../src/runtime/diagnostics.ts";
 import { errorMessage } from "../src/utils/formatting.ts";
@@ -40,7 +42,7 @@ export interface SystemMetricsProvider {
   hostname(): string;
   osRelease(): string;
   hardwareConcurrency(): number;
-  systemMemoryInfo(): Deno.SystemMemoryInfo;
+  systemMemoryInfo(): RuntimeSystemMemoryInfo;
   loadavg(): [number, number, number];
   networkInterfaces(): SystemMetricsNetworkInterface[];
   readTextFile(path: string): Promise<string>;
@@ -54,36 +56,36 @@ export class DenoSystemMetricsProvider implements SystemMetricsProvider {
   }
 
   hostname(): string {
-    return Deno.hostname();
+    return runtimeHost.hostname();
   }
 
   osRelease(): string {
-    return Deno.osRelease();
+    return runtimeHost.osRelease();
   }
 
   hardwareConcurrency(): number {
     return navigator.hardwareConcurrency || 1;
   }
 
-  systemMemoryInfo(): Deno.SystemMemoryInfo {
-    return Deno.systemMemoryInfo();
+  systemMemoryInfo(): RuntimeSystemMemoryInfo {
+    return runtimeHost.systemMemoryInfo();
   }
 
   loadavg(): [number, number, number] {
-    const loadavg = Deno.loadavg();
+    const loadavg = runtimeHost.loadavg();
     return [loadavg[0] ?? 0, loadavg[1] ?? 0, loadavg[2] ?? 0];
   }
 
   networkInterfaces(): SystemMetricsNetworkInterface[] {
-    return Deno.networkInterfaces();
+    return runtimeHost.networkInterfaces();
   }
 
   readTextFile(path: string): Promise<string> {
-    return Deno.readTextFile(path);
+    return runtimeHost.readTextFile(path);
   }
 
   readDir(path: string): AsyncIterable<SystemMetricsDirEntry> {
-    return Deno.readDir(path);
+    return runtimeHost.readDir(path);
   }
 
   async command(
@@ -91,7 +93,7 @@ export class DenoSystemMetricsProvider implements SystemMetricsProvider {
     args: string[],
     options: SystemMetricsCommandOptions = {},
   ): Promise<SystemMetricsCommandOutput> {
-    const child = new Deno.Command(command, {
+    const child = new runtimeHost.Command(command, {
       args,
       stdout: "piped",
       stderr: "null",

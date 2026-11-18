@@ -217,9 +217,16 @@ Deno.test("TerminalScreenController bounds the marks one cell may accumulate", (
   screen.write("e" + "\u0301".repeat(64) + "x");
 
   const [row] = screen.cellRows();
-  assertEquals(row![0]!.char.length <= 16, true);
+  // The former sixteen-unit cap silently lost ordinary valid label text.
+  // Preserve this case exactly; overflow now rejects the whole cluster at the
+  // documented 65,536-unit limit instead of publishing a truncated prefix.
+  assertEquals(row![0]!.char, "e" + "\u0301".repeat(64));
   assertEquals(row![1], { char: "x" });
   assertEquals(screen.inspect().cursor, { column: 2, row: 0 });
+  screen.clear();
+  screen.write("e" + "\u0301".repeat(65_536) + "x");
+  assertEquals(screen.cellRows()[0]!.slice(0, 2), [{ char: "\ufffd" }, { char: "x" }]);
+  assertEquals(screen.inspectGlyphs().rejectedClusters, 1);
 });
 
 Deno.test("TerminalScreenController preserves split UTF-8 and control sequences across writes", () => {

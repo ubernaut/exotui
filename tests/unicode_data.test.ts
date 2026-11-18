@@ -445,7 +445,7 @@ Deno.test("fingerprints are canonical, content-sensitive, and use standard SHA-2
 
 Deno.test("network-free check mode verifies deterministic output and rejects drift", async () => {
   const command = new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-read", "scripts/update_unicode_data.ts", "--check"],
+    args: [...("Bun" in globalThis ? [] : ["run", "--allow-read"]), "scripts/update_unicode_data.ts", "--check"],
     cwd: Deno.cwd(),
   });
   const checked = await command.output();
@@ -486,7 +486,12 @@ Deno.test("network-free check mode verifies deterministic output and rejects dri
       .replace('"end": 9', '"end": 8');
     await Deno.writeTextFile(temporary, driftedModule);
     const driftCheck = await new Deno.Command(Deno.execPath(), {
-      args: ["run", "--allow-read", "scripts/update_unicode_data.ts", "--check", temporary],
+      args: [
+        ...("Bun" in globalThis ? [] : ["run", "--allow-read"]),
+        "scripts/update_unicode_data.ts",
+        "--check",
+        temporary,
+      ],
       cwd: Deno.cwd(),
     }).output();
     assertFalse(driftCheck.success);

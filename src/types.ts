@@ -1,13 +1,13 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 /** Type for Standard Output – where data gets written */
-export type Stdout = typeof Deno.stdout;
+export type Stdout = import("./runtime/host_types.ts").RuntimeStdout;
 
 /** Type for Standard Input - from where data is read */
-export type Stdin = typeof Deno.stdin;
+export type Stdin = import("./runtime/host_types.ts").RuntimeStdin;
 
 /** Type defining terminal's (console) available size measured in columns and rows */
-export type ConsoleSize = ReturnType<typeof Deno.consoleSize>;
+export type ConsoleSize = import("./runtime/host_types.ts").RuntimeConsoleSize;
 
 /** Type that describes offset */
 export interface Offset {

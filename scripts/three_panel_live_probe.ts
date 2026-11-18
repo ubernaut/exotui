@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { createDefaultAsciiOptions } from "../src/three_ascii/options.ts";
 import {
   apiWorkbenchThreeFrameIntervalForCells,
@@ -20,25 +21,29 @@ import type { ThreeAsciiRendererPerformance } from "../src/three_ascii/renderer.
 import type { ThreeAsciiReadbackStrategy } from "../src/three_ascii/renderer_options.ts";
 import { type ThreeSceneMode, threeSceneModes, type ThreeSceneSignal } from "../app/types.ts";
 
-const frames = numberArg(Deno.args, "--frames", 36);
-const width = numberArg(Deno.args, "--width", 80);
-const height = numberArg(Deno.args, "--height", 24);
-const resizeWidth = optionalNumberArg(Deno.args, "--resize-width");
-const resizeHeight = optionalNumberArg(Deno.args, "--resize-height");
-const resizeFrame = numberArg(Deno.args, "--resize-frame", Math.max(1, Math.floor(frames / 2)));
-const maxCells = numberArg(Deno.args, "--max-cells", WORKBENCH_THREE_INITIAL_CELLS);
-const intervalMs = numberArg(Deno.args, "--interval", apiWorkbenchThreeFrameIntervalForCells(maxCells, { live: true }));
-const mode = choiceArg(Deno.args, "--mode", "studio" as ThreeSceneMode, threeSceneModes);
-const check = Deno.args.includes("--check");
-const minSteadyFrames = numberArg(Deno.args, "--min-steady-frames", 3);
-const minGridUpdates = numberArg(Deno.args, "--min-grid-updates", 2);
-const minResizedCells = optionalNumberArg(Deno.args, "--min-resized-cells");
-const maxAverageTotalMs = numberArg(Deno.args, "--max-average-ms", Math.max(80, intervalMs * 1.8));
-const glyphs = stringArg(Deno.args, "--glyphs", "blocks") as ReturnType<
+const frames = numberArg(runtimeHost.args, "--frames", 36);
+const width = numberArg(runtimeHost.args, "--width", 80);
+const height = numberArg(runtimeHost.args, "--height", 24);
+const resizeWidth = optionalNumberArg(runtimeHost.args, "--resize-width");
+const resizeHeight = optionalNumberArg(runtimeHost.args, "--resize-height");
+const resizeFrame = numberArg(runtimeHost.args, "--resize-frame", Math.max(1, Math.floor(frames / 2)));
+const maxCells = numberArg(runtimeHost.args, "--max-cells", WORKBENCH_THREE_INITIAL_CELLS);
+const intervalMs = numberArg(
+  runtimeHost.args,
+  "--interval",
+  apiWorkbenchThreeFrameIntervalForCells(maxCells, { live: true }),
+);
+const mode = choiceArg(runtimeHost.args, "--mode", "studio" as ThreeSceneMode, threeSceneModes);
+const check = runtimeHost.args.includes("--check");
+const minSteadyFrames = numberArg(runtimeHost.args, "--min-steady-frames", 3);
+const minGridUpdates = numberArg(runtimeHost.args, "--min-grid-updates", 2);
+const minResizedCells = optionalNumberArg(runtimeHost.args, "--min-resized-cells");
+const maxAverageTotalMs = numberArg(runtimeHost.args, "--max-average-ms", Math.max(80, intervalMs * 1.8));
+const glyphs = stringArg(runtimeHost.args, "--glyphs", "blocks") as ReturnType<
   typeof createDefaultAsciiOptions
 >["terminalGlyphStyle"];
 const readbackStrategy = choiceArg(
-  Deno.args,
+  runtimeHost.args,
   "--readback",
   WORKBENCH_THREE_READBACK_STRATEGY as ThreeAsciiReadbackStrategy,
   [
@@ -126,7 +131,7 @@ if (check) {
   });
   if (!validation.ok || resizedErrors.length > 0) {
     console.error(`three-panel live probe check failed: ${[...validation.errors, ...resizedErrors].join("; ")}`);
-    Deno.exit(1);
+    runtimeHost.exit(1);
   }
 }
 

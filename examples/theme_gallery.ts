@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import {
   createThemeGallery,
   createThemeProvider,
@@ -15,7 +16,7 @@ interface ThemeGalleryArgs {
   select?: string;
 }
 
-const args = parseArgs(Deno.args);
+const args = parseArgs(runtimeHost.args);
 const provider = createThemeProvider({
   registry: createThemeRegistry(grWizardThemePacks),
   activeId: "grwizard-arcane",

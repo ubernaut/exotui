@@ -358,7 +358,7 @@ Deno.test("pack fonts join the picker and unknown ids fall back gracefully", asy
   const controller = createGlyphForgeController({ fonts: [extra] });
   try {
     await controller.kernel.ready;
-    assertEquals(controller.fontPosition().total, 3, "bundled two plus the pack font");
+    assertEquals(controller.fontPosition().total, 4, "bundled three plus the pack font");
     controller.cycleFont(-1);
     assertEquals(controller.fontId(), "extra-pack", "cycling reaches pack fonts");
     controller.setTool("text");

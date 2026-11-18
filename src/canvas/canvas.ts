@@ -295,6 +295,12 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
             dirtyRectangles.push(previousRectangle);
           }
           movedOwnObjects.add(object);
+        } else {
+          // Layout/visibility updates may mark stationary objects as moved.
+          // They still have pending content updates (or a full redraw after
+          // resize cleared the frame). Keep them in the required render set,
+          // even when another object's dirty region does not intersect them.
+          nonMovingUpdatedObjects.push(object);
         }
       } else {
         nonMovingUpdatedObjects.push(object);

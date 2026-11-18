@@ -1,0 +1,30 @@
+{
+  "name": "@ubernaut/exomux",
+  "version": "0.4.1",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./main": "./main.ts"
+  },
+  "scripts": {
+    "start": "bun run ./main.ts",
+    "memory": "bun run ./main.ts --memory",
+    "audio": "bun run ./audio.ts",
+    "test": "bun run ../../scripts/bun_test_runner.ts ./tests",
+    "compile": "bun run ./compile_bun.ts",
+    "test:compat": "bun run ./check_runtime_compat.ts"
+  },
+  "dependencies": {
+    "@ubernaut/exotui": "file:../..",
+    "bun-webgpu": "0.1.7",
+    "jpeg-js": "0.4.4",
+    "markdown-it": "15.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.0"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  }
+}

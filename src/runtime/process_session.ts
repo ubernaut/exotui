@@ -1,3 +1,4 @@
+import { runtimeHost, type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import {
   TerminalOutputController,
@@ -37,7 +38,7 @@ export interface ProcessSessionChild {
   stdout: ReadableStream<Uint8Array> | null;
   stderr: ReadableStream<Uint8Array> | null;
   status: Promise<{ code: number; signal?: string | null; success: boolean }>;
-  kill(signal?: Deno.Signal): void;
+  kill(signal?: RuntimeSignal): void;
 }
 
 /** Injectable process spawning function for tests and future PTY backends. */
@@ -157,7 +158,7 @@ export class ProcessSessionController {
     }
   }
 
-  async stop(signal: Deno.Signal = "SIGTERM"): Promise<boolean> {
+  async stop(signal: RuntimeSignal = "SIGTERM"): Promise<boolean> {
     if (!this.#child || !this.running) return false;
     const child = this.#child;
     try {
@@ -322,7 +323,7 @@ function quoteCommandToken(token: string): string {
 }
 
 function spawnDenoProcessSessionChild(spec: ProcessSessionCommand): ProcessSessionChild {
-  return new Deno.Command(spec.command, {
+  return new runtimeHost.Command(spec.command, {
     args: [...(spec.args ?? [])],
     cwd: spec.cwd,
     env: spec.env,

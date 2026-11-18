@@ -13,7 +13,7 @@ desktop behind them, remote machines one keystroke away, and a VHS shader over t
 
 ## What it is
 
-**exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno — from a
+**exotui** is a reactive, batteries-included toolkit for building serious terminal applications in Deno and Bun — from a
 ten-line form to a full desktop environment. It ships as one package with focused entrypoints (published to JSR as
 `@ubernaut/exotui`): a signal-driven core, a retained-mode cell canvas, forty-plus widgets with headless controllers, an
 application runtime, terminal emulation good enough to build a terminal _inside_ your terminal, browser and remote
@@ -22,9 +22,9 @@ hosts, and an optional Three.js ASCII renderer.
 **exomux** is its flagship — a terminal multiplexer that grew into a terminal _desktop_. Shells live in a detachable
 daemon that outlives the UI (tmux's model), but the client is a windowing environment: floating, snapping, transparent
 windows over animated backgrounds, a network panel that reaches your whole tailnet, a MilkDrop audio visualizer, and
-Ghostty shader integration. Exomux imports only the public entrypoints — nothing in it touches `src/` — so it doubles as
-the standing proof that the published API is sufficient for a production-shaped application. Every gap it hit became a
-library export.
+Ghostty shader integration. Exomux's application imports the public entrypoints, so it doubles as the standing proof
+that the published API is sufficient for a production-shaped application. Its Bun compiler additionally embeds the
+runtime bootstrap from this checkout. Every application API gap it hit became a library export.
 
 ## What's cool about it
 
@@ -46,13 +46,38 @@ library export.
   it to that shell's working directory.
 - **Engineered like it matters.** The write path survives saturated ptys and self-heals truncated frames; multiple
   clients attached to one session stay in live sync; resumed full-screen apps are asked to repaint themselves; a debug
-  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 440
-  tests.
+  mode captures warnings, errors, and flush telemetry to a log file.
+
+## What's new
+
+- **Bun support.** Run the toolkit, desktop, and Exomux from source on Bun 1.4 or later. Linux verification covers
+  standalone Exomux, native PTYs and shell job control, Deno/Bun client–daemon interoperability, and native WebGPU. See
+  [Bun setup](#bun) for install and build commands.
+- **Files and Markdown in Exomux.** Open Files from the start menu or with `Ctrl-N e`. Select a Markdown file for a
+  formatted, scrollable preview, or right-click a folder and choose **Open terminal here**. Files and previews stay
+  local to the client; the Files window does not modify files.
+- **Documents and Mermaid.** Use terminal-native Markdown with optional ASCII heading fonts and circuit flowcharts,
+  mount official Mermaid SVG in browser document windows, or prepare native cell frames using an installed Chromium on
+  Deno or Bun. See [document rendering](docs/documents.md) for the API and the limits of the native projection.
+- **Desktop window effects.** The shared desktop adds open/close, minimize/restore, maximize, and focus effects, plus
+  layered window transparency. Adjust effects, speed, and opacity under **Settings → Windows**.
+
+## Runtime support
+
+| Host                | What's available                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deno                | Library, terminal desktop, Exomux, and Exomonitor. See [OS Support](#os-support) for host-specific limits.                                                                                                          |
+| Bun 1.4+            | Same library and terminal desktop; Exomux source and standalone execution verified on Linux. Exomonitor's mounted UI and data-source tests pass on Bun; a live session with all feeds enabled hasn't been verified. |
+| Browser             | Shared desktop, canvas-based UI, remote-terminal client, and official Mermaid SVG. Exomux's shell daemon runs on a native host, not in the browser.                                                                 |
+| Wasmtime / WASI 0.2 | Linux desktop release candidate. Interactive terminal input, resize, terminal restoration and SQLite settings are verified. WebGPU, Exomux, and Exomonitor are not supported on this target.                        |
+
+See the [Wasmtime desktop build and test instructions](packages/exotui-wasi/README.md) for the Linux package, and the
+[Wasmtime plan](plan/todo/054-wasmtime-host.md) for the remaining release gates.
 
 ## Who it's for
 
-- **Deno developers** who want a typed, reactive, dependency-light way to build terminal UIs — with a tested path from
-  "one button" to "application shell with routes, commands, themes, and undo history".
+- **Deno and Bun developers** who want a typed, reactive, dependency-light way to build terminal UIs — with a tested
+  path from "one button" to "application shell with routes, commands, themes, and undo history".
 - **tmux/screen users** who want a multiplexer with windows instead of panes — and are willing to have fun.
 - **Tool builders** who need the middle layers à la carte: headless widget controllers, terminal emulation, scrollback,
   process/PTY sessions, layout solvers, or the testing harness, each importable on its own.
@@ -91,6 +116,9 @@ library export.
 - Performance discipline: seed-deterministic layout benchmarks with cold/warm separation, CI-gated comparison reports,
   and budgets derived from real terminal, worker, and browser baselines.
 - Browser (`./web`) and remote-terminal (`./remote`) entrypoints that reuse the same controllers and projections.
+- The portable default desktop shares Exomux's cell-native open/close, minimize/restore, maximize and focus effects,
+  plus recursive window-over-window glass. Settings → Windows controls speed, effects and opacity; off, browser reduced
+  motion and viewport resize clear animation ghosts without delaying input or window state.
 - Three.js ASCII renderer (`./three-ascii`) with WebGPU post-processing, glyph/block/mixed output, and adaptive budgets.
 - A headless testing harness: in-memory terminal, interaction pilot, and snapshot helpers — the same tools this
   repository's own suites run on.
@@ -99,7 +127,7 @@ library export.
 
 - Detachable loopback daemon (token-authenticated WebSocket); named sessions tmux-style (`-n` create, `-a` attach,
   `--list-sessions`); crash-safe relaunch over stale or wedged descriptors.
-- PTY-backed shells via the optional `@sigma/pty-ffi` adapter with a pipe fallback.
+- PTY-backed shells via Bun's native terminals or Deno's optional `@sigma/pty-ffi` adapter, with a pipe fallback.
 - Floating window workbench: drag, resize, snap, tile, shelf, taskbar, per-window settings, session rename, responsive
   settings layout on narrow terminals.
 - Phone-aware layout: below 50 columns the desktop hands the whole screen to one window at a time — terminals and the
@@ -174,8 +202,7 @@ deno task exomux            # or: ./visualization exomux
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
 
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 440
-tests, and it reaches the toolkit only through the public entrypoints listed below.
+`packages/exomux` has its own manifests, lockfiles, and test suite. Its application uses the public toolkit entrypoints.
 
 ```sh
 deno task exomux:test       # the package suite
@@ -216,6 +243,47 @@ import { createTerminalApp } from "jsr:@ubernaut/exotui/app";
 ```
 
 Every entrypoint in the table below is importable the same way.
+
+### Bun
+
+Use Bun **1.4.0 or newer**. From a checkout:
+
+```sh
+bun install --frozen-lockfile
+bun install --cwd packages/exomux --frozen-lockfile --backend=symlink
+bun run desktop:smoke
+bun run exomux
+bun run exomonitor
+bun run exomux:test
+bun run exomux:compile
+bun run check
+bun run test
+bun run test:gpu
+```
+
+The Bun task names follow the Deno task catalog, including persistent showcases and GPU probes. Deno remains required
+for its formatter, JSR publishing checks, and source-graph inventory commands. Bun type checks use TypeScript directly;
+the Bun test runner executes the existing suites with isolated processes and lifecycle sanitizers.
+
+The optional `./document`, `./mermaid`, and `./mermaid/headless` exports are available to Bun consumers. Headless
+rendering uses an installed Chromium and bundles the browser module through esbuild; it does not need Deno. If Bun
+leaves an incomplete package while reinstalling exomux's local source dependency, move
+`packages/exomux/node_modules/@ubernaut/exotui` aside and rerun the frozen symlink install.
+
+For a separate Bun application, install this checkout with `bun add /path/to/exotui`, then use the same package names:
+
+```ts
+import { createTerminalApp } from "@ubernaut/exotui/app";
+import { createBunPtyTerminalBackend } from "@ubernaut/exotui/terminal";
+```
+
+Exomux selects native `Bun.Terminal` PTYs on POSIX hosts. Its daemon protocol remains compatible with Deno clients and
+hosts. Native GPU workloads initialize the optional, pinned `bun-webgpu` binding lazily; Three glyph atlases and the
+native binding are embedded in compiled exomux binaries. The GPU verification command requires a working native adapter.
+
+Bun inherits the process's filesystem, subprocess, and network access. The application's permission broker still
+applies, while Deno permission flags apply to Deno execution. Linux source and standalone execution are verified;
+platform-specific terminal and GPU drivers still determine availability on other hosts.
 
 ## Library quick start
 
@@ -480,6 +548,9 @@ The export map in `deno.jsonc` defines the supported package boundaries:
 | --------------------- | ---------------------------------- | -------- | ------------ |
 | `.`                   | `mod.ts`                           | terminal | stable       |
 | `./app`               | `mod.app.ts`                       | terminal | beta         |
+| `./document`          | `mod.document.ts`                  | shared   | beta         |
+| `./mermaid`           | `mod.mermaid.ts`                   | shared   | experimental |
+| `./mermaid/headless`  | `mod.mermaid_headless.ts`          | terminal | experimental |
 | `./web`               | `mod.web.ts`                       | browser  | beta         |
 | `./shell`             | `mod.shell.ts`                     | shared   | beta         |
 | `./remote`            | `mod.remote.ts`                    | remote   | experimental |
@@ -569,6 +640,19 @@ The beta `./app` entrypoint also includes `Markdown` and `MarkdownController`. A
 renderer-neutral document model; the terminal projection adds cell-width wrapping, nested lists and quotes, task items,
 fenced code, links, rules, tables, semantic ANSI styling, scrolling, and responsive reflow. `parseMarkdown()` and
 `renderMarkdown()` can be used without mounting the component.
+
+The optional beta `./document` surface adds width-aware ASCII heading fonts, circuit-routed Mermaid flowcharts,
+clickable wrapped links, and a component-backed `MarkdownSurface` for cell-composed desktop windows. Rendering remains
+terminal-native; no document iframe is needed. See [terminal-native documents](docs/documents.md) for the supported
+flowchart grammar, resource bounds, and browser/terminal integration.
+
+The experimental `./mermaid` entrypoint uses the pinned upstream Mermaid engine. Browser document windows can display
+its actual SVG alongside the same scrollable Markdown content. For terminals and remote clients,
+`prepareMermaidMarkdown()` supplies prepared cell frames to the existing Markdown components. This projection does not
+promise SVG, font-shaping, or MathML parity. The optional `./mermaid/headless` adapter runs the compiler in a separate
+Chromium instance on Deno and Bun, without installing browser globals in the application. Run
+`deno task mermaid:document-viewer --help` or `bun run mermaid:document-viewer --help` from a checkout for the terminal
+viewer and snapshot options. Chromium must already be installed. See the [document guide](docs/documents.md).
 
 ```ts
 import { Markdown } from "jsr:@ubernaut/exotui/app";

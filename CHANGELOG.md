@@ -6,6 +6,314 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+### Fixed
+
+- Experimental `./mermaid` validates ZenUML with its exact pinned ANTLR grammar in disposable workers, avoiding the
+  SDK's retained rejection-error list. Successful-source caching is bounded; cancellation/disposal and timeout release
+  each owned worker/script URL. Module-worker/blob capability is required, and authoritative SVG rendering is unchanged.
+
+- Experimental `./mermaid/headless` preserves parser diagnostics instead of serializing cyclic/deep parse results.
+  Owned-page error copies have bounded data-only fields, visible control escapes and explicit truncation; malformed
+  requests cannot poison the next valid diagram. Both complete hosts gain negative/recovery fixtures for every
+  registered parser. This does not establish complete Mermaid feature fidelity.
+
+### Pre-1.0 behavior changes
+
+- Shared display helpers now use assigned Unicode 17 wide/fullwidth ranges instead of a broad historical block
+  approximation. Previously missed wide symbols/scripts consume two cells; neutral/ambiguous and unassigned symbols
+  default to one. Regional indicators remain two-cell and standalone emoji modifiers zero-cell as explicit display
+  tailoring. The complete scalar policy does not certify terminal-specific shaping or selectable host profiles.
+- ANSI range compaction uses the shared atomic SGR parser before eliding resets. Bold/italic/decoration attributes
+  combined with color commands no longer leak into later independent cells; channels are not mistaken for attributes,
+  and complete color-only runs retain their compact form.
+- Beta terminal string input retains a dangling UTF-16 high surrogate across writes and viewport changes. Call the new
+  `flushInput()` at end of input to resolve a final isolated surrogate or incomplete UTF-8; `clear()` discards pending
+  input. Explicit cursor controls now separate zero-prefix glyphs from preceding cells, while SGR preserves joining.
+  ANSI canvas sinks retain non-ASCII cell positions and empty wide followers rather than merging independent Unicode
+  cells. Printable-ASCII compaction is preserved. Intrinsic layout keeps TextBox's one-space authoring-tab policy; raw
+  terminal tab width remains zero.
+- Shared `characterWidth`, `textWidth` and `cropToWidth` use all assigned zero-width categories from the pinned Unicode
+  17 narrow profile rather than five hard-coded combining blocks. Virama, ZWNJ and other nonspacing/format marks no
+  longer consume columns; ASCII controls also bypass printable fast paths. Existing standalone emoji-modifier tailoring
+  remains separate. Keycaps remain wide when later nonspacing marks extend them; this is not a complete shaping policy.
+  Textbox visual wrapping inherits zero-width controls while retaining literal UTF-16 source offsets; its explicitly
+  space-rendered tabs remain one column. This does not introduce an ANSI-aware source-editor lexer.
+- Beta `./runtime` terminal cells preserve up to 65,536 UTF-16 units rather than silently truncating at sixteen. A
+  shared budget of 8,388,608 extra units above two units per cell covers main/alternate/history rows. Hosts may lower
+  both budgets with controller options. Exhaustion replaces the whole cluster with U+FFFD, consumes its remaining
+  joining scalars and increments `inspectGlyphs().rejectedClusters`. Constant-space Unicode boundaries and width state
+  remove growing-cluster rescans, including insert mode. Grid/style/decoder/caller snapshot memory is not covered by
+  this extra-text budget; complete terminal capabilities and shaping remain unfinished.
+
+- Experimental `./remote` generic cell-frame encoders/checksums/flow default to codec v2, with explicit UTF-16 cell
+  lengths and delta base/result checksums. Network hosts must advertise `FRAME_CODEC_CAPABILITY`, wait for the existing
+  handshake to be ready and choose `negotiatedFrameCodecVersion`; absent capability selects exact scalar-only v1. Use
+  `{ version: 1 }` or `FrameFlowOptions.codecVersion: 1` for old peers. Empty followers and compound cells reject with
+  `FrameCodecError.code: "legacy-cell"` in v1 instead of emitting a lossy frame. Decoders accept both formats, validate
+  bounded data records/spans and return resync on malformed input; offered frames are detached/frozen. Flow windows must
+  be integers 1–64 and ACKs must identify a sent sequence. Raw ANSI/PTY, handshake schema, protocol major/minor, daemon
+  descriptors and live Exomux transports are unchanged.
+
+- Shared `textWidth` and `cropToWidth` treat CRLF as one line-ending grapheme. First-line width no longer counts its CR,
+  and cropping omits the whole ending instead of returning a dangling CR before LF. Textbox visual rows inherit this
+  correction; source UTF-16 offsets and the other historical wrapping fixtures are unchanged.
+
+### Added
+
+- The experimental optional full-Mermaid compiler lazily registers the pinned ZenUML extension and validates its bodies
+  with the official core parser, rather than accepting malformed input through the extension's no-op parser. Common
+  accessibility preambles retain inert title/description metadata without constructing a browser viewer. Native SVG
+  extraction now preserves root viewport clipping, so intentionally clipped text does not produce false bounds warnings.
+  Full-standard parity and final consumer integration remain in development.
+
+- Shared plain/styled text splitting, width and cropping reuse the pinned Unicode 17 grapheme segmenter, preserving long
+  accents, Indic/Hangul and emoji clusters even with inner SGR. Incremental terminal joins retain first-scalar styling
+  and repair width changes, followers/cursor/REP/insertion/wrap; unplaceable wide glyphs are omitted whole. Native
+  Mermaid wide-pair repair preserves ASCII-base keycaps. Complete Unicode width/shaping policy remains separate
+  unfinished work; revised terminal retention is described above. Generic remote boundary/version transport is described
+  above.
+- `UnicodeGraphemeBoundaryCursor` reports pinned Unicode 17 boundaries incrementally without retaining label text. Its
+  `push(codePoint)` validates before mutation; `reset()` explicitly breaks the run. Scalar/byte decoding remains the
+  caller's responsibility, including JavaScript isolated surrogate code units.
+
+- Browser Canvas2D cells paint wide glyphs/backgrounds/decorations over both owned columns, including ANSI-styled empty
+  continuation cells. Dirty follower/owner updates repaint the pair and clear stale tails on replacement or resize;
+  oversized narrow advances remain clipped. Retained surfaces transactionally refuse nonfinite/over-2,000,000-cell
+  grids. This does not change the separate remote frame codec or establish full CSS font/decoration fidelity.
+- Terminal-screen cells and resolved styles retain faint/italic, five underline styles, independent underline ink,
+  overline and strike. Atomic SGR parsing prevents RGB-zero channels from resetting glyph color or bold. Native
+  TerminalScreen and Exomux preserve typography through styled history and bounded paint caches; reverse/cursor/dim
+  resolution keeps explicit underline ink independent. Remote opaque styles retain the same wire format. This is
+  transport parity, not complete Mermaid decoration geometry or terminal capability certification.
+- Offscreen WidgetSurface uses inert I/O instead of borrowing Deno terminal handles, allowing native component mounting
+  in browsers. Its color-only reader consumes colon/extended underline-color tokens without clearing glyph color/bold.
+- The shared styled-text splitter keeps ASCII bases with combining marks/keycaps, matching its existing plain-text
+  matcher instead of painting separate accent cells in prepared Mermaid/Markdown rows. Ordinary ASCII fast paths remain.
+
+- The portable default desktop reuses Exomux's cell-native surface effects for open/close, minimize/restore,
+  maximize/unmaximize and focus raise/lower. Settings → Windows persists speed and per-transition effects; off, reduced
+  motion and resize cancel detached ghosts without delaying live window/input state.
+- Shared `shellCellImpression` exposes Exomux's blank/shade/ordinary-ink color convention. Default desktop transparency
+  now blends recursively against lower windows, not just wallpaper, while keeping upper glyphs/copy semantics and
+  half-transparent chrome. Exomux's existing scene-ground behavior is unchanged.
+
+- Experimental `./mermaid` captures browser-resolved CSS generated string/attribute text in HTML/MathML labels,
+  retaining measured style runs, wrapped rows and inert semantic text. Resource-free property allowlists, hidden probe
+  staging, checked pseudo suppression, bounded fidelity checks and finally-owned cleanup guard measurement. Quotation
+  keywords preserve nested/silent/hidden depth and explicit pairs; automatic desktop-Chromium quotes use its pinned ICU
+  resource filters/build instead of CLDR-only or Intl predictions. Read-only original host context retains preceding
+  quote depth, containment isolation, shadow/slot order and borrowed same-origin Window behavior; suppression styles are
+  tree-scoped and protect authored host attributes. Other host profiles/inaccessible closed contexts, full marker ink,
+  counters, images/nonliteral alternatives, box effects and full pseudo-element/animation parity remain unfinished.
+  Resolved textual slash alternatives now retain distinct painted and accessible values, including decorative empty
+  alternatives, literal casing/whitespace and local ARIA names, without executable markup or author-imitable attributes.
+
+- Beta `./document` circuit flowcharts preserve optional-only dependency ordering, align side rails with their
+  consumers, center core ports and separate independent services below horizontal graphs. Compact channels retain nearby
+  captions without erasing other connections; unresolved labels keep readable project names in the legend. These are
+  bounded-flowchart presentation improvements, not full Mermaid standard completion.
+
+- Mermaid semantic content and local ARIA references retain measured displayed casing without recasing literal names or
+  flattening declared multiline descriptions. Definition-text exposure follows measured Chromium behavior; explicit
+  CSS/ARIA hiding remains enforced. MathML retains logical automatic operands and a validated, MathML-only
+  `DiagramSemanticNode.textTransform: "none"` override prevents repeated transformation of captured explicit casing.
+  This is an additive beta `./document` capability, not arbitrary CSS transport or full assistive-technology parity.
+
+- Experimental Mermaid SVG/HTML labels retain browser-resolved CSS casing, including language/context and Unicode
+  expansion/contraction. A bounded text-only measuring document owns its selection and cleanup; source markup, URLs,
+  executable attributes and font bytes are not copied, and application selection/focus remain unchanged. Native
+  geometry, styles and JSON remain portable; full shaping/pseudo-element/bidi/AT parity remains unfinished.
+
+- Experimental Mermaid SVG labels preserve measured grapheme positions for rotated/reflected/vertical/path text and
+  nested styles. Native upright glyphs follow the label direction; bounds remain nonnegative and rotated extents no
+  longer inflate global density. Automatic density separates adjacent runs, coarse explicit density reports merges, and
+  bounded portable layout retains whole-wide-glyph clipping/actions after JSON and compiler disposal. Full shaping/ text
+  transforms/bidi/glyph-outline parity and maintainer review remain open.
+
+- Zero SVG `pathLength` dash capture now follows the compiler host's measured solid Chromium paint, with finite JSON
+  metadata and unchanged dash/scene budgets. Zero/percentage calibration differences from SVG2 are documented as host
+  behavior, not universal specification equivalence; independent decoded SVG fixtures cover both stroke modes.
+
+- Experimental Mermaid scenes retain host-space non-scaling widths/dash distances without overwriting local geometry.
+  Computed shape paint order now includes markers between split fill/stroke operations, with shared opacity and numeric
+  animation targets. Non-scaling strokeWidth markers follow the measured Chromium scale normalization. Independent SVG
+  paint, JSON, bounded failure/recovery and both-host disposed Markdown/flex probes cover these features; full text/
+  advanced stroke and cross-browser parity remain open.
+
+- Experimental Mermaid native scenes now preserve authored affine stroke metrics, resolved joins and miter limits. Wide
+  strokes paint bounded unioned outlines with real width, caps, joins and dash seams; thin strokes retain circuit
+  glyphs. Zero-length round/square marks and singular-transform invisibility are retained. Independent SVG geometry/
+  decoded-paint and real-engine/native transport probes cover the implementation; full advanced stroke parity remains
+  open.
+
+- Beta `./document` and experimental `./mermaid` preserve bounded inert label/MathML semantic trees through native
+  scenes, Markdown/flex and JSON transport. The optional owned browser companion creates MathML through an additive
+  `DomRenderNode.mathTag`, with unchanged HTML descriptors. Explicit host hooks alone enable painted actions; reflow
+  preserves owned focus, while stale/offscreen/disposed actions refuse activation. No raw SVG, source scripts/styles,
+  resource URLs or global callback execution are installed. Actual Chromium subtree and native transport fixtures are
+  feature evidence, not full AT/consumer parity.
+
+- Stable accessibility projections add `toAriaAttributesWithDescription` for owned descriptions while preserving the
+  original helper's callback/type-utility/bind signature. Pre-1.0 typing note: `AccessibilityRole` gains document/image/
+  graphics roles and `none`/`presentation`; callers with exhaustive role switches must handle the new cases.
+
+- Mermaid semantic transport preserves meaningful inline/preformatted/non-breaking whitespace, named SVG groups and
+  bounded local `use`/`symbol` text. Presentational roots no longer acquire an invented graphic name. The companion
+  applies only a validated `whiteSpace` enum, not arbitrary source CSS. Independent Chromium comparisons now check
+  actual nested relationships and whitespace, not just role order or whitespace-stripped text.
+
+- Full-Mermaid root accessibility metadata now survives native scenes, cells, prepared Markdown and flex viewports. A
+  bounded common-preamble adapter repairs nine measured pinned-engine family gaps without replacing diagram grammar or
+  layout. Beta `./document` adds reading-order semantic targets and an explicit owned browser semantic companion; stable
+  app projections retain graphics roles/fallbacks and host-bound descriptions. Terminal output remains limited to
+  titles/plain focused announcements. Actual Chromium AX-tree and disposed-compiler/native scrolling probes cover root
+  metadata, not full structured assistive-technology parity or consumer integration.
+
+- Native Mermaid handDrawn geometry retains bounded adaptive Bézier contours instead of exhausting the point budget on
+  nearly straight hatch strokes. Unsnapped cell traversal preserves curve cells, dash distances and tangent glyphs.
+  Pinned shape/alias and classic/neo/handDrawn/theme/HTML-label fixtures cover both compiler hosts and disposed native
+  Markdown/flex consumers. This does not establish complete feature parity or full SVG stroke outlines.
+
+- Experimental `./mermaid` adds portable numeric paint/group-opacity animation tracks, pure clock-driven scene
+  projection and native `timeMs` frames. Borrowed Markdown/flex clocks repaint without recompiling; hosts own playback
+  and reduced motion. Official fast/slow/class dash animations retain phase at terminal density, CSS timing/easing, JSON
+  infinite repeats and disposal independence. The native viewer opts in with `--animate`. Explicit diagram paint now
+  survives link styling. Animated geometry, inherited/coupled/additive effects and full animation parity remain open.
+
+- Beta `./document` adds view-local keyboard action navigation and bounded native tooltip chrome for ordinary Markdown
+  and full-Mermaid/flex documents. Left/Right select, Enter/Space activate through explicit host hooks, and Escape
+  dismisses; Tab/window modifiers remain host-owned. Wrapped links, scoped node IDs, popup click-through, wide-glyph
+  repair, source/focus/disposal cleanup and borrowed ownership have mounted tests. Native tooltips can be disabled for
+  custom host presentation. Full family/accessibility/animation parity and visual review remain open.
+- Native full-Mermaid scenes/cells retain link targets, plain-text tooltips and bounded declarative callback metadata.
+  Markdown and flex hosts expose `interactionAt`, `onActivate` and `onHover`; rich hooks replace legacy link dispatch.
+  Trusted/loose callbacks never evaluate source or look up global functions. Executable native URL schemes are rejected;
+  clipping/occlusion/disposal preserve hit geometry. Full interaction/accessibility/animation coverage remains open.
+- Native Mermaid markers now retain authored start/mid/end vertices, curve tangents, nested local definitions, original
+  computed styles, context gradients and measured viewport clipping. Marker units include percentage stroke widths;
+  zero/empty viewports remain invisible. Bounded references and inert instance clones clean up on failure. Current
+  Chromium moveto/zero-vector/half-turn behavior is retained; this is not full SVG/native fidelity.
+- Experimental Mermaid compiler factories accept explicit `fonts` bytes/descriptors and retained-byte/readiness limits.
+  Fonts load before upstream measurement; late loads trigger bounded relayout, including SVG-only output. Browser
+  disposal removes only owned registrations and aborts readiness waits; headless fonts stay private and restore after
+  page recovery. Encoded-byte bounds do not establish decoded-font/shaping memory or full typography fidelity.
+- Experimental `./mermaid` adds `MermaidFlexMarkdownController/Surface` for asynchronous full-standard diagrams in
+  continuous flex documents. Solved content widths drive the upstream compiler; one owned panel model measures and
+  paints native cells. Reactive source/settings and accepted geometry update panel heights, retain reading anchors,
+  share bounded cache leases and dispose removed panels without destroying borrowed signals/cache/compiler.
+- Beta `./document` flex surfaces can borrow controllers or create panel models through an owned factory. Structural
+  snapshots and `setSections()` support live insertion/removal/reordering, with one opening title policy. Component
+  views mount lazily at measured dimensions; stale-width views cannot restart old async resize generations.
+- Experimental `./mermaid` adds `MermaidMarkdownController` and a bounded host-scoped `MermaidMarkdownCache`. Reactive
+  source/theme/width changes refresh existing native Markdown components; equal window requests coalesce with
+  lease-aware cancellation, immutable snapshots, stale-result rejection, LRU/byte/job limits and retryable errors.
+  Loading rows retain prior dimensions without obsolete links/paint. `MarkdownSurface` can borrow a controller, and
+  browser/headless compilers transport an explicit measuring-container width. Initial viewport sizing before reactive
+  subscriptions attach now preserves the complete opening title row. Full standard/lifecycle integration remains open.
+- Experimental optional `./mermaid` surface uses the official pinned Mermaid 12.1.0 parser/SVG engine, extracts measured
+  renderer-neutral scenes, and converts vector geometry/text into native cell frames. A 39-example browser catalogue
+  covers all upstream registered diagram IDs. Compound winding contours, endpoint markers and wrapped HTML labels retain
+  their measured geometry. `prepareMermaidMarkdown()` feeds full diagrams into the existing native Markdown components,
+  preserving styles/links and bounded horizontal viewports. Advanced clips/paint effects, advanced images/animation,
+  complete document lifecycle remain in development; this is not yet a claim of full-standard end-to-end completion.
+- Experimental `./mermaid/headless` compiles full diagrams in private Chromium for Deno terminal/remote hosts without
+  changing application globals. Chromium is host-installed, sandboxing defaults on, resources default-deny, and every
+  redirect destination requires host approval. Bounded queues, cancellation, timeout recovery, startup cleanup and
+  idempotent disposal are tested. `mermaid:document-viewer` renders prepared native frames after disposing its compiler.
+- Approved headless Mermaid images/fonts use streaming HTTP-decoded body budgets, bounded request/concurrency queues,
+  snapshotted capabilities and cancellable owned readers. `resources` configures limits; `inspect().resources` reports
+  per-operation counters/failures. Body bounds do not establish decoded-image memory or native image painting support.
+- Native Mermaid images now paint bounded portable RGBA assets with affine placement, aspect ratio, transparency,
+  clipping, compositing and separate links. SVG resources capture viewport-specific layout; HTML images retain common
+  object-fit/percentage positions. Explicit browser image capabilities and the headless approved-response cache await
+  pixels before scene disposal. PNG/JPEG HTTP headers preflight source size; `images` bounds capture, and
+  `inspect().imageDiagnostics` records failures. Animated/overflowing/advanced HTML images and pre-decode guarantees for
+  all embedded/vector formats remain in development.
+- Default Mermaid MathML labels now retain native scripts/limits, fraction bars, radicals, matrix fences and common
+  accents. Browser-measured baselines and portable density hints prevent notation collisions; Unicode assemblies keep
+  stretched notation native and bounded. Phantom/annotation text remains hidden. Legacy KaTeX HTML and advanced math
+  typography remain diagnosed/incomplete; this is not full math or Mermaid parity.
+- Browser/headless Mermaid compilers now register host-owned static/lazy Iconify packs, preserving aliases/transforms
+  and upstream cache semantics. Snapshotted, bounded packs and cancellable loader signals stay outside diagram config;
+  loader failures/missing placeholders remain observable. Headless packs are isolated and restored after page recovery.
+  Measured small icon density preserves native detail, including inline labels and TreeView mappings. CSS icon fonts and
+  advanced SVG feature parity remain unfinished.
+- Native Mermaid scenes retain local geometric SVG clips as bounded union/intersection silhouettes, including winding
+  holes, object bounds, nested clips and transformed/percentage-sized SVG overflow viewports. Clipped cells lose their
+  paint/link targets and wide labels are never split. CSS basic-shape, text/use and external-reference clips remain
+  gaps.
+- Native Mermaid paint retains RGBA, fill/stroke opacity, bounded nested group compositing and the 16 CSS Level 1 blend
+  modes. Local linear/radial gradients preserve coordinates/transforms/templates/spread/stops, with sRGB/linearRGB and
+  modern browser Oklab interpolation. Optional native `background` matches transparent paint to the host; prepared
+  Markdown explicitly diagnoses its black default. Complex paint fidelity and full-standard coverage remain open.
+- Native Mermaid filter graphs retain CSS filter lists and nine SVG primitive types, including drop shadows, blur,
+  photometric matrices/transfers, composite/blend/merge and offsets. Completed groups filter before clipping and
+  opacity/blending; named results and measured regions stay serializable. Graphs, intermediates, kernels and sampling
+  work are bounded. Advanced primitives, off-frame source buffering and full pixel-level fidelity remain unfinished.
+- Native Mermaid scenes expand bounded local SVG use references, including nested shapes/groups/text and symbol/SVG
+  viewports. Shadow-scoped style capture preserves instance inheritance, currentColor, percentage transforms, links and
+  paint order; real viewport probes preserve the browser's actual sizing/clipping. Cycles and external references are
+  diagnosed, active content stays inert, and oversized batches reject without leaking probes. Full SVG parity remains
+  unfinished.
+- Optional `./document` entrypoint: the existing Markdown parser/controller/component, a component-backed offscreen
+  `MarkdownSurface`, four width-aware heading fonts, and a bounded Mermaid flowchart parser/layout with terminal-cell
+  and safe SVG outputs. Font and diagram rendering are opt-in; default Markdown output is unchanged.
+- Clickable Markdown links retain their hit targets after wrapping and scrolling.
+- `FlexMarkdownSurface` and its pure controller/layout compose continuous, component-backed guides with the built-in
+  flexbox solver: equal-height paired cards, responsive stacking, chapter anchors and themed terminal chrome.
+- Compact heading presets preserve word/letter spacing and can fall back to plain text instead of wrapping large art.
+- `TITLE_HEADING_FONTS` and opt-in `headingArt: "title"` restore a readable FIGlet Standard banner only at the beginning
+  of a document/window, with plain headings thereafter. Full-width banner rows and an optional hidden first chapter
+  header leave body cards at their original width; art falls back to text if the entire title cannot fit.
+- Opt-in circuit-board flowcharts share the live background's chip painter, connected pins, centered structural ranks,
+  side rails, semantic trace colors and a wrapped legend when edge labels cannot fit on the board.
+- The GitHub Pages desktop example accepts additional cell applications and a configurable launcher/initial window,
+  preserving its existing window host, themes, shaders, and backgrounds.
+
+### Changed
+
+- Mermaid flowcharts and the circuits background share the same generation-stamped obstacle-avoiding router and trace
+  glyphs. GlyphForge and document headings share one font implementation and attribution source.
+
+### Fixed
+
+- Mermaid mixed MathML tokens retain text/element source order and whitespace through JSON and the native browser
+  semantic companion. Bounded inert `#text` leaves create actual DOM text nodes without shaping-changing wrappers.
+  Pre-1.0 typing note: exhaustive `DiagramSemanticTag` consumers must handle `#text`; `DomRenderNode.children` also
+  accepts strings. Native ms no longer invents default/obsolete lquote/rquote quotes; authored quotes remain visible.
+- The shared browser presenter repaints newly exposed columns after browser growth. Existing retained rows now track the
+  platform width instead of keeping their creation-time clip. Actual browser cell/pixel regressions cover repeated
+  shrink/grow transitions at DPR 1/2.
+- Shared canvas text now represents wide Unicode glyphs with continuation cells, preserves combined glyphs and omits a
+  wide glyph when either half is clipped/occluded. Native document composition no longer shifts adjacent labels.
+- Markdown source updates made before reactive subscriptions attach render immediately instead of retaining old text.
+- Flex documents invalidate same-width layout on source/diagram revisions; drawing and link geometry share one model.
+- Identity/zero-blur/single-merge filters preserve very dark colors; empty SVG filters correctly produce no paint.
+- Filter shadows retain native text/link semantics without assigning clickable targets to newly painted halos.
+- Native opaque Mermaid overlays clear covered text styles/link targets and repair both halves of wide glyphs.
+- SVG gradient color/opacity interpolate independently, including transparent modern-color stops; CSS image gradient
+  premultiplication is not incorrectly applied to SVG paint servers.
+- Scrolling clipped document panels no longer drops stationary text rows when a canvas resize and row visibility change
+  occur together. Pending stationary updates remain in the redraw set even outside another object's dirty region.
+- Immediate MarkdownSurface resize/scroll snapshots refresh newly mounted text rows until reactive subscriptions settle;
+  they no longer require a microtask yield between frames, and settled rows retain normal incremental drawing.
+- Native Mermaid dashes follow local SVG distances/offsets, odd-array repetition, per-subpath resets, transforms and
+  `pathLength` calibration. Upstream arrowhead gaps preserve solid line portions; tiny patterns stay bounded. All-zero
+  arrays stay solid, while zero-length dashes paint only with round/square caps. Wide outlines and non-scaling metrics
+  have since gained the implementations above; these fixes do not establish all advanced stroke compatibility.
+- Measured straight SVG paths/rectangles preserve exact corners and zero-area clips. Normalize legacy SVGMatrix values
+  before composing with HTML-label DOMMatrix inputs; computed CSS path data overrides attributes. Translucent
+  fill/stroke, blend modes and CSS/SMIL animation now report explicit native fidelity diagnostics.
+
+### Bun support
+
+- Bun 1.4+ support for all library entrypoints, application examples and Exomux, with portable runtime host types,
+  native PTYs, standalone compilation and Deno/Bun client-daemon compatibility.
+- Native WebGPU rendering and compute through optional `bun-webgpu`, including Three ASCII, turbulence and Exomux
+  Butterchurn. Compiled Exomux embeds its native binding and glyph assets.
+- Bun package exports, strict consumer checks, task/test tooling and a compatibility CI workflow. Deno and browser
+  execution remain supported; Linux source and standalone Bun execution are verified.
+
 ## exotui 0.8.1 / exomux 0.4.1 — 2026-09-24
 
 ### Added

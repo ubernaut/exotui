@@ -428,3 +428,29 @@ Deno.test("tailnet poller keeps an in-flight fetch from scheduling after it is h
   assertEquals(timers.delays(), []);
   poller.dispose();
 });
+
+Deno.test("tailnet disposal cancels and awaits an active status request without publishing after disposal", async () => {
+  let released = false;
+  let observed: AbortSignal | undefined;
+  const received: TailnetStatusResult[] = [];
+  const poller = new TailnetPoller({
+    source: {
+      fetchStatus: (signal) => {
+        observed = signal;
+        return new Promise<TailnetStatusResult>((_resolve, reject) => {
+          signal!.addEventListener("abort", () => {
+            released = true;
+            reject(new DOMException("Status request cancelled", "AbortError"));
+          }, { once: true });
+        });
+      },
+    },
+    onResult: (result) => received.push(result),
+  });
+  poller.setVisible(true);
+  assert(observed && !observed.aborted);
+  await poller.dispose();
+  assert(observed.aborted);
+  assert(released, "dispose must settle the owned in-flight status operation");
+  assertEquals(received, [], "a disposed panel must not receive a late result");
+});

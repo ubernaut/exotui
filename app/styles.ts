@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import type { Style } from "../src/theme.ts";
 import { Computed } from "../src/signals/mod.ts";
 import type { Accent, PanelRender, Severity } from "./types.ts";
@@ -186,8 +187,8 @@ export function formatOptionalNumber(value: number | null, suffix: string) {
 }
 
 export function requireInteractiveTerminal(command: string): void {
-  const input = Deno.stdin.isTerminal();
-  const output = Deno.stdout.isTerminal();
+  const input = runtimeHost.stdin.isTerminal();
+  const output = runtimeHost.stdout.isTerminal();
   if (input && output) return;
 
   const missing = [
@@ -198,5 +199,5 @@ export function requireInteractiveTerminal(command: string): void {
 
   console.error(`${command} requires an interactive terminal (${missing} ${verb} not a TTY).`);
   console.error("Run it directly in a terminal, or use a report/web task for non-interactive output.");
-  Deno.exit(64);
+  runtimeHost.exit(64);
 }

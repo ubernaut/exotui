@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 export interface GpuProbeLockOptions {
   path?: string;
   staleMs?: number;
@@ -19,8 +20,8 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 const CLI_USAGE = "usage: deno run -A scripts/gpu_probe_lock.ts -- <command> [args...]";
 
 if (import.meta.main) {
-  const code = await runGpuProbeLockCli(Deno.args);
-  Deno.exit(code);
+  const code = await runGpuProbeLockCli(runtimeHost.args);
+  runtimeHost.exit(code);
 }
 
 /** Serializes local WebGPU probe/smoke commands so concurrent runs do not spuriously lose the device. */
@@ -44,26 +45,26 @@ export async function acquireGpuProbeLock(options: GpuProbeLockOptions = {}): Pr
   const now = options.now ?? (() => Date.now());
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const started = now();
-  await Deno.mkdir(parentDirectory(path), { recursive: true });
+  await runtimeHost.mkdir(parentDirectory(path), { recursive: true });
 
   while (true) {
     try {
-      const file = await Deno.open(path, { createNew: true, write: true });
-      const token = `${Deno.pid}:${new Date(now()).toISOString()}\n`;
+      const file = await runtimeHost.open(path, { createNew: true, write: true });
+      const token = `${runtimeHost.pid}:${new Date(now()).toISOString()}\n`;
       await file.write(new TextEncoder().encode(token));
       file.close();
       return {
         path,
         release: async () => {
           try {
-            await Deno.remove(path);
+            await runtimeHost.remove(path);
           } catch (error) {
-            if (!(error instanceof Deno.errors.NotFound)) throw error;
+            if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
           }
         },
       };
     } catch (error) {
-      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+      if (!(error instanceof runtimeHost.errors.AlreadyExists)) throw error;
     }
 
     await removeStaleGpuProbeLock(path, staleMs, now);
@@ -88,7 +89,7 @@ export async function runGpuProbeLockCli(args: readonly string[]): Promise<numbe
 
   const [command, ...commandArgs] = cliArgs;
   return await withGpuProbeLock(async () => {
-    const child = new Deno.Command(command!, {
+    const child = new runtimeHost.Command(command!, {
       args: commandArgs,
       stdin: "inherit",
       stdout: "inherit",
@@ -101,11 +102,11 @@ export async function runGpuProbeLockCli(args: readonly string[]): Promise<numbe
 
 async function removeStaleGpuProbeLock(path: string, staleMs: number, now: () => number): Promise<void> {
   try {
-    const stat = await Deno.stat(path);
+    const stat = await runtimeHost.stat(path);
     if (stat.mtime && now() - stat.mtime.getTime() <= staleMs) return;
-    await Deno.remove(path);
+    await runtimeHost.remove(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return;
+    if (error instanceof runtimeHost.errors.NotFound) return;
     throw error;
   }
 }

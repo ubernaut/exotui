@@ -1,3 +1,4 @@
+import { runtimeHost } from "../runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // The event shapes are part of the contract: nothing can write a key or mouse
@@ -41,7 +42,7 @@ const BRACKETED_PASTE_END = new TextEncoder().encode(BRACKETED_PASTE_END_TEXT);
  * Read keypresses from given stdin, parse them and emit to given emitter.
  */
 export async function emitInputEvents(
-  stdin: Stdin,
+  stdin: Pick<Stdin, "read" | "setRaw">,
   emitter: EventEmitter<InputEventRecord>,
   minReadInterval = 0,
   options: { signal?: AbortSignal; cbreak?: boolean } = {},
@@ -50,7 +51,7 @@ export async function emitInputEvents(
     // cbreak keeps ISIG enabled, so Ctrl+C/Ctrl+Z become process signals. Apps
     // that must see those chords as keypresses (terminal multiplexers that
     // forward them to a child PTY) pass cbreak: false for full raw mode.
-    stdin.setRaw(true, { cbreak: options.cbreak ?? (Deno.build.os !== "windows") });
+    stdin.setRaw(true, { cbreak: options.cbreak ?? (runtimeHost.build.os !== "windows") });
   } catch {
     // omit
   }

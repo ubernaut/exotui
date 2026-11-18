@@ -13,6 +13,8 @@
 
 /** Supported semantic roles. */
 export type AccessibilityRole =
+  | "none"
+  | "presentation"
   | "button"
   | "textbox"
   | "list"
@@ -30,13 +32,23 @@ export type AccessibilityRole =
   | "menuitem"
   | "status"
   | "log"
-  | "group";
+  | "group"
+  | "document"
+  | "img"
+  | "graphics-document"
+  | "graphics-object"
+  | "graphics-symbol";
 
 /** One semantic node. */
 export interface AccessibilityNode {
   readonly role: AccessibilityRole;
   /** The accessible name. */
   readonly label?: string;
+  /** Plain description. Browser hosts bind this to an owned aria-describedby node. */
+  readonly description?: string;
+  /** Ordered fallback tokens, e.g. graphics-document document. */
+  readonly fallbackRoles?: readonly AccessibilityRole[];
+  readonly roleDescription?: string;
   readonly states?: {
     readonly focused?: boolean;
     readonly selected?: boolean;
@@ -72,8 +84,9 @@ export const TERMINAL_EXPOSABLE_SEMANTICS: Readonly<{
 
 /** Browser projection: real ARIA attributes per node. */
 export function toAriaAttributes(node: AccessibilityNode): Readonly<Record<string, string>> {
-  const attributes: Record<string, string> = { role: node.role };
+  const attributes: Record<string, string> = { role: [node.role, ...(node.fallbackRoles ?? [])].join(" ") };
   if (node.label !== undefined) attributes["aria-label"] = node.label;
+  if (node.roleDescription !== undefined) attributes["aria-roledescription"] = node.roleDescription;
   const states = node.states ?? {};
   if (states.selected !== undefined) attributes["aria-selected"] = String(states.selected);
   if (states.expanded !== undefined) attributes["aria-expanded"] = String(states.expanded);
@@ -82,20 +95,34 @@ export function toAriaAttributes(node: AccessibilityNode): Readonly<Record<strin
   return attributes;
 }
 
+/** Bind a plain description to a host-owned node without changing the original projection's callable signature. */
+export function toAriaAttributesWithDescription(
+  node: AccessibilityNode,
+  descriptionId: string,
+): Readonly<Record<string, string>> {
+  return {
+    ...toAriaAttributes(node),
+    ...(node.description !== undefined && descriptionId ? { "aria-describedby": descriptionId } : {}),
+  };
+}
+
 /** Serializes a whole tree to nested ARIA descriptors. */
 export function toAriaTree(node: AccessibilityNode): {
   readonly attributes: Readonly<Record<string, string>>;
   readonly children: readonly ReturnType<typeof toAriaTree>[];
+  /** The host must mount an owned description node and bind it with aria-describedby. */
+  readonly description?: string;
 } {
   return {
     attributes: toAriaAttributes(node),
+    ...(node.description !== undefined ? { description: node.description } : {}),
     children: (node.children ?? []).map(toAriaTree),
   };
 }
 
 /** The terminal projection — the smaller, documented subset. */
 export interface TerminalAccessibilityProjection {
-  /** From the outermost dialog/status label, when one exists. */
+  /** From a dialog/status or document/diagram root label, when one exists. */
   readonly title?: string;
   /** A linear announcement describing the focused path. */
   readonly announcement?: string;
@@ -113,11 +140,17 @@ function focusedPath(node: AccessibilityNode, path: AccessibilityNode[]): Access
 
 /** Projects a tree onto what a terminal can actually expose. */
 export function toTerminalProjection(root: AccessibilityNode): TerminalAccessibilityProjection {
-  const title = root.role === "dialog" || root.role === "status" ? root.label : undefined;
+  const title = ["dialog", "status", "document", "graphics-document", "img"].includes(root.role)
+    ? root.label?.replace(/\s+/g, " ").trim()
+    : undefined;
   const path = focusedPath(root, []);
   const announcement = path
     ?.filter((node) => node.label !== undefined)
-    .map((node) => `${node.label} (${node.role})`)
+    .map((node) =>
+      `${node.label} (${node.role})${
+        node.states?.focused && node.description ? `: ${node.description.replace(/\s+/g, " ").trim()}` : ""
+      }`
+    )
     .join(", ");
   return {
     ...(title !== undefined ? { title } : {}),

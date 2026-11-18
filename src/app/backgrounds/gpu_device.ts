@@ -16,6 +16,8 @@
 
 // The host wires its own logger (exomux forwards its debug log; the web
 // desktop can console.warn); silence is the default.
+import { ensureBunWebGpuInitialized } from "../../runtime/bun_webgpu.ts";
+
 let log: (channel: string, message: string) => void = () => {};
 
 /** Installs the logger GPU acquisition failures and errors are reported to. */
@@ -36,7 +38,10 @@ let current: GPUDevice | undefined;
 export function shellGpuDevice(): Promise<GPUDevice | undefined> {
   pending ??= (async () => {
     try {
-      const adapter = await navigator.gpu?.requestAdapter();
+      await ensureBunWebGpuInitialized();
+      const adapter = typeof navigator === "undefined" ? undefined : await navigator.gpu?.requestAdapter(
+        "Bun" in globalThis ? { powerPreference: "high-performance" } : undefined,
+      );
       if (!adapter) {
         log("gpu-device", "no adapter — running on the software renderer");
         return undefined;
@@ -56,10 +61,12 @@ export function shellGpuDevice(): Promise<GPUDevice | undefined> {
       // A lost device must not stay cached, or every later caller is handed a
       // corpse and there is no way back short of restarting the client.
       device.lost.then((info) => {
+        if (current !== device) return;
         log("gpu-device", `device lost: ${info?.reason ?? "unknown"} ${info?.message ?? ""}`.trim());
         pending = undefined;
         current = undefined;
       }).catch(() => {
+        if (current !== device) return;
         pending = undefined;
         current = undefined;
       });

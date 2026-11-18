@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost, type RuntimeWatcher } from "@ubernaut/exotui/runtime";
+
 // Durable user preferences, kept apart from ephemeral session/layout state.
 //
 // Themes, the chosen background, and every settings knob live in one JSON file
@@ -60,10 +62,10 @@ export function normalizeExomuxConfig(value: unknown): ExomuxConfig {
 export function defaultExomuxConfigDirectory(): string {
   let root: string | undefined;
   try {
-    root = Deno.build.os === "windows"
-      ? Deno.env.get("APPDATA") ?? Deno.env.get("USERPROFILE")
-      : Deno.env.get("XDG_CONFIG_HOME") ??
-        (Deno.env.get("HOME") ? joinPath(Deno.env.get("HOME")!, ".config") : undefined);
+    root = runtimeHost.build.os === "windows"
+      ? runtimeHost.env.get("APPDATA") ?? runtimeHost.env.get("USERPROFILE")
+      : runtimeHost.env.get("XDG_CONFIG_HOME") ??
+        (runtimeHost.env.get("HOME") ? joinPath(runtimeHost.env.get("HOME")!, ".config") : undefined);
   } catch {
     root = undefined;
   }
@@ -85,9 +87,9 @@ export function exomuxConfigImagesDirectory(directory: string): string {
 export async function loadExomuxConfig(path: string): Promise<ExomuxConfig> {
   let text: string;
   try {
-    text = await Deno.readTextFile(path);
+    text = await runtimeHost.readTextFile(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return defaultExomuxConfig();
+    if (error instanceof runtimeHost.errors.NotFound) return defaultExomuxConfig();
     throw error;
   }
   try {
@@ -101,13 +103,13 @@ export async function loadExomuxConfig(path: string): Promise<ExomuxConfig> {
 /** Atomically writes the config, creating the config directory if needed. */
 export async function writeExomuxConfig(path: string, config: ExomuxConfig): Promise<void> {
   const directory = dirname(path);
-  await Deno.mkdir(directory, { recursive: true });
+  await runtimeHost.mkdir(directory, { recursive: true });
   const temporary = `${path}.tmp-${crypto.randomUUID()}`;
   try {
-    await Deno.writeTextFile(temporary, `${JSON.stringify(normalizeExomuxConfig(config), null, 2)}\n`);
-    await Deno.rename(temporary, path);
+    await runtimeHost.writeTextFile(temporary, `${JSON.stringify(normalizeExomuxConfig(config), null, 2)}\n`);
+    await runtimeHost.rename(temporary, path);
   } finally {
-    await Deno.remove(temporary).catch(() => undefined);
+    await runtimeHost.remove(temporary).catch(() => undefined);
   }
 }
 
@@ -132,9 +134,9 @@ export async function persistExomuxBackgroundImage(
   const imagesDirectory = exomuxConfigImagesDirectory(configDirectory);
   if (dirname(sourcePath) === imagesDirectory) return sourcePath;
   try {
-    await Deno.mkdir(imagesDirectory, { recursive: true });
+    await runtimeHost.mkdir(imagesDirectory, { recursive: true });
     const target = joinPath(imagesDirectory, basename(sourcePath));
-    await Deno.copyFile(sourcePath, target);
+    await runtimeHost.copyFile(sourcePath, target);
     return target;
   } catch {
     return sourcePath;
@@ -142,7 +144,7 @@ export async function persistExomuxBackgroundImage(
 }
 
 function joinPath(parent: string, child: string): string {
-  const separator = Deno.build.os === "windows" ? "\\" : "/";
+  const separator = runtimeHost.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
 
@@ -176,7 +178,7 @@ export function watchExomuxShaderConfig(
   const debounceMs = Math.max(1, options.debounceMs ?? 200);
   const separator = path.lastIndexOf("/");
   const directory = separator > 0 ? path.slice(0, separator) : ".";
-  let watcher: Deno.FsWatcher | undefined;
+  let watcher: RuntimeWatcher | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let closed = false;
   let lastDelivered: string | undefined;
@@ -196,7 +198,7 @@ export function watchExomuxShaderConfig(
 
   (async () => {
     try {
-      watcher = Deno.watchFs(directory);
+      watcher = runtimeHost.watchFs(directory);
     } catch {
       return; // no watch support: the feature degrades to restart-to-apply
     }
@@ -208,7 +210,7 @@ export function watchExomuxShaderConfig(
         timer = setTimeout(() => {
           void deliver();
         }, debounceMs);
-        Deno.unrefTimer?.(timer);
+        runtimeHost.unrefTimer?.(timer);
       }
     } catch {
       // The watcher ends with the process or on close(); either is fine.

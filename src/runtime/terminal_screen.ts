@@ -5,14 +5,25 @@ import {
   parseTerminalParams,
 } from "./terminal_sequences.ts";
 import { clamp } from "../utils/numbers.ts";
-import { textWidth, UNICODE_CHAR_REGEXP } from "../utils/strings.ts";
+import { CharacterWidthAccumulator, measureCharacterWidth } from "../utils/character_width.ts";
+import { UnicodeGraphemeBoundaryCursor } from "../unicode/grapheme.ts";
 import { normalizeTerminalDimension } from "./terminal_values.ts";
 import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
+import type { AnsiStyleSpec } from "../theme.ts";
 
 /** Styled terminal cell tracked by TerminalScreenController. */
 export interface TerminalScreenCell {
   char: string;
   bold?: boolean;
+  dim?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  underlineStyle?: AnsiStyleSpec["underlineStyle"];
+  underlineColor?: number;
+  overline?: boolean;
+  strikethrough?: boolean;
+  inverse?: boolean;
   foreground?: number;
   background?: number;
   hyperlink?: string;
@@ -48,6 +59,10 @@ export interface TerminalScreenControllerOptions {
   columns?: number;
   rows?: number;
   scrollbackLimit?: number;
+  /** Per-cell glyph budget (1–65,536 UTF-16 units); overflow replaces the whole cluster, never a prefix. */
+  maxGlyphUtf16Units?: number;
+  /** Budget above two UTF-16 units per cell, shared by both screens and history (0–8,388,608). */
+  maxRetainedGlyphExtraUtf16Units?: number;
   /**
    * Called with each kitty graphics APC this screen consumes, and the cursor
    * cell it arrived at — the cell kitty anchors a display to. This is the
@@ -66,6 +81,14 @@ export interface TerminalScreenControllerOptions {
    * model only knows the query arrived.
    */
   onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
+}
+
+/** Clone-safe diagnostics for terminal glyph retention, including explicit whole-cluster refusals. */
+export interface TerminalScreenGlyphInspection {
+  maxGlyphUtf16Units: number;
+  maxRetainedGlyphExtraUtf16Units: number;
+  retainedGlyphExtraUtf16Units: number;
+  rejectedClusters: number;
 }
 
 /** Serializable inspection snapshot for Terminal Screen Controller. */
@@ -155,8 +178,22 @@ export class TerminalScreenController {
   #lineFeedNewline = false;
   #lastPrintableCell?: TerminalScreenCell;
   #lastPrintableWidth = 1;
+  /** Only the immediately preceding printable run may form a multi-scalar glyph. */
+  #graphemeCell?: TerminalScreenCell;
+  readonly #glyphBoundary = new UnicodeGraphemeBoundaryCursor();
+  readonly #glyphWidth = new CharacterWidthAccumulator();
+  #glyphContextCell?: TerminalScreenCell;
+  #leadingGlyph?: TerminalScreenCell;
+  #discardingGlyph = false;
+  readonly #maxGlyphUtf16Units: number;
+  readonly #maxRetainedGlyphExtraUtf16Units: number;
+  #retainedGlyphExtraUtf16Units = 0;
+  #rowGlyphExtras = new WeakMap<TerminalScreenCell[], number>();
+  #rejectedClusters = 0;
   #tabStops: Set<number>;
   #pendingControl = "";
+  /** At most one undecided UTF-16 high surrogate from a string chunk. */
+  #pendingHighSurrogate = "";
   /** Swallowing an oversized DCS/APC/PM/SOS payload until its ST arrives. */
   #discardingString = false;
   #onKittyGraphics?: (data: string, cursor: { row: number; column: number }) => void;
@@ -180,6 +217,8 @@ export class TerminalScreenController {
   readonly #decoder = new TextDecoder();
 
   constructor(options: TerminalScreenControllerOptions = {}) {
+    this.#maxGlyphUtf16Units = glyphBudget(options.maxGlyphUtf16Units, 1, 65_536);
+    this.#maxRetainedGlyphExtraUtf16Units = glyphBudget(options.maxRetainedGlyphExtraUtf16Units, 0, 8_388_608);
     this.#columns = normalizeTerminalDimension(options.columns, DEFAULT_COLUMNS);
     this.#rows = normalizeTerminalDimension(options.rows, DEFAULT_ROWS);
     this.#scrollbackLimit = Math.max(0, Math.floor(options.scrollbackLimit ?? DEFAULT_SCROLLBACK_LIMIT));
@@ -205,6 +244,16 @@ export class TerminalScreenController {
     return { ...this.#state.cursor };
   }
 
+  /** Inspect bounded extra-text retention; rejected clusters paint U+FFFD and never silently retain a prefix. */
+  inspectGlyphs(): TerminalScreenGlyphInspection {
+    return {
+      maxGlyphUtf16Units: this.#maxGlyphUtf16Units,
+      maxRetainedGlyphExtraUtf16Units: this.#maxRetainedGlyphExtraUtf16Units,
+      retainedGlyphExtraUtf16Units: this.#retainedGlyphExtraUtf16Units,
+      rejectedClusters: this.#rejectedClusters,
+    };
+  }
+
   get alternate(): boolean {
     return this.#mainState !== undefined;
   }
@@ -221,7 +270,9 @@ export class TerminalScreenController {
   setScrollbackLimit(limit: number): void {
     this.#scrollbackLimit = Math.max(0, Math.floor(Number.isFinite(limit) ? limit : this.#scrollbackLimit));
     if (this.#scrollback.length > this.#scrollbackLimit) {
-      this.#scrollback.splice(0, this.#scrollback.length - this.#scrollbackLimit);
+      for (const row of this.#scrollback.splice(0, this.#scrollback.length - this.#scrollbackLimit)) {
+        this.#releaseGlyphRow(row);
+      }
     }
   }
 
@@ -230,12 +281,23 @@ export class TerminalScreenController {
     return this.#kittyGraphicsConsumed;
   }
 
+  /** Consume incremental UTF-8 bytes or UTF-16 string chunks; call flushInput at end of input. */
   write(data: string | Uint8Array): void {
     const decoded = typeof data === "string"
       ? this.#decoder.decode() + data
       : this.#decoder.decode(data, { stream: true });
-    let text = this.#pendingControl + decoded;
+    this.#writeDecoded(decoded, false);
+  }
+
+  /** Flush a final partial UTF-8 scalar or isolated UTF-16 high surrogate without ending the screen session. */
+  flushInput(): void {
+    this.#writeDecoded(this.#decoder.decode(), true);
+  }
+
+  #writeDecoded(decoded: string, final: boolean): void {
+    let text = this.#pendingControl + this.#pendingHighSurrogate + decoded;
     this.#pendingControl = "";
+    this.#pendingHighSurrogate = "";
     if (this.#discardingString) {
       // Inside a string sequence too large to buffer: swallow until ST. The
       // sequence was already judged inert, so dropping its payload loses
@@ -278,6 +340,10 @@ export class TerminalScreenController {
           break;
         }
       }
+      if (!final && index + 1 === text.length && char >= "\ud800" && char <= "\udbff") {
+        this.#pendingHighSurrogate = char;
+        break;
+      }
       this.#writeChar(char);
       index += char.length;
     }
@@ -287,10 +353,12 @@ export class TerminalScreenController {
     const nextColumns = normalizeTerminalDimension(columns, this.#columns);
     const nextRows = normalizeTerminalDimension(rows, this.#rows);
     if (nextColumns === this.#columns && nextRows === this.#rows) return;
+    this.#endGlyphRun();
     this.#columns = nextColumns;
     this.#rows = nextRows;
     this.#state = resizeState(this.#state, nextColumns, nextRows);
     if (this.#mainState) this.#mainState = resizeState(this.#mainState, nextColumns, nextRows);
+    this.#recountGlyphs();
     // Narrowing can slice a wide glyph off at the new right edge.
     for (const row of this.#state.cells) this.#repairRow(row);
     if (this.#mainState) { for (const row of this.#mainState.cells) this.#repairRow(row); }
@@ -300,10 +368,13 @@ export class TerminalScreenController {
   }
 
   clear(): void {
+    this.#endGlyphRun();
     this.#decoder.decode();
     this.#pendingControl = "";
+    this.#pendingHighSurrogate = "";
     this.#discardingString = false;
     this.#state.cells = createRows(this.#columns, this.#rows);
+    this.#recountGlyphs();
     this.#state.cursor = { column: 0, row: 0 };
     this.#scrollRegion = fullScrollRegion(this.#rows);
     this.#tabStops = defaultTabStops(this.#columns);
@@ -362,6 +433,7 @@ export class TerminalScreenController {
   }
 
   #writeChar(char: string): void {
+    if (char < " ") this.#endGlyphRun();
     // LF, VT and FF all index. They return to column 0 only under LNM; treating
     // them as newlines unconditionally drags every `cud1` cursor-down to the
     // left edge, which corrupts any full-screen app that moves down a column at
@@ -398,14 +470,11 @@ export class TerminalScreenController {
     if (char < " ") return;
 
     const glyph = this.#charsetDecGraphics[this.#activeCharset] ? DEC_SPECIAL_GRAPHICS[char] ?? char : char;
-    // A glyph that measures zero columns is a combining mark: it modifies the
-    // glyph already on screen and owns no cell of its own. `terminalGraphicWidth`
-    // floors every glyph at one column so an unknown character is never
-    // invisible, which is right for a glyph and wrong for a mark.
-    if (textWidth(glyph) === 0) {
-      this.#combineWithPreviousGlyph(glyph);
-      return;
-    }
+    if (this.#leadingGlyph && this.#appendLeadingGlyph(glyph)) return;
+    // Scalars arrive incrementally, including across UTF-8 and SGR boundaries.
+    // Grapheme boundaries, not a zero-width guess, decide whether Indic, Hangul,
+    // regional indicators or an emoji sequence belongs to the preceding cell.
+    if (this.#combineWithPreviousGlyph(glyph, measureCharacterWidth(glyph) === 0)) return;
     const width = terminalGraphicWidth(glyph);
     const cell = this.#styledCell(glyph);
     this.#placeGlyph(cell, width);
@@ -413,41 +482,126 @@ export class TerminalScreenController {
     this.#lastPrintableWidth = width;
   }
 
-  /**
-   * Attaches a combining mark to the glyph it modifies.
-   *
-   * The cursor sits just past that glyph, except at the right edge where the
-   * deferred wrap parks it on the glyph itself. A mark with nothing to modify is
-   * dropped rather than given a column, which is what a real terminal does.
-   *
-   * Giving each mark its own cell — what happened before this — costs more than
-   * a wrong column count. The splitter this screen writes through pairs an
-   * astral base with at most one mark, so kitty's Unicode image placeholders
-   * (`U+10EEEE` plus a row and a column diacritic, sometimes a third for the
-   * image id's high byte) arrived as two characters and consumed two columns.
-   * Every image an application drew through a relay came out twice as wide as
-   * the pane holding it, wrapped, and cascaded down the rest of the screen. The
-   * worse half was that a cell holding a bare mark gets painted into the host's
-   * output stream, where it combines with whatever the compositor drew before
-   * it — so the corruption escaped the window's own bounds and took the desktop
-   * with it.
-   */
-  #combineWithPreviousGlyph(mark: string): void {
+  /** Extend one bounded grapheme, retaining its first scalar's cell attributes. */
+  #combineWithPreviousGlyph(glyph: string, zeroWidth: boolean): boolean {
     const row = this.#state.cells[this.#state.cursor.row];
-    if (!row) return;
-    let column = this.#pendingWrap ? this.#state.cursor.column : this.#state.cursor.column - 1;
+    if (!row) return zeroWidth ? this.#holdLeadingGlyph(glyph) : false;
+    const cursorColumn = this.#state.cursor.column;
+    let column = this.#pendingWrap || row[cursorColumn] === this.#graphemeCell ? cursorColumn : cursorColumn - 1;
     // Step back over a wide glyph's continuation to the cell that owns the pair.
     while (column > 0 && row[column]?.continuation) column -= 1;
-    if (column < 0 || column >= this.#columns) return;
+    if (column < 0 || column >= this.#columns) return zeroWidth ? this.#holdLeadingGlyph(glyph) : false;
     const base = row[column];
-    if (!base) return;
-    // Bounded: a stream of marks aimed at one cell must not grow a row without
-    // limit. Three diacritics is the most any placeholder needs.
-    if (base.char.length + mark.length > MAX_CELL_GLYPH_UNITS) return;
-    const combined: TerminalScreenCell = { ...base, char: base.char + mark };
-    row[column] = combined;
+    if (!base || base !== this.#graphemeCell) return zeroWidth ? this.#holdLeadingGlyph(glyph) : false;
+    // Ordinary ASCII streams retain their allocation-free boundary shortcut.
+    if (
+      !zeroWidth && glyph.length === 1 && glyph.charCodeAt(0) < 0x80 && base.char.length === 1 &&
+      base.char.charCodeAt(0) < 0x80
+    ) {
+      return false;
+    }
+    if (this.#glyphContextCell !== base) {
+      this.#glyphBoundary.reset();
+      this.#glyphWidth.reset();
+      for (const scalar of base.char) {
+        const codePoint = scalar.codePointAt(0)!;
+        this.#glyphBoundary.push(codePoint);
+        this.#glyphWidth.push(codePoint);
+      }
+      this.#glyphContextCell = base;
+      this.#discardingGlyph = false;
+    }
+    const codePoint = glyph.codePointAt(0)!;
+    if (this.#glyphBoundary.push(codePoint)) {
+      this.#glyphContextCell = undefined;
+      this.#discardingGlyph = false;
+      return zeroWidth ? this.#holdLeadingGlyph(glyph) : false;
+    }
+    if (this.#discardingGlyph) return true;
+    let width = Math.max(1, this.#glyphWidth.push(codePoint));
+    const length = base.char.length + glyph.length;
+    const extra = Math.max(0, length - 2) - glyphExtra(base);
+    const rejected = length > this.#maxGlyphUtf16Units ||
+      extra > this.#maxRetainedGlyphExtraUtf16Units - this.#retainedGlyphExtraUtf16Units;
+    const char = rejected ? "\ufffd" : base.char + glyph;
+    if (rejected) {
+      this.#rejectGlyph();
+      this.#discardingGlyph = true;
+      width = 1;
+    }
+    const combined: TerminalScreenCell = { ...base, char };
+    const oldWidth = row[column + 1]?.continuation ? 2 : 1;
+    if (width > oldWidth && column + width > this.#columns) {
+      // A variation selector/keycap can widen a glyph already at the margin.
+      // Re-place the whole glyph, letting the normal wrap path own padding,
+      // scrolling and scroll-region boundaries; never leave the old base.
+      this.#replaceGlyphCell(row, column, this.#blankLike(base));
+      this.#state.cursor.column = column;
+      this.#pendingWrap = false;
+      this.#placeGlyph(combined, width);
+    } else {
+      if (width > oldWidth) {
+        if (this.#insertMode) {
+          shiftCellsRight(row, column + oldWidth, width - oldWidth, this.#columns, BLANK_CELL);
+          this.#accountGlyphRow(row);
+        } else {
+          this.#breakPairAt(column + oldWidth);
+        }
+        this.#replaceGlyphCell(row, column + 1, CONTINUATION_CELL);
+      } else if (width < oldWidth) {
+        this.#replaceGlyphCell(row, column + 1, this.#blankLike(row[column + 1]));
+      }
+      const lastColumn = column + width - 1;
+      this.#state.cursor.column = Math.min(this.#columns - 1, lastColumn + 1);
+      this.#pendingWrap = this.#autoWrap && lastColumn >= this.#columns - 1;
+      this.#replaceGlyphCell(row, column, combined);
+      this.#graphemeCell = combined;
+      if (this.#insertMode && width !== oldWidth) this.#repairRow(row);
+    }
+    this.#glyphContextCell = this.#graphemeCell;
     // REP repeats what is on screen, marks included.
-    if (this.#lastPrintableCell) this.#lastPrintableCell = { ...combined };
+    if (this.#lastPrintableCell) {
+      this.#lastPrintableCell = { ...combined };
+      this.#lastPrintableWidth = width;
+    }
+    return true;
+  }
+
+  #holdLeadingGlyph(glyph: string): true {
+    this.#endGlyphRun();
+    this.#glyphBoundary.reset();
+    this.#glyphWidth.reset();
+    const codePoint = glyph.codePointAt(0)!;
+    this.#glyphBoundary.push(codePoint);
+    this.#glyphWidth.push(codePoint);
+    this.#leadingGlyph = this.#styledCell(glyph);
+    if (glyph.length > this.#maxGlyphUtf16Units) this.#appendLeadingGlyph("");
+    return true;
+  }
+
+  #appendLeadingGlyph(glyph: string): boolean {
+    const leading = this.#leadingGlyph!;
+    if (glyph && this.#glyphBoundary.push(glyph.codePointAt(0)!)) {
+      this.#endGlyphRun();
+      return false;
+    }
+    const width = glyph ? this.#glyphWidth.push(glyph.codePointAt(0)!) : 0;
+    const rejected = leading.char.length + glyph.length > this.#maxGlyphUtf16Units;
+    const cell = { ...leading, char: rejected ? "\ufffd" : leading.char + glyph };
+    if (!width && !rejected) {
+      this.#leadingGlyph = cell;
+      return true;
+    }
+    this.#leadingGlyph = undefined;
+    if (rejected) this.#rejectGlyph();
+    this.#placeGlyph(cell, rejected ? 1 : width);
+    this.#glyphContextCell = this.#graphemeCell;
+    this.#discardingGlyph = rejected || this.#graphemeCell?.char !== cell.char;
+    if (this.#graphemeCell) {
+      this.#lastPrintableCell = { ...this.#graphemeCell };
+      this.#lastPrintableWidth = terminalGraphicWidth(this.#graphemeCell.char);
+    }
+    return true;
   }
 
   #markSoftWrap(padding = false): void {
@@ -457,6 +611,15 @@ export class TerminalScreenController {
   }
 
   #placeGlyph(cell: TerminalScreenCell, width: number): void {
+    // A wide glyph needs both columns even with DECAWM disabled or a one-cell
+    // screen. Omit it whole, rather than storing an owner no renderer can pair.
+    if (width > this.#columns || (width === 2 && !this.#autoWrap && this.#state.cursor.column === this.#columns - 1)) {
+      this.#breakPairAt(this.#state.cursor.column);
+      this.#putCellAt(this.#state.cursor.column, this.#blankLike(cell), true);
+      this.#endGlyphRun();
+      this.#pendingWrap = false;
+      return;
+    }
     // Resolve a wrap deferred from a previous edge write before placing this glyph.
     if (this.#pendingWrap) {
       if (this.#autoWrap) {
@@ -478,13 +641,18 @@ export class TerminalScreenController {
     // no orphaned glyph or continuation is left behind to shift the row.
     this.#breakPairAt(startColumn);
     if (width === 2) this.#breakPairAt(startColumn + 1);
-    this.#putCellAt(startColumn, cell, true);
+    const placed = this.#putCellAt(startColumn, cell, true);
+    if (placed !== cell) {
+      cell = placed;
+      width = 1;
+    }
     const lastColumn = Math.min(this.#columns - 1, startColumn + width - 1);
     for (let column = startColumn + 1; column <= lastColumn; column += 1) {
       this.#putCellAt(column, CONTINUATION_CELL, false);
     }
     // Insert mode shifted the rest of the row, which can cut a pair further along.
     if (this.#insertMode) this.#repairRow(this.#state.cells[this.#state.cursor.row]!);
+    this.#graphemeCell = cell;
     if (lastColumn >= this.#columns - 1) {
       // At the right edge park the cursor and defer the wrap; only the next
       // printable character (if autowrap is on) actually advances + scrolls.
@@ -503,9 +671,11 @@ export class TerminalScreenController {
   #breakPairAt(column: number): void {
     const row = this.#state.cells[this.#state.cursor.row];
     if (!row || column < 0 || column >= this.#columns) return;
-    if (row[column]?.continuation && column > 0) row[column - 1] = this.#blankLike(row[column - 1]);
+    if (row[column]?.continuation && column > 0) {
+      this.#replaceGlyphCell(row, column - 1, this.#blankLike(row[column - 1]));
+    }
     if (row[column + 1]?.continuation && terminalGraphicWidth(row[column]?.char ?? " ") === 2) {
-      row[column + 1] = this.#blankLike(row[column + 1]);
+      this.#replaceGlyphCell(row, column + 1, this.#blankLike(row[column + 1]));
     }
   }
 
@@ -519,7 +689,7 @@ export class TerminalScreenController {
       const cell = row[column];
       if (cell?.continuation) {
         // Reached at the top of the loop, so no wide glyph claimed it.
-        row[column] = this.#blankLike(cell);
+        this.#replaceGlyphCell(row, column, this.#blankLike(cell));
         column += 1;
         continue;
       }
@@ -528,10 +698,11 @@ export class TerminalScreenController {
           column += 2;
           continue;
         }
-        row[column] = this.#blankLike(cell);
+        this.#replaceGlyphCell(row, column, this.#blankLike(cell));
       }
       column += 1;
     }
+    this.#accountGlyphRow(row);
   }
 
   /** A blank that keeps the cell's background, so repairs leave no pale gap. */
@@ -539,13 +710,60 @@ export class TerminalScreenController {
     return cell?.background === undefined ? BLANK_CELL : { char: " ", background: cell.background };
   }
 
-  #putCellAt(column: number, cell: TerminalScreenCell, insert: boolean): void {
+  #putCellAt(column: number, cell: TerminalScreenCell, insert: boolean): TerminalScreenCell {
     const row = this.#state.cells[this.#state.cursor.row]!;
     if (insert && this.#insertMode) {
       row.splice(column, 0, { char: " " });
       row.length = this.#columns;
+      this.#accountGlyphRow(row);
     }
+    const available = this.#maxRetainedGlyphExtraUtf16Units - this.#retainedGlyphExtraUtf16Units +
+      glyphExtra(row[column]);
+    if (cell.char.length > this.#maxGlyphUtf16Units || glyphExtra(cell) > available) {
+      cell = { ...cell, char: "\ufffd" };
+      this.#rejectGlyph();
+    }
+    this.#replaceGlyphCell(row, column, cell);
+    return cell;
+  }
+
+  #replaceGlyphCell(row: TerminalScreenCell[], column: number, cell: TerminalScreenCell): void {
+    const difference = glyphExtra(cell) - glyphExtra(row[column]);
     row[column] = cell;
+    if (difference) {
+      this.#rowGlyphExtras.set(row, (this.#rowGlyphExtras.get(row) ?? 0) + difference);
+      this.#retainedGlyphExtraUtf16Units += difference;
+    }
+  }
+
+  #accountGlyphRow(row: TerminalScreenCell[]): void {
+    let extra = 0;
+    for (const cell of row) extra += glyphExtra(cell);
+    this.#retainedGlyphExtraUtf16Units += extra - (this.#rowGlyphExtras.get(row) ?? 0);
+    this.#rowGlyphExtras.set(row, extra);
+  }
+
+  #releaseGlyphRow(row: TerminalScreenCell[]): void {
+    this.#retainedGlyphExtraUtf16Units -= this.#rowGlyphExtras.get(row) ?? 0;
+    this.#rowGlyphExtras.delete(row);
+  }
+
+  #recountGlyphs(): void {
+    this.#retainedGlyphExtraUtf16Units = 0;
+    this.#rowGlyphExtras = new WeakMap();
+    for (const row of this.#state.cells) this.#accountGlyphRow(row);
+    for (const row of this.#mainState?.cells ?? []) this.#accountGlyphRow(row);
+    for (const row of this.#scrollback) this.#accountGlyphRow(row);
+  }
+
+  #rejectGlyph(): void {
+    this.#rejectedClusters = Math.min(Number.MAX_SAFE_INTEGER, this.#rejectedClusters + 1);
+  }
+
+  #endGlyphRun(): void {
+    this.#graphemeCell = this.#glyphContextCell = undefined;
+    this.#leadingGlyph = undefined;
+    this.#discardingGlyph = false;
   }
 
   /**
@@ -588,7 +806,10 @@ export class TerminalScreenController {
     // printable run, so the deferred-wrap latch no longer applies. SGR keeps it
     // so autowrap streams that recolor mid-line (pagers, syntax highlighting)
     // still wrap at the right edge.
-    if (sequence.command !== "m") this.#pendingWrap = false;
+    if (!(sequence.kind === "csi" && sequence.command === "m" && !sequence.private && !sequence.intermediates)) {
+      this.#pendingWrap = false;
+      this.#endGlyphRun();
+    }
     if (sequence.kind === "osc") {
       this.#applyOsc(sequence.params);
       return;
@@ -635,6 +856,14 @@ export class TerminalScreenController {
       if (op === 14 || op === 16 || op === 18) this.#onWindowSizeQuery?.(op);
       return;
     }
+    // SGR colon subparameters and extended-color channels are atomic. The
+    // generic cursor/mode parser deliberately flattens them and cannot be used here.
+    if (sequence.command === "m") {
+      if (sequence.kind === "csi" && !sequence.private && !sequence.intermediates) {
+        this.#applySgr(sequence.params);
+      }
+      return;
+    }
     const params = parseTerminalParams(sequence.params);
     if (sequence.private && (sequence.command === "h" || sequence.command === "l")) {
       this.#applyPrivateModes(params, sequence.command === "h");
@@ -645,9 +874,6 @@ export class TerminalScreenController {
       return;
     }
     switch (sequence.command) {
-      case "m":
-        this.#applySgr(params);
-        break;
       case "H":
         if (sequence.kind === "esc") {
           this.#setTabStop();
@@ -941,27 +1167,67 @@ export class TerminalScreenController {
     }
   }
 
-  #applySgr(params: number[]): void {
-    const values = params.length === 0 ? [0] : params;
+  #applySgr(body: string): void {
+    const values = sgrParameters(body);
     for (let index = 0; index < values.length; index += 1) {
-      const value = values[index]!;
+      const parts = values[index]!.split(":"), value = Number(parts[0]);
+      if (parts.length > 1 && value === 4) {
+        if (parts.length === 2 && /^[0-5]$/.test(parts[1]!)) {
+          if (parts[1] === "0") {
+            delete this.#style.underline;
+            delete this.#style.underlineStyle;
+          } else {
+            this.#style.underline = true;
+            this.#style.underlineStyle =
+              (["solid", "double", "wavy", "dotted", "dashed"] as const)[Number(parts[1]) - 1];
+          }
+        }
+        continue;
+      }
+      if (value === 38 || value === 48 || value === 58) {
+        const parsed = sgrColor(values, index);
+        const color = parsed.rgb
+          ? encodeTerminalRgbColor(...parsed.rgb)
+          : parsed.palette !== undefined
+          ? encodeTerminalIndexedColor(parsed.palette)
+          : undefined;
+        if (color !== undefined) {
+          if (value === 38) this.#style.foreground = color;
+          else if (value === 48) this.#style.background = color;
+          else this.#style.underlineColor = color;
+        }
+        index += parsed.consumed - 1;
+        continue;
+      }
+      if (parts.length > 1) continue;
       if (value === 0) this.#style = {};
       else if (value === 1) this.#style.bold = true;
-      else if (value === 22) this.#style.bold = false;
+      else if (value === 2) this.#style.dim = true;
+      else if (value === 3) this.#style.italic = true;
+      else if (value === 4 || value === 21) {
+        this.#style.underline = true;
+        if (value === 21) this.#style.underlineStyle = "double";
+        else delete this.#style.underlineStyle;
+      } else if (value === 7) this.#style.inverse = true;
+      else if (value === 9) this.#style.strikethrough = true;
+      else if (value === 22) {
+        this.#style.bold = false;
+        delete this.#style.dim;
+      } else if (value === 23) delete this.#style.italic;
+      else if (value === 24) {
+        delete this.#style.underline;
+        delete this.#style.underlineStyle;
+      } else if (value === 27) delete this.#style.inverse;
+      else if (value === 29) delete this.#style.strikethrough;
+      else if (value === 53) this.#style.overline = true;
+      else if (value === 55) delete this.#style.overline;
+      else if (value === 59) delete this.#style.underlineColor;
       else if (value >= 30 && value <= 37) this.#style.foreground = value;
       else if (value >= 90 && value <= 97) this.#style.foreground = value;
       else if (value === 39) delete this.#style.foreground;
       else if (value >= 40 && value <= 47) this.#style.background = value;
       else if (value >= 100 && value <= 107) this.#style.background = value;
       else if (value === 49) delete this.#style.background;
-      else if (value === 38 || value === 48) {
-        const parsed = parseExtendedSgrColor(values, index);
-        if (parsed) {
-          if (value === 38) this.#style.foreground = parsed.color;
-          else this.#style.background = parsed.color;
-          index = parsed.nextIndex;
-        }
-      }
     }
   }
 
@@ -973,10 +1239,14 @@ export class TerminalScreenController {
       // their next writes at the top-left corner.
       for (let row = 0; row < this.#rows; row += 1) {
         fillCells(this.#state.cells[row]!, 0, this.#columns, this.#eraseCell());
+        this.#accountGlyphRow(this.#state.cells[row]!);
       }
       // A full-row fill cannot leave half a pair, so no repair is needed here.
       // ED 3 additionally drops saved lines, matching xterm.
-      if (mode === 3) this.#scrollback = [];
+      if (mode === 3) {
+        for (const row of this.#scrollback) this.#releaseGlyphRow(row);
+        this.#scrollback = [];
+      }
       return;
     }
     if (mode === 1) {
@@ -1032,7 +1302,7 @@ export class TerminalScreenController {
     const amount = clamp(Math.floor(count), 1, this.#scrollRegion.bottom - row + 1);
     for (let index = 0; index < amount; index += 1) {
       this.#state.cells.splice(row, 0, this.#eraseRow());
-      this.#state.cells.splice(this.#scrollRegion.bottom + 1, 1);
+      for (const removed of this.#state.cells.splice(this.#scrollRegion.bottom + 1, 1)) this.#releaseGlyphRow(removed);
     }
   }
 
@@ -1041,7 +1311,7 @@ export class TerminalScreenController {
     if (row < this.#scrollRegion.top || row > this.#scrollRegion.bottom) return;
     const amount = clamp(Math.floor(count), 1, this.#scrollRegion.bottom - row + 1);
     for (let index = 0; index < amount; index += 1) {
-      this.#state.cells.splice(row, 1);
+      for (const removed of this.#state.cells.splice(row, 1)) this.#releaseGlyphRow(removed);
       this.#state.cells.splice(this.#scrollRegion.bottom, 0, this.#eraseRow());
     }
   }
@@ -1072,7 +1342,9 @@ export class TerminalScreenController {
       // when the scrolling region stops above the last physical row.
       if (top === 0 && !this.alternate) {
         this.#scrollback.push(shifted);
-        if (this.#scrollback.length > this.#scrollbackLimit) this.#scrollback.shift();
+        if (this.#scrollback.length > this.#scrollbackLimit) this.#releaseGlyphRow(this.#scrollback.shift()!);
+      } else {
+        this.#releaseGlyphRow(shifted);
       }
       this.#state.cells.splice(bottom, 0, this.#eraseRow());
     }
@@ -1081,7 +1353,7 @@ export class TerminalScreenController {
   #scrollRegionDown(top: number, bottom: number, count: number): void {
     const amount = clamp(Math.floor(count), 1, bottom - top + 1);
     for (let index = 0; index < amount; index += 1) {
-      this.#state.cells.splice(bottom, 1);
+      for (const removed of this.#state.cells.splice(bottom, 1)) this.#releaseGlyphRow(removed);
       this.#state.cells.splice(top, 0, this.#eraseRow());
     }
   }
@@ -1111,6 +1383,7 @@ export class TerminalScreenController {
     this.#lineFeedNewline = false;
     this.#lastPrintableCell = undefined;
     this.#lastPrintableWidth = 1;
+    this.#rejectedClusters = 0;
     this.clear();
   }
 
@@ -1118,6 +1391,7 @@ export class TerminalScreenController {
     if (this.#mainState) return;
     this.#mainState = cloneState(this.#state);
     this.#state = { cells: createRows(this.#columns, this.#rows), cursor: { column: 0, row: 0 } };
+    this.#recountGlyphs();
     this.#scrollRegion = fullScrollRegion(this.#rows);
   }
 
@@ -1125,6 +1399,7 @@ export class TerminalScreenController {
     if (!this.#mainState) return;
     this.#state = this.#mainState;
     this.#mainState = undefined;
+    this.#recountGlyphs();
     this.#scrollRegion = fullScrollRegion(this.#rows);
     this.#originMode = false;
   }
@@ -1133,29 +1408,6 @@ export class TerminalScreenController {
 interface TerminalScreenScrollRegion {
   top: number;
   bottom: number;
-}
-
-function parseExtendedSgrColor(
-  values: readonly number[],
-  index: number,
-): { color: number; nextIndex: number } | undefined {
-  const mode = values[index + 1];
-  if (mode === 5) {
-    const color = values[index + 2];
-    if (color === undefined) return undefined;
-    return { color: encodeTerminalIndexedColor(color), nextIndex: index + 2 };
-  }
-  if (mode === 2) {
-    const red = values[index + 2];
-    const green = values[index + 3];
-    const blue = values[index + 4];
-    if (red === undefined || green === undefined || blue === undefined) return undefined;
-    return {
-      color: encodeTerminalRgbColor(red, green, blue),
-      nextIndex: index + 4,
-    };
-  }
-  return undefined;
 }
 
 function sortedPrivateModes(modes: ReadonlySet<number>): number[] {
@@ -1183,10 +1435,6 @@ function blankRow(columns: number): TerminalScreenCell[] {
 function readTerminalGraphic(text: string, index: number): string {
   const code = text.charCodeAt(index);
   if (code < 0x80) return text[index] ?? "";
-
-  UNICODE_CHAR_REGEXP.lastIndex = index;
-  const match = UNICODE_CHAR_REGEXP.exec(text);
-  if (match?.index === index) return match[0];
 
   const codePoint = text.codePointAt(index);
   return codePoint === undefined ? text[index] ?? "" : String.fromCodePoint(codePoint);
@@ -1223,11 +1471,20 @@ function incompleteTerminalControl(suffix: string): boolean {
   return true;
 }
 
-/** Code units one cell's glyph may hold: a base plus a few combining marks. */
-const MAX_CELL_GLYPH_UNITS = 16;
+function glyphBudget(value: number | undefined, minimum: number, maximum: number): number {
+  if (value === undefined) return maximum;
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new RangeError(`Terminal glyph budget must be an integer from ${minimum} to ${maximum}.`);
+  }
+  return value;
+}
+
+function glyphExtra(cell: TerminalScreenCell | undefined): number {
+  return Math.max(0, (cell?.char.length ?? 0) - 2);
+}
 
 function terminalGraphicWidth(char: string): number {
-  return Math.max(1, Math.min(2, textWidth(char)));
+  return Math.max(1, Math.min(2, measureCharacterWidth(char)));
 }
 
 function fillCells(

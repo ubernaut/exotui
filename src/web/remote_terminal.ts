@@ -273,7 +273,7 @@ export class WebSocketRemoteTerminalTransport implements RemoteTerminalTransport
   }
 
   send(message: string | Uint8Array): void {
-    this.#socket.send(message);
+    this.#socket.send(typeof message === "string" ? message : new Uint8Array(message));
   }
 
   close(code?: number, reason?: string): void {

@@ -5,19 +5,22 @@ Deno export map in `deno.jsonc`, README guidance, and release notes should stay 
 
 ## Entrypoints
 
-| Import target   | Source                       | Runtime  | Stability    | Use it for                                                                                                                     |
-| --------------- | ---------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `.`             | `mod.ts`                     | terminal | stable       | Full Deno terminal apps, reusable widgets, app primitives, themes, runtime helpers, tests, and benchmarks.                     |
-| `./app`         | `mod.app.ts`                 | terminal | beta         | New terminal apps using the opinionated lifecycle, curated widgets, commands, routes, focus, and plugins.                      |
-| `./web`         | `mod.web.ts`                 | browser  | beta         | Standalone browser bundles, GitHub Pages demos, Canvas2D/DOM hosts, browser input, IndexedDB, Workers, and shared controllers. |
-| `./shell`       | `mod.shell.ts`               | shared   | beta         | Host-neutral shell surface: the presenter seam, shell painters, the theme catalog, the window host, and animated backgrounds.  |
-| `./remote`      | `mod.remote.ts`              | remote   | experimental | Browser clients and server bridges that connect transports to hosted terminal session handles.                                 |
-| `./three-ascii` | `mod.three_ascii.ts`         | shared   | experimental | Focused Acerola-style Three.js/WebGPU ASCII renderer APIs, glyph/block/mixed modes, presets, and renderer options.             |
-| `./theme`       | `mod.theme.ts`               | shared   | beta         | Theme engines, semantic tokens, providers, resolvers, galleries, validation, and palette packs.                                |
-| `./runtime`     | `mod.runtime.ts`             | shared   | beta         | Scheduling, workers, storage, resources, diagnostics, terminal plans, graphics, and renderer backends.                         |
-| `./terminal`    | `mod.terminal.ts`            | terminal | beta         | Input parsing, terminal screens, shell/process sessions, PTY backends, scrollback, and workspaces.                             |
-| `./testing`     | `mod.testing.ts`             | terminal | beta         | Downstream headless app interaction, input, snapshot, stdout, and canvas test helpers.                                         |
-| `./layout/yoga` | `src/layout/solvers/yoga.ts` | shared   | experimental | Optional Yoga-backed Flexbox solving for HTML/CSS-style layout trees.                                                          |
+| Import target        | Source                       | Runtime  | Stability    | Use it for                                                                                                                     |
+| -------------------- | ---------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `.`                  | `mod.ts`                     | terminal | stable       | Full Deno terminal apps, reusable widgets, app primitives, themes, runtime helpers, tests, and benchmarks.                     |
+| `./app`              | `mod.app.ts`                 | terminal | beta         | New terminal apps using the opinionated lifecycle, curated widgets, commands, routes, focus, and plugins.                      |
+| `./document`         | `mod.document.ts`            | shared   | beta         | Native Markdown components, ASCII headings, and bounded circuit-routed Mermaid flowcharts.                                     |
+| `./mermaid`          | `mod.mermaid.ts`             | shared   | experimental | Official version-pinned Mermaid compilation and native scene/cell conversion; full integration is in development.              |
+| `./mermaid/headless` | `mod.mermaid_headless.ts`    | terminal | experimental | Isolated Chromium compiler for Deno terminal/remote hosts, with explicit browser/resource capabilities and disposal.           |
+| `./web`              | `mod.web.ts`                 | browser  | beta         | Standalone browser bundles, GitHub Pages demos, Canvas2D/DOM hosts, browser input, IndexedDB, Workers, and shared controllers. |
+| `./shell`            | `mod.shell.ts`               | shared   | beta         | Host-neutral shell surface: the presenter seam, shell painters, the theme catalog, the window host, and animated backgrounds.  |
+| `./remote`           | `mod.remote.ts`              | remote   | experimental | Browser clients and server bridges that connect transports to hosted terminal session handles.                                 |
+| `./three-ascii`      | `mod.three_ascii.ts`         | shared   | experimental | Focused Acerola-style Three.js/WebGPU ASCII renderer APIs, glyph/block/mixed modes, presets, and renderer options.             |
+| `./theme`            | `mod.theme.ts`               | shared   | beta         | Theme engines, semantic tokens, providers, resolvers, galleries, validation, and palette packs.                                |
+| `./runtime`          | `mod.runtime.ts`             | shared   | beta         | Scheduling, workers, storage, resources, diagnostics, terminal plans, graphics, and renderer backends.                         |
+| `./terminal`         | `mod.terminal.ts`            | terminal | beta         | Input parsing, terminal screens, shell/process sessions, PTY backends, scrollback, and workspaces.                             |
+| `./testing`          | `mod.testing.ts`             | terminal | beta         | Downstream headless app interaction, input, snapshot, stdout, and canvas test helpers.                                         |
+| `./layout/yoga`      | `src/layout/solvers/yoga.ts` | shared   | experimental | Optional Yoga-backed Flexbox solving for HTML/CSS-style layout trees.                                                          |
 
 Local development imports use relative paths:
 
@@ -65,6 +68,8 @@ Application authors should start with the narrowest runtime entrypoint that matc
   terminal-rendered Three ASCII widgets that need the broad compatibility surface.
 - Use `./web` for standalone browser packages, GitHub Pages demos, Canvas2D/DOM hosts, browser input, IndexedDB-backed
   state, and Worker-friendly controllers.
+- Use `./document` for terminal-native Markdown components or offscreen document windows, ASCII headings, and bounded
+  Mermaid flowcharts. It reuses the optional pinned Markdown parser, not a DOM viewer.
 - Use `./remote` only when building a browser client or bridge for a hosted terminal session.
 - Use `./three-ascii` for renderer-focused integrations that need the Acerola-style node, glyph/block/mixed modes,
   presets, or shared ASCII options without importing the full terminal package.
@@ -94,6 +99,7 @@ Current marked surfaces:
 
 - `mod.ts`: stable terminal package.
 - `mod.app.ts`: beta focused application package and recommended starting point for new terminal apps.
+- `mod.document.ts`: beta shared document surface; see [terminal-native documents](documents.md).
 - `mod.web.ts`: beta standalone browser package.
 - `mod.remote.ts`: experimental remote-terminal client and bridge.
 - `mod.three_ascii.ts`: experimental focused Three ASCII renderer package.
@@ -110,6 +116,34 @@ Current marked surfaces:
 - `app/*`, `examples/*`, and `scripts/*`: internal/demo surfaces.
 
 ## Release Policy
+
+Shared pre-1.0 display helpers now project assigned Unicode 17 W/F scalar ranges as well as all zero-width categories.
+Default ambiguous/private-use/unassigned policy is narrow; regional-indicator and emoji-modifier presentation remains
+explicitly tailored. Glyph cell widths therefore change for previously missed wide symbols/scripts and over-wide block
+approximations. This does not claim complete host-profile selection, variation/font shaping or terminal capabilities.
+
+Shared display helpers now project every assigned zero-width category from the pinned Unicode 17 narrow profile, while
+retaining separate grapheme/emoji presentation tailoring. `UnicodeGraphemeBoundaryCursor` adds a text-free incremental
+core API. Beta `./runtime` changes the terminal's sixteen-unit silent truncation to 65,536-unit complete glyphs, with a
+shared main/alternate/history extra-text budget and explicit whole-cluster replacement diagnostics. The controller can
+lower both budgets; inspect refusals before claiming lossless presentation. These bounds are not a claim about total
+grid, font, decoder, styles or caller-owned memory. Full width/shaping/terminal capability work remains separate. See
+[document rendering](documents.md).
+
+Beta terminal input now buffers a dangling UTF-16 high surrogate across string chunks, like its existing incremental
+UTF-8 decoder. Hosts should call `TerminalScreenController.flushInput()` at end of input; viewport changes retain
+partial scalars and `clear()` discards them. Explicit cursor controls break joining for zero-prefix clusters as well as
+positive-width scalars; SGR still retains the current cluster. ANSI canvas writes preserve separate Unicode cell
+positions while compacting printable ASCII. These are input/cell-boundary corrections, not full shaping guarantees.
+
+The experimental `./remote` generic cell-frame codec has a pre-1.0 v2 default migration: encoders/checksums/flow select
+v2 locally, while network hosts must wait for the existing capability handshake and choose
+`negotiatedFrameCodecVersion`. Advertise `FRAME_CODEC_CAPABILITY`; absent agreement requires explicit v1 options. v1
+wire/checksums remain exact for single-scalar cells; compound/empty cells reject rather than silently degrade. Both
+decoders accept bounded validated v1/v2 data. `snapshotCellFrame` gives immutable detached ownership, and flow enforces
+windows 1–64 plus sent-range ACKs. This does not change raw ANSI, handshake schema/protocol or Exomux daemon
+descriptors. Compatibility is proved against actual clean pinned old/new module processes on private loopback, not the
+maintainer's daemon. See [document transport](documents.md#remote-explicit-cells-and-compatibility).
 
 Every externally useful release should update `CHANGELOG.md`. Use these sections when relevant:
 

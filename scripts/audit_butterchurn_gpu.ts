@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -99,6 +100,10 @@ const module = `// Copyright 2023 Im-Beast. MIT license.
 export const EXOMUX_BUTTERCHURN_GPU_ROTATION: readonly string[] = ${JSON.stringify(kept, null, 2)};
 `;
 
-await Deno.writeTextFile(OUTPUT, module);
-await new Deno.Command(Deno.execPath(), { args: ["fmt", OUTPUT.pathname], stdout: "null", stderr: "null" }).output();
+await runtimeHost.writeTextFile(OUTPUT, module);
+await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
+  args: ["fmt", OUTPUT.pathname],
+  stdout: "null",
+  stderr: "null",
+}).output();
 console.log(`wrote ${kept.length} GPU-drawable names (${blank} skipped) to ${OUTPUT.pathname}`);

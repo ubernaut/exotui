@@ -7,6 +7,8 @@
 // workbench the instant it attached — the exact regression this reproduces.
 
 import { assert } from "./deps.ts";
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+import { createBunPtyTerminalBackend } from "@ubernaut/exotui/terminal";
 
 const MAIN_MODULE = new URL("../main.ts", import.meta.url).pathname;
 
@@ -40,30 +42,67 @@ Deno.test({
         close(): void;
       })
       | undefined;
-    try {
-      ({ Pty } = await import("@sigma/pty-ffi"));
-    } catch {
-      return; // The optional PTY FFI is unavailable; skip rather than fail.
+    const bun = runtimeHost.runtime === "bun";
+    const compiledExecutable = runtimeHost.env.get("EXOMUX_TEST_EXECUTABLE");
+    if (!bun) {
+      try {
+        Pty = (await import("@sigma/pty-ffi")).Pty as NonNullable<typeof Pty>;
+      } catch {
+        return; // The optional Deno PTY FFI is unavailable.
+      }
     }
 
     const stateDir = await Deno.makeTempDir({ prefix: "exomux-lifecycle-state-" });
     const configDir = await Deno.makeTempDir({ prefix: "exomux-lifecycle-config-" });
-    let pty: InstanceType<NonNullable<typeof Pty>> | undefined;
+    let pty: {
+      read(): { data: string; done: boolean };
+      write(data: string): void;
+      close(): void | Promise<void>;
+    } | undefined;
     try {
-      pty = new Pty("deno", {
-        args: [
-          "run",
-          "-A",
-          "--unstable-webgpu",
-          MAIN_MODULE,
-          "--memory",
-          `--state-dir=${stateDir}`,
-          `--config-dir=${configDir}`,
-        ],
-        cwd: new URL("..", import.meta.url).pathname,
-        size: { rows: 30, cols: 100 },
-        env: { ...Deno.env.toObject(), TERM: "xterm-256color" },
-      });
+      const args = [
+        ...(compiledExecutable ? [] : ["run", ...(bun ? [] : ["-A", "--unstable-webgpu"]), MAIN_MODULE]),
+        "--memory",
+        `--state-dir=${stateDir}`,
+        `--config-dir=${configDir}`,
+      ];
+      const env = { ...runtimeHost.env.toObject(), TERM: "xterm-256color", XDG_CONFIG_HOME: configDir };
+      if (bun) {
+        let pending = "";
+        let done = false;
+        const handle = createBunPtyTerminalBackend().spawn({
+          command: compiledExecutable ?? runtimeHost.execPath(),
+          args,
+          cwd: new URL("..", import.meta.url).pathname,
+          columns: 100,
+          rows: 30,
+          env,
+          onData: (data) => {
+            pending += typeof data === "string" ? data : new TextDecoder().decode(data);
+          },
+        });
+        void handle.closed.then(() => {
+          done = true;
+        });
+        pty = {
+          read() {
+            const data = pending;
+            pending = "";
+            return { data, done };
+          },
+          write(data) {
+            void handle.write(data);
+          },
+          close: () => handle.dispose(),
+        };
+      } else {
+        pty = new Pty!(compiledExecutable ?? runtimeHost.execPath(), {
+          args,
+          cwd: new URL("..", import.meta.url).pathname,
+          size: { rows: 30, cols: 100 },
+          env,
+        });
+      }
 
       // A bare launch creates the default session and its host, then attaches.
       // Give it time to spawn the daemon and render, then confirm it is still
@@ -84,7 +123,7 @@ Deno.test({
       assert(!wroteCursorConf, "a --config-dir run must not write a Ghostty cursor.conf");
     } finally {
       try {
-        pty?.close();
+        await pty?.close();
       } catch {
         // Best effort; the child is detached below regardless.
       }

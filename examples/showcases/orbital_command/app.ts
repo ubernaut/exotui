@@ -1,3 +1,4 @@
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 // Orbital Command terminal app (vertical slice): observatory map, catalog,
@@ -116,7 +117,7 @@ export function createOrbitalCommandTerminalApp(options: {
           if (threeAvailable) viewMode.value = viewMode.peek() === "3d" ? "map" : "3d";
           break;
         case "app.quit":
-          void runtime.destroy().then(() => Deno.exit(0));
+          void runtime.destroy().then(() => runtimeHost.exit(0));
           break;
       }
     },

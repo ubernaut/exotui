@@ -1,5 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+import { EXOMUX_DOCUMENT_WINDOW_ID, EXOMUX_FILES_WINDOW_ID, ExomuxFileExplorer } from "./file_explorer.ts";
+
 import {
   type AsyncStore,
   Computed,
@@ -131,7 +134,7 @@ export const EXOMUX_GLOBAL_CONFIG_PANES: readonly ["theme", "background", "optio
 /** The user's home directory, or the filesystem root when it is unreadable. */
 function homeDirectory(): string {
   try {
-    return Deno.env.get("HOME") || "/";
+    return runtimeHost.env.get("HOME") || "/";
   } catch {
     return "/";
   }
@@ -387,7 +390,7 @@ export function exomuxScpCandidatePath(text: string): string | undefined {
   path = path.replace(/\\ /g, " ");
   if (path.startsWith("~/")) {
     try {
-      const home = Deno.env.get("HOME");
+      const home = runtimeHost.env.get("HOME");
       if (!home) return undefined;
       path = `${home}${path.slice(1)}`;
     } catch {
@@ -399,7 +402,7 @@ export function exomuxScpCandidatePath(text: string): string | undefined {
 
 async function defaultExomuxStatFile(path: string): Promise<boolean> {
   try {
-    return (await Deno.stat(path)).isFile;
+    return (await runtimeHost.stat(path)).isFile;
   } catch {
     return false;
   }
@@ -780,6 +783,7 @@ export async function createExomuxController(options: ExomuxControllerOptions): 
 
 /** Renderer-neutral controller for detached terminals and advanced window state. */
 export class ExomuxController {
+  readonly files: ExomuxFileExplorer;
   readonly client: ExomuxClientPort;
   readonly kernel: ShowcaseKernel<ExomuxWorkspaceState, ExomuxClientProvider>;
   readonly windowHost: NonNullable<ShowcaseKernel<ExomuxWorkspaceState>["windowHost"]>;
@@ -826,6 +830,7 @@ export class ExomuxController {
    * the menu is a momentary popup.
    */
   readonly startMenuPreset: Signal<string | undefined> = new Signal<string | undefined>(undefined);
+  readonly folderMenuPath = new Signal<string | undefined>(undefined);
   /** The tmux-style name of the attached session, editable from settings. */
   readonly sessionName: Signal<string> = new Signal<string>("main");
   /** True while a rename is in flight, to gate concurrent attempts. */
@@ -1013,6 +1018,7 @@ export class ExomuxController {
     this.#hostCellPixels = options.hostCellPixels;
     this.#defaultArgs = options.defaultArgs ? [...options.defaultArgs] : undefined;
     this.#defaultCwd = options.defaultCwd;
+    this.files = new ExomuxFileExplorer(options.defaultCwd);
     const initialSessions = normalizeSessionList(options.initialSessions ?? []);
     this.sessions = new Signal<readonly ExomuxSessionSummary[]>(initialSessions);
     for (const session of initialSessions) {
@@ -1142,11 +1148,16 @@ export class ExomuxController {
    * undefined when the active background is not a butterchurn one; it drives the
    * menu's context items (background settings / favorite this preset).
    */
-  openStartMenu(anchor?: { readonly column: number; readonly row: number }, presetName?: string): void {
+  openStartMenu(
+    anchor?: { readonly column: number; readonly row: number },
+    presetName?: string,
+    folderPath?: string,
+  ): void {
     this.#assertActive();
     this.prefixPending.value = false;
     this.startMenuAnchor.value = anchor;
     this.startMenuPreset.value = presetName;
+    this.folderMenuPath.value = folderPath;
     this.startMenuVisible.value = true;
   }
 
@@ -1156,6 +1167,7 @@ export class ExomuxController {
     this.startMenuVisible.value = false;
     this.startMenuAnchor.value = undefined;
     this.startMenuPreset.value = undefined;
+    this.folderMenuPath.value = undefined;
   }
 
   /** True when the session can be renamed (discovered through the state root). */
@@ -1954,7 +1966,9 @@ export class ExomuxController {
       runtime.renderRevision.value += 1;
     }, EXOMUX_WARNING_TTL_MS);
     // Never let a pending notice hold the process (or a test) open.
-    if (typeof Deno !== "undefined" && typeof Deno.unrefTimer === "function") Deno.unrefTimer(timer);
+    if (typeof runtimeHost !== "undefined" && typeof runtimeHost.unrefTimer === "function") {
+      runtimeHost.unrefTimer(timer);
+    }
     this.#warningTimers.set(runtime.sessionId, timer);
   }
 
@@ -2049,6 +2063,9 @@ export class ExomuxController {
       case "s":
         this.presentWindow(EXOMUX_SESSIONS_WINDOW_ID, bounds);
         return true;
+      case "e":
+        await this.openFiles(bounds);
+        return true;
       case "r":
         await this.refreshSessions();
         this.windowHost.execute({ kind: "recover-all" }, bounds);
@@ -2125,6 +2142,17 @@ export class ExomuxController {
     this.helpVisible.value = false;
     this.helpScroll.value = 0;
     this.status.value = this.#statusSummary();
+  }
+
+  /** Opens the local filesystem tree without creating a terminal process. */
+  async openFiles(bounds: Rectangle): Promise<void> {
+    this.presentWindow(EXOMUX_FILES_WINDOW_ID, bounds);
+    await this.files.ensureLoaded();
+  }
+
+  /** Opens a selected file in the formatted document window, or toggles a folder. */
+  async openSelectedFile(bounds: Rectangle): Promise<void> {
+    if (await this.files.activate()) this.presentWindow(EXOMUX_DOCUMENT_WINDOW_ID, bounds);
   }
 
   /** Toggles the left-docked network panel; opening starts tailnet polling, closing stops it. */
@@ -3034,6 +3062,7 @@ export class ExomuxController {
     const closed: string[] = [];
     const minimized: string[] = [];
     for (const window of windows) {
+      if (window.id === EXOMUX_FILES_WINDOW_ID || window.id === EXOMUX_DOCUMENT_WINDOW_ID) continue;
       if (window.state === "closed") closed.push(window.id);
       else if (window.state === "minimized") minimized.push(window.id);
     }
@@ -3070,6 +3099,8 @@ export class ExomuxController {
     this.#adoptingWindows = true;
     try {
       for (const window of this.windowHost.controller.inspect().windows) {
+        // Files and document contents belong to this client, not the daemon.
+        if (window.id === EXOMUX_FILES_WINDOW_ID || window.id === EXOMUX_DOCUMENT_WINDOW_ID) continue;
         const wantsClosed = closed.has(window.id);
         if (wantsClosed) {
           if (window.state !== "closed") this.windowHost.execute({ kind: "close", id: window.id }, bounds);
@@ -3594,6 +3625,9 @@ export class ExomuxController {
     // The network panel and settings window open on demand from the menu; a
     // restored session starts with both tucked away regardless of how the
     // last run ended.
+    for (const id of [EXOMUX_FILES_WINDOW_ID, EXOMUX_DOCUMENT_WINDOW_ID]) {
+      this.windowHost.execute({ kind: "close", id }, SETTINGS_FALLBACK_BOUNDS);
+    }
     this.windowHost.execute(
       { kind: "minimize", id: EXOMUX_NETWORK_WINDOW_ID },
       { column: 0, row: 0, width: 120, height: 36 },
@@ -3827,6 +3861,24 @@ export class ExomuxController {
         placement: "floating",
         floatingRect: { column: 0, row: 0, width: 32, height: 22 },
       },
+      {
+        id: EXOMUX_FILES_WINDOW_ID,
+        title: "Files",
+        minWidth: 24,
+        minHeight: 8,
+        state: "closed",
+        placement: "floating",
+        floatingRect: { column: 2, row: 1, width: 42, height: 24 },
+      },
+      {
+        id: EXOMUX_DOCUMENT_WINDOW_ID,
+        title: "Document viewer",
+        minWidth: 24,
+        minHeight: 8,
+        state: "closed",
+        placement: "floating",
+        floatingRect: { column: 12, row: 2, width: 80, height: 28 },
+      },
       // Settings ride an ordinary floating window — movable, resizable, and
       // stacked like any other window (UX-003): raised on focus, never
       // pinned on top. Born minimized: the menu restores it on demand.
@@ -3977,8 +4029,10 @@ export class ExomuxController {
     this.shaderPathDraft.dispose();
     this.startMenuVisible.dispose();
     this.startMenuPreset.dispose();
-    this.#tailnetPoller?.dispose();
+    this.folderMenuPath.dispose();
+    await this.#tailnetPoller?.dispose();
     this.networkTree.dispose();
+    this.files.dispose();
     this.networkStatus.dispose();
     this.savedHosts.dispose();
     this.sessionHosts.dispose();
@@ -4257,9 +4311,9 @@ function yieldWindowMutationBoundary(): Promise<void> {
 }
 
 function defaultExomuxShell(): string {
-  if (Deno.build.os === "windows") return "powershell.exe";
+  if (runtimeHost.build.os === "windows") return "powershell.exe";
   try {
-    return Deno.env.get("SHELL") || "/bin/sh";
+    return runtimeHost.env.get("SHELL") || "/bin/sh";
   } catch {
     return "/bin/sh";
   }

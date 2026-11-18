@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { htmlCssLayoutBoxStyle, htmlCssVisibleLayoutBoxesInto } from "../app/html_css_layout_view.ts";
 import { makeStyle, palette } from "../app/styles.ts";
 import { clipRect } from "../src/app/hit_targets.ts";
@@ -7,8 +8,8 @@ import type { Rectangle } from "../src/types.ts";
 const bounds = {
   column: 0,
   row: 0,
-  width: Number(Deno.args.find((arg) => arg.startsWith("--width="))?.slice("--width=".length)) || 96,
-  height: Number(Deno.args.find((arg) => arg.startsWith("--height="))?.slice("--height=".length)) || 30,
+  width: Number(runtimeHost.args.find((arg) => arg.startsWith("--width="))?.slice("--width=".length)) || 96,
+  height: Number(runtimeHost.args.find((arg) => arg.startsWith("--height="))?.slice("--height=".length)) || 30,
 };
 const result = createHtmlCssLayoutDemo(bounds);
 const frame = createFrame(bounds.width, bounds.height, palette.void);

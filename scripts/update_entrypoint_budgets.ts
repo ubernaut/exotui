@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -15,6 +16,9 @@ import { type BudgetBaseline, inventoryFromDenoInfo } from "../src/perf/entrypoi
 const ENTRYPOINTS = [
   "mod.ts",
   "mod.app.ts",
+  "mod.document.ts",
+  "mod.mermaid.ts",
+  "mod.mermaid_headless.ts",
   "mod.remote.ts",
   "mod.testing.ts",
   "mod.terminal.ts",
@@ -26,13 +30,13 @@ const ENTRYPOINTS = [
 const repoRoot = new URL("..", import.meta.url).href.replace(/\/$/, "");
 const baseline: Record<string, unknown> = {};
 for (const entrypoint of ENTRYPOINTS) {
-  const command = new Deno.Command("deno", { args: ["info", "--json", entrypoint], stdout: "piped" });
+  const command = new runtimeHost.Command("deno", { args: ["info", "--json", entrypoint], stdout: "piped" });
   const output = await command.output();
   if (!output.success) throw new Error(`deno info failed for ${entrypoint}`);
   const info = JSON.parse(new TextDecoder().decode(output.stdout));
   baseline[entrypoint] = inventoryFromDenoInfo(info, repoRoot);
 }
-await Deno.writeTextFile(
+await runtimeHost.writeTextFile(
   new URL("../budgets/entrypoints.json", import.meta.url),
   JSON.stringify(baseline as BudgetBaseline, null, 2) + "\n",
 );

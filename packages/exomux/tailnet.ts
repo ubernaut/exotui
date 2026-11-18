@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { type RuntimeConn, runtimeHost } from "@ubernaut/exotui/runtime";
+
 /** Hard quotas applied to every field accepted from tailscaled before it may reach the Tailnet panel. */
 const TAILNET_LIMITS = Object.freeze(
   {
@@ -72,12 +74,18 @@ export interface TailnetCommandRunner {
     args: readonly string[],
     timeoutMs: number,
     maxBytes: number,
+    signal?: AbortSignal,
   ): Promise<{ code: number; stdout: Uint8Array }>;
 }
 
 /** Injectable LocalAPI GET used by the primary unix-socket transport. */
 export interface TailnetLocalApiFetcher {
-  (path: string, timeoutMs: number, maxBytes: number): Promise<{ status: number; body: Uint8Array }>;
+  (
+    path: string,
+    timeoutMs: number,
+    maxBytes: number,
+    signal?: AbortSignal,
+  ): Promise<{ status: number; body: Uint8Array }>;
 }
 
 /** Construction options for {@linkcode createTailscaleStatusSource}; every effect is injectable for tests. */
@@ -93,7 +101,7 @@ export interface TailnetStatusSourceOptions {
 
 /** Pull-based tailscale status source preferring the LocalAPI socket and falling back to the CLI. */
 export interface TailnetStatusSource {
-  fetchStatus(): Promise<TailnetStatusResult>;
+  fetchStatus(signal?: AbortSignal): Promise<TailnetStatusResult>;
   inspect(): { readonly socketPath: string; readonly cliCommand: string; readonly lastTransport?: "localapi" | "cli" };
 }
 
@@ -206,6 +214,7 @@ export class TailnetPoller {
   #disposed = false;
   #timerId: number | undefined;
   #inFlight: Promise<void> | undefined;
+  #fetchAbort: AbortController | undefined;
   #failures = 0;
 
   constructor(options: TailnetPollerOptions) {
@@ -244,10 +253,12 @@ export class TailnetPoller {
   }
 
   /** Permanently stops the poller; later `setVisible(true)` calls throw. */
-  dispose(): void {
+  dispose(): Promise<void> {
     this.#disposed = true;
     this.#visible = false;
     this.#cancelTimer();
+    this.#fetchAbort?.abort();
+    return this.#inFlight ?? Promise.resolve();
   }
 
   async #cycle(): Promise<void> {
@@ -257,23 +268,27 @@ export class TailnetPoller {
 
   #fetchOnce(): Promise<void> {
     if (this.#inFlight) return this.#inFlight;
-    const flight = this.#runFetch().finally(() => {
+    const abort = new AbortController();
+    this.#fetchAbort = abort;
+    const flight = this.#runFetch(abort.signal).finally(() => {
       if (this.#inFlight === flight) this.#inFlight = undefined;
+      if (this.#fetchAbort === abort) this.#fetchAbort = undefined;
     });
     this.#inFlight = flight;
     return flight;
   }
 
-  async #runFetch(): Promise<void> {
+  async #runFetch(signal: AbortSignal): Promise<void> {
     let result: TailnetStatusResult;
     try {
-      result = await this.#source.fetchStatus();
+      result = await this.#source.fetchStatus(signal);
     } catch (error) {
       result = Object.freeze({
         availability: "degraded" as const,
         detail: detailText(`tailnet poll failed: ${errorDetail(error)}`),
       });
     }
+    if (this.#disposed || signal.aborted) return;
     this.#failures = result.availability === "available" ? 0 : Math.min(this.#failures + 1, 20);
     try {
       this.#onResult(result);
@@ -328,12 +343,13 @@ class TailscaleStatusSource implements TailnetStatusSource {
     this.#runCommand = typeof options.runCommand === "function" ? options.runCommand : runTailscaleCommand;
   }
 
-  async fetchStatus(): Promise<TailnetStatusResult> {
+  async fetchStatus(signal?: AbortSignal): Promise<TailnetStatusResult> {
+    signal?.throwIfAborted();
     const capturedAt = this.#now();
     let localReachable = false;
     let localFailure: string;
     try {
-      const response = await this.#localApi(LOCAL_API_STATUS_PATH, this.#timeoutMs, this.#maxBytes);
+      const response = await this.#localApi(LOCAL_API_STATUS_PATH, this.#timeoutMs, this.#maxBytes, signal);
       localReachable = true;
       if (response.status === 200) {
         const interpreted = this.#interpret(response.body, capturedAt);
@@ -348,8 +364,15 @@ class TailscaleStatusSource implements TailnetStatusSource {
     } catch (error) {
       localFailure = errorDetail(error);
     }
+    signal?.throwIfAborted();
     try {
-      const output = await this.#runCommand(this.#cliCommand, ["status", "--json"], this.#timeoutMs, this.#maxBytes);
+      const output = await this.#runCommand(
+        this.#cliCommand,
+        ["status", "--json"],
+        this.#timeoutMs,
+        this.#maxBytes,
+        signal,
+      );
       this.#lastTransport = "cli";
       const stdout = output.stdout instanceof Uint8Array ? output.stdout : new Uint8Array();
       const interpreted = this.#interpret(stdout, capturedAt);
@@ -502,7 +525,7 @@ function errorDetail(error: unknown): string {
 }
 
 function isNotFoundError(error: unknown): boolean {
-  return error instanceof Deno.errors.NotFound || (error instanceof Error && error.name === "NotFound");
+  return error instanceof runtimeHost.errors.NotFound || (error instanceof Error && error.name === "NotFound");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -590,9 +613,16 @@ function concatBytes(chunks: readonly Uint8Array[], total: number): Uint8Array {
 }
 
 function createUnixLocalApiFetcher(socketPath: string): TailnetLocalApiFetcher {
-  return async (path, timeoutMs, maxBytes) => {
-    let connection: Deno.Conn | undefined;
+  return async (path, timeoutMs, maxBytes, signal) => {
+    signal?.throwIfAborted();
+    let connection: RuntimeConn | undefined;
     let timedOut = false;
+    const abort = () => {
+      try {
+        connection?.close();
+      } catch { /* already closed */ }
+    };
+    signal?.addEventListener("abort", abort, { once: true });
     const deadline = setTimeout(() => {
       timedOut = true;
       try {
@@ -602,7 +632,8 @@ function createUnixLocalApiFetcher(socketPath: string): TailnetLocalApiFetcher {
       }
     }, timeoutMs);
     try {
-      connection = await Deno.connect({ transport: "unix", path: socketPath });
+      connection = await runtimeHost.connect({ transport: "unix", path: socketPath });
+      signal?.throwIfAborted();
       if (timedOut) throw new Error("tailscaled LocalAPI connect timed out");
       const request = `GET ${path} HTTP/1.1\r\n` +
         "Host: local-tailscaled.sock\r\nConnection: close\r\nAccept: application/json\r\n\r\n";
@@ -626,6 +657,7 @@ function createUnixLocalApiFetcher(socketPath: string): TailnetLocalApiFetcher {
       throw timedOut ? new Error("tailscaled LocalAPI request timed out") : error;
     } finally {
       clearTimeout(deadline);
+      signal?.removeEventListener("abort", abort);
       try {
         connection?.close();
       } catch {
@@ -635,22 +667,30 @@ function createUnixLocalApiFetcher(socketPath: string): TailnetLocalApiFetcher {
   };
 }
 
-async function writeAll(connection: Deno.Conn, bytes: Uint8Array): Promise<void> {
+async function writeAll(connection: RuntimeConn, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.byteLength) offset += await connection.write(bytes.subarray(offset));
 }
 
 /** The default argv-only bounded runner, shared with the network panel's probes. */
-export const runBoundedTailnetCommand: TailnetCommandRunner = (command, args, timeoutMs, maxBytes) =>
-  runTailscaleCommand(command, args, timeoutMs, maxBytes);
+export const runBoundedTailnetCommand: TailnetCommandRunner = (command, args, timeoutMs, maxBytes, signal) =>
+  runTailscaleCommand(command, args, timeoutMs, maxBytes, signal);
 
-const runTailscaleCommand: TailnetCommandRunner = async (command, args, timeoutMs, maxBytes) => {
-  const child = new Deno.Command(command, {
+const runTailscaleCommand: TailnetCommandRunner = async (command, args, timeoutMs, maxBytes, signal) => {
+  signal?.throwIfAborted();
+  const child = new runtimeHost.Command(command, {
     args: [...args],
     stdin: "null",
     stdout: "piped",
     stderr: "null",
   }).spawn();
+  const abort = () => {
+    try {
+      child.kill("SIGKILL");
+    } catch { /* already exited */ }
+  };
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
   let timedOut = false;
   let oversized = false;
   const deadline = setTimeout(() => {
@@ -685,10 +725,12 @@ const runTailscaleCommand: TailnetCommandRunner = async (command, args, timeoutM
       reader.releaseLock();
     }
     const status = await child.status;
+    signal?.throwIfAborted();
     if (oversized) throw new Error("tailscale status output exceeded the byte quota");
     if (timedOut) throw new Error("tailscale status timed out");
     return { code: status.code, stdout: concatBytes(chunks, total) };
   } finally {
     clearTimeout(deadline);
+    signal?.removeEventListener("abort", abort);
   }
 };

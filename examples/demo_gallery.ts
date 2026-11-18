@@ -1,3 +1,4 @@
+import { ensureBunWebGpuInitialized } from "../src/runtime/bun_webgpu.ts";
 import {
   createAppPluginDefinitionRegistry,
   createComponentCatalogReport,
@@ -14,6 +15,9 @@ import {
   summarizeTerminalCapabilities,
 } from "../mod.ts";
 import { createVisualizationLaunchReport } from "../scripts/visualization_launcher.ts";
+
+// Probe the optional Bun backend before reporting the currently available synchronous capabilities.
+await ensureBunWebGpuInitialized().catch(() => undefined);
 
 const runtime = detectRuntimeCapabilities();
 const terminal = detectTerminalCapabilities();

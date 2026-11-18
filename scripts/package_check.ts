@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { type ApiStabilityTier, type PackageEntrypointManifest, packageEntrypoints } from "../src/api_stability.ts";
 import { apiStabilityTiers, createApiInventory } from "./api_inventory.ts";
 import { parse as parseJsonc } from "jsonc";
@@ -292,7 +293,7 @@ export function parseStableAppExportPolicy(
 
 export async function loadStableAppExportPolicy(
   path = STABLE_APP_EXPORT_POLICY_PATH,
-  readTextFile: (path: string) => string | Promise<string> = Deno.readTextFile,
+  readTextFile: (path: string) => string | Promise<string> = runtimeHost.readTextFile,
 ): Promise<StableAppExportPolicy> {
   return parseStableAppExportPolicy(await readTextFile(path), path);
 }
@@ -344,18 +345,18 @@ function normalizeExports(exportsValue: PackageConfig["exports"]): Map<string, s
 
 function existsOnDisk(path: string): boolean {
   try {
-    Deno.statSync(path);
+    runtimeHost.statSync(path);
     return true;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof runtimeHost.errors.NotFound) return false;
     throw error;
   }
 }
 
 if (import.meta.main) {
-  const json = Deno.args.includes("--json");
-  const quiet = Deno.args.includes("--quiet");
-  const source = await Deno.readTextFile("deno.jsonc");
+  const json = runtimeHost.args.includes("--json");
+  const quiet = runtimeHost.args.includes("--quiet");
+  const source = await runtimeHost.readTextFile("deno.jsonc");
   const config = parseJsonc(source) as PackageConfig;
   const metadataValidation = validatePackageMetadata(config);
   const validation = validatePackageExports(config);
@@ -384,7 +385,9 @@ if (import.meta.main) {
     console.log(formatStableAppExportValidation(stableAppValidation));
   }
 
-  if (!metadataValidation.ok || !validation.ok || !stableDemoValidation.ok || !stableAppValidation.ok) Deno.exit(1);
+  if (!metadataValidation.ok || !validation.ok || !stableDemoValidation.ok || !stableAppValidation.ok) {
+    runtimeHost.exit(1);
+  }
 }
 
 function isDemoLikeStableModule(module: string): boolean {

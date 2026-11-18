@@ -1,0 +1,14 @@
+package exotui:host@0.1.0;
+
+interface terminal {
+  record dimensions { columns: u16, rows: u16 }
+  size: func() -> dimensions;
+  read: func() -> result<list<u8>, string>;
+  write: func(bytes: list<u8>) -> result<_, string>;
+  stopped: func() -> bool;
+  get: func(namespace: string, key: string) -> result<option<list<u8>>, string>;
+  set: func(namespace: string, key: string, bytes: list<u8>) -> result<_, string>;
+  delete: func(namespace: string, key: string) -> result<_, string>;
+}
+
+world host { import terminal; }

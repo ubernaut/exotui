@@ -71,7 +71,13 @@ export function webPresenter(options: WebPresenterOptions): WebShellPresenter {
       lineSignals.push(signal);
       new TextObject({
         canvas: host.canvas,
-        rectangle: new Computed<TextRectangle>(() => ({ column: 0, row: rowIndex, width: columns() })),
+        // Track size reads here: peek() would freeze existing rows at their
+        // creation width while newly created rows alone fill a wider browser.
+        rectangle: new Computed<TextRectangle>(() => ({
+          column: 0,
+          row: rowIndex,
+          width: host.platform.size.value.columns,
+        })),
         value: signal,
         overwriteRectangle: true,
         multiCodePointSupport: true,

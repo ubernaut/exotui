@@ -8,6 +8,8 @@ export type DomNodeStyle = Record<string, string | number | undefined>;
 /** Serializable DOM node description for browser-hosted widgets and tests. */
 export interface DomRenderNode {
   tag?: keyof HTMLElementTagNameMap;
+  /** Explicit MathML namespace; existing HTML tag descriptors retain their original API. */
+  mathTag?: keyof MathMLElementTagNameMap;
   text?: string;
   role?: string;
   ariaLabel?: string;
@@ -15,7 +17,8 @@ export interface DomRenderNode {
   style?: DomNodeStyle;
   attributes?: Record<string, string | number | boolean | undefined>;
   on?: Partial<Record<"click" | "input" | "keydown" | "focus" | "blur", EventListener>>;
-  children?: readonly DomRenderNode[];
+  /** Strings create inert text nodes in source order, without an extra element wrapper. */
+  children?: readonly (DomRenderNode | string)[];
 }
 
 /** Snapshot of mounted DOM target state. */
@@ -28,7 +31,7 @@ export interface DomRenderTargetInspection {
 export class DomRenderTarget {
   readonly #document: Document;
   #root?: HTMLElement;
-  #current?: HTMLElement;
+  #current?: HTMLElement | MathMLElement;
   #nodeCount = 0;
 
   constructor(documentRef: Document = document) {
@@ -65,13 +68,15 @@ export class DomRenderTarget {
     return { mounted: Boolean(this.#root && this.#current), nodeCount: this.#nodeCount };
   }
 
-  #create(node: DomRenderNode): HTMLElement {
+  #create(node: DomRenderNode): HTMLElement | MathMLElement {
     this.#nodeCount += 1;
-    const element = this.#document.createElement(node.tag ?? "div");
+    const element = node.mathTag
+      ? this.#document.createElementNS("http://www.w3.org/1998/Math/MathML", node.mathTag)
+      : this.#document.createElement(node.tag ?? "div");
     if (node.text !== undefined) element.textContent = node.text;
     if (node.role) element.setAttribute("role", node.role);
     if (node.ariaLabel) element.setAttribute("aria-label", node.ariaLabel);
-    if (node.className) element.className = node.className;
+    if (node.className) element.setAttribute("class", node.className);
     if (node.style) applyDomStyle(element, node.style);
     if (node.attributes) {
       for (const [name, value] of Object.entries(node.attributes)) {
@@ -85,7 +90,10 @@ export class DomRenderTarget {
       }
     }
     for (const child of node.children ?? []) {
-      element.appendChild(this.#create(child));
+      if (typeof child === "string") {
+        this.#nodeCount += 1;
+        element.appendChild(this.#document.createTextNode(child));
+      } else element.appendChild(this.#create(child));
     }
     return element;
   }
@@ -93,12 +101,12 @@ export class DomRenderTarget {
 
 /** Renders a DOM node descriptor to an escaped HTML string. */
 export function renderDomNodeToHtml(node: DomRenderNode): string {
-  const tag = node.tag ?? "div";
+  const tag = node.mathTag ?? node.tag ?? "div";
   const attributes = domAttributes(node);
   const text = node.text === undefined ? "" : escapeHtml(node.text);
   let children = "";
   for (const child of node.children ?? []) {
-    children += renderDomNodeToHtml(child);
+    children += typeof child === "string" ? escapeHtml(child) : renderDomNodeToHtml(child);
   }
   return `<${tag}${attributes}>${text}${children}</${tag}>`;
 }
@@ -125,7 +133,7 @@ export function applyCssVariables(element: HTMLElement, variables: Record<string
   }
 }
 
-function applyDomStyle(element: HTMLElement, style: DomNodeStyle): void {
+function applyDomStyle(element: HTMLElement | MathMLElement, style: DomNodeStyle): void {
   for (const [name, value] of Object.entries(style)) {
     if (value === undefined) continue;
     element.style.setProperty(kebabCase(name), String(value));

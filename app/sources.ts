@@ -1,3 +1,5 @@
+import type { RuntimeCommandOptions, RuntimeSignal } from "../src/runtime/host.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import type { DiagnosticsCollector } from "../src/runtime/diagnostics.ts";
 import { clamp, formatCompactBytes, formatOptionalNumber } from "./styles.ts";
 import type { AudioCatalogEntry, SourceFrame, SystemSnapshot } from "./types.ts";
@@ -8,7 +10,7 @@ interface AudioCommandOutput {
 
 interface AudioMeterProcess {
   stdout: ReadableStream<Uint8Array>;
-  kill(signal?: Deno.Signal): void;
+  kill(signal?: RuntimeSignal): void;
 }
 
 interface AudioCommand {
@@ -18,7 +20,7 @@ interface AudioCommand {
 
 export interface AudioRuntimeOptions {
   diagnostics?: DiagnosticsCollector;
-  commandFactory?: (command: string, options: Deno.CommandOptions) => AudioCommand;
+  commandFactory?: (command: string, options: RuntimeCommandOptions) => AudioCommand;
 }
 
 interface AudioMeterSnapshot {
@@ -301,9 +303,9 @@ function concatUint8Arrays(a: Uint8Array, b: Uint8Array) {
 function audioCommand(
   options: AudioRuntimeOptions,
   command: string,
-  commandOptions: Deno.CommandOptions,
+  commandOptions: RuntimeCommandOptions,
 ): AudioCommand {
-  return options.commandFactory?.(command, commandOptions) ?? new Deno.Command(command, commandOptions);
+  return options.commandFactory?.(command, commandOptions) ?? new runtimeHost.Command(command, commandOptions);
 }
 
 function zeroHistory(length: number): number[] {

@@ -1,7 +1,8 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { type ComputedLayoutBox, createMarkupLayout } from "../mod.ts";
 import { yogaLayoutSolver } from "../src/layout/solvers/yoga.ts";
 
-const useYoga = Deno.args.includes("--yoga");
+const useYoga = runtimeHost.args.includes("--yoga");
 const layout = createMarkupLayout({
   markup: `
     <window id="workspace" class="shell">

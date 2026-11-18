@@ -1,0 +1,36 @@
+name: Bun
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bun-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: bun install --frozen-lockfile
+      - run: bun install --cwd packages/exomux --frozen-lockfile --backend=symlink
+      - run: bun run check
+      - run: bun run test
+      - run: bun run package:bun:check
+      - run: |
+          bunx --no-install playwright install chromium
+          EXOTUI_CHROMIUM="$(bun -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')" bun run mermaid:test:svg
+      - run: bun run exomux:compile
+      - run: bun run exomux:test:compat

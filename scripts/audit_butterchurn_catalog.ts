@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -170,9 +171,13 @@ if (import.meta.main) {
 /** Names of the CPU-drawable presets, in catalog order. */
 export const EXOMUX_BUTTERCHURN_ROTATION: readonly string[] = ${JSON.stringify(kept.map((v) => v.name), null, 2)};
 `;
-  await Deno.writeTextFile(OUTPUT, module);
+  await runtimeHost.writeTextFile(OUTPUT, module);
   // Formatted here so regenerating never leaves the tree failing `deno fmt`.
-  await new Deno.Command(Deno.execPath(), { args: ["fmt", OUTPUT.pathname], stdout: "null", stderr: "null" }).output();
+  await new runtimeHost.Command("Bun" in globalThis ? "deno" : runtimeHost.execPath(), {
+    args: ["fmt", OUTPUT.pathname],
+    stdout: "null",
+    stderr: "null",
+  }).output();
   console.log(`${verdicts.length} audited: ${summary}`);
   console.log(`wrote ${kept.length} names to ${OUTPUT.pathname}`);
 }

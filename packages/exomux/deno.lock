@@ -10,6 +10,8 @@
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.6",
     "jsr:@std/path@^1.1.5": "1.1.6",
+    "npm:@types/bun@1.4.0": "1.4.0",
+    "npm:bun-webgpu@0.1.7": "0.1.7",
     "npm:jpeg-js@0.4.4": "0.4.4",
     "npm:markdown-it@15.0.0": "15.0.0"
   },
@@ -57,8 +59,61 @@
     }
   },
   "npm": {
+    "@types/bun@1.4.0": {
+      "integrity": "sha512-K+lZULY23vRgK/CfTjFIV+tyifaNdSMlPh9j+6mQ/cLfpOznLyAuzgV/JQysyECpkBQLVMSyvjlr2fBUSA9wFQ==",
+      "dependencies": [
+        "bun-types"
+      ]
+    },
+    "@types/node@26.2.0": {
+      "integrity": "sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "@webgpu/types@0.1.74": {
+      "integrity": "sha512-lgiI4hbuLcI9unnm2cL/tvCaQU45dp0xcLWJh5uB/9MBGvIA4F8XIk7nSiBeg+K4xWGYwgZKn80LmERI5CxoTA=="
+    },
     "argparse@3.0.0": {
       "integrity": "sha512-BOp5NMrHqKxmq/OLr+clzzrRxgOKSLkcjmkWuChp7Irqwn4s74WjOBPIgWfA/HMcBnVkZ5XEuf9uUqzlpfCQ6A=="
+    },
+    "bun-types@1.4.0": {
+      "integrity": "sha512-iIKw23BspnQQYd3prITOBxeUsxBHnwzX6YJfGMuNOZzeNcMmVqzIIVGRm1l69ogaPQmb4wB6BN8mA5bE9YuC5Q==",
+      "dependencies": [
+        "@types/node"
+      ]
+    },
+    "bun-webgpu-darwin-arm64@0.1.7": {
+      "integrity": "sha512-mRrFFyHzPWjsTRidAZBRcu808CPQBOUL0P6b4nxLhp+XHcV/mbUHERZMgW9s58tsojQfSdzschiQa8q+JCgRWA==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "bun-webgpu-darwin-x64@0.1.7": {
+      "integrity": "sha512-g0NXGNgvaVCSH/jCWWlfdiquOHkbUN6vP4zqzSkIxWKQeLnqm3oADcok7SO3yIgI7v5mKpRc/ks7NDEKNH+jNQ==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "bun-webgpu-linux-x64@0.1.7": {
+      "integrity": "sha512-UEP7UZdEhx9otvkZczjsszL8ZVlrODANQvgl+C88/bNVmxDoFi7w1fWzGi1sZyakiETjmtFDq2/xCLhbSZxjqw==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "bun-webgpu-win32-x64@0.1.7": {
+      "integrity": "sha512-KZktiFkBz6sN7PEm1NVdeaLP5Q5X/PlSHZqefY4nNuWtf0LNvh54NhZe7yVv/Plz/nGbv92b0KHMBY3ki/pp6g==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
+    "bun-webgpu@0.1.7": {
+      "integrity": "sha512-KUxUp+oQIf7pPBMD4Hv1TUu7DWaOZ4ciKulTk9to9+Uc8yHoYrMW7L2SJCJ4FHHkywgf/7aLRgRx0b7i6DvGIQ==",
+      "dependencies": [
+        "@webgpu/types"
+      ],
+      "optionalDependencies": [
+        "bun-webgpu-darwin-arm64",
+        "bun-webgpu-darwin-x64",
+        "bun-webgpu-linux-x64",
+        "bun-webgpu-win32-x64"
+      ]
     },
     "entities@8.0.0": {
       "integrity": "sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA=="
@@ -92,6 +147,9 @@
     },
     "uc.micro@3.0.0": {
       "integrity": "sha512-U3PppEkleoTnIfi8BozMx3yju3qc/L6SwqWo2Sw+54PX+PX0q9I+r1Um5HCmqD7n9VDX5/v3vQH/AjA6deDdtw=="
+    },
+    "undici-types@8.3.0": {
+      "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="
     }
   },
   "remote": {
@@ -120,14 +178,45 @@
       "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0"
     ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@types/bun@1.4.0",
+        "npm:bun-webgpu@0.1.7",
+        "npm:jpeg-js@0.4.4",
+        "npm:markdown-it@15.0.0"
+      ]
+    },
     "links": {
       "jsr:@ubernaut/exotui@0.8.1": {
         "dependencies": [
           "jsr:@sigma/pty-ffi@0.42.0",
           "jsr:@std/jsonc@1.0.2",
+          "npm:@mermaid-js/mermaid-zenuml@1.0.1",
+          "npm:@noble/hashes@2.0.1",
+          "npm:@zenuml/core@3.50.1",
           "npm:esbuild@0.28.2",
           "npm:jpeg-js@0.4.4",
           "npm:markdown-it@15.0.0",
+          "npm:mermaid@12.1.0",
+          "npm:playwright@1.55.1",
+          "npm:pngjs@7.0.0",
+          "npm:taffy-layout@2.0.3",
+          "npm:three@0.185.1",
+          "npm:yoga-layout@3.2.1"
+        ]
+      },
+      "npm:@ubernaut/exotui@0.8.1": {
+        "optionalDependencies": [
+          "npm:@mermaid-js/mermaid-zenuml@1.0.1",
+          "npm:@noble/hashes@2.0.1",
+          "npm:@types/three@0.185.0",
+          "npm:@zenuml/core@3.50.1",
+          "npm:bun-webgpu@0.1.7",
+          "npm:esbuild@0.28.2",
+          "npm:jpeg-js@0.4.4",
+          "npm:markdown-it@15.0.0",
+          "npm:mermaid@12.1.0",
+          "npm:playwright@1.55.1",
           "npm:pngjs@7.0.0",
           "npm:taffy-layout@2.0.3",
           "npm:three@0.185.1",

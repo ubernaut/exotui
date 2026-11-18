@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 export interface HealthStep {
   name: string;
   command: string[];
@@ -38,6 +39,19 @@ export const defaultHealthSteps: readonly HealthStep[] = [
     command: ["deno", "run", "-A", "scripts/api_reference.ts", "--check=docs/api-reference.md"],
   },
   { name: "web-api", command: ["deno", "task", "web:check"] },
+  {
+    name: "mermaid-api",
+    command: [
+      "deno",
+      "check",
+      "mod.mermaid.ts",
+      "mod.mermaid_headless.ts",
+      "scripts/mermaid_standard_browser.ts",
+      "scripts/mermaid_headless_conformance.ts",
+      "scripts/mermaid_counter_styles_conformance.ts",
+      "examples/mermaid_document_viewer.ts",
+    ],
+  },
   { name: "remote-api", command: ["deno", "task", "remote:check"] },
   { name: "web-demo", command: ["deno", "task", "web:demo:check"] },
   { name: "web-pages-build", command: ["deno", "task", "web:pages:build"] },
@@ -94,7 +108,7 @@ export async function runHealth(
   const results: HealthResult[] = [];
   for (const step of steps) {
     const started = performance.now();
-    const command = new Deno.Command(step.command[0], {
+    const command = new runtimeHost.Command(step.command[0], {
       args: step.command.slice(1),
       cwd: options.cwd,
       stdout: options.stdout ?? "inherit",
@@ -127,6 +141,6 @@ if (import.meta.main) {
     console.log(formatHealthResult(result));
   }
   if (!healthSucceeded(results)) {
-    Deno.exit(1);
+    runtimeHost.exit(1);
   }
 }

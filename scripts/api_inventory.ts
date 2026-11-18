@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { type ApiStabilityTier, packageEntrypointFor } from "../src/api_stability.ts";
 
 export type ApiExportKind = "star" | "named";
@@ -279,8 +280,8 @@ export async function createApiInventory(
   entrypoint = "mod.ts",
   options: ApiInventoryOptions = {},
 ): Promise<ApiInventory> {
-  const root = options.root ?? Deno.cwd();
-  const readTextFile = options.readTextFile ?? ((path: string) => Deno.readTextFile(path));
+  const root = options.root ?? runtimeHost.cwd();
+  const readTextFile = options.readTextFile ?? ((path: string) => runtimeHost.readTextFile(path));
   const exists = options.exists ?? existsOnDisk;
   const normalizedEntrypoint = normalizeModulePath(entrypoint);
   const queue = [normalizedEntrypoint];
@@ -694,10 +695,10 @@ function isLocalTypeScriptModule(path: string): boolean {
 
 async function existsOnDisk(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await runtimeHost.stat(path);
     return true;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof runtimeHost.errors.NotFound) return false;
     throw error;
   }
 }
@@ -729,10 +730,10 @@ function normalizePath(path: string): string {
 if (import.meta.main) {
   let cli: ApiInventoryCliOptions;
   try {
-    cli = parseApiInventoryCliArgs(Deno.args);
+    cli = parseApiInventoryCliArgs(runtimeHost.args);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
-    Deno.exit(2);
+    runtimeHost.exit(2);
   }
   const {
     baselinePath,
@@ -749,13 +750,13 @@ if (import.meta.main) {
   let baselineFormatPassed = true;
 
   if (updateBaselinePath) {
-    await Deno.writeTextFile(
+    await runtimeHost.writeTextFile(
       updateBaselinePath,
       formatApiInventoryBaseline(createApiInventoryBaseline(inventory)),
     );
   }
   if (baselinePath) {
-    const baselineSource = await Deno.readTextFile(baselinePath);
+    const baselineSource = await runtimeHost.readTextFile(baselinePath);
     const baseline = JSON.parse(baselineSource) as ApiInventoryBaseline;
     baselineDiff = diffApiInventoryBaseline(baseline, inventory);
     baselineFormatPassed = baselineSource === formatApiInventoryBaseline(baseline);
@@ -782,7 +783,7 @@ if (import.meta.main) {
     (!inventorySucceeded(inventory, { failDuplicates, minDocumentationCoverage }) || !baselinePassed ||
       !baselineFormatPassed)
   ) {
-    Deno.exit(1);
+    runtimeHost.exit(1);
   }
 }
 

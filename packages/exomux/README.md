@@ -37,6 +37,25 @@ deno task --cwd packages/exomux start   # from the repository root
 ./install-exomux.sh      # from the repository root: compile + install ~/.local/bin/exomux
 ```
 
+With Bun 1.4.0 or newer, from a checkout:
+
+```sh
+bun install                      # from the repository root
+cd packages/exomux
+bun run start
+bun run memory
+bun run test
+bun run test:compat              # requires both Bun and Deno
+bun run compile                  # produces ./exomux-bun
+bun run test:compat "$PWD/exomux-bun" # also checks the compiled daemon
+```
+
+Bun uses its native terminal API for PTY sessions. Native WebGPU backgrounds initialize the pinned `bun-webgpu` bindings
+lazily; no external Deno process is required. Client and detached daemon use the same runtime, and the compiled Bun
+executable embeds its native WebGPU binding and ASCII mask assets and re-executes itself for its daemon. Configuration,
+theme storage, session descriptors and the WebSocket protocol are shared with Deno, so either runtime can attach to the
+other's existing host.
+
 ## Building on it
 
 exomux is a package as well as an application. Its controller, protocol and widgets are importable, which is the
@@ -106,6 +125,23 @@ the block cursor is on.
 
 Link detection is reusable through exotui's `terminalLinkAt` and `normalizeTerminalLink`; OS launching belongs to the
 exomux client. `ExomuxControllerOptions.openLink` can supply a different host opener.
+
+## Files and Markdown
+
+Open **Files** from the start menu or press **Ctrl-N e**. The explorer starts in the client's working directory and uses
+the same Tree widget as Network. Click or press Enter to expand a folder or open a file; Left/Right fold folders,
+Backspace goes to the parent directory, and `r` refreshes. Hidden files are included, and folders load on demand.
+Right-click a folder and choose **Open terminal here** to start a new shell in that directory.
+
+Markdown files (`.md`, `.markdown`, `.mdown`, `.mkd`, case-insensitive) open in a separate document window with
+formatted headings, lists, tables, quotes, links, and code. Other UTF-8 text files open as literal text. Scroll with the
+wheel, touch swipe, Up/Down (or `j`/`k`), Page Up/Down, Space, or Home/End. The header shows your scroll position;
+Escape returns to Files. Both windows support the usual move, resize, maximize, minimize, and phone layout.
+
+This is a read-only local browser: paths refer to the machine running the client. Previews are limited to 512 KiB;
+binary files, unsupported encodings, and read errors show a message in Files. Each directory listing is limited to 2000
+entries and reports truncation. Document contents and folder selection stay local to each client and are not restored
+when exomux restarts.
 
 ## Sessions
 

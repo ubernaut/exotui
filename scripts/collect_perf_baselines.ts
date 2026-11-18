@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Collects representative TERMINAL, WORKER, and BROWSER baselines for
 // the benchmark suite, then derives the performance budgets. The
 // deterministic fields must agree across hosts (same seeds, same
@@ -41,9 +42,9 @@ const worker = await new Promise<ReturnType<typeof indicative>[]>((resolve, reje
 });
 
 // Browser host: bundle, wrap in a page, run headless, read the DOM.
-const scratch = await Deno.makeTempDir({ prefix: "exotui-perf-" });
+const scratch = await runtimeHost.makeTempDir({ prefix: "exotui-perf-" });
 const bundleOut = `${scratch}/browser_baseline.js`;
-const bundle = new Deno.Command("deno", {
+const bundle = new runtimeHost.Command("deno", {
   args: ["bundle", new URL("./perf_baseline_browser.ts", import.meta.url).pathname, "-o", bundleOut],
   stdout: "piped",
   stderr: "piped",
@@ -53,16 +54,18 @@ if (!bundled.success) {
   throw new Error(`browser bundle failed: ${new TextDecoder().decode(bundled.stderr)}`);
 }
 const pagePath = `${scratch}/baseline.html`;
-await Deno.writeTextFile(
+await runtimeHost.writeTextFile(
   pagePath,
-  `<!doctype html><html><body></body><script type="module">${await Deno.readTextFile(bundleOut)}</script></html>`,
+  `<!doctype html><html><body></body><script type="module">${await runtimeHost.readTextFile(
+    bundleOut,
+  )}</script></html>`,
 );
 const browsers = ["google-chrome", "chromium", "chromium-browser"];
 let browserOutput: string | undefined;
 let browserBinary: string | undefined;
 for (const binary of browsers) {
   try {
-    const run = new Deno.Command(binary, {
+    const run = new runtimeHost.Command(binary, {
       args: [
         "--headless",
         "--disable-gpu",
@@ -103,10 +106,12 @@ for (const [index, spec] of LAYOUT_BENCHMARK_SUITE.entries()) {
 const baselines = {
   note:
     "representative host baselines for the benchmark suite; timings are indicative per host and never gate CI directly",
-  environment: `${Deno.build.os}-${Deno.build.arch} deno ${Deno.version.deno}; browser: ${browserBinary}`,
+  environment: `${runtimeHost.build.os}-${runtimeHost.build.arch} ${runtimeHost.runtime} ${
+    runtimeHost.version.bun ?? runtimeHost.version.deno
+  }; browser: ${browserBinary}`,
   hosts: { terminal, worker, browser },
 };
-await Deno.writeTextFile("budgets/perf_baselines.json", JSON.stringify(baselines, null, 2) + "\n");
+await runtimeHost.writeTextFile("budgets/perf_baselines.json", JSON.stringify(baselines, null, 2) + "\n");
 
 // Budgets: slowest host's warm timing with 3x headroom, per case.
 const budgets = {
@@ -118,7 +123,7 @@ const budgets = {
     return { name: spec.name, warmBudgetMs: Number((worst * 3).toFixed(2)) };
   }),
 };
-await Deno.writeTextFile("budgets/perf_budgets.json", JSON.stringify(budgets, null, 2) + "\n");
+await runtimeHost.writeTextFile("budgets/perf_budgets.json", JSON.stringify(budgets, null, 2) + "\n");
 
 console.log(`baselines: terminal + worker + browser (${browserBinary})`);
 for (const [index, spec] of LAYOUT_BENCHMARK_SUITE.entries()) {

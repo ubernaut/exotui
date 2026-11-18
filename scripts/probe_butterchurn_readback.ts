@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -18,11 +19,11 @@ const BOUNDS = { column: 0, row: 0, width: 96, height: 28 };
 const THEME = exomuxTheme("midnight");
 const CHECKPOINTS = [2, 5, 10, 20, 40, 80, 120];
 // 30 fps by default; EXOMUX_PROBE_STEP_MS overrides (the old cadence was 125).
-const STEP_MS = Number(Deno.env.get("EXOMUX_PROBE_STEP_MS") ?? "33.34");
+const STEP_MS = Number(runtimeHost.env.get("EXOMUX_PROBE_STEP_MS") ?? "33.34");
 
 // Preset name substrings may be passed as CLI args; the default trio
 // covers the classes the plan tracks.
-const TARGETS = Deno.args.length > 0 ? Deno.args : [
+const TARGETS = runtimeHost.args.length > 0 ? runtimeHost.args : [
   "Goody - The Wild Vort", // echo amplifier, healthy since the UV-ring fix
   "flexi - bouncing balls", // echo class, healthy since the UNORM fix
   "cope - digital sea", // authors b1n=0.4: blur1 floor via the clamped store

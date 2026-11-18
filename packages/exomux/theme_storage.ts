@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+
 // Plan 042 slice E. Saved themes on disk: one JSON document per theme in a
 // directory beside the config file, so a theme is a file you can copy to
 // another machine, read in an editor, or delete.
@@ -22,13 +24,13 @@ export function createExomuxThemeStorage(directory: string): ThemeStoragePort {
     async list(): Promise<readonly string[]> {
       const ids: string[] = [];
       try {
-        for await (const entry of Deno.readDir(directory)) {
+        for await (const entry of runtimeHost.readDir(directory)) {
           if (!entry.isFile || !THEME_FILE.test(entry.name)) continue;
           ids.push(entry.name.slice(0, -".json".length));
         }
       } catch (error) {
         // No directory yet simply means no saved themes.
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
       }
       return ids.sort();
     },
@@ -36,28 +38,28 @@ export function createExomuxThemeStorage(directory: string): ThemeStoragePort {
       const path = pathOf(id);
       if (!path) return undefined;
       try {
-        return await Deno.readTextFile(path);
+        return await runtimeHost.readTextFile(path);
       } catch (error) {
-        if (error instanceof Deno.errors.NotFound) return undefined;
+        if (error instanceof runtimeHost.errors.NotFound) return undefined;
         throw error;
       }
     },
     async write(id: string, json: string): Promise<void> {
       const path = pathOf(id);
       if (!path) throw new TypeError(`"${id}" is not a theme id`);
-      await Deno.mkdir(directory, { recursive: true });
+      await runtimeHost.mkdir(directory, { recursive: true });
       // Write and rename, so an interrupted save never leaves half a theme.
       const temporary = `${path}.tmp-${crypto.randomUUID()}`;
-      await Deno.writeTextFile(temporary, `${json}\n`);
-      await Deno.rename(temporary, path);
+      await runtimeHost.writeTextFile(temporary, `${json}\n`);
+      await runtimeHost.rename(temporary, path);
     },
     async remove(id: string): Promise<void> {
       const path = pathOf(id);
       if (!path) return;
       try {
-        await Deno.remove(path);
+        await runtimeHost.remove(path);
       } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        if (!(error instanceof runtimeHost.errors.NotFound)) throw error;
       }
     },
   };

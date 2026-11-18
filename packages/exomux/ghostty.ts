@@ -1,5 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 
+import { runtimeHost } from "@ubernaut/exotui/runtime";
+
 // GLSL post-processing shaders for the interface, when Exomux runs inside
 // Ghostty. Ghostty applies Shadertoy-style fragment shaders (`custom-shader`
 // in its config) over the whole terminal surface, so a CRT effect covers the
@@ -17,7 +19,7 @@ export function isRunningInGhostty(env: (key: string) => string | undefined = re
 
 function readEnv(key: string): string | undefined {
   try {
-    return Deno.env.get(key);
+    return runtimeHost.env.get(key);
   } catch {
     return undefined;
   }
@@ -25,7 +27,7 @@ function readEnv(key: string): string | undefined {
 
 function fileExists(path: string): boolean {
   try {
-    return Deno.statSync(path).isFile;
+    return runtimeHost.statSync(path).isFile;
   } catch {
     return false;
   }
@@ -34,7 +36,7 @@ function fileExists(path: string): boolean {
 /** True when a `ghostty` executable is on PATH — i.e. installed on the system. */
 export function isGhosttyInstalled(
   env: (key: string) => string | undefined = readEnv,
-  os: string = Deno.build.os,
+  os: string = runtimeHost.build.os,
   exists: (path: string) => boolean = fileExists,
 ): boolean {
   const pathVar = env("PATH");
@@ -457,19 +459,19 @@ export async function applyExomuxShaders(
   config: ExomuxShaderConfig,
 ): Promise<ExomuxShaderApplyResult> {
   const directory = exomuxShaderDirectory(configDirectory);
-  await Deno.mkdir(directory, { recursive: true });
+  await runtimeHost.mkdir(directory, { recursive: true });
   const configPath = exomuxGhosttyConfigPath(configDirectory);
   const enabled = exomuxEnabledShaderEffects(config);
   const customs = config.customShaders.filter((entry) => entry.enabled);
   if (enabled.length === 0 && customs.length === 0) {
-    await Deno.writeTextFile(configPath, "# Exomux shaders disabled\n");
+    await runtimeHost.writeTextFile(configPath, "# Exomux shaders disabled\n");
     return { configPath, shaderPaths: [] };
   }
   const shaderPaths: string[] = [];
   const lines = [`# Managed by Exomux — enable with: config-file = ${configPath}`];
   for (const effect of enabled) {
     const shaderPath = joinPath(directory, `exomux-${effect}.glsl`);
-    await Deno.writeTextFile(shaderPath, generateExomuxShader(effect, config.effects[effect].params));
+    await runtimeHost.writeTextFile(shaderPath, generateExomuxShader(effect, config.effects[effect].params));
     lines.push(`custom-shader = ${shaderPath}`);
     shaderPaths.push(shaderPath);
   }
@@ -480,12 +482,12 @@ export async function applyExomuxShaders(
     shaderPaths.push(entry.path);
   }
   lines.push("custom-shader-animation = true");
-  await Deno.writeTextFile(configPath, `${lines.join("\n")}\n`);
+  await runtimeHost.writeTextFile(configPath, `${lines.join("\n")}\n`);
   return { configPath, shaderPaths };
 }
 
 function joinPath(parent: string, child: string): string {
-  const separator = Deno.build.os === "windows" ? "\\" : "/";
+  const separator = runtimeHost.build.os === "windows" ? "\\" : "/";
   return `${parent.replace(/[\\/]+$/g, "")}${separator}${child.replace(/^[\\/]+/g, "")}`;
 }
 
@@ -499,9 +501,9 @@ export async function applyExomuxCursorConfig(
   hideWhileTyping: boolean,
 ): Promise<string> {
   const directory = exomuxShaderDirectory(configDirectory);
-  await Deno.mkdir(directory, { recursive: true });
+  await runtimeHost.mkdir(directory, { recursive: true });
   const path = joinPath(directory, "cursor.conf");
-  await Deno.writeTextFile(
+  await runtimeHost.writeTextFile(
     path,
     hideWhileTyping
       ? "# Managed by Exomux for the block cursor.\nmouse-hide-while-typing = true\n"
@@ -512,8 +514,8 @@ export async function applyExomuxCursorConfig(
 
 /** The user's own Ghostty config path, where the managed include belongs. */
 export function exomuxGhosttyUserConfigPath(
-  env: (key: string) => string | undefined = Deno.env.get,
-  os: string = Deno.build.os,
+  env: (key: string) => string | undefined = runtimeHost.env.get,
+  os: string = runtimeHost.build.os,
 ): string | undefined {
   const home = env("HOME");
   if (os === "darwin") {
@@ -542,7 +544,7 @@ export interface ExomuxGhosttyReloadProbes {
 
 async function readProcComm(pid: number): Promise<string | undefined> {
   try {
-    return (await Deno.readTextFile(`/proc/${pid}/comm`)).trim();
+    return (await runtimeHost.readTextFile(`/proc/${pid}/comm`)).trim();
   } catch {
     return undefined;
   }
@@ -550,7 +552,7 @@ async function readProcComm(pid: number): Promise<string | undefined> {
 
 async function readProcPpid(pid: number): Promise<number | undefined> {
   try {
-    const status = await Deno.readTextFile(`/proc/${pid}/status`);
+    const status = await runtimeHost.readTextFile(`/proc/${pid}/status`);
     const match = status.match(/^PPid:\s+(\d+)$/m);
     return match ? Number.parseInt(match[1]!, 10) : undefined;
   } catch {
@@ -562,7 +564,7 @@ async function readProcPpid(pid: number): Promise<number | undefined> {
 export async function findExomuxGhosttyAncestor(probes: ExomuxGhosttyReloadProbes = {}): Promise<number | undefined> {
   const readComm = probes.readComm ?? readProcComm;
   const readPpid = probes.readPpid ?? readProcPpid;
-  let pid = probes.pid ?? Deno.pid;
+  let pid = probes.pid ?? runtimeHost.pid;
   for (let hop = 0; hop < 16; hop += 1) {
     const parent = await readPpid(pid);
     if (parent === undefined || parent <= 1) return undefined;
@@ -581,11 +583,11 @@ export async function findExomuxGhosttyAncestor(probes: ExomuxGhosttyReloadProbe
  * permission all degrade to false without side effects.
  */
 export async function reloadExomuxGhosttyConfig(probes: ExomuxGhosttyReloadProbes = {}): Promise<boolean> {
-  if (!probes.readPpid && Deno.build.os !== "linux") return false;
+  if (!probes.readPpid && runtimeHost.build.os !== "linux") return false;
   const ancestor = await findExomuxGhosttyAncestor(probes);
   if (ancestor === undefined) return false;
   try {
-    (probes.kill ?? ((pid: number) => Deno.kill(pid, "SIGUSR2")))(ancestor);
+    (probes.kill ?? ((pid: number) => runtimeHost.kill(pid, "SIGUSR2")))(ancestor);
     return true;
   } catch {
     return false;
@@ -599,16 +601,16 @@ export async function ensureExomuxGhosttyInclude(
   if (!userConfigPath) return false;
   let existing = "";
   try {
-    existing = await Deno.readTextFile(userConfigPath);
+    existing = await runtimeHost.readTextFile(userConfigPath);
   } catch {
     // No user config yet; we will create one holding just the include.
   }
   if (existing.includes(managedConfigPath)) return true;
   try {
     const parent = userConfigPath.replace(/[\\/][^\\/]*$/, "");
-    if (parent && parent !== userConfigPath) await Deno.mkdir(parent, { recursive: true });
+    if (parent && parent !== userConfigPath) await runtimeHost.mkdir(parent, { recursive: true });
     const prefix = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
-    await Deno.writeTextFile(
+    await runtimeHost.writeTextFile(
       userConfigPath,
       `${existing}${prefix}\n# Added by Exomux so its interface shaders load; safe to remove.\nconfig-file = ${managedConfigPath}\n`,
     );

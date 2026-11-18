@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 import { DataTableController } from "../src/components/data_table.ts";
 import { createFileExplorerTree, FileExplorerController } from "../src/components/file_explorer.ts";
 import { MenuBarController } from "../src/components/menu_bar.ts";
@@ -473,14 +474,16 @@ const kittyGraphics = await WorkbenchKittyGraphicsController.create({
   diagnostics: workbenchDiagnostics,
 });
 const terminalOutputSession = new ProcessSessionController({
-  command: Deno.execPath(),
+  command: runtimeHost.execPath(),
   args: [
-    "eval",
+    "Bun" in globalThis ? "--eval" : "eval",
     [
       "const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));",
       "console.log('deno_tui terminal output window');",
       "console.log('press I in the workbench to enter raw input mode; Escape returns to workbench mode');",
-      "const reader = Deno.stdin.readable.getReader();",
+      "Bun" in globalThis
+        ? "const reader = Bun.stdin.stream().getReader();"
+        : "const reader = Deno.stdin.readable.getReader();",
       "const decoder = new TextDecoder();",
       "for (let index = 1; index <= 20; index += 1) {",
       "  console.log(`stdout frame ${index}  ${new Date().toISOString()}`);",

@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Regenerates budgets/layout_benchmarks.json: the checked-in comparison
 // report. Deterministic fields (nodes/boxes/cache) gate in CI; timings
 // are indicative and labeled with the environment that produced them.
@@ -22,10 +23,12 @@ const cases = LAYOUT_BENCHMARK_SUITE.map((spec) => {
 const report = {
   note:
     "nodes/boxes/cache fields are deterministic and CI-gated; 'indicative' timings are environment-dependent and never asserted",
-  environment: `${Deno.build.os}-${Deno.build.arch} deno ${Deno.version.deno}`,
+  environment: `${runtimeHost.build.os}-${runtimeHost.build.arch} ${runtimeHost.runtime} ${
+    runtimeHost.version.bun ?? runtimeHost.version.deno
+  }`,
   cases,
 };
-await Deno.writeTextFile("budgets/layout_benchmarks.json", JSON.stringify(report, null, 2) + "\n");
+await runtimeHost.writeTextFile("budgets/layout_benchmarks.json", JSON.stringify(report, null, 2) + "\n");
 console.log(`report written for ${cases.length} cases`);
 for (const entry of cases) {
   console.log(

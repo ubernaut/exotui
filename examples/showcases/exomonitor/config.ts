@@ -1,3 +1,4 @@
+import { runtimeHost } from "../../../src/runtime/host.ts";
 // What the user chose, kept between runs.
 //
 // A menu whose choices vanish on restart is a toggle, not configuration. This
@@ -64,13 +65,13 @@ export function parseConfig(json: string): MonitorConfig {
 }
 
 export function configPath(): string {
-  const base = Deno.env.get("XDG_CONFIG_HOME") ?? `${Deno.env.get("HOME") ?? "."}/.config`;
+  const base = runtimeHost.env.get("XDG_CONFIG_HOME") ?? `${runtimeHost.env.get("HOME") ?? "."}/.config`;
   return `${base}/exomonitor/config.json`;
 }
 
 export async function loadConfig(path = configPath()): Promise<MonitorConfig> {
   try {
-    return parseConfig(await Deno.readTextFile(path));
+    return parseConfig(await runtimeHost.readTextFile(path));
   } catch {
     return DEFAULT_CONFIG;
   }
@@ -86,10 +87,10 @@ export async function loadConfig(path = configPath()): Promise<MonitorConfig> {
 export async function saveConfig(config: MonitorConfig, path = configPath()): Promise<void> {
   try {
     const directory = path.slice(0, path.lastIndexOf("/"));
-    await Deno.mkdir(directory, { recursive: true });
+    await runtimeHost.mkdir(directory, { recursive: true });
     const temporary = `${path}.tmp`;
-    await Deno.writeTextFile(temporary, `${JSON.stringify(config, null, 2)}\n`);
-    await Deno.rename(temporary, path);
+    await runtimeHost.writeTextFile(temporary, `${JSON.stringify(config, null, 2)}\n`);
+    await runtimeHost.rename(temporary, path);
   } catch {
     // Read-only home, no permission — the monitor keeps running either way.
   }

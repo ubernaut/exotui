@@ -74,7 +74,7 @@ export class LayoutMeasurementCache {
   }
 }
 
-/** Measures terminal text for intrinsic layout using physical newlines and word-aware wrapping. */
+/** Measures terminal text using physical newlines, one-space tabs and word-aware wrapping. */
 export function measureTerminalTextIntrinsic(
   text: string,
   availableWidth: number,
@@ -94,7 +94,10 @@ export function measureTerminalTextIntrinsic(
     const char = text[index];
     const isLineBreak = preserveNewlines && (char === "\n" || char === "\r");
     if (index < text.length && !isLineBreak) continue;
-    const line = text.slice(lineStart, index);
+    const sourceLine = text.slice(lineStart, index);
+    // This is authoring/layout whitespace, not raw terminal cursor movement.
+    // Match TextBox's one-space tab representation without changing textWidth.
+    const line = sourceLine.includes("\t") ? sourceLine.replaceAll("\t", " ") : sourceLine;
     const lineWidth = textWidth(line);
     width = Math.max(width, lineWidth);
     height += wrap ? measureWrappedTerminalLineHeight(line, wrapWidth, breakWords) : 1;

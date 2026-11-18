@@ -137,7 +137,7 @@ export const CANVAS_SHADERS: readonly CanvasShaderDefinition[] = [
     id: "degauss",
     label: "degauss — the coil magnetizes",
     options: [
-      { key: "rate", label: "drift rate", min: 0.2, max: 5, step: 0.2, value: 0.2 },
+      { key: "rate", label: "drift rate", min: 0.02, max: 5, step: 0.02, value: 0.02 },
     ],
     body: `
       vec2 uv = fragCoord / iResolution.xy;
@@ -260,7 +260,7 @@ export function createCanvasShaderLayer(
   }
   let raf = 0;
   let degaussStarted = -Infinity;
-  let magnetism = 1;
+  let magnetism = 0.02;
   let magnetClock = 0;
   let audio: AudioContext | undefined;
   const DEGAUSS_SECONDS = 1.3;
@@ -416,8 +416,7 @@ export function createCanvasShaderLayer(
     const definitions = chain();
     const now = performance.now();
     const thumpAge = (now - degaussStarted) / 1000;
-    // The field creeps while degauss is enabled — full magnetization in a
-    // minute at drift rate 1 — and only the thump winds it back.
+    // The field creeps while degauss is enabled; only degaussing resets it.
     const elapsed = magnetClock ? Math.min(0.25, (now - magnetClock) / 1000) : 0;
     magnetClock = now;
     if (active.has("degauss")) {
@@ -545,10 +544,10 @@ export function createCanvasShaderLayer(
       return { u: px, v: 1 - py };
     },
     degauss() {
+      magnetism = 0.02;
       const definition = CANVAS_SHADERS.find((candidate) => candidate.id === "degauss");
       if (!definition || !compile(definition)) return;
       degaussStarted = performance.now();
-      magnetism = 0.02;
       thumpSound();
       overlay.style.display = "block";
       source.style.visibility = "hidden";

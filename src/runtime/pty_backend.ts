@@ -1,3 +1,5 @@
+/// <reference path="./optional_sigma.d.ts" />
+import { type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import { TerminalOutputController } from "../components/terminal_output.ts";
 import type { TerminalOutputSource } from "../components/terminal_output.ts";
@@ -315,7 +317,7 @@ class SigmaPtySessionHandle implements TerminalSessionHandle {
     }
   }
 
-  kill(signal: Deno.Signal = "SIGTERM"): Promise<boolean> {
+  kill(signal: RuntimeSignal = "SIGTERM"): Promise<boolean> {
     if (this.#closed) return Promise.resolve(false);
     this.#status = "cancelled";
     this.#appendSystemLine(`sent ${signal}`);

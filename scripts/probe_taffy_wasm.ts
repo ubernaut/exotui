@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // 036 L2 evidence probe: browser import + GitHub Pages-style static
 // bundling for the Taffy WASM candidate, plus the measurement gates —
 // cold-load size/time, steady layout time, memory, and cross-boundary
@@ -15,7 +16,7 @@ const { taffyWasmLayoutSolver } = await import(${
 const importMs = performance.now() - importStart;
 console.log(JSON.stringify({ importMs: Number(importMs.toFixed(1)) }));
 `;
-const cold = new Deno.Command("deno", { args: ["eval", coldProbe], stdout: "piped", stderr: "piped" });
+const cold = new runtimeHost.Command("deno", { args: ["eval", coldProbe], stdout: "piped", stderr: "piped" });
 const coldOut = await cold.output();
 if (!coldOut.success) throw new Error("cold probe failed: " + new TextDecoder().decode(coldOut.stderr));
 const coldLoad = JSON.parse(new TextDecoder().decode(coldOut.stdout).trim().split("\n").pop()!);
@@ -30,7 +31,7 @@ for (let index = 0; index < warmups; index += 1) {
   taffySolver.solve({ root: buildBenchmarkTree(spec).root, bounds: spec.bounds });
   simple.solve({ root: buildBenchmarkTree(spec).root, bounds: spec.bounds });
 }
-const beforeMemory = Deno.memoryUsage().heapUsed;
+const beforeMemory = runtimeHost.memoryUsage().heapUsed;
 const RUNS = 10;
 const taffyStart = performance.now();
 for (let index = 0; index < RUNS; index += 1) {
@@ -42,7 +43,7 @@ for (let index = 0; index < RUNS; index += 1) {
   simple.solve({ root: buildBenchmarkTree(spec).root, bounds: spec.bounds });
 }
 const simpleMs = (performance.now() - simpleStart) / RUNS;
-const memoryDeltaKb = Math.max(0, Math.round((Deno.memoryUsage().heapUsed - beforeMemory) / 1024));
+const memoryDeltaKb = Math.max(0, Math.round((runtimeHost.memoryUsage().heapUsed - beforeMemory) / 1024));
 
 // Cross-boundary overhead: per-node style construction + layout read,
 // isolated from the algorithm by using a trivial 200-leaf flat tree.
@@ -61,9 +62,9 @@ taffySolver.solve({ root: flatRoot, bounds: { column: 0, row: 0, width: 400, hei
 const boundaryMs = performance.now() - boundaryStart;
 
 // --- browser + GitHub Pages-style static bundle ---
-const scratch = await Deno.makeTempDir({ prefix: "taffy-pages-" });
+const scratch = await runtimeHost.makeTempDir({ prefix: "taffy-pages-" });
 const entry = `${scratch}/entry.ts`;
-await Deno.writeTextFile(
+await runtimeHost.writeTextFile(
   entry,
   `
 import { loadTaffy, Style, TaffyTree, Display, FlexDirection } from "npm:taffy-layout@2.0.3";
@@ -84,7 +85,7 @@ tree.free();
 document.body.textContent = "TAFFY:" + JSON.stringify({ x: layout.x, width: layout.width });
 `,
 );
-const bundle = new Deno.Command("deno", {
+const bundle = new runtimeHost.Command("deno", {
   args: ["bundle", entry, "-o", `${scratch}/bundle.js`],
   stdout: "piped",
   stderr: "piped",
@@ -92,28 +93,32 @@ const bundle = new Deno.Command("deno", {
 const bundled = await bundle.output();
 if (!bundled.success) throw new Error("bundle failed: " + new TextDecoder().decode(bundled.stderr));
 // Pages-style hosting: static dir with the wasm asset next to the bundle.
-const cache = new Deno.Command("deno", { args: ["info", "npm:taffy-layout@2.0.3"], stdout: "piped", stderr: "piped" });
+const cache = new runtimeHost.Command("deno", {
+  args: ["info", "npm:taffy-layout@2.0.3"],
+  stdout: "piped",
+  stderr: "piped",
+});
 await cache.output();
 let wasmPath: string | undefined;
-const npmDirCommand = new Deno.Command("deno", { args: ["info", "--json"], stdout: "piped" });
+const npmDirCommand = new runtimeHost.Command("deno", { args: ["info", "--json"], stdout: "piped" });
 const npmInfo = JSON.parse(new TextDecoder().decode((await npmDirCommand.output()).stdout));
 const npmCache = `${npmInfo.npmCache}/registry.npmjs.org/taffy-layout/2.0.3/pkg/taffy_wasm_bg.wasm`;
 try {
-  await Deno.stat(npmCache);
+  await runtimeHost.stat(npmCache);
   wasmPath = npmCache;
 } catch {
   throw new Error("wasm asset not found in npm cache: " + npmCache);
 }
-await Deno.copyFile(wasmPath, `${scratch}/taffy_wasm_bg.wasm`);
-await Deno.writeTextFile(
+await runtimeHost.copyFile(wasmPath, `${scratch}/taffy_wasm_bg.wasm`);
+await runtimeHost.writeTextFile(
   `${scratch}/index.html`,
   `<!doctype html><html><body></body><script type="module" src="./bundle.js"></script></html>`,
 );
-const server = Deno.serve({ port: 8137, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
+const server = runtimeHost.serve({ port: 8137, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
   const path = new URL(request.url).pathname;
   const file = path === "/" ? "/index.html" : path;
   try {
-    const body = await Deno.readFile(`${scratch}${file}`);
+    const body = await runtimeHost.readFile(`${scratch}${file}`);
     const type = file.endsWith(".wasm") ? "application/wasm" : file.endsWith(".js") ? "text/javascript" : "text/html";
     return new Response(body, { headers: { "content-type": type } });
   } catch {
@@ -123,7 +128,7 @@ const server = Deno.serve({ port: 8137, hostname: "127.0.0.1", onListen: () => {
 let browserResult = "";
 for (const binary of ["google-chrome", "chromium"]) {
   try {
-    const run = new Deno.Command(binary, {
+    const run = new runtimeHost.Command(binary, {
       args: [
         "--headless",
         "--disable-gpu",
@@ -152,12 +157,14 @@ const browserLayout = JSON.parse(browserResult);
 if (browserLayout.x !== 40 || browserLayout.width !== 40) {
   throw new Error("browser layout wrong: " + browserResult);
 }
-const wasmSizeKb = Math.round((await Deno.stat(wasmPath)).size / 1024);
+const wasmSizeKb = Math.round((await runtimeHost.stat(wasmPath)).size / 1024);
 
 const evidence = {
   note:
     "L2 spike evidence for taffy-layout@2.0.3; run scripts/probe_taffy_wasm.ts to regenerate (needs headless Chromium)",
-  environment: `${Deno.build.os}-${Deno.build.arch} deno ${Deno.version.deno}`,
+  environment: `${runtimeHost.build.os}-${runtimeHost.build.arch} ${runtimeHost.runtime} ${
+    runtimeHost.version.bun ?? runtimeHost.version.deno
+  }`,
   candidate: "npm:taffy-layout@2.0.3",
   coldLoad: { wasmSizeKb, importAndInitMs: coldLoad.importMs },
   steadyLayout: {
@@ -169,5 +176,5 @@ const evidence = {
   crossBoundary: { flat200LeafSolveMs: Number(boundaryMs.toFixed(2)) },
   browser: { pagesStyleStaticBundle: true, layout: browserLayout },
 };
-await Deno.writeTextFile("budgets/taffy_spike.json", JSON.stringify(evidence, null, 2) + "\n");
+await runtimeHost.writeTextFile("budgets/taffy_spike.json", JSON.stringify(evidence, null, 2) + "\n");
 console.log(JSON.stringify(evidence, null, 2));

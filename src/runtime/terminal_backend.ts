@@ -1,3 +1,4 @@
+import { type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import type { TerminalOutputController, TerminalOutputSource } from "../components/terminal_output.ts";
 import {
@@ -73,7 +74,7 @@ export interface TerminalSessionHandle {
   readonly closed: Promise<ProcessSessionInspection>;
   write(data: string | Uint8Array): Promise<boolean>;
   resize(columns: number, rows: number): Promise<boolean>;
-  kill(signal?: Deno.Signal): Promise<boolean>;
+  kill(signal?: RuntimeSignal): Promise<boolean>;
   inspect(): TerminalSessionHandleInspection;
   dispose(): Promise<void>;
 }
@@ -184,7 +185,7 @@ class ProcessTerminalSessionHandle implements TerminalSessionHandle {
     return Promise.resolve(false);
   }
 
-  kill(signal?: Deno.Signal): Promise<boolean> {
+  kill(signal?: RuntimeSignal): Promise<boolean> {
     return this.#session.stop(signal);
   }
 

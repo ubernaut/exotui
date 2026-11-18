@@ -10,6 +10,7 @@ import {
   normalizeExomuxConfig,
   persistExomuxBackgroundImage,
   resetExomuxConfig,
+  watchExomuxShaderConfig,
   writeExomuxConfig,
 } from "../config.ts";
 import {
@@ -163,4 +164,42 @@ Deno.test("Exomux config preferences round-trip through the preference subset", 
   assertEquals(preferences.backgroundId, "matrix");
   assertEquals(preferences.globalSettings, config.globalSettings);
   assertEquals(preferences.backgroundSettings, config.backgroundSettings);
+});
+
+Deno.test("Exomux shader watcher follows atomic config replacement and closes its native watcher", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "exomux-shader-watch-" });
+  const path = exomuxConfigFilePath(directory);
+  await writeExomuxConfig(path, defaultExomuxConfig());
+  const delivered: ExomuxConfig["shaders"][] = [];
+  const watcher = watchExomuxShaderConfig(path, (shaders) => delivered.push(shaders), { debounceMs: 5 });
+  try {
+    const changed = normalizeExomuxConfig({
+      ...defaultExomuxConfig(),
+      shaders: {
+        ...defaultExomuxConfig().shaders,
+        effects: {
+          ...defaultExomuxConfig().shaders.effects,
+          pincushion: { enabled: true, params: { magnitude: 0.42 } },
+        },
+      },
+    });
+    await writeExomuxConfig(path, changed);
+    const deadline = Date.now() + 2_000;
+    while (!delivered.length && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    assertEquals(delivered.length, 1, "atomic rename must deliver the updated shader configuration");
+    assertEquals(
+      delivered[0]!.effects.pincushion.params.magnitude,
+      changed.shaders.effects.pincushion.params.magnitude,
+    );
+    await writeExomuxConfig(path, changed);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assertEquals(delivered.length, 1, "duplicate shader configuration must be suppressed");
+    watcher.close();
+    await writeExomuxConfig(path, defaultExomuxConfig());
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assertEquals(delivered.length, 1, "closing the native watcher must stop further delivery");
+  } finally {
+    watcher.close();
+    await Deno.remove(directory, { recursive: true });
+  }
 });

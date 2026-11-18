@@ -1,3 +1,4 @@
+import { runtimeHost } from "../src/runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 
 /**
@@ -15,21 +16,21 @@
  *   deno run -A scripts/ab_butterchurn_real.ts ["preset name substring"]
  */
 
-const TARGET = Deno.args[0] ?? "The Wild Vort";
+const TARGET = runtimeHost.args[0] ?? "The Wild Vort";
 // BC_AB_TMP overrides the temp root for sandboxes where /tmp is
 // namespaced per process and a spawned node cannot see Deno's files.
-const scratch = await Deno.makeTempDir({
+const scratch = await runtimeHost.makeTempDir({
   prefix: "bc-ab-",
-  ...(Deno.env.get("BC_AB_TMP") ? { dir: Deno.env.get("BC_AB_TMP")! } : {}),
+  ...(runtimeHost.env.get("BC_AB_TMP") ? { dir: runtimeHost.env.get("BC_AB_TMP")! } : {}),
 });
 
 async function fetchTarball(url: string, into: string): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`fetch failed: ${url}`);
   const tarPath = `${into}.tgz`;
-  await Deno.writeFile(tarPath, new Uint8Array(await response.arrayBuffer()));
-  await Deno.mkdir(into, { recursive: true });
-  const untar = new Deno.Command("tar", { args: ["xzf", tarPath, "-C", into] });
+  await runtimeHost.writeFile(tarPath, new Uint8Array(await response.arrayBuffer()));
+  await runtimeHost.mkdir(into, { recursive: true });
+  const untar = new runtimeHost.Command("tar", { args: ["xzf", tarPath, "-C", into] });
   if (!(await untar.output()).success) throw new Error(`untar failed: ${url}`);
 }
 
@@ -39,8 +40,11 @@ await fetchTarball(
   "https://registry.npmjs.org/milkdrop-preset-converter-aws/-/milkdrop-preset-converter-aws-0.1.6.tgz",
   `${scratch}/mpc`,
 );
-await Deno.copyFile(`${scratch}/bc/package/lib/butterchurn.min.js`, `${scratch}/butterchurn.min.js`);
-await Deno.copyFile(`${scratch}/bcp/package/lib/butterchurnPresets.min.js`, `${scratch}/butterchurnPresets.min.js`);
+await runtimeHost.copyFile(`${scratch}/bc/package/lib/butterchurn.min.js`, `${scratch}/butterchurn.min.js`);
+await runtimeHost.copyFile(
+  `${scratch}/bcp/package/lib/butterchurnPresets.min.js`,
+  `${scratch}/butterchurnPresets.min.js`,
+);
 
 // The tarball also ships ~1,754 individually converted preset JSONs —
 // far more than the 100 in the bundled pack. Prefer an exact converted
@@ -48,11 +52,11 @@ await Deno.copyFile(`${scratch}/bcp/package/lib/butterchurnPresets.min.js`, `${s
 let convertedPreset: { name: string; preset: unknown } | undefined;
 try {
   const convertedDir = `${scratch}/bcp/package/presets/converted`;
-  for await (const entry of Deno.readDir(convertedDir)) {
+  for await (const entry of runtimeHost.readDir(convertedDir)) {
     if (entry.isFile && entry.name.toLowerCase().includes(TARGET.toLowerCase())) {
       convertedPreset = {
         name: entry.name.replace(/\.json$/, ""),
-        preset: JSON.parse(await Deno.readTextFile(`${convertedDir}/${entry.name}`)),
+        preset: JSON.parse(await runtimeHost.readTextFile(`${convertedDir}/${entry.name}`)),
       };
       break;
     }
@@ -91,7 +95,7 @@ async function convertEquations(
       "", ${JSON.stringify(init)}, ${JSON.stringify(frame)}, ${JSON.stringify(pixel)},
     )).then((result) => console.log(JSON.stringify(result)));
   `;
-  const run = new Deno.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
+  const run = new runtimeHost.Command("node", { args: ["-e", probe], stdout: "piped", stderr: "piped" });
   const output = await run.output();
   if (!output.success) throw new Error("equation conversion failed: " + new TextDecoder().decode(output.stderr));
   return JSON.parse(new TextDecoder().decode(output.stdout).trim().split("\n").pop()!);
@@ -191,16 +195,16 @@ const page = `<!doctype html>
 })();
 </script>
 </body></html>`;
-await Deno.writeTextFile(
+await runtimeHost.writeTextFile(
   `${scratch}/index.html`,
   page.replace("INJECTED_PRESET", JSON.stringify(injected ?? null)),
 );
 
-const server = Deno.serve({ port: 8141, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
+const server = runtimeHost.serve({ port: 8141, hostname: "127.0.0.1", onListen: () => {} }, async (request) => {
   const path = new URL(request.url).pathname;
   const file = path === "/" ? "/index.html" : path;
   try {
-    const body = await Deno.readFile(`${scratch}${file}`);
+    const body = await runtimeHost.readFile(`${scratch}${file}`);
     const type = file.endsWith(".js") ? "text/javascript" : "text/html";
     return new Response(body, { headers: { "content-type": type } });
   } catch {
@@ -211,7 +215,7 @@ const server = Deno.serve({ port: 8141, hostname: "127.0.0.1", onListen: () => {
 let result = "";
 for (const binary of ["google-chrome", "chromium"]) {
   try {
-    const run = new Deno.Command(binary, {
+    const run = new runtimeHost.Command(binary, {
       args: [
         "--headless",
         "--no-sandbox",

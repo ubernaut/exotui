@@ -1,3 +1,5 @@
+import { runtimeTaskCommand } from "./demo_launcher.ts";
+import { runtimeHost } from "../src/runtime/host.ts";
 import { clamp } from "../src/utils/numbers.ts";
 
 export interface WorkbenchVisualSmokeOptions {
@@ -104,8 +106,8 @@ const THREE_RENDERER_UNAVAILABLE_PATTERN =
   /ASCII RENDERER OFFLINE|ASCII RENDERER UNAVAILABLE|THREE ASCII GPU READBACK UNAVAILABLE|renderer unavailable|WebGPU\/WebGL backend unavailable|text preview active/i;
 
 if (import.meta.main) {
-  const fullscreen = Deno.args.includes("--fullscreen");
-  const args = fullscreen ? Deno.args.filter((arg) => arg !== "--fullscreen") : Deno.args;
+  const fullscreen = runtimeHost.args.includes("--fullscreen");
+  const args = fullscreen ? runtimeHost.args.filter((arg) => arg !== "--fullscreen") : runtimeHost.args;
   const options = fullscreen ? parseWorkbenchFullscreenVisualSmokeArgs(args) : parseWorkbenchVisualSmokeArgs(args);
   const result = fullscreen ? await runWorkbenchFullscreenVisualSmoke(options) : await runWorkbenchVisualSmoke(options);
   console.log(
@@ -120,7 +122,7 @@ if (import.meta.main) {
       console.log(`${String(index + 1).padStart(2, "0")}|${result.screenLines[index]}`);
     }
   }
-  if (!result.passed) Deno.exit(1);
+  if (!result.passed) runtimeHost.exit(1);
 }
 
 export function parseWorkbenchFullscreenVisualSmokeArgs(
@@ -226,8 +228,8 @@ export async function captureWorkbenchFullscreenPty(
     >
     & Pick<WorkbenchFullscreenVisualSmokeOptions, "resizeColumns" | "resizeRows">,
 ): Promise<string> {
-  const tempFile = await Deno.makeTempFile({ prefix: "deno-tui-workbench-fullscreen-", suffix: ".ansi" });
-  const command = quotePythonList(options.command);
+  const tempFile = await runtimeHost.makeTempFile({ prefix: "deno-tui-workbench-fullscreen-", suffix: ".ansi" });
+  const command = quotePythonList(runtimeTaskCommand(options.command));
   const resizeRows = pythonOptionalNumber(options.resizeRows);
   const resizeColumns = pythonOptionalNumber(options.resizeColumns);
   const python = `
@@ -302,7 +304,7 @@ finally:
 open(path, "wb").write(b"".join(chunks))
 `;
   try {
-    const process = await new Deno.Command("python3", {
+    const process = await new runtimeHost.Command("python3", {
       args: ["-c", python, tempFile],
       stdout: "piped",
       stderr: "piped",
@@ -311,9 +313,9 @@ open(path, "wb").write(b"".join(chunks))
       const error = new TextDecoder().decode(process.stderr).trim();
       throw new Error(error || "workbench fullscreen visual smoke PTY capture failed");
     }
-    return await Deno.readTextFile(tempFile);
+    return await runtimeHost.readTextFile(tempFile);
   } finally {
-    await Deno.remove(tempFile).catch(() => {});
+    await runtimeHost.remove(tempFile).catch(() => {});
   }
 }
 
@@ -405,9 +407,9 @@ export async function captureWorkbenchPty(
 ): Promise<string> {
   const shellCommand = [
     `stty cols ${options.columns} rows ${options.rows}`,
-    `timeout -k 1s ${Math.max(0.1, options.timeoutMs / 1000)}s ${quoteCommand(options.command)}`,
+    `timeout -k 1s ${Math.max(0.1, options.timeoutMs / 1000)}s ${quoteCommand(runtimeTaskCommand(options.command))}`,
   ].join("; ");
-  const output = await new Deno.Command("script", {
+  const output = await new runtimeHost.Command("script", {
     args: ["-q", "-c", shellCommand, "/dev/null"],
     stdout: "piped",
     stderr: "piped",
@@ -428,8 +430,8 @@ export async function captureWorkbenchResizePty(
     >
   >,
 ): Promise<string> {
-  const tempFile = await Deno.makeTempFile({ prefix: "deno-tui-workbench-resize-", suffix: ".ansi" });
-  const command = quotePythonList(options.command);
+  const tempFile = await runtimeHost.makeTempFile({ prefix: "deno-tui-workbench-resize-", suffix: ".ansi" });
+  const command = quotePythonList(runtimeTaskCommand(options.command));
   const python = `
 import pexpect, sys, time
 path = sys.argv[1]
@@ -462,7 +464,7 @@ finally:
 open(path, "wb").write(b"".join(chunks))
 `;
   try {
-    const process = await new Deno.Command("python3", {
+    const process = await new runtimeHost.Command("python3", {
       args: ["-c", python, tempFile],
       stdout: "piped",
       stderr: "piped",
@@ -471,9 +473,9 @@ open(path, "wb").write(b"".join(chunks))
       const error = new TextDecoder().decode(process.stderr).trim();
       throw new Error(error || "workbench resize visual smoke PTY capture failed");
     }
-    return await Deno.readTextFile(tempFile);
+    return await runtimeHost.readTextFile(tempFile);
   } finally {
-    await Deno.remove(tempFile).catch(() => {});
+    await runtimeHost.remove(tempFile).catch(() => {});
   }
 }
 

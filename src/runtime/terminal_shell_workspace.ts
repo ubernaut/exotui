@@ -1,3 +1,4 @@
+import { type RuntimeSignal } from "./host.ts";
 // Copyright 2023 Im-Beast. MIT license.
 import type { DiagnosticsCollector } from "./diagnostics.ts";
 import type { TerminalBackend } from "./terminal_backend.ts";
@@ -148,7 +149,7 @@ export class TerminalShellWorkspaceController {
   /** Explicitly terminates a shell session instead of detaching it. */
   async terminate(
     id: string | undefined = this.workspace.activeId.peek(),
-    signal: Deno.Signal = "SIGTERM",
+    signal: RuntimeSignal = "SIGTERM",
   ): Promise<boolean> {
     const shell = this.shell(id);
     if (!shell) return false;
