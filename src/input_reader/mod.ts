@@ -42,7 +42,7 @@ const BRACKETED_PASTE_END = new TextEncoder().encode(BRACKETED_PASTE_END_TEXT);
  * Read keypresses from given stdin, parse them and emit to given emitter.
  */
 export async function emitInputEvents(
-  stdin: Stdin,
+  stdin: Pick<Stdin, "read" | "setRaw">,
   emitter: EventEmitter<InputEventRecord>,
   minReadInterval = 0,
   options: { signal?: AbortSignal; cbreak?: boolean } = {},

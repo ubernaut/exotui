@@ -9,6 +9,8 @@ import { runtimeHost } from "./host.ts";
 // application sees one event shape on both hosts.
 
 import { EventEmitter } from "../event_emitter.ts";
+import type { Stdin } from "../types.ts";
+import type { CanvasStdout } from "../canvas/sink.ts";
 import { emitInputEvents, type InputEventRecord } from "../input_reader/mod.ts";
 import type { KeyPressEvent, MousePressEvent, MouseScrollEvent } from "../input_reader/types.ts";
 import { InputEnvelopeFactory } from "../input_envelope.ts";
@@ -44,8 +46,45 @@ const LEAVE_SCREEN = "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?25h\x1b[?1049l";
  * reporting immediately; `dispose` restores the terminal.
  */
 export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPresenter {
+  const storeDirectory = options.storeDirectory ?? `${runtimeHost.env.get("HOME") ?? "."}/.exotui`;
+  return consolePresenterForHost({
+    stdin: runtimeHost.stdin,
+    stdout: runtimeHost.stdout,
+    size: consoleSizeNow,
+    cbreak: runtimeHost.build.os !== "windows",
+    watchResize: runtimeHost.build.os === "windows" ? undefined : (listener) => {
+      runtimeHost.addSignalListener("SIGWINCH", listener);
+      return () => runtimeHost.removeSignalListener("SIGWINCH", listener);
+    },
+    store<T>(name: string) {
+      try {
+        runtimeHost.mkdirSync(storeDirectory, { recursive: true });
+        return new JsonFileStore<T>(`${storeDirectory}/${name}.json`);
+      } catch {
+        return new MemoryStore<T>();
+      }
+    },
+  }, options);
+}
+
+/** Internal console services; the presenter does not need the full OS host. */
+export interface ConsolePresenterHost {
+  readonly stdin: Pick<Stdin, "read" | "setRaw">;
+  readonly stdout: CanvasStdout;
+  readonly cbreak: boolean;
+  size(): ShellPresenterSize;
+  watchResize?(listener: () => void): () => void;
+  store<T>(name: string): AsyncStore<T>;
+  onInputError?(error: unknown): void;
+}
+
+/** Internal host-injected console presenter. */
+export function consolePresenterForHost(
+  host: ConsolePresenterHost,
+  options: ConsolePresenterOptions = {},
+): ShellPresenter {
   const encoder = new TextEncoder();
-  const stdout = runtimeHost.stdout;
+  const stdout = host.stdout;
   const write = (text: string) => stdout.writeSync(encoder.encode(text));
   write(ENTER_SCREEN);
 
@@ -53,26 +92,28 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
   const emitter = new EventEmitter<InputEventRecord>();
   const abort = new AbortController();
   const envelopes = new InputEnvelopeFactory({ now: Date.now });
-  void emitInputEvents(runtimeHost.stdin, emitter, 0, { signal: abort.signal });
+  void emitInputEvents(host.stdin, emitter, 0, { signal: abort.signal, cbreak: host.cbreak }).catch((error) => {
+    if (!abort.signal.aborted) {
+      if (host.onInputError) host.onInputError(error);
+      else throw error;
+    }
+  });
 
-  let size: ShellPresenterSize = consoleSizeNow();
+  let size: ShellPresenterSize = host.size();
   const resizeListeners = new Set<(size: ShellPresenterSize) => void>();
   const pollResize = () => {
-    const next = consoleSizeNow();
+    const next = host.size();
     if (next.columns !== size.columns || next.rows !== size.rows) {
       size = next;
       for (const listener of resizeListeners) listener(size);
     }
   };
   const resizeTimer = setInterval(pollResize, 250);
-  let winch: (() => void) | undefined;
-  if (runtimeHost.build.os !== "windows") {
-    winch = pollResize;
-    try {
-      runtimeHost.addSignalListener("SIGWINCH", winch);
-    } catch {
-      winch = undefined;
-    }
+  let unwatch: (() => void) | undefined;
+  try {
+    unwatch = host.watchResize?.(pollResize);
+  } catch {
+    // Polling still detects size changes.
   }
 
   const pointerListeners = new Set<(event: PointerInputEvent) => void>();
@@ -103,8 +144,6 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
   });
 
   const stores = new Map<string, AsyncStore<unknown>>();
-  const storeDirectory = options.storeDirectory ??
-    `${runtimeHost.env.get("HOME") ?? "."}/.exotui`;
 
   let disposed = false;
   const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -151,12 +190,7 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
     store<T>(name: string): AsyncStore<T> {
       let store = stores.get(name);
       if (!store) {
-        try {
-          runtimeHost.mkdirSync(storeDirectory, { recursive: true });
-          store = new JsonFileStore(`${storeDirectory}/${name}.json`);
-        } catch {
-          store = new MemoryStore();
-        }
+        store = host.store(name);
         stores.set(name, store);
       }
       return store as AsyncStore<T>;
@@ -168,15 +202,15 @@ export function consolePresenter(options: ConsolePresenterOptions = {}): ShellPr
       abort.abort();
       clearInterval(resizeTimer);
       for (const timer of timers) clearTimeout(timer);
-      if (winch) {
+      if (unwatch) {
         try {
-          runtimeHost.removeSignalListener("SIGWINCH", winch);
+          unwatch();
         } catch {
           // Already removed with the process teardown.
         }
       }
       try {
-        runtimeHost.stdin.setRaw(false);
+        host.stdin.setRaw(false);
       } catch {
         // Not a TTY; nothing to restore.
       }

@@ -46,8 +46,33 @@ runtime bootstrap from this checkout. Every application API gap it hit became a 
   it to that shell's working directory.
 - **Engineered like it matters.** The write path survives saturated ptys and self-heals truncated frames; multiple
   clients attached to one session stay in live sync; resumed full-screen apps are asked to repaint themselves; a debug
-  mode captures every warning, error, and flush-telemetry line to a log file. The exomux package alone carries 440
-  tests.
+  mode captures warnings, errors, and flush telemetry to a log file.
+
+## What's new
+
+- **Bun support.** Run the toolkit, desktop, and Exomux from source on Bun 1.4 or later. Linux verification covers
+  standalone Exomux, native PTYs and shell job control, Deno/Bun client–daemon interoperability, and native WebGPU. See
+  [Bun setup](#bun) for install and build commands.
+- **Files and Markdown in Exomux.** Open Files from the start menu or with `Ctrl-N e`. Select a Markdown file for a
+  formatted, scrollable preview, or right-click a folder and choose **Open terminal here**. Files and previews stay
+  local to the client; the Files window does not modify files.
+- **Documents and Mermaid.** Use terminal-native Markdown with optional ASCII heading fonts and circuit flowcharts,
+  mount official Mermaid SVG in browser document windows, or prepare native cell frames using an installed Chromium on
+  Deno or Bun. See [document rendering](docs/documents.md) for the API and the limits of the native projection.
+- **Desktop window effects.** The shared desktop adds open/close, minimize/restore, maximize, and focus effects, plus
+  layered window transparency. Adjust effects, speed, and opacity under **Settings → Windows**.
+
+## Runtime support
+
+| Host                | What's available                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deno                | Library, terminal desktop, Exomux, and Exomonitor. See [OS Support](#os-support) for host-specific limits.                                                                                                          |
+| Bun 1.4+            | Same library and terminal desktop; Exomux source and standalone execution verified on Linux. Exomonitor's mounted UI and data-source tests pass on Bun; a live session with all feeds enabled hasn't been verified. |
+| Browser             | Shared desktop, canvas-based UI, remote-terminal client, and official Mermaid SVG. Exomux's shell daemon runs on a native host, not in the browser.                                                                 |
+| Wasmtime / WASI 0.2 | Linux desktop release candidate. Interactive terminal input, resize, terminal restoration and SQLite settings are verified. WebGPU, Exomux, and Exomonitor are not supported on this target.                        |
+
+See the [Wasmtime desktop build and test instructions](packages/exotui-wasi/README.md) for the Linux package, and the
+[Wasmtime plan](plan/todo/054-wasmtime-host.md) for the remaining release gates.
 
 ## Who it's for
 
@@ -177,8 +202,7 @@ deno task exomux            # or: ./visualization exomux
 
 `Ctrl-N` is the prefix key; `Ctrl-N ?` lists every command.
 
-It is a real package rather than an example: `packages/exomux` carries its own `deno.json`, its own `deno.lock`, and 440
-tests, and it reaches the toolkit only through the public entrypoints listed below.
+`packages/exomux` has its own manifests, lockfiles, and test suite. Its application uses the public toolkit entrypoints.
 
 ```sh
 deno task exomux:test       # the package suite
@@ -222,13 +246,14 @@ Every entrypoint in the table below is importable the same way.
 
 ### Bun
 
-This branch supports Bun **1.4.0 or newer**. From a checkout:
+Use Bun **1.4.0 or newer**. From a checkout:
 
 ```sh
 bun install --frozen-lockfile
 bun install --cwd packages/exomux --frozen-lockfile --backend=symlink
 bun run desktop:smoke
 bun run exomux
+bun run exomonitor
 bun run exomux:test
 bun run exomux:compile
 bun run check
@@ -621,18 +646,13 @@ clickable wrapped links, and a component-backed `MarkdownSurface` for cell-compo
 terminal-native; no document iframe is needed. See [terminal-native documents](docs/documents.md) for the supported
 flowchart grammar, resource bounds, and browser/terminal integration.
 
-Full Mermaid standard support is being implemented in the isolated experimental `./mermaid` entrypoint. It uses the
-official pinned engine and measured vector/text scenes. `prepareMermaidMarkdown()` supplies full diagrams to the
-existing native Markdown components through an optional prepared-frame hook, keeping the default API compatible. See the
-[full-standard status](docs/documents.md#full-mermaid-standard--in-development) before relying on native feature parity.
-Separated combining marks retain measured ink fragments without replacing neighboring glyphs; exact native font shaping
-remains an explicitly diagnosed limitation of that text-cell adaptation. Measured MathML token fragments retain their
-ink, styles and links under the same scene text budget; ordinary casing does not falsely require split-glyph layout.
-Horizontal unstretched MathML tokens also retain measured visual order, including implicit RTL under LTR parents. This
-is not full MathML ordering or shaping support. The optional `./mermaid/headless` adapter runs that compiler in private
-Chromium for Deno terminal/remote hosts, without installing browser globals in the application.
-`deno task mermaid:document-viewer --help` describes the native viewer and snapshot/review path; Chromium must already
-be installed.
+The experimental `./mermaid` entrypoint uses the pinned upstream Mermaid engine. Browser document windows can display
+its actual SVG alongside the same scrollable Markdown content. For terminals and remote clients,
+`prepareMermaidMarkdown()` supplies prepared cell frames to the existing Markdown components. This projection does not
+promise SVG, font-shaping, or MathML parity. The optional `./mermaid/headless` adapter runs the compiler in a separate
+Chromium instance on Deno and Bun, without installing browser globals in the application. Run
+`deno task mermaid:document-viewer --help` or `bun run mermaid:document-viewer --help` from a checkout for the terminal
+viewer and snapshot options. Chromium must already be installed. See the [document guide](docs/documents.md).
 
 ```ts
 import { Markdown } from "jsr:@ubernaut/exotui/app";

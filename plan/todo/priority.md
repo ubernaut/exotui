@@ -4,6 +4,10 @@ Ordered list of open work. A task not in this list is not expected of anyone. Up
 
 ## Active
 
+- **`054` — Wasmtime host** (`todo/054-wasmtime-host.md`, branch `wasi`): Linux terminal launcher and SQLite settings
+  pass private PTY and Deno/Wasmtime/Bun interchange checks. WebGPU and storage failure-path tests remain release gates.
+  Node follows WASI.
+
 Final SVG implementation verification is complete: renewed53unique health gates pass, as do SVG57/lifecycle7/
 isolation4, complete fallback hosts, API/package/release dry run and consumer HTTP/HTTPS/navigation/Copy/prefix checks.
 All owned jobs reaped. Next is private visual review; no further native parity work or publication without direction.
@@ -391,7 +395,5 @@ Small, real, and worth doing when adjacent code is next touched:
 
 ## Not scheduled
 
-- **`054` — Wasmtime host** (`todo/054-wasmtime-host.md`): proposed Linux-first port. First gate is the shared
-  TypeScript app running as a guest; WebGPU and durable storage follow. No runtime implementation started.
 - **`036` / `037`** — Textual and OpenTUI parity, and the 200-feature programme. A backlog to pull specific items from
   when a task or demo needs them, not a queue to run top to bottom.

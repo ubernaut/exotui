@@ -1,0 +1,24 @@
+[package]
+name = "exotui-wasi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+anyhow = "1"
+libc = "0.2"
+rusqlite = { version = "0.37", features = ["bundled"] }
+signal-hook = "0.3"
+wasmtime = { version = "=50.0.0", default-features = false, features = ["anyhow", "component-model", "cranelift", "parallel-compilation", "runtime", "std"] }
+wasmtime-wasi = { version = "=50.0.0", default-features = false, features = ["p2"] }
+
+[[bin]]
+name = "exotui-wasi"
+path = "launcher.rs"
+
+[profile.dev]
+debug = 0
+
+[profile.dev.package."*"]
+opt-level = 2

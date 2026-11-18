@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 495,
-    "bytes": 5829338,
+    "bytes": 5830598,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -243,7 +243,7 @@
       "src/input.ts": 311,
       "src/input_envelope.ts": 33734,
       "src/input_lifecycle.ts": 49315,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/key_sequences.ts": 53330,
       "src/keymap.ts": 3546,
@@ -312,7 +312,7 @@
       "src/runtime/cell_screen.ts": 6006,
       "src/runtime/clock.ts": 20882,
       "src/runtime/conflict_resolvers.ts": 5008,
-      "src/runtime/console_presenter.ts": 7170,
+      "src/runtime/console_presenter.ts": 8336,
       "src/runtime/core_metrics.ts": 4554,
       "src/runtime/data_pipeline.ts": 10448,
       "src/runtime/data_pipeline_bindings.ts": 3792,
@@ -329,7 +329,7 @@
       "src/runtime/kitty_passthrough.ts": 19183,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4934,
-      "src/runtime/mod.ts": 3220,
+      "src/runtime/mod.ts": 3289,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3970,
       "src/runtime/observability_context.ts": 3332,
@@ -502,7 +502,7 @@
   },
   "mod.app.ts": {
     "modules": 152,
-    "bytes": 2049615,
+    "bytes": 2049640,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/accessibility_tree.ts": 5721,
@@ -585,7 +585,7 @@
       "src/geometry/circuit_glyphs.ts": 489,
       "src/geometry/orthogonal_routes.ts": 4141,
       "src/input_envelope.ts": 33734,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/keymap.ts": 3546,
       "src/layout/capabilities.ts": 60700,
@@ -660,7 +660,7 @@
   },
   "mod.document.ts": {
     "modules": 76,
-    "bytes": 706441,
+    "bytes": 706466,
     "paths": {
       "mod.document.ts": 680,
       "src/app/accessibility_tree.ts": 5721,
@@ -695,7 +695,7 @@
       "src/focus_navigation_events.ts": 502,
       "src/geometry/circuit_glyphs.ts": 489,
       "src/geometry/orthogonal_routes.ts": 4141,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/layout/flex_layout.ts": 6808,
       "src/runtime/diagnostics.ts": 7123,
@@ -742,7 +742,7 @@
   },
   "mod.mermaid.ts": {
     "modules": 132,
-    "bytes": 1564210,
+    "bytes": 1564235,
     "paths": {
       "mod.mermaid.ts": 552,
       "src/app/accessibility_tree.ts": 5721,
@@ -832,7 +832,7 @@
       "src/focus_navigation_events.ts": 502,
       "src/geometry/circuit_glyphs.ts": 489,
       "src/geometry/orthogonal_routes.ts": 4141,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/layout/flex_layout.ts": 6808,
       "src/runtime/diagnostics.ts": 7123,
@@ -880,7 +880,7 @@
   },
   "mod.mermaid_headless.ts": {
     "modules": 136,
-    "bytes": 1601013,
+    "bytes": 1601032,
     "paths": {
       "mod.mermaid.ts": 552,
       "mod.mermaid_headless.ts": 190,
@@ -935,7 +935,7 @@
       "src/content/mermaid_generated_content.ts": 4379,
       "src/content/mermaid_generated_content_dom.ts": 21945,
       "src/content/mermaid_gradient_dom.ts": 7432,
-      "src/content/mermaid_headless.ts": 27012,
+      "src/content/mermaid_headless.ts": 27006,
       "src/content/mermaid_icons.ts": 9172,
       "src/content/mermaid_image.ts": 4888,
       "src/content/mermaid_image_dom.ts": 11151,
@@ -973,7 +973,7 @@
       "src/focus_navigation_events.ts": 502,
       "src/geometry/circuit_glyphs.ts": 489,
       "src/geometry/orthogonal_routes.ts": 4141,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/layout/flex_layout.ts": 6808,
       "src/runtime/bun_browser_bundle.ts": 1394,
@@ -1065,7 +1065,7 @@
   },
   "mod.testing.ts": {
     "modules": 97,
-    "bytes": 830209,
+    "bytes": 830234,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 5721,
@@ -1100,7 +1100,7 @@
       "src/event_emitter.ts": 4163,
       "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/keymap.ts": 3546,
       "src/permissions.ts": 27807,
@@ -1168,14 +1168,14 @@
   },
   "mod.terminal.ts": {
     "modules": 61,
-    "bytes": 647082,
+    "bytes": 647107,
     "paths": {
       "mod.terminal.ts": 1052,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/catalog.ts": 17590,
       "src/components/terminal_output.ts": 3236,
       "src/event_emitter.ts": 4163,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/permissions.ts": 27807,
       "src/runtime/bun_pty_backend.ts": 10917,
@@ -1235,7 +1235,7 @@
   },
   "mod.theme.ts": {
     "modules": 78,
-    "bytes": 658645,
+    "bytes": 658670,
     "paths": {
       "mod.theme.ts": 671,
       "src/app/disposables.ts": 2297,
@@ -1259,7 +1259,7 @@
       "src/focus.ts": 8860,
       "src/focus_navigation_events.ts": 502,
       "src/grwizard_themes.ts": 10094,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/runtime/diagnostics.ts": 7123,
       "src/runtime/host.ts": 950,
@@ -1319,7 +1319,7 @@
   },
   "mod.web.ts": {
     "modules": 439,
-    "bytes": 5556223,
+    "bytes": 5556248,
     "paths": {
       "mod.web.ts": 4344,
       "src/api_stability.ts": 21096,
@@ -1559,7 +1559,7 @@
       "src/i18n/reactive_locale.ts": 4750,
       "src/i18n/width_variants.ts": 2951,
       "src/input_envelope.ts": 33734,
-      "src/input_reader/mod.ts": 18770,
+      "src/input_reader/mod.ts": 18795,
       "src/input_reader/types.ts": 3161,
       "src/key_sequences.ts": 53330,
       "src/keymap.ts": 3546,

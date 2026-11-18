@@ -1,6 +1,7 @@
 # 054 — Run the same exotui app on Deno, Bun, and Wasmtime
 
-Status: Proposed — 2026-11-17. Linux first; implementation not started.
+Status: In progress — 2026-11-17. Linux CPU desktop release candidate verified in a private PTY. WebGPU and broader
+storage failure-path tests remain open. Node work follows this task.
 
 ## Outcome
 
@@ -103,9 +104,23 @@ Reuse both if they pass the actual workload; don't write our own guest API facad
 
 ## Evidence and references
 
+`bash packages/exotui-wasi/check.sh` builds the paired launcher/component and runs the shared desktop in a Linux PTY.
+The test verifies Tab reaches the application, resizing repaints, and Ctrl-C and SIGTERM restore terminal state. Deno
+seeds the SQLite file, Wasmtime loads it and writes a wallpaper change from the UI, and Bun reopens and verifies the
+change. That proves desktop settings interchange, not JSON migration, workspace interchange, or crash durability.
+
+Upstream `wasi-gfx-js` at `771b101` built its compute example with QuickJS, but jco 1.42.0's StarlingMonkey backend
+panicked when componentizing its WASI 0.3 world. QuickJS failed to componentize the shared desktop because it lacks
+`TextEncoder`. Neither test verified GPU execution in the desktop. Keep the working WASI 0.2 launcher and evaluate the
+bounded `wgpu` bridge rather than switching the whole desktop to QuickJS to get GPU imports.
+
+`bash packages/exotui-wasi/smoke.sh` built and ran the real shared desktop on jco 1.42.0 and Wasmtime 50.0.0. The guest
+rendered 90×28 and 78×24 frames across a scripted resize, ran a timer, and disposed the presenter. No keyboard, raw
+terminal, persistent storage, or GPU was exercised.
+
 A disposable local probe passed a Deno 2.9.2 → Bun 1.4.0 → Deno 2.9.2 SQLite BLOB round trip using `node:sqlite` on both
 hosts. Installed Bun 1.3.9 could not import `node:sqlite`. This verifies only that shared API/file path for the tested
-versions, not Bun's whole API, WASI, locking or migration. Wasmtime and the GPU bridge have not been run.
+versions, not Bun's whole API, WASI persistence, locking or migration. The GPU bridge has not been run.
 
 - [Upstream GPU guest and host overview](https://wasi-gfx.dev/).
 - [Wasmtime WASI 0.2 embedding](https://docs.wasmtime.dev/examples-wasip2.html) and

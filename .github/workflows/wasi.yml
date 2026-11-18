@@ -1,0 +1,36 @@
+name: WASI desktop
+
+on:
+  push:
+    branches: [main, wasi]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: npm install --prefix "$RUNNER_TEMP/exotui-wasi-tools" --no-audit --no-fund @bytecodealliance/jco@1.42.0
+      - run: |
+          export RUSTUP_TOOLCHAIN=1.97.1
+          export JCO="$RUNNER_TEMP/exotui-wasi-tools/node_modules/.bin/jco"
+          bash packages/exotui-wasi/check.sh "$RUNNER_TEMP/exotui-wasi-dist"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: exotui-wasi-linux
+          path: ${{ runner.temp }}/exotui-wasi-dist/*.tar.gz
+          if-no-files-found: error
