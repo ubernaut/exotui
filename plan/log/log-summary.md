@@ -3,6 +3,13 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 18 complete Markdown table cells (branch, not merged)
+
+`feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records
+when too narrow) and word-wrapped plain headings for the tech-stack consumer's information packet. Default rendering is
+unchanged. Focused document tests (36), types, format, lint and the API reference/inventory gates pass; full health not
+run. Not pushed or merged.
+
 ## October 6 approved official-SVG browser pivot
 
 Implementation complete under the approved browser-SVG scope. Renewed53unique health gates pass (root4131/42steps,

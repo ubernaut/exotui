@@ -75,6 +75,81 @@ Deno.test("renderMarkdown falls back to readable stacked table cells when narrow
   assertEquals(markdownRenderText(lines), "[1] A\n[2] B\n[1] 1\n[2] 2");
 });
 
+const longTable = [
+  "| Area | Priority | Check |",
+  "| --- | --- | :---: |",
+  "| Verification platform | Provider interfaces, replay library, decoder benchmarks and signed releases | Ten published experiments reproduced within their confidence intervals |",
+  "| **Geometric learning** | See [the repository](https://example.com/qgtl) for hardware-backed training | ok |",
+].join("\n");
+
+Deno.test("renderMarkdown wraps table cells without losing text, marks, links or alignment", () => {
+  const document = parseMarkdown(longTable);
+  const truncated = markdownRenderText(renderMarkdown(document, { width: 60, showLinkDestinations: false }));
+  assertStringIncludes(truncated, "…");
+  for (const width of [120, 80, 60]) {
+    const lines = renderMarkdown(document, { width, showLinkDestinations: false, tableCells: "wrap" });
+    const text = markdownRenderText(lines);
+    assert(!text.includes("…"), `cells must stay complete at ${width} columns`);
+    assert(lines.every((line) => textWidth(line.text) <= width), "wrapped table rows must fit the viewport");
+    assert(lines.every((line) => textWidth(line.text) === textWidth(lines[0]!.text)), "grid rows share one width");
+    // Every authored word survives, in reading order within its cell.
+    const words = text.replace(/[|-]/g, " ").split(/\s+/).filter(Boolean);
+    for (
+      const word
+        of "Verification platform Provider interfaces replay library decoder benchmarks signed releases Ten published experiments reproduced within their confidence intervals Geometric learning See the repository for hardware backed training ok"
+          .split(" ")
+    ) assert(words.some((entry) => entry.includes(word)), `lost ${word} at ${width} columns`);
+    const linked = lines.flatMap((line) => line.segments).filter((part) => part.href === "https://example.com/qgtl");
+    assertEquals(linked.map((part) => part.text).join(""), "therepository");
+    const strong = lines.flatMap((line) => line.segments).filter((part) => part.marks.includes("strong"));
+    assertEquals(strong.map((part) => part.text).join(""), "Geometriclearning");
+  }
+  const wide = renderMarkdown(document, { width: 120, showLinkDestinations: false, tableCells: "wrap" });
+  assertEquals(wide.filter((line) => /^\|-+\|/.test(line.text)).length, 2, "a header rule and one row separator");
+  const centered = wide.find((line) => line.text.includes(" ok "))!;
+  const cell = centered.text.split("|").at(-2)!;
+  assert(Math.abs(cell.indexOf("ok") - (cell.length - cell.indexOf("ok") - 2)) <= 1, "centered cells stay centered");
+});
+
+Deno.test("renderMarkdown keeps single-row wrapped tables compact and turns narrow ones into records", () => {
+  const compact = renderMarkdown(parseMarkdown("| A | B |\n| - | - |\n| one | two |\n| three | four |"), {
+    width: 40,
+    tableCells: "wrap",
+  });
+  assertEquals(compact.map((line) => line.text), [
+    "| A     | B    |",
+    "|-------|------|",
+    "| one   | two  |",
+    "| three | four |",
+  ]);
+  const records = renderMarkdown(parseMarkdown(longTable), {
+    width: 30,
+    showLinkDestinations: false,
+    tableCells: "wrap",
+  });
+  const text = markdownRenderText(records);
+  assert(!text.includes("|") && !text.includes("…"), "records replace a grid that cannot stay readable");
+  assert(records.every((line) => textWidth(line.text) <= 30));
+  assertStringIncludes(text, "Verification platform\n  Priority: Provider\n  interfaces, replay library,");
+  assertStringIncludes(text, "\n\nGeometric learning\n  Priority: See the repository");
+  assertStringIncludes(text, "  Check: ok");
+  assertEquals(
+    records.flatMap((line) => line.segments).filter((part) => part.href).map((part) => part.text).join(""),
+    "therepository",
+  );
+  // A quoted table keeps its quote prefix in both presentations.
+  for (const width of [80, 24]) {
+    const quoted = renderMarkdown(
+      parseMarkdown("> | Key | Value |\n> | - | - |\n> | alpha | a long value that needs to wrap |"),
+      {
+        width,
+        tableCells: "wrap",
+      },
+    );
+    assert(quoted.every((line) => line.text.startsWith("> ") && textWidth(line.text) <= width));
+  }
+});
+
 Deno.test("renderMarkdown keeps nested list items in one compact list group", () => {
   const source = ["- parent", "  1. child one", "  2. child two", "- next", "", "> quoted", "> continuation"]
     .join("\n");
