@@ -174,7 +174,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@sigma/pty-ffi@0.42.0",
-      "jsr:@ubernaut/exotui@~0.8.1",
+      "jsr:@ubernaut/exotui@0.9",
       "npm:jpeg-js@0.4.4",
       "npm:markdown-it@15.0.0"
     ],
@@ -187,7 +187,7 @@
       ]
     },
     "links": {
-      "jsr:@ubernaut/exotui@0.8.1": {
+      "jsr:@ubernaut/exotui@0.9.0": {
         "dependencies": [
           "jsr:@sigma/pty-ffi@0.42.0",
           "jsr:@std/jsonc@1.0.2",
@@ -205,7 +205,7 @@
           "npm:yoga-layout@3.2.1"
         ]
       },
-      "npm:@ubernaut/exotui@0.8.1": {
+      "npm:@ubernaut/exotui@0.9.0": {
         "optionalDependencies": [
           "npm:@mermaid-js/mermaid-zenuml@1.0.1",
           "npm:@noble/hashes@2.0.1",

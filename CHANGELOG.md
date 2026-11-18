@@ -6,6 +6,12 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.9.0 / exomux 0.5.0 — 2026-11-18
+
+- Bun 1.4+ support for the toolkit and Exomux, verified on Linux, and a CPU-rendered Linux WASI desktop with durable
+  SQLite settings. WebGPU and Exomux are not available in the WASI desktop.
+- Exomux adds a Files window with Markdown previews and a folder action to open a terminal there.
+
 ### Fixed
 
 - Experimental `./mermaid` validates ZenUML with its exact pinned ANTLR grammar in disposable workers, avoiding the
