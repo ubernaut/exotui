@@ -21,6 +21,13 @@ Deno.test("ASCII headings have distinct heights, wrap, and preserve Unicode fall
   assertEquals(renderAsciiHeading("你好 🐕", "standard", 30), ["你好 🐕"]);
   assert(renderAsciiHeading("你好 🐕", "small", 1).every((row) => textWidth(row) <= 1));
   assertThrows(() => renderAsciiHeading("test", "plain", 0), RangeError);
+  // Plain headings wrap between words; a single over-long word still splits between glyphs.
+  assertEquals(renderAsciiHeading("11 Maturity and development priorities", "plain", 37), [
+    "11 Maturity and development",
+    "priorities",
+  ]);
+  assertEquals(renderAsciiHeading("Fits  as  written ", "plain", 40), ["Fits  as  written "]);
+  assertEquals(renderAsciiHeading("a quantum-geometric b", "plain", 9), ["a", "quantum-g", "eometric", "b"]);
 });
 
 Deno.test("title-only heading art appears once at the start and disappears below its exact fit width", () => {

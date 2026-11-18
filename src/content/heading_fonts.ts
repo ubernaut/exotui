@@ -108,17 +108,34 @@ export function renderAsciiHeading(text: string, font: AsciiHeadingFont = "small
   if (
     font === "plain" || !supported || [...value].some((char) => (selected!.glyphs.get(char)?.[0]?.length ?? 0) > limit)
   ) {
+    // Plain text wraps between words; only a word wider than the row splits between glyphs.
     const rows: string[] = [];
     let row = "";
-    for (const glyph of getMultiCodePointCharacters(text)) {
-      const fitting = textWidth(glyph) > limit ? "�" : glyph;
-      if (textWidth(row + fitting) > limit) {
+    for (const token of text.split(/( +)/)) {
+      if (!token) continue;
+      if (textWidth(row + token) <= limit) {
+        row += token;
+        continue;
+      }
+      if (token.startsWith(" ")) {
         rows.push(row);
         row = "";
+        continue;
       }
-      row += fitting;
+      if (row.trim()) {
+        rows.push(row.trimEnd());
+        row = "";
+      }
+      for (const glyph of getMultiCodePointCharacters(token)) {
+        const fitting = textWidth(glyph) > limit ? "�" : glyph;
+        if (textWidth(row + fitting) > limit) {
+          rows.push(row);
+          row = "";
+        }
+        row += fitting;
+      }
     }
-    if (row) rows.push(row);
+    if (row) rows.push(rows.length ? row.trimEnd() : row);
     return rows.length ? rows : [""];
   }
   const rows: string[] = [];
