@@ -830,7 +830,7 @@ export class ExomuxController {
    * the menu is a momentary popup.
    */
   readonly startMenuPreset: Signal<string | undefined> = new Signal<string | undefined>(undefined);
-  readonly folderMenuPath = new Signal<string | undefined>(undefined);
+  readonly folderMenuPath: Signal<string | undefined> = new Signal<string | undefined>(undefined);
   /** The tmux-style name of the attached session, editable from settings. */
   readonly sessionName: Signal<string> = new Signal<string>("main");
   /** True while a rename is in flight, to gate concurrent attempts. */
