@@ -61,6 +61,9 @@ Deno.test("a quick touch swipe coasts briefly, but a pause or new press stops it
         Array.from({ length: height }, () => Array.from({ length: width }, () => ({ char: " " }))),
       onWheel: (direction) => (offset += direction * 3, true),
       vscroll: () => ({ offset, total: 500 }),
+      scrollTo: (row) => {
+        offset = row;
+      },
     }],
     onWindows: (windows) => client = windows.find((window) => window.id === "touch-coast")!.clientRect,
   });

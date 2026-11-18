@@ -111,7 +111,7 @@ runShellApp(
       link.href = url;
       link.target = "_blank";
       link.rel = "noopener";
-      link.hidden = true;
+
       document.body.append(link);
       try {
         link.click();

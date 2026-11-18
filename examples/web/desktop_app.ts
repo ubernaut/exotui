@@ -1416,46 +1416,30 @@ let touchScroll: {
   applied: number;
   active: boolean;
 } | undefined;
-let touchCoast:
-  | { windowId: string; started: number; distance: number; applied: number; x: number; y: number }
-  | undefined;
+let touchCoast: { windowId: string; started: number; distance: number; applied: number } | undefined;
 
 function advanceTouchCoast(now: number): void {
   const coast = touchCoast;
   if (!coast) return;
   const window = activeDemoWindow();
   const demo = demoById.get(coast.windowId);
-  if (window?.id !== coast.windowId || !demo?.onWheel || services.reducedMotion?.()) {
+  if (window?.id !== coast.windowId || !demo?.scrollTo || services.reducedMotion?.()) {
     touchCoast = undefined;
     return;
   }
   const elapsed = Math.max(0, Math.min(270, now - coast.started));
   const distance = coast.distance * (1 - Math.exp(-elapsed / 90));
   const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
-  if (scroll && demo.scrollTo) {
-    const rows = Math.trunc(distance);
-    const maxOffset = Math.max(0, scroll.total - window.clientRect.height);
-    const requested = scroll.offset + rows - coast.applied;
-    const next = Math.max(0, Math.min(maxOffset, requested));
-    if (next !== scroll.offset) demo.scrollTo(next);
-    coast.applied = rows;
-    if (elapsed >= 270 || requested !== next) touchCoast = undefined;
+  if (!scroll) {
+    touchCoast = undefined;
     return;
   }
-  const ticks = Math.trunc(distance / 3);
-  while (coast.applied !== ticks) {
-    const direction = ticks > coast.applied ? 1 : -1;
-    const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
-    if (
-      (scroll && (direction < 0 ? scroll.offset <= 0 : scroll.offset >= scroll.total - window.clientRect.height)) ||
-      !demo.onWheel(direction, coast.x, coast.y)
-    ) {
-      touchCoast = undefined;
-      return;
-    }
-    coast.applied += direction;
-  }
-  if (elapsed >= 270) touchCoast = undefined;
+  const rows = Math.trunc(distance);
+  const requested = scroll.offset + rows - coast.applied;
+  const next = Math.max(0, Math.min(scroll.total - window.clientRect.height, requested));
+  if (next !== scroll.offset) demo.scrollTo(next);
+  coast.applied = rows;
+  if (elapsed >= 270 || requested !== next) touchCoast = undefined;
 }
 let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
@@ -2466,21 +2450,11 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     }
   } else if (event.kind === "up" || event.kind === "cancel") {
     if (touchScroll?.active) {
-      const owner = activeDemoWindow();
       const age = event.timestamp - touchScroll.lastMove;
-      if (
-        event.kind === "up" && event.device === "touch" && owner?.id === touchScroll.windowId && age >= 0 && age < 75
-      ) {
+      if (event.kind === "up" && age < 75) {
         const distance = Math.max(-9, Math.min(9, touchScroll.velocity * 90 * (1 - age / 75)));
         if (Math.abs(distance) >= 3.25) {
-          touchCoast = {
-            windowId: owner.id,
-            started: event.timestamp,
-            distance,
-            applied: 0,
-            x: x - owner.clientRect.column,
-            y: y - owner.clientRect.row,
-          };
+          touchCoast = { windowId: touchScroll.windowId, started: event.timestamp, distance, applied: 0 };
         }
       }
       touchScroll = undefined;
