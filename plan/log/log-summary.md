@@ -3,7 +3,7 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
-## November 19 web desktop scroll speed and loading bar (branch, not merged)
+## November 19 web desktop scroll speed, loading bar, longer coast and full snap preview
 
 `feature/web-loading-scroll-speed`: one wheel event now moves two application ticks by default, with a saved Settings →
 Windows scroll speed of slow (the earlier pace), medium or fast (four times). The landing page shows a retro loading bar
@@ -18,12 +18,14 @@ a full-speed flick). The flick threshold and the top speed are unchanged. Bundle
 Also that day: the preview shown while a window is dragged to an edge or a corner is the whole outline of where it will
 land, not only its top edge. It goes through the shared border painter, which made the bundle smaller: 899,897 bytes.
 
-## November 18 complete Markdown table cells (branch, not merged)
+Merged into `main` the same day at the maintainer's request, after `deno task health` on the tree that landed.
+
+## November 18 complete Markdown table cells
 
 `feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records
 when too narrow) and word-wrapped plain headings for the tech-stack consumer's information packet. Default rendering is
 unchanged. Focused document tests (36), types, format, lint and the API reference/inventory gates pass; full health not
-run. Not pushed or merged.
+run on the branch. The maintainer merged it (`be847f67`) and released it in 0.10.0.
 
 ## October 6 approved official-SVG browser pivot
 
