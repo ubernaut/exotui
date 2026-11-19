@@ -6,6 +6,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Exowebtui scrolls twice as far for each wheel event by default. Settings → Windows has a scroll speed with three
+  steps: slow (the earlier pace), medium (the default) and fast (four times the earlier pace). The choice is saved. A
+  finger drag still keeps the content under the finger.
+
 ## exotui 0.10.0 / exomux 0.6.0 — 2026-11-18
 
 - Markdown documents can opt into wrapped table cells, with labeled records when the table is too narrow for a grid.

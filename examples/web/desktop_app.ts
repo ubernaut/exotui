@@ -372,16 +372,21 @@ function settingsDemo(): DesktopDemo {
     readonly action: (column?: number) => void;
     readonly heading?: boolean;
   }
+  // Rows that only space or title the list; a click on one does nothing.
+  const gap: SettingsRow = { label: () => "", action: () => {} };
+  const heading = (title: string): SettingsRow => ({ label: () => title, heading: true, action: () => {} });
+  // A choice among several: the current one carries the filled mark.
+  const radio = (on: boolean, text: string): string => `  ${on ? "●" : "○"} ${text}`;
   const rowsOf = (): SettingsRow[] => [
-    { label: () => "THEME", heading: true, action: () => {} },
+    heading("THEME"),
     {
       label: () => `  open the theme gallery — click a palette to apply`,
       action: () => presentDemoWindow("themes"),
     },
-    { label: () => "", action: () => {} },
-    { label: () => "BACKGROUND", heading: true, action: () => {} },
+    gap,
+    heading("BACKGROUND"),
     ...wallpaperStyles().map((style) => ({
-      label: () => `  ${desktopSettings.wallpaper === style.id ? "●" : "○"} ${style.label}`,
+      label: () => radio(desktopSettings.wallpaper === style.id, style.label),
       action: () => {
         desktopSettings.wallpaper = style.id;
         persistDesktop();
@@ -389,24 +394,24 @@ function settingsDemo(): DesktopDemo {
     })),
     ...(services.audio
       ? [
-        { label: () => "", action: () => {} },
-        { label: () => "BUTTERCHURN AUDIO", heading: true, action: () => {} },
+        gap,
+        heading("BUTTERCHURN AUDIO"),
         {
-          label: () => `  ${services.audio!.source() === "noise" ? "●" : "○"} noise generator (default)`,
+          label: () => radio(services.audio!.source() === "noise", "noise generator (default)"),
           action: () => services.audio!.useNoise(),
         },
         {
-          label: () => `  ${services.audio!.source() === "microphone" ? "●" : "○"} microphone (request permission)`,
+          label: () => radio(services.audio!.source() === "microphone", "microphone (request permission)"),
           action: () => {
             void services.audio!.enableMicrophone();
           },
         },
       ]
       : []),
-    { label: () => "", action: () => {} },
-    { label: () => "BAR", heading: true, action: () => {} },
+    gap,
+    heading("BAR"),
     {
-      label: () => `  ${desktopSettings.barHints ? "●" : "○"} show the key hints`,
+      label: () => radio(desktopSettings.barHints, "show the key hints"),
       action: () => {
         desktopSettings.barHints = !desktopSettings.barHints;
         persistDesktop();
@@ -414,8 +419,8 @@ function settingsDemo(): DesktopDemo {
     },
     ...(services.shader
       ? [
-        { label: () => "", action: () => {} },
-        { label: () => "SHADERS — stack any of them", heading: true, action: () => {} },
+        gap,
+        heading("SHADERS — stack any of them"),
         ...services.shader.list().flatMap((entry): SettingsRow[] => {
           const shader = services.shader!;
           const shownValue = (option: DesktopShaderOption): string => {
@@ -448,8 +453,16 @@ function settingsDemo(): DesktopDemo {
         }),
       ]
       : []),
-    { label: () => "", action: () => {} },
-    { label: () => "WINDOWS", heading: true, action: () => {} },
+    gap,
+    heading("WINDOWS"),
+    {
+      // As on the animation row: a click up to the value's first letter steps down, anything further right steps up.
+      label: () => `  scroll speed ◂ ${DESKTOP_SCROLL_SPEEDS[desktopSettings.scrollSpeed]} ▸`,
+      action: (column) => {
+        desktopSettings.scrollSpeed = (desktopSettings.scrollSpeed + ((column ?? 99) < 19 ? 2 : 1)) % 3;
+        persistDesktop();
+      },
+    },
     {
       label: () => `  animation speed ◂ ${windowAnimations.settings().speed} ▸`,
       action: (column) => {
@@ -479,9 +492,10 @@ function settingsDemo(): DesktopDemo {
     })),
     ...[1, 0.9, 0.8, 0.65].map((opacity) => ({
       label: () =>
-        `  ${desktopSettings.windowOpacity === opacity ? "●" : "○"} ${
-          opacity === 1 ? "solid windows" : `glass — ${Math.round(opacity * 100)}% opacity`
-        }`,
+        radio(
+          desktopSettings.windowOpacity === opacity,
+          opacity === 1 ? "solid windows" : `glass — ${Math.round(opacity * 100)}% opacity`,
+        ),
       action: () => {
         desktopSettings.windowOpacity = opacity;
         persistDesktop();
@@ -1307,6 +1321,13 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
   doubleClickMaximizeMs: 400,
 });
 
+/**
+ * Wheel scroll speeds, slowest first. Each is twice the one before: "slow" delivers one application tick per wheel
+ * event, the only pace there used to be, "medium" two and "fast" four.
+ */
+export const DESKTOP_SCROLL_SPEEDS = ["slow", "medium", "fast"] as const;
+export type DesktopScrollSpeed = typeof DESKTOP_SCROLL_SPEEDS[number];
+
 /** Desktop-wide settings the settings window edits and the painter honors. */
 const desktopSettings = {
   /** "plain", "dots", or any id from the shared background catalog. */
@@ -1314,6 +1335,8 @@ const desktopSettings = {
   barHints: true,
   /** Window body opacity over the backdrop; 1 is solid. */
   windowOpacity: 0.9,
+  /** Index into DESKTOP_SCROLL_SPEEDS; medium is the default. */
+  scrollSpeed: 1,
 };
 
 /**
@@ -2579,7 +2602,12 @@ function handleDesktopWheel(event: MouseScrollEvent): void {
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   const over = [...projection.windows].reverse().find((window) => contains(window.clientRect, x, y));
   if (over) {
-    demoById.get(over.id)?.onWheel?.(direction, x - over.clientRect.column, y - over.clientRect.row);
+    // The speed setting repeats the application's own tick, so every window gets faster or slower by the same
+    // factor without knowing the setting exists. A finger drag is not scaled: it keeps content under the finger.
+    const demo = demoById.get(over.id);
+    for (let ticks = 1 << desktopSettings.scrollSpeed; ticks > 0; ticks -= 1) {
+      demo?.onWheel?.(direction, x - over.clientRect.column, y - over.clientRect.row);
+    }
   }
 }
 
@@ -2684,6 +2712,8 @@ interface DesktopPersisted {
   readonly shaderDefaultsVersion?: number;
   readonly windowOpacity?: number;
   readonly animations?: DesktopAnimationSettings;
+  /** Absent in settings saved before the speed existed; those desktops take the default. */
+  readonly scrollSpeed?: DesktopScrollSpeed;
 }
 
 function shaderTuningSnapshot(shader: DesktopShaderService): Record<string, Record<string, number>> {
@@ -2792,6 +2822,9 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
           }
         }
         if (typeof saved?.windowOpacity === "number") desktopSettings.windowOpacity = saved.windowOpacity;
+        // A desktop takes its saved speed, and the default when none was saved or the name is unknown.
+        const speed = DESKTOP_SCROLL_SPEEDS.indexOf(saved?.scrollSpeed!);
+        desktopSettings.scrollSpeed = speed < 0 ? 1 : speed;
         windowAnimations.setSettings(saved?.animations);
       } catch {
         // A broken store never blocks boot; defaults stand.
@@ -2810,6 +2843,7 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
             : {}),
           windowOpacity: desktopSettings.windowOpacity,
           animations: windowAnimations.settings(),
+          scrollSpeed: DESKTOP_SCROLL_SPEEDS[desktopSettings.scrollSpeed],
         }).catch(() => {});
       };
       // The first window sizes for the actual screen at boot — phone or desktop.
