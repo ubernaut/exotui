@@ -142,6 +142,75 @@ function tickCounter(id: string, counter: { ticks: number }): DesktopDemo {
   };
 }
 
+Deno.test("dragging a window to an edge or a corner previews the whole outline of where it will land", async () => {
+  const size = { columns: 80, rows: 30 };
+  let windows: readonly WorkbenchWindowChromeProjection[] = [];
+  const app = createDesktopApp({
+    initialWindow: "snap-outline",
+    applications: [{
+      id: "snap-outline",
+      title: "Snap outline",
+      summary: "Any window",
+      window: { width: 30, height: 12, minWidth: 15, minHeight: 6 },
+      render: (width, height) =>
+        Array.from({ length: height }, () => Array.from({ length: width }, () => ({ char: " " }))),
+    }],
+    onWindows: (projected) => windows = projected,
+  });
+  await app.init!({ size: () => size, store: () => new MemoryStore() } as unknown as ShellPresenter);
+  let now = 0;
+  const cells = () => app.frame(now += 1000, size);
+  cells();
+  const title = windows.find((window) => window.id === "snap-outline")!.titleBarRect;
+  app.pointer!(pointer("down", title.column + 4, title.row));
+
+  /** Every cell on the edge of `rect` is a border glyph. The drawn pointer covers the one cell it is on. */
+  const outlined = (rect: Rectangle, cursor: { x: number; y: number }) => {
+    const frame = cells();
+    const right = rect.column + rect.width - 1;
+    const bottom = rect.row + rect.height - 1;
+    const expect = (column: number, row: number, glyph: string) => {
+      if (column === cursor.x && row === cursor.y) return;
+      assertEquals(frame[row]![column]!.char, glyph, `the preview's edge at column ${column}, row ${row}`);
+    };
+    expect(rect.column, rect.row, "┌");
+    expect(right, rect.row, "┐");
+    expect(rect.column, bottom, "└");
+    expect(right, bottom, "┘");
+    for (let column = rect.column + 1; column < right; column += 1) {
+      expect(column, rect.row, "─");
+      expect(column, bottom, "─");
+    }
+    for (let row = rect.row + 1; row < bottom; row += 1) {
+      expect(rect.column, row, "│");
+      expect(right, row, "│");
+    }
+    return frame;
+  };
+  try {
+    // The left edge: the left half of everything below the bar, down to the last row.
+    app.pointer!(pointer("move", 0, 12));
+    outlined({ column: 0, row: 1, width: 40, height: 29 }, { x: 0, y: 12 });
+    // The top right corner: one quarter.
+    app.pointer!(pointer("move", 79, 2));
+    outlined({ column: 40, row: 1, width: 40, height: 15 }, { x: 79, y: 2 });
+    // The middle of the bottom edge: the lower half, full width.
+    app.pointer!(pointer("move", 40, 29));
+    outlined({ column: 0, row: 16, width: 80, height: 14 }, { x: 40, y: 29 });
+    // Away from every edge there is nothing to preview.
+    app.pointer!(pointer("move", 40, 15));
+    const away = cells();
+    assert(
+      away[1]![0]!.char !== "┌" && away[29]![0]!.char !== "└",
+      "the outline goes when the pointer leaves the edge",
+    );
+  } finally {
+    // The desktop is one per process: a gesture left open would fail every test after this one.
+    app.pointer!(pointer("move", 40, 15));
+    app.pointer!(pointer("up", 40, 15));
+  }
+});
+
 Deno.test("one wheel event moves two ticks by default; a saved speed makes it one or four", async () => {
   const size = { columns: 100, rows: 34 };
   for (

@@ -44,6 +44,7 @@ import {
   DesktopWindowAnimations,
 } from "./desktop_animations.ts";
 import {
+  borderBoxOnGround,
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellTabStrip,
@@ -2237,11 +2238,16 @@ function paintDesktop(now: number): VizCell[][] {
     });
   }
   if (projection.snapPreview) {
-    const preview = projection.snapPreview.rect;
-    writeText(frame, preview.column, preview.row, "┌".padEnd(Math.max(1, preview.width - 1), "─") + "┐", {
-      foreground: DESKTOP.accent,
-      background: DESKTOP.wallpaper,
-    });
+    // The whole outline of where the window will land. It used to be the top edge alone, which showed how wide the
+    // window would become but not how tall.
+    borderBoxOnGround(
+      frameSurface(frame),
+      projection.snapPreview.rect,
+      THIN_GLYPHS,
+      DESKTOP.accent,
+      solidGround(DESKTOP.wallpaper),
+      false,
+    );
   }
   if (backgroundField && animatedBackgroundHasOverlay(backgroundField)) {
     const body = bodyBounds();
