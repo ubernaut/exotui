@@ -54,7 +54,7 @@ presentation and web desktop files (26); `deno fmt --check`; `desktop:check`; `w
 changed files. Headless Chromium against the built page with the bundle throttled: 3% at 0.25 s, 37% at 1.35 s, bar
 removed, canvas mounted, one bundle transfer, no page errors, at 1280 and 390 pixels.
 
-`deno task health` on `e5e62334` (the three commits above): exit 0, 54 of 54 steps ok. Root tests 4147 passed and 8
+`deno task health` on `e5e62334` (the three commits above): exit 0, 53 of 53 steps ok. Root tests 4147 passed and 8
 ignored, Exomux 574, web 63, workers 54. `docs/assets/desktop.js` 899,972 bytes.
 
 ## 2026-11-19 — Follow-ups from the first consumer
@@ -102,5 +102,13 @@ failed states; accessibility tree; screencast; one bundle transfer with `cache-c
 browser suites pass on a build from this revision (packet, guide, history at two widths and under a prefix, scroll with
 391 samples and 0 failures, resize, desktop UX, diagrams, prefix, animations).
 
-Not verified here: how the bar and the faster wheel feel in a real browser on real hardware, and on a phone. The
-maintainer should look.
+`deno task health` on `16e03513` (all code on this branch, and this log up to the previous paragraph): exit 0, 53 of 53
+steps ok, the same test totals, bundle 899,972 bytes. The commit that adds this paragraph changes only this file;
+`deno fmt --check` was run on it.
+
+The speed setting in a real browser, through the consumer's build of `16e03513` (headless Chromium, real wheel and
+pointer events): one wheel event moves a document window 3 rows at slow, 6 at medium and 12 at fast. A page with no
+saved choice gives 6. The Settings row steps medium → fast → medium → slow → fast → slow with clicks right of the value
+and on the label, and after a reload the row still reads "slow" and the wheel still moves 3 rows.
+
+Not verified here: how the bar and the faster wheel feel on real hardware and on a phone. The maintainer should look.
