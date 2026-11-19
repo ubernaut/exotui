@@ -54,5 +54,53 @@ presentation and web desktop files (26); `deno fmt --check`; `desktop:check`; `w
 changed files. Headless Chromium against the built page with the bundle throttled: 3% at 0.25 s, 37% at 1.35 s, bar
 removed, canvas mounted, one bundle transfer, no page errors, at 1280 and 390 pixels.
 
+`deno task health` on `e5e62334` (the three commits above): exit 0, 54 of 54 steps ok. Root tests 4147 passed and 8
+ignored, Exomux 574, web 63, workers 54. `docs/assets/desktop.js` 899,972 bytes.
+
+## 2026-11-19 — Follow-ups from the first consumer
+
+### Prompt
+
+None new. The tech-stack site adopted the bar the same day: its own page shell, a fallback link ("Read this document
+without the desktop"), `ready: "manual"` and four reported stages. That use showed five things.
+
+### Response and strategy
+
+- Click lost during the fade. The done state had `pointer-events: auto` for the 260 ms before removal (measured in the
+  page). It now sets `pointer-events: none`.
+- Dead weight in a host bundle. `STYLE` and `LOADER` were built by `.trim().replaceAll()` calls at the top of the
+  module, which a bundler must keep. The consumer's vendored desktop bundle grew 4,091 bytes although it used only
+  `bootProgress()`. Both are functions now; the same bundle grows 85 bytes for the whole branch.
+- Narrow pages. With the 40-character fallback link the panel was wider than a 320-pixel page (-17 to 337 px, clipped
+  both sides). `max-width: calc(100vw - 24px)` on the panel and `white-space: normal` on the fallback and on a failure
+  message.
+- Roles. `role="progressbar"` was on the whole panel with the link inside it. Chromium still exposed that link, so this
+  was a wrong structure rather than a measured loss, but a progress bar's children are presentational by definition. The
+  role moved to the bar's row; glyphs are `aria-hidden`; the status line is hidden until a failure and then becomes
+  `role="alert"` holding only the message. `aria-valuetext` is "40%, 439K of 879K".
+- `]100%` had lost its space when the share became a right-aligned cell. The cell is 5ch.
+
+Checked and left alone: whether "four frames after a canvas appears" is too early for the landing page. A screencast
+around that moment shows the window and top bar already painted beneath the fading panel, and no blank frame. The
+wallpaper module arrives later and blocks the main thread while it starts (about two seconds under software GL in
+headless Chromium), exactly as before the bar existed; the bar does not wait for it. In that run the fade itself started
+about 220 ms late for the same reason.
+
+Known limit, unchanged: a module that loads but throws while it starts leaves a `manual` page on its last stage, with
+the fallback still usable. The loader reports only a module that cannot be fetched. Listening for every window error was
+rejected: an unrelated error would paint a working page as failed.
+
+A consumer note that is not about this branch: bundling the Mermaid chunks from a checkout at another path gives the
+same 121 files under different hash names (the single-file bundles are byte-identical). A consumer that vendors from a
+branch worktree can keep its existing chunks when the branch does not touch Mermaid sources.
+
+### Verification
+
+`tests/web_boot_progress.test.ts` (7), `deno fmt --check`, `deno check` and `deno lint` on the changed files,
+`web:pages:build` (bundle unchanged at 899,972). Headless Chromium: panel bounds at 1280, 390 and 320 px in loading and
+failed states; accessibility tree; screencast; one bundle transfer with `cache-control: max-age=600`. Consumer: nine
+browser suites pass on a build from this revision (packet, guide, history at two widths and under a prefix, scroll with
+391 samples and 0 failures, resize, desktop UX, diagrams, prefix, animations).
+
 Not verified here: how the bar and the faster wheel feel in a real browser on real hardware, and on a phone. The
 maintainer should look.
