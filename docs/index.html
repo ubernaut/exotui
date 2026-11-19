@@ -43,6 +43,204 @@
   </head>
   <body>
     <div id="app" aria-label="exotui desktop demo"></div>
-    <script type="module" src="./assets/desktop.js"></script>
+    <style>
+    .exotui-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-content: center;
+      overflow: hidden;
+      background: var(--exotui-boot-ground,#0a0c14);
+      color: var(--exotui-boot-ink,#7adbd2);
+      font: 16px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      text-shadow: 0 0 6px currentColor;
+    }
+    .exotui-boot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(to bottom,transparent 0 2px,rgba(0,0,0,.3) 2px 3px);
+    }
+    .exotui-boot__panel {
+      box-sizing: border-box;
+      max-width: calc(100vw - 24px);
+      padding: 1.5ch 2.5ch;
+      border: 1px solid currentColor;
+      box-shadow: 0 0 14px -4px currentColor,inset 0 0 14px -8px currentColor;
+      white-space: nowrap;
+    }
+    .exotui-boot__title {
+      letter-spacing: .3em;
+      margin-bottom: 1.5em;
+    }
+    .exotui-boot__percent {
+      display: inline-block;
+      min-width: 5ch;
+      text-align: right;
+    }
+    .exotui-boot__dim {
+      opacity: .6;
+    }
+    .exotui-boot__more {
+      margin-top: 1.5em;
+      white-space: normal;
+    }
+    .exotui-boot__cursor {
+      animation: exotui-boot-blink 1s steps(1) infinite;
+    }
+    .exotui-boot a {
+      color: inherit;
+    }
+    .exotui-boot[data-state=done] {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .24s steps(4);
+    }
+    .exotui-boot[data-state=failed] {
+      color: var(--exotui-boot-alarm,#ff7a7a);
+    }
+    .exotui-boot[data-state=failed] .exotui-boot__dim {
+      opacity: 1;
+      white-space: normal;
+    }
+    @keyframes exotui-boot-blink {
+      50% {
+        opacity: 0;
+      }
+    }
+    @media (max-width:480px) {
+      .exotui-boot {
+        font-size: 13px;
+      }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      .exotui-boot__cursor {
+        animation: none;
+      }
+      .exotui-boot[data-state=done] {
+        transition: none;
+      }
+    }
+    </style>
+    <div id="exotui-boot" class="exotui-boot" data-src="./assets/desktop.js" data-bytes="899897" data-ready="canvas">
+      <div class="exotui-boot__panel">
+        <div class="exotui-boot__title" aria-hidden="true">⏻ exowebtui</div>
+        <div aria-hidden="true" data-heading>LOADING</div>
+        <div role="progressbar" aria-label="Loading exowebtui" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+          data-meter><span aria-hidden="true">[<span data-bar></span>]<span class="exotui-boot__percent" data-percent>0%</span></span></div>
+        <div class="exotui-boot__dim" aria-hidden="true"
+          data-status><span aria-hidden="true">&gt; </span><span data-note>loading</span><span class="exotui-boot__cursor" aria-hidden="true">█</span></div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var root = document.getElementById("exotui-boot");
+      if (!root) return;
+      function part(name) {
+        return root.querySelector("[data-" + name + "]");
+      }
+      var meter = part("meter"),
+        bar = part("bar"),
+        percent = part("percent"),
+        heading = part("heading"),
+        status = part("status"),
+        note = part("note");
+      var src = root.getAttribute("data-src"), hint = +root.getAttribute("data-bytes") || 0, share = 0.8;
+      var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var finished = false, started = false, level = 0;
+      function repeat(text, count) {
+        var out = "";
+        while (count-- > 0) out += text;
+        return out;
+      }
+      function kilobytes(bytes) {
+        return Math.round(bytes / 1024) + "K";
+      }
+      function paint(fraction, label) {
+        level = Math.max(level, Math.min(1, fraction));
+        var cells = Math.max(10, Math.min(32, Math.floor((window.innerWidth || 640) / 14) - 8));
+        var filled = Math.round(level * cells), shown = Math.round(level * 100);
+        bar.textContent = repeat("\u2588", filled) + repeat("\u2591", cells - filled);
+        percent.textContent = shown + "%";
+        if (label) note.textContent = label;
+        meter.setAttribute("aria-valuenow", String(shown));
+        meter.setAttribute("aria-valuetext", shown + "%, " + note.textContent);
+      }
+      var api = {
+        stage: function (label, fraction) {
+          if (!finished) paint(share + (1 - share) * Math.max(0, Math.min(1, +fraction || 0)), label);
+        },
+        done: function () {
+          if (finished) return;
+          finished = true;
+          paint(1, "ready");
+          root.setAttribute("data-state", "done");
+          setTimeout(function () {
+            if (root.parentNode) root.parentNode.removeChild(root);
+          }, still ? 0 : 260);
+        },
+        fail: function (message) {
+          if (finished) return;
+          finished = true;
+          root.setAttribute("data-state", "failed");
+          heading.textContent = "ERROR";
+          status.setAttribute("role", "alert");
+          status.removeAttribute("aria-hidden");
+          note.textContent = message;
+          meter.setAttribute("aria-valuetext", message);
+        },
+      };
+      window.__exotuiBoot = api;
+      function start() {
+        if (started) return;
+        started = true;
+        paint(share, "starting");
+        var script = document.createElement("script");
+        script.type = "module";
+        script.src = src;
+        script.onerror = function () {
+          api.fail("could not load " + src);
+        };
+        document.body.appendChild(script);
+      }
+      paint(0, "loading");
+      try {
+        var request = new XMLHttpRequest();
+        request.open("GET", src);
+        request.responseType = "blob";
+        request.onprogress = function (event) {
+          var total = event.lengthComputable && event.total > 0 ? event.total : hint;
+          if (total > 0) {
+            paint(
+              share * Math.min(1, event.loaded / total),
+              kilobytes(event.loaded) + " of " + kilobytes(Math.max(total, event.loaded)),
+            );
+          }
+        };
+        request.onloadend = start;
+        request.send();
+      } catch (error) {
+        start();
+      }
+      if (root.getAttribute("data-ready") !== "manual" && window.MutationObserver) {
+        var frames = 0;
+        var settle = function () {
+          if (++frames < 4) window.requestAnimationFrame(settle);
+          else api.done();
+        };
+        var seen = function () {
+          if (!document.querySelector("canvas")) return false;
+          window.requestAnimationFrame(settle);
+          return true;
+        };
+        var observer = new MutationObserver(function () {
+          if (seen()) observer.disconnect();
+        });
+        if (!seen()) observer.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    })();
+    </script>
   </body>
 </html>

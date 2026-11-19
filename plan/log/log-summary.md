@@ -3,12 +3,29 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
-## November 18 complete Markdown table cells (branch, not merged)
+## November 19 web desktop scroll speed, loading bar, longer coast and full snap preview
+
+`feature/web-loading-scroll-speed`: one wheel event now moves two application ticks by default, with a saved Settings →
+Windows scroll speed of slow (the earlier pace), medium or fast (four times). The landing page shows a retro loading bar
+that follows the bundle's bytes; `examples/web/boot_progress.ts` produces it for any page that hosts the desktop. The
+desktop bundle is 899,972 bytes, inside its unchanged 900,000 limit. See
+`log/detail/feature--web-loading-scroll-speed.md`.
+
+Later the same day, after the maintainer tried it on a phone: the touch coast has half the friction. One named constant,
+`TOUCH_COAST_MS`, went from 90 to 180 ms, so the same flick goes twice as far for twice as long (17 rows in 540 ms from
+a full-speed flick). The flick threshold and the top speed are unchanged. Bundle 899,979 bytes. Health passes.
+
+Also that day: the preview shown while a window is dragged to an edge or a corner is the whole outline of where it will
+land, not only its top edge. It goes through the shared border painter, which made the bundle smaller: 899,897 bytes.
+
+Merged into `main` the same day at the maintainer's request, after `deno task health` on the tree that landed.
+
+## November 18 complete Markdown table cells
 
 `feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records
 when too narrow) and word-wrapped plain headings for the tech-stack consumer's information packet. Default rendering is
 unchanged. Focused document tests (36), types, format, lint and the API reference/inventory gates pass; full health not
-run. Not pushed or merged.
+run on the branch. The maintainer merged it (`be847f67`) and released it in 0.10.0.
 
 ## October 6 approved official-SVG browser pivot
 

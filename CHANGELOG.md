@@ -6,6 +6,17 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Exowebtui scrolls twice as far for each wheel event by default. Settings → Windows has a scroll speed with three
+  steps: slow (the earlier pace), medium (the default) and fast (four times the earlier pace). The choice is saved. A
+  finger drag still keeps the content under the finger.
+- Exowebtui's coast after a finger flick has half the friction. The same flick travels twice as far, up to 17 rows, and
+  glides for about half a second. Which gestures count as a flick is unchanged.
+- Dragging a desktop window to an edge or a corner previews the whole outline of where it will land. Before, only the
+  top edge of that rectangle was drawn.
+- The Exowebtui landing page shows a retro loading bar while the desktop bundle arrives: a character-cell bar that
+  follows the bundle's real bytes, then leaves when the desktop has painted. `examples/web/boot_progress.ts` produces
+  the bar for any page that hosts the desktop, and lets such a page report its own boot stages.
+
 ## exotui 0.10.0 / exomux 0.6.0 — 2026-11-18
 
 - Markdown documents can opt into wrapped table cells, with labeled records when the table is too narrow for a grid.

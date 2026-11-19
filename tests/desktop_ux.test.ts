@@ -5,7 +5,7 @@ import { browserAudioSource } from "../examples/web/browser_audio_source.ts";
 import type { ShellPresenter, ShellPresenterSize } from "../src/app/shell_presenter.ts";
 import type { WorkbenchWindowChromeProjection } from "../src/app/workbench_window_host.ts";
 import type { PointerInputEvent } from "../src/pointer_input.ts";
-import type { KeyPressEvent } from "../src/input_reader/types.ts";
+import type { KeyPressEvent, MouseScrollEvent } from "../src/input_reader/types.ts";
 import { MemoryStore } from "../src/runtime/storage.ts";
 import { glyphTextFont, renderGlyphText } from "../src/content/ascii_fonts.ts";
 import { CANVAS_SHADERS } from "../src/web/canvas_shader.ts";
@@ -36,6 +36,21 @@ function pointer(kind: "down" | "move" | "up", x: number, y: number, button = 0)
     primary: true,
     button: kind === "down" ? button : null,
     buttons: kind === "up" ? 0 : 1,
+  };
+}
+function wheel(x: number, y: number, scroll: 1 | -1): MouseScrollEvent {
+  return {
+    key: "mouse",
+    x,
+    y,
+    movementX: 0,
+    movementY: scroll,
+    meta: false,
+    ctrl: false,
+    shift: false,
+    buffer: new Uint8Array(),
+    drag: false,
+    scroll,
   };
 }
 interface Hook {
@@ -83,11 +98,16 @@ Deno.test("a quick touch swipe coasts briefly, but a pause or new press stops it
   assertEquals(release, 6);
   frame(205);
   assert(offset > release, "a flick travels farther after release");
-  frame(500);
-  assert(offset - release <= 9, "coasting is intentionally short");
+  // The finger lifted at 145. Friction lets a glide keep a third of its speed for 180 ms, so it is still moving
+  // 300 ms later, has stopped after 540 ms, and never goes farther than 18 rows.
+  frame(445);
+  const gliding = offset;
+  frame(700);
+  assert(offset > gliding, "the coast is still moving 300 ms after the finger lifts");
+  assertEquals(offset - release, 17, "a full-speed flick covers 95% of its 18 rows");
   const settled = offset;
   frame(800);
-  assertEquals(offset, settled);
+  assertEquals(offset, settled, "the coast has ended");
 
   swipe(900, 150);
   const paused = offset;
@@ -100,6 +120,205 @@ Deno.test("a quick touch swipe coasts briefly, but a pause or new press stops it
   frame(1500);
   assertEquals(offset, stopped, "a new touch interrupts the coast");
   touch("up", 9, 1510);
+});
+
+/**
+ * A window that counts wheel ticks, one row per tick, so a test reads the speed straight off the offset. Applications
+ * register for the life of the process, so every desktop in a test names its own.
+ */
+function tickCounter(id: string, counter: { ticks: number }): DesktopDemo {
+  return {
+    id,
+    title: "Ticks",
+    summary: "Counts wheel ticks",
+    window: { width: 40, height: 20, minWidth: 15, minHeight: 10 },
+    render: (width, height) =>
+      Array.from({ length: height }, () => Array.from({ length: width }, () => ({ char: " " }))),
+    onWheel: (direction) => (counter.ticks += direction, true),
+    vscroll: () => ({ offset: Math.max(0, counter.ticks), total: 5000 }),
+    scrollTo: (row) => {
+      counter.ticks = row;
+    },
+  };
+}
+
+Deno.test("dragging a window to an edge or a corner previews the whole outline of where it will land", async () => {
+  const size = { columns: 80, rows: 30 };
+  let windows: readonly WorkbenchWindowChromeProjection[] = [];
+  const app = createDesktopApp({
+    initialWindow: "snap-outline",
+    applications: [{
+      id: "snap-outline",
+      title: "Snap outline",
+      summary: "Any window",
+      window: { width: 30, height: 12, minWidth: 15, minHeight: 6 },
+      render: (width, height) =>
+        Array.from({ length: height }, () => Array.from({ length: width }, () => ({ char: " " }))),
+    }],
+    onWindows: (projected) => windows = projected,
+  });
+  await app.init!({ size: () => size, store: () => new MemoryStore() } as unknown as ShellPresenter);
+  let now = 0;
+  const cells = () => app.frame(now += 1000, size);
+  cells();
+  const title = windows.find((window) => window.id === "snap-outline")!.titleBarRect;
+  app.pointer!(pointer("down", title.column + 4, title.row));
+
+  /** Every cell on the edge of `rect` is a border glyph. The drawn pointer covers the one cell it is on. */
+  const outlined = (rect: Rectangle, cursor: { x: number; y: number }) => {
+    const frame = cells();
+    const right = rect.column + rect.width - 1;
+    const bottom = rect.row + rect.height - 1;
+    const expect = (column: number, row: number, glyph: string) => {
+      if (column === cursor.x && row === cursor.y) return;
+      assertEquals(frame[row]![column]!.char, glyph, `the preview's edge at column ${column}, row ${row}`);
+    };
+    expect(rect.column, rect.row, "┌");
+    expect(right, rect.row, "┐");
+    expect(rect.column, bottom, "└");
+    expect(right, bottom, "┘");
+    for (let column = rect.column + 1; column < right; column += 1) {
+      expect(column, rect.row, "─");
+      expect(column, bottom, "─");
+    }
+    for (let row = rect.row + 1; row < bottom; row += 1) {
+      expect(rect.column, row, "│");
+      expect(right, row, "│");
+    }
+    return frame;
+  };
+  try {
+    // The left edge: the left half of everything below the bar, down to the last row.
+    app.pointer!(pointer("move", 0, 12));
+    outlined({ column: 0, row: 1, width: 40, height: 29 }, { x: 0, y: 12 });
+    // The top right corner: one quarter.
+    app.pointer!(pointer("move", 79, 2));
+    outlined({ column: 40, row: 1, width: 40, height: 15 }, { x: 79, y: 2 });
+    // The middle of the bottom edge: the lower half, full width.
+    app.pointer!(pointer("move", 40, 29));
+    outlined({ column: 0, row: 16, width: 80, height: 14 }, { x: 40, y: 29 });
+    // Away from every edge there is nothing to preview.
+    app.pointer!(pointer("move", 40, 15));
+    const away = cells();
+    assert(
+      away[1]![0]!.char !== "┌" && away[29]![0]!.char !== "└",
+      "the outline goes when the pointer leaves the edge",
+    );
+  } finally {
+    // The desktop is one per process: a gesture left open would fail every test after this one.
+    app.pointer!(pointer("move", 40, 15));
+    app.pointer!(pointer("up", 40, 15));
+  }
+});
+
+Deno.test("one wheel event moves two ticks by default; a saved speed makes it one or four", async () => {
+  const size = { columns: 100, rows: 34 };
+  for (
+    const [saved, perEvent] of [[undefined, 2], ["slow", 1], ["medium", 2], ["fast", 4], ["warp", 2]] as const
+  ) {
+    const counter = { ticks: 0 };
+    const id = `ticks-wheel-${saved ?? "unsaved"}`;
+    let client!: Rectangle;
+    const store = new MemoryStore();
+    if (saved) await store.set("settings", { scrollSpeed: saved });
+    const app = createDesktopApp({
+      initialWindow: id,
+      applications: [tickCounter(id, counter)],
+      onWindows: (windows) => client = windows.find((window) => window.id === id)!.clientRect,
+    });
+    await app.init!({ size: () => size, store: () => store } as unknown as ShellPresenter);
+    app.frame(0, size);
+    app.wheel!(wheel(client.column + 3, client.row + 3, 1));
+    assertEquals(counter.ticks, perEvent, `${saved ?? "no saved speed"}: ticks down`);
+    app.wheel!(wheel(client.column + 3, client.row + 3, -1));
+    app.wheel!(wheel(client.column + 3, client.row + 3, -1));
+    assertEquals(counter.ticks, -perEvent, `${saved ?? "no saved speed"}: ticks up`);
+    // The desktop itself is not a window: a wheel event outside every client scrolls nothing.
+    app.wheel!(wheel(0, size.rows - 1, 1));
+    assertEquals(counter.ticks, -perEvent);
+  }
+});
+
+Deno.test("the settings row steps the scroll speed both ways and the choice is saved", async () => {
+  const size = { columns: 100, rows: 34 };
+  const store = new MemoryStore<{ scrollSpeed?: string }>();
+  // One clock for every desktop in this test: a frame is only composed again when time has moved on.
+  let now = 0;
+  const open = async (given: MemoryStore<{ scrollSpeed?: string }>) => {
+    let client!: Rectangle;
+    const app = createDesktopApp({
+      initialWindow: "settings",
+      onWindows: (windows) => client = windows.find((window) => window.id === "settings")?.clientRect ?? client,
+    });
+    await app.init!({ size: () => size, store: () => given } as unknown as ShellPresenter);
+    const text = () => app.frame(now += 1000, size).map((row) => row.map((cell) => cell.char).join(""));
+    // The settings list is longer than its window, so bring the row into view the way a person would.
+    const row = () => {
+      for (let turns = 0; turns < 40; turns += 1) {
+        const lines = text();
+        const y = lines.findIndex((line, index) =>
+          index >= client.row && index < client.row + client.height && line.includes("scroll speed ◂")
+        );
+        if (y >= 0) return { y, x: lines[y]!.indexOf("scroll speed ◂"), speed: /speed ◂ (\w+) ▸/.exec(lines[y]!)?.[1] };
+        app.wheel!(wheel(client.column + 2, client.row + 2, 1));
+      }
+      throw new Error("The settings window has no scroll speed row.");
+    };
+    const click = (x: number, y: number) => {
+      app.pointer!(pointer("down", x, y));
+      app.pointer!(pointer("up", x, y));
+    };
+    return { row, click };
+  };
+  const saved = async () => (await store.get("settings"))?.scrollSpeed;
+
+  const desktop = await open(store);
+  const at = desktop.row();
+  assertEquals(at.speed, "medium", "medium is the default");
+  // Right of the value speeds the wheel up; left of it slows the wheel down. Both clicks land on blank cells of the
+  // row, so the drawn pointer never covers the text this test reads.
+  const faster = () => desktop.click(at.x + 30, at.y);
+  const slower = () => desktop.click(at.x - 1, at.y);
+  faster();
+  assertEquals(desktop.row().speed, "fast");
+  assertEquals(await saved(), "fast");
+  faster();
+  assertEquals(desktop.row().speed, "slow", "the choices wrap around, as the animation speed does");
+  slower();
+  assertEquals(desktop.row().speed, "fast");
+  slower();
+  assertEquals(desktop.row().speed, "medium");
+  assertEquals(await saved(), "medium");
+  faster();
+  // Another desktop on the same store starts from the saved speed, and one with an empty store from the default.
+  assertEquals((await open(store)).row().speed, "fast");
+  assertEquals((await open(new MemoryStore())).row().speed, "medium");
+});
+
+Deno.test("a finger drag keeps content under the finger at every scroll speed", async () => {
+  const size = { columns: 42, rows: 30 };
+  for (const speed of ["slow", "medium", "fast"]) {
+    const counter = { ticks: 0 };
+    const id = `ticks-touch-${speed}`;
+    let client!: Rectangle;
+    const store = new MemoryStore();
+    await store.set("settings", { scrollSpeed: speed });
+    const app = createDesktopApp({
+      initialWindow: id,
+      viewportWidth: () => 390,
+      reducedMotion: () => true,
+      applications: [tickCounter(id, counter)],
+      onWindows: (windows) => client = windows.find((window) => window.id === id)!.clientRect,
+    });
+    await app.init!({ size: () => size, store: () => store } as unknown as ShellPresenter);
+    app.frame(0, size);
+    const touch = (kind: "down" | "move" | "up", y: number, timestamp: number) =>
+      app.pointer!({ ...pointer(kind, client.column + 2, client.row + y), device: "touch", timestamp });
+    touch("down", 15, 100);
+    touch("move", 9, 400);
+    touch("up", 9, 700);
+    assertEquals(counter.ticks, 2, `${speed}: six rows of travel are two ticks, whatever the wheel speed`);
+  }
 });
 
 Deno.test("desktop UX shares focus, selection, menus, alert and exact viewport policies", async () => {

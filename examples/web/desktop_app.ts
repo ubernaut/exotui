@@ -44,6 +44,7 @@ import {
   DesktopWindowAnimations,
 } from "./desktop_animations.ts";
 import {
+  borderBoxOnGround,
   paintShellMenuPanel,
   paintShellSwitcher,
   paintShellTabStrip,
@@ -372,16 +373,21 @@ function settingsDemo(): DesktopDemo {
     readonly action: (column?: number) => void;
     readonly heading?: boolean;
   }
+  // Rows that only space or title the list; a click on one does nothing.
+  const gap: SettingsRow = { label: () => "", action: () => {} };
+  const heading = (title: string): SettingsRow => ({ label: () => title, heading: true, action: () => {} });
+  // A choice among several: the current one carries the filled mark.
+  const radio = (on: boolean, text: string): string => `  ${on ? "●" : "○"} ${text}`;
   const rowsOf = (): SettingsRow[] => [
-    { label: () => "THEME", heading: true, action: () => {} },
+    heading("THEME"),
     {
       label: () => `  open the theme gallery — click a palette to apply`,
       action: () => presentDemoWindow("themes"),
     },
-    { label: () => "", action: () => {} },
-    { label: () => "BACKGROUND", heading: true, action: () => {} },
+    gap,
+    heading("BACKGROUND"),
     ...wallpaperStyles().map((style) => ({
-      label: () => `  ${desktopSettings.wallpaper === style.id ? "●" : "○"} ${style.label}`,
+      label: () => radio(desktopSettings.wallpaper === style.id, style.label),
       action: () => {
         desktopSettings.wallpaper = style.id;
         persistDesktop();
@@ -389,24 +395,24 @@ function settingsDemo(): DesktopDemo {
     })),
     ...(services.audio
       ? [
-        { label: () => "", action: () => {} },
-        { label: () => "BUTTERCHURN AUDIO", heading: true, action: () => {} },
+        gap,
+        heading("BUTTERCHURN AUDIO"),
         {
-          label: () => `  ${services.audio!.source() === "noise" ? "●" : "○"} noise generator (default)`,
+          label: () => radio(services.audio!.source() === "noise", "noise generator (default)"),
           action: () => services.audio!.useNoise(),
         },
         {
-          label: () => `  ${services.audio!.source() === "microphone" ? "●" : "○"} microphone (request permission)`,
+          label: () => radio(services.audio!.source() === "microphone", "microphone (request permission)"),
           action: () => {
             void services.audio!.enableMicrophone();
           },
         },
       ]
       : []),
-    { label: () => "", action: () => {} },
-    { label: () => "BAR", heading: true, action: () => {} },
+    gap,
+    heading("BAR"),
     {
-      label: () => `  ${desktopSettings.barHints ? "●" : "○"} show the key hints`,
+      label: () => radio(desktopSettings.barHints, "show the key hints"),
       action: () => {
         desktopSettings.barHints = !desktopSettings.barHints;
         persistDesktop();
@@ -414,8 +420,8 @@ function settingsDemo(): DesktopDemo {
     },
     ...(services.shader
       ? [
-        { label: () => "", action: () => {} },
-        { label: () => "SHADERS — stack any of them", heading: true, action: () => {} },
+        gap,
+        heading("SHADERS — stack any of them"),
         ...services.shader.list().flatMap((entry): SettingsRow[] => {
           const shader = services.shader!;
           const shownValue = (option: DesktopShaderOption): string => {
@@ -448,8 +454,16 @@ function settingsDemo(): DesktopDemo {
         }),
       ]
       : []),
-    { label: () => "", action: () => {} },
-    { label: () => "WINDOWS", heading: true, action: () => {} },
+    gap,
+    heading("WINDOWS"),
+    {
+      // As on the animation row: a click up to the value's first letter steps down, anything further right steps up.
+      label: () => `  scroll speed ◂ ${DESKTOP_SCROLL_SPEEDS[desktopSettings.scrollSpeed]} ▸`,
+      action: (column) => {
+        desktopSettings.scrollSpeed = (desktopSettings.scrollSpeed + ((column ?? 99) < 19 ? 2 : 1)) % 3;
+        persistDesktop();
+      },
+    },
     {
       label: () => `  animation speed ◂ ${windowAnimations.settings().speed} ▸`,
       action: (column) => {
@@ -479,9 +493,10 @@ function settingsDemo(): DesktopDemo {
     })),
     ...[1, 0.9, 0.8, 0.65].map((opacity) => ({
       label: () =>
-        `  ${desktopSettings.windowOpacity === opacity ? "●" : "○"} ${
-          opacity === 1 ? "solid windows" : `glass — ${Math.round(opacity * 100)}% opacity`
-        }`,
+        radio(
+          desktopSettings.windowOpacity === opacity,
+          opacity === 1 ? "solid windows" : `glass — ${Math.round(opacity * 100)}% opacity`,
+        ),
       action: () => {
         desktopSettings.windowOpacity = opacity;
         persistDesktop();
@@ -1307,6 +1322,13 @@ const projectionOptions = (): WorkbenchWindowHostProjectionOptions => ({
   doubleClickMaximizeMs: 400,
 });
 
+/**
+ * Wheel scroll speeds, slowest first. Each is twice the one before: "slow" delivers one application tick per wheel
+ * event, the only pace there used to be, "medium" two and "fast" four.
+ */
+export const DESKTOP_SCROLL_SPEEDS = ["slow", "medium", "fast"] as const;
+export type DesktopScrollSpeed = typeof DESKTOP_SCROLL_SPEEDS[number];
+
 /** Desktop-wide settings the settings window edits and the painter honors. */
 const desktopSettings = {
   /** "plain", "dots", or any id from the shared background catalog. */
@@ -1314,6 +1336,8 @@ const desktopSettings = {
   barHints: true,
   /** Window body opacity over the backdrop; 1 is solid. */
   windowOpacity: 0.9,
+  /** Index into DESKTOP_SCROLL_SPEEDS; medium is the default. */
+  scrollSpeed: 1,
 };
 
 /**
@@ -1417,6 +1441,12 @@ let touchScroll: {
   active: boolean;
 } | undefined;
 let touchCoast: { windowId: string; started: number; distance: number; applied: number } | undefined;
+/**
+ * The coast's one friction number: the milliseconds a glide takes to lose about two thirds of its speed. Friction is
+ * its inverse, so twice the time is half the friction, and the same flick then travels twice as far for twice as long.
+ * A coast runs for three of these and covers 95% of the distance its lift speed promises.
+ */
+const TOUCH_COAST_MS = 180;
 
 function advanceTouchCoast(now: number): void {
   const coast = touchCoast;
@@ -1427,8 +1457,9 @@ function advanceTouchCoast(now: number): void {
     touchCoast = undefined;
     return;
   }
-  const elapsed = Math.max(0, Math.min(270, now - coast.started));
-  const distance = coast.distance * (1 - Math.exp(-elapsed / 90));
+  // The time since the lift, counted in friction times. A coast is over after three.
+  const time = Math.max(0, Math.min(3, (now - coast.started) / TOUCH_COAST_MS));
+  const distance = coast.distance * (1 - Math.exp(-time));
   const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
   if (!scroll) {
     touchCoast = undefined;
@@ -1439,7 +1470,7 @@ function advanceTouchCoast(now: number): void {
   const next = Math.max(0, Math.min(scroll.total - window.clientRect.height, requested));
   if (next !== scroll.offset) demo.scrollTo(next);
   coast.applied = rows;
-  if (elapsed >= 270 || requested !== next) touchCoast = undefined;
+  if (time >= 3 || requested !== next) touchCoast = undefined;
 }
 let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
@@ -2207,11 +2238,16 @@ function paintDesktop(now: number): VizCell[][] {
     });
   }
   if (projection.snapPreview) {
-    const preview = projection.snapPreview.rect;
-    writeText(frame, preview.column, preview.row, "┌".padEnd(Math.max(1, preview.width - 1), "─") + "┐", {
-      foreground: DESKTOP.accent,
-      background: DESKTOP.wallpaper,
-    });
+    // The whole outline of where the window will land. It used to be the top edge alone, which showed how wide the
+    // window would become but not how tall.
+    borderBoxOnGround(
+      frameSurface(frame),
+      projection.snapPreview.rect,
+      THIN_GLYPHS,
+      DESKTOP.accent,
+      solidGround(DESKTOP.wallpaper),
+      false,
+    );
   }
   if (backgroundField && animatedBackgroundHasOverlay(backgroundField)) {
     const body = bodyBounds();
@@ -2452,9 +2488,17 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     if (touchScroll?.active) {
       const age = event.timestamp - touchScroll.lastMove;
       if (event.kind === "up" && age < 75) {
-        const distance = Math.max(-9, Math.min(9, touchScroll.velocity * 90 * (1 - age / 75)));
-        if (Math.abs(distance) >= 3.25) {
-          touchCoast = { windowId: touchScroll.windowId, started: event.timestamp, distance, applied: 0 };
+        // Rows per millisecond at lift, fading with the time since the finger last moved. Only a real flick coasts
+        // (36 rows a second), and no coast starts faster than 100 rows a second, which keeps its distance bounded.
+        // These are speeds on purpose: friction changes how far a flick goes, not which gestures count as one.
+        const speed = Math.max(-0.1, Math.min(0.1, touchScroll.velocity * (1 - age / 75)));
+        if (Math.abs(speed) >= 0.036) {
+          touchCoast = {
+            windowId: touchScroll.windowId,
+            started: event.timestamp,
+            distance: speed * TOUCH_COAST_MS,
+            applied: 0,
+          };
         }
       }
       touchScroll = undefined;
@@ -2579,7 +2623,12 @@ function handleDesktopWheel(event: MouseScrollEvent): void {
   const projection = windowHost.project(bodyBounds(), projectionOptions());
   const over = [...projection.windows].reverse().find((window) => contains(window.clientRect, x, y));
   if (over) {
-    demoById.get(over.id)?.onWheel?.(direction, x - over.clientRect.column, y - over.clientRect.row);
+    // The speed setting repeats the application's own tick, so every window gets faster or slower by the same
+    // factor without knowing the setting exists. A finger drag is not scaled: it keeps content under the finger.
+    const demo = demoById.get(over.id);
+    for (let ticks = 1 << desktopSettings.scrollSpeed; ticks > 0; ticks -= 1) {
+      demo?.onWheel?.(direction, x - over.clientRect.column, y - over.clientRect.row);
+    }
   }
 }
 
@@ -2684,6 +2733,8 @@ interface DesktopPersisted {
   readonly shaderDefaultsVersion?: number;
   readonly windowOpacity?: number;
   readonly animations?: DesktopAnimationSettings;
+  /** Absent in settings saved before the speed existed; those desktops take the default. */
+  readonly scrollSpeed?: DesktopScrollSpeed;
 }
 
 function shaderTuningSnapshot(shader: DesktopShaderService): Record<string, Record<string, number>> {
@@ -2792,6 +2843,9 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
           }
         }
         if (typeof saved?.windowOpacity === "number") desktopSettings.windowOpacity = saved.windowOpacity;
+        // A desktop takes its saved speed, and the default when none was saved or the name is unknown.
+        const speed = DESKTOP_SCROLL_SPEEDS.indexOf(saved?.scrollSpeed!);
+        desktopSettings.scrollSpeed = speed < 0 ? 1 : speed;
         windowAnimations.setSettings(saved?.animations);
       } catch {
         // A broken store never blocks boot; defaults stand.
@@ -2810,6 +2864,7 @@ export function createDesktopApp(givenServices: DesktopServices = {}): ShellApp 
             : {}),
           windowOpacity: desktopSettings.windowOpacity,
           animations: windowAnimations.settings(),
+          scrollSpeed: DESKTOP_SCROLL_SPEEDS[desktopSettings.scrollSpeed],
         }).catch(() => {});
       };
       // The first window sizes for the actual screen at boot — phone or desktop.

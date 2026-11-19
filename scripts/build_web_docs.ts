@@ -1,5 +1,6 @@
 import { runtimeHost } from "../src/runtime/host.ts";
 import { browserRuntimeHostStub } from "../src/runtime/bun_browser_bundle.ts";
+import { bootProgressHtml } from "../examples/web/boot_progress.ts";
 import * as esbuild from "esbuild";
 import { resolve } from "node:path";
 
@@ -109,7 +110,9 @@ if (import.meta.main) {
   await verifyWebSurface("examples/web/exomonitor_page.ts", new Set());
   esbuild.stop();
 
-  await runtimeHost.writeTextFile("docs/index.html", desktopHtml());
+  // The landing page shows a loading bar while the desktop bundle arrives; the bar needs that bundle's real size.
+  const desktopBytes = (await runtimeHost.stat(`${outdir}/desktop.js`)).size;
+  await runtimeHost.writeTextFile("docs/index.html", desktopHtml(desktopBytes));
   await runtimeHost.writeTextFile("docs/workbench.html", workbenchHtml());
   await formatGeneratedHtml();
 }
@@ -251,7 +254,7 @@ function npmSpecifierToEsmSh(specifier: string): string {
   return specifier.replace(/^npm:/, "https://esm.sh/");
 }
 
-function desktopHtml(): string {
+function desktopHtml(desktopBytes: number): string {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -297,7 +300,7 @@ function desktopHtml(): string {
   </head>
   <body>
     <div id="app" aria-label="exotui desktop demo"></div>
-    <script type="module" src="./assets/desktop.js"></script>
+    ${bootProgressHtml({ src: "./assets/desktop.js", bytes: desktopBytes })}
   </body>
 </html>
 `;
