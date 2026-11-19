@@ -112,3 +112,41 @@ saved choice gives 6. The Settings row steps medium → fast → medium → slow
 and on the label, and after a reload the row still reads "slow" and the wheel still moves 3 rows.
 
 Not verified here: how the bar and the faster wheel feel on real hardware and on a phone. The maintainer should look.
+
+## 2026-11-19 — Half the friction for the touch coast
+
+### Prompt
+
+The maintainer, after trying the consumer's preview on a phone: "it's working pretty well but I think the friction is
+too high can you reduce the friction by about 50%. so it will cost longer". ("cost" read as "coast".) Before that: "the
+fast scroll speed seems nice on mobile. but it's not "coasting" did you implement the momentum?" That one was a consumer
+defect, not a library one: the consumer's document windows had `onWheel` and `vscroll` but no `scrollTo`, and the coast
+moves a window only through `scrollTo`. The consumer added the hook. The coast itself is the 0.10.0 one.
+
+### Response and strategy
+
+The 0.10.0 coast is `distance × (1 − e^(−t/90))`, cut at 270 ms, with `distance = velocity × 90` limited to 9 rows and a
+start threshold of 3.25 rows. Read as physics that is a glide under friction with a time constant of 90 ms: 270 is three
+time constants, 9 rows is a top speed of 100 rows a second, and 3.25 rows is a flick threshold of 36 rows a second.
+"Half the friction" is then one change, the time constant, 90 to 180 ms. The same flick goes twice as far (17 rows,
+was 8) for twice as long (540 ms, was 270).
+
+What to keep fixed was the decision. Kept as speeds: the flick threshold and the top speed. If they had stayed as
+distances, half the friction would also have halved the speed a gesture needs to coast, and a slow, careful drag would
+start to drift after the lift. The distance stays bounded, as the scroll-polish design asks, at 18 rows.
+
+`TOUCH_COAST_MS` is the one number to tune. The glide's clock counts friction times, so the constant is used once at the
+lift and once in the advance. That form was chosen for bytes: a first version with `3 * TOUCH_COAST_MS` in two places
+measured 899,993; this one measures 899,979 (899,972 before, limit 900,000).
+
+Not changed, and noticed while measuring: the lift speed is taken from the last pair of row changes only, and only when
+they are at most 90 ms apart. A device that draws slower than about 11 frames a second during a drag therefore never
+coasts. The speed setting does not touch a finger drag or the coast.
+
+### Verification
+
+`tests/desktop_ux.test.ts` (11); the coast test now pins the model (still moving 300 ms after the lift, exactly 17 rows
+from a full-speed flick, ended after 540 ms). `deno fmt --check`, `deno lint` on the changed files, `web:pages:build`.
+Headless Chromium, phone emulation, real touch events, page clock slowed four times: two full-speed flicks moved 2, 5 to
+6, 7 to 8, 11, 12 to 13, 14, 16 and 17 rows at 40 to 600 ms after the lift, then stayed. One flick under the threshold
+did not coast. Not verified: a real phone.
