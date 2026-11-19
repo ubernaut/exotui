@@ -3,6 +3,14 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 19 web desktop scroll speed and loading bar (branch, not merged)
+
+`feature/web-loading-scroll-speed`: one wheel event now moves two application ticks by default, with a saved Settings →
+Windows scroll speed of slow (the earlier pace), medium or fast (four times). The landing page shows a retro loading bar
+that follows the bundle's bytes; `examples/web/boot_progress.ts` produces it for any page that hosts the desktop. The
+desktop bundle is 899,972 bytes, inside its unchanged 900,000 limit. See
+`log/detail/feature--web-loading-scroll-speed.md`.
+
 ## November 18 complete Markdown table cells (branch, not merged)
 
 `feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records
