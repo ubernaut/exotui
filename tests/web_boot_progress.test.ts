@@ -4,12 +4,31 @@ import { BOOT_DOWNLOAD_SHARE, bootProgress, bootProgressHtml } from "../examples
 /** The smallest page the inline loader can run against: only what it actually touches. */
 function fakePage(html: string, options: { width?: number; xhr?: "works" | "throws"; reducedMotion?: boolean } = {}) {
   const attribute = (name: string) => new RegExp(` ${name}="([^"]*)"`).exec(html)?.[1] ?? null;
-  const attributes = new Map<string, string>();
-  for (const name of ["data-src", "data-bytes", "data-ready", "aria-valuenow"]) {
-    const value = attribute(name);
-    if (value !== null) attributes.set(name, value.replaceAll("&amp;", "&").replaceAll("&quot;", '"'));
-  }
-  const text = { bar: { textContent: "" }, percent: { textContent: "" }, note: { textContent: "" } };
+  /** An element as the loader uses one: text, and the attributes the generated markup gives it. */
+  const element = (...names: string[]) => {
+    const attributes = new Map<string, string>();
+    for (const name of names) {
+      const value = attribute(name);
+      if (value !== null) attributes.set(name, value.replaceAll("&amp;", "&").replaceAll("&quot;", '"'));
+    }
+    return {
+      textContent: "",
+      attributes,
+      getAttribute: (name: string) => attributes.get(name) ?? null,
+      setAttribute: (name: string, value: string) => void attributes.set(name, value),
+      removeAttribute: (name: string) => void attributes.delete(name),
+    };
+  };
+  /** The panel's parts, by the `data-` name the loader finds each one with. */
+  const text = {
+    meter: element("aria-valuenow"),
+    bar: element(),
+    percent: element(),
+    heading: element(),
+    status: element(),
+    note: element(),
+  };
+  text.status.attributes.set("aria-hidden", "true");
   const appended: { type: string; src: string; onerror?: () => void }[] = [];
   const timers: (() => void)[] = [];
   const frames: (() => void)[] = [];
@@ -17,11 +36,13 @@ function fakePage(html: string, options: { width?: number; xhr?: "works" | "thro
   let canvas = false;
   let observer: (() => void) | undefined;
   const root = {
+    ...element("data-src", "data-bytes", "data-ready"),
     parentNode: { removeChild: () => removed = true } as { removeChild(): void } | null,
-    getAttribute: (name: string) => attributes.get(name) ?? null,
-    setAttribute: (name: string, value: string) => attributes.set(name, value),
-    querySelector: (selector: string) =>
-      selector === "[data-bar]" ? text.bar : selector === "[data-percent]" ? text.percent : text.note,
+    querySelector: (selector: string) => {
+      const part = text[/^\[data-(\w+)\]$/.exec(selector)?.[1] as keyof typeof text];
+      if (!part) throw new Error("The loader asked the panel for " + selector);
+      return part;
+    },
   };
   const request = {
     opened: "",
@@ -85,7 +106,11 @@ function fakePage(html: string, options: { width?: number; xhr?: "works" | "thro
     text,
     request,
     appended,
-    attribute: (name: string) => attributes.get(name),
+    /** An attribute of the panel itself: its state. */
+    attribute: (name: string) => root.attributes.get(name),
+    /** An attribute of the bar's own row, the element a screen reader is given as the progress bar. */
+    meter: (name: string) => text.meter.attributes.get(name),
+    status: (name: string) => text.status.attributes.get(name),
     removed: () => removed,
     /** The desktop mounts its canvas; the observer the loader installed is told. */
     mountCanvas() {
@@ -126,9 +151,21 @@ Deno.test("the shell markup is a labelled progress bar that carries the module, 
     ]
   ) assert(html.includes(required), "missing " + required);
   assert(!html.includes("<b>"), "the name is text, never markup");
+  // The role is on the bar's own row: the fallback link is not inside a progress bar, and the drawn glyphs are hidden.
+  const meter = /<div role="progressbar"[^>]*>(.*?)<\/div>/.exec(html)!;
+  assert(
+    meter[0].includes("data-meter") && meter[1]!.startsWith('<span aria-hidden="true">[<span data-bar>'),
+    meter[0],
+  );
+  assert(!meter[0].includes("<a ") && html.indexOf("Read without the desktop") > meter.index + meter[0].length);
+  assert(/<div class="exotui-boot__dim" aria-hidden="true" data-status>/.test(html), "the status line starts hidden");
+  assert(html.includes("[data-state=done]{opacity:0;pointer-events:none"), "a fading bar must not take a click");
+  // The share is right-aligned in a cell wide enough for "100%" and a space, so the row never changes width.
+  assert(html.includes("__percent{display:inline-block;min-width:5ch;text-align:right}"));
   assert(!/https?:\/\//.test(html), "the bar loads nothing from another origin");
   assert(!html.includes('<script type="module"'), "the loader starts the module itself, after its bytes arrive");
-  assert(new TextEncoder().encode(html).length < 5000, "the bar must cost a page almost nothing");
+  // About 2 KB once a server compresses it. The limit is there to notice growth, not to count bytes.
+  assert(new TextEncoder().encode(html).length < 6000, "the bar must cost a page almost nothing");
   const markup = html.replace(/<style>[\s\S]*?<\/style>|<script>[\s\S]*?<\/script>/g, "");
   assert(!/>\s+</.test(markup), "nothing is laid out with spaces, so a reformatted page shell looks the same");
   const plain = bootProgressHtml({ src: "./a.js" });
@@ -147,7 +184,8 @@ Deno.test("the bar follows the module's bytes, then starts the module exactly on
 
   // A server that reports a total: half the bytes fill half of the download share.
   page.request.onprogress!({ lengthComputable: true, loaded: 500, total: 1000 });
-  assertEquals(page.attribute("aria-valuenow"), String(BOOT_DOWNLOAD_SHARE * 50));
+  assertEquals(page.meter("aria-valuenow"), String(BOOT_DOWNLOAD_SHARE * 50));
+  assertEquals(page.meter("aria-valuetext"), "40%, 0K of 1K", "a screen reader is given the share and the detail");
   assertEquals(page.text.percent.textContent, "40%");
   assertEquals(filled(page.text.bar.textContent), Math.round(0.4 * 32));
   // A compressed response reports none, so the size the build wrote into the page stands in.
@@ -164,7 +202,7 @@ Deno.test("the bar follows the module's bytes, then starts the module exactly on
   page.request.onloadend!();
   assertEquals(page.appended.map((node) => [node.type, node.src]), [["module", "./assets/desktop.js"]]);
   assertEquals(page.text.note.textContent, "starting");
-  assertEquals(page.attribute("aria-valuetext"), "starting");
+  assertEquals(page.meter("aria-valuetext"), "80%, starting");
 });
 
 Deno.test("a page reports its own stages and decides when the bar goes away", () => {
@@ -208,6 +246,10 @@ Deno.test("a module that cannot load leaves a message, and a browser without the
   page.appended[0]!.onerror!();
   assertEquals(page.attribute("data-state"), "failed");
   assertEquals(page.text.note.textContent, "could not load ./missing.js");
+  assertEquals(page.text.heading.textContent, "ERROR");
+  // The status line is hidden from a screen reader while it only repeats the bar. A failure makes it an alert.
+  assertEquals([page.status("role"), page.status("aria-hidden")], ["alert", undefined]);
+  assertEquals(page.meter("aria-valuetext"), "could not load ./missing.js");
   page.boot.done();
   assert(!page.removed(), "a failed page keeps its message");
 

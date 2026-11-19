@@ -64,6 +64,8 @@
       background: repeating-linear-gradient(to bottom,transparent 0 2px,rgba(0,0,0,.3) 2px 3px);
     }
     .exotui-boot__panel {
+      box-sizing: border-box;
+      max-width: calc(100vw - 24px);
       padding: 1.5ch 2.5ch;
       border: 1px solid currentColor;
       box-shadow: 0 0 14px -4px currentColor,inset 0 0 14px -8px currentColor;
@@ -75,7 +77,7 @@
     }
     .exotui-boot__percent {
       display: inline-block;
-      min-width: 4ch;
+      min-width: 5ch;
       text-align: right;
     }
     .exotui-boot__dim {
@@ -83,6 +85,7 @@
     }
     .exotui-boot__more {
       margin-top: 1.5em;
+      white-space: normal;
     }
     .exotui-boot__cursor {
       animation: exotui-boot-blink 1s steps(1) infinite;
@@ -92,10 +95,15 @@
     }
     .exotui-boot[data-state=done] {
       opacity: 0;
+      pointer-events: none;
       transition: opacity .24s steps(4);
     }
     .exotui-boot[data-state=failed] {
       color: var(--exotui-boot-alarm,#ff7a7a);
+    }
+    .exotui-boot[data-state=failed] .exotui-boot__dim {
+      opacity: 1;
+      white-space: normal;
     }
     @keyframes exotui-boot-blink {
       50% {
@@ -116,23 +124,29 @@
       }
     }
     </style>
-    <div id="exotui-boot" class="exotui-boot" role="progressbar" aria-label="Loading exowebtui" aria-valuemin="0"
-      aria-valuemax="100" aria-valuenow="0" data-src="./assets/desktop.js" data-bytes="899972" data-ready="canvas">
+    <div id="exotui-boot" class="exotui-boot" data-src="./assets/desktop.js" data-bytes="899972" data-ready="canvas">
       <div class="exotui-boot__panel">
         <div class="exotui-boot__title" aria-hidden="true">⏻ exowebtui</div>
-        <div aria-hidden="true">LOADING</div>
-        <div aria-hidden="true">[<span data-bar></span>]<span class="exotui-boot__percent" data-percent>0%</span></div>
-        <div
-          class="exotui-boot__dim">&gt; <span data-note>loading</span><span class="exotui-boot__cursor" aria-hidden="true">█</span></div>
+        <div aria-hidden="true" data-heading>LOADING</div>
+        <div role="progressbar" aria-label="Loading exowebtui" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+          data-meter><span aria-hidden="true">[<span data-bar></span>]<span class="exotui-boot__percent" data-percent>0%</span></span></div>
+        <div class="exotui-boot__dim" aria-hidden="true"
+          data-status><span aria-hidden="true">&gt; </span><span data-note>loading</span><span class="exotui-boot__cursor" aria-hidden="true">█</span></div>
       </div>
     </div>
     <script>
     (function () {
       var root = document.getElementById("exotui-boot");
       if (!root) return;
-      var bar = root.querySelector("[data-bar]"),
-        percent = root.querySelector("[data-percent]"),
-        note = root.querySelector("[data-note]");
+      function part(name) {
+        return root.querySelector("[data-" + name + "]");
+      }
+      var meter = part("meter"),
+        bar = part("bar"),
+        percent = part("percent"),
+        heading = part("heading"),
+        status = part("status"),
+        note = part("note");
       var src = root.getAttribute("data-src"), hint = +root.getAttribute("data-bytes") || 0, share = 0.8;
       var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       var finished = false, started = false, level = 0;
@@ -150,11 +164,9 @@
         var filled = Math.round(level * cells), shown = Math.round(level * 100);
         bar.textContent = repeat("\u2588", filled) + repeat("\u2591", cells - filled);
         percent.textContent = shown + "%";
-        root.setAttribute("aria-valuenow", String(shown));
-        if (label) {
-          note.textContent = label;
-          root.setAttribute("aria-valuetext", label);
-        }
+        if (label) note.textContent = label;
+        meter.setAttribute("aria-valuenow", String(shown));
+        meter.setAttribute("aria-valuetext", shown + "%, " + note.textContent);
       }
       var api = {
         stage: function (label, fraction) {
@@ -173,8 +185,11 @@
           if (finished) return;
           finished = true;
           root.setAttribute("data-state", "failed");
+          heading.textContent = "ERROR";
+          status.setAttribute("role", "alert");
+          status.removeAttribute("aria-hidden");
           note.textContent = message;
-          root.setAttribute("aria-valuetext", message);
+          meter.setAttribute("aria-valuetext", message);
         },
       };
       window.__exotuiBoot = api;
