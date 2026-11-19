@@ -11,6 +11,10 @@ that follows the bundle's bytes; `examples/web/boot_progress.ts` produces it for
 desktop bundle is 899,972 bytes, inside its unchanged 900,000 limit. See
 `log/detail/feature--web-loading-scroll-speed.md`.
 
+Later the same day, after the maintainer tried it on a phone: the touch coast has half the friction. One named constant,
+`TOUCH_COAST_MS`, went from 90 to 180 ms, so the same flick goes twice as far for twice as long (17 rows in 540 ms from
+a full-speed flick). The flick threshold and the top speed are unchanged. Bundle 899,979 bytes. Health passes.
+
 ## November 18 complete Markdown table cells (branch, not merged)
 
 `feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records

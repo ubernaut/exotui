@@ -149,4 +149,13 @@ coasts. The speed setting does not touch a finger drag or the coast.
 from a full-speed flick, ended after 540 ms). `deno fmt --check`, `deno lint` on the changed files, `web:pages:build`.
 Headless Chromium, phone emulation, real touch events, page clock slowed four times: two full-speed flicks moved 2, 5 to
 6, 7 to 8, 11, 12 to 13, 14, 16 and 17 rows at 40 to 600 ms after the lift, then stayed. One flick under the threshold
-did not coast. Not verified: a real phone.
+did not coast.
+
+`deno task health` on `54a426a7` (this change and this log up to the previous paragraph): exit 0, 53 of 53 steps ok, 87
+benchmark cases, root tests 4147 passed and 8 ignored, Exomux 574, web 63, workers 54. The commit that adds this
+paragraph changes only planning files; `deno fmt --check` was run on it.
+
+Consumer, built from `54a426a7`: the same emulated flick moved a document window 17 rows by 600 ms after the lift in 3
+of 3 runs (7 to 8 rows by 240 ms at the old friction). Its nine browser suites pass.
+
+Not verified: a real phone. The maintainer is testing on one.
