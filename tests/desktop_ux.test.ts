@@ -98,11 +98,16 @@ Deno.test("a quick touch swipe coasts briefly, but a pause or new press stops it
   assertEquals(release, 6);
   frame(205);
   assert(offset > release, "a flick travels farther after release");
-  frame(500);
-  assert(offset - release <= 9, "coasting is intentionally short");
+  // The finger lifted at 145. Friction lets a glide keep a third of its speed for 180 ms, so it is still moving
+  // 300 ms later, has stopped after 540 ms, and never goes farther than 18 rows.
+  frame(445);
+  const gliding = offset;
+  frame(700);
+  assert(offset > gliding, "the coast is still moving 300 ms after the finger lifts");
+  assertEquals(offset - release, 17, "a full-speed flick covers 95% of its 18 rows");
   const settled = offset;
   frame(800);
-  assertEquals(offset, settled);
+  assertEquals(offset, settled, "the coast has ended");
 
   swipe(900, 150);
   const paused = offset;

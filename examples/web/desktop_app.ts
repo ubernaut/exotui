@@ -1440,6 +1440,12 @@ let touchScroll: {
   active: boolean;
 } | undefined;
 let touchCoast: { windowId: string; started: number; distance: number; applied: number } | undefined;
+/**
+ * The coast's one friction number: the milliseconds a glide takes to lose about two thirds of its speed. Friction is
+ * its inverse, so twice the time is half the friction, and the same flick then travels twice as far for twice as long.
+ * A coast runs for three of these and covers 95% of the distance its lift speed promises.
+ */
+const TOUCH_COAST_MS = 180;
 
 function advanceTouchCoast(now: number): void {
   const coast = touchCoast;
@@ -1450,8 +1456,9 @@ function advanceTouchCoast(now: number): void {
     touchCoast = undefined;
     return;
   }
-  const elapsed = Math.max(0, Math.min(270, now - coast.started));
-  const distance = coast.distance * (1 - Math.exp(-elapsed / 90));
+  // The time since the lift, counted in friction times. A coast is over after three.
+  const time = Math.max(0, Math.min(3, (now - coast.started) / TOUCH_COAST_MS));
+  const distance = coast.distance * (1 - Math.exp(-time));
   const scroll = demo.vscroll?.(window.clientRect.width, window.clientRect.height);
   if (!scroll) {
     touchCoast = undefined;
@@ -1462,7 +1469,7 @@ function advanceTouchCoast(now: number): void {
   const next = Math.max(0, Math.min(scroll.total - window.clientRect.height, requested));
   if (next !== scroll.offset) demo.scrollTo(next);
   coast.applied = rows;
-  if (elapsed >= 270 || requested !== next) touchCoast = undefined;
+  if (time >= 3 || requested !== next) touchCoast = undefined;
 }
 let selection:
   | { readonly windowId: string; readonly from: SelectionPoint; readonly to: SelectionPoint }
@@ -2475,9 +2482,17 @@ function handleDesktopPointer(event: PointerInputEvent): void {
     if (touchScroll?.active) {
       const age = event.timestamp - touchScroll.lastMove;
       if (event.kind === "up" && age < 75) {
-        const distance = Math.max(-9, Math.min(9, touchScroll.velocity * 90 * (1 - age / 75)));
-        if (Math.abs(distance) >= 3.25) {
-          touchCoast = { windowId: touchScroll.windowId, started: event.timestamp, distance, applied: 0 };
+        // Rows per millisecond at lift, fading with the time since the finger last moved. Only a real flick coasts
+        // (36 rows a second), and no coast starts faster than 100 rows a second, which keeps its distance bounded.
+        // These are speeds on purpose: friction changes how far a flick goes, not which gestures count as one.
+        const speed = Math.max(-0.1, Math.min(0.1, touchScroll.velocity * (1 - age / 75)));
+        if (Math.abs(speed) >= 0.036) {
+          touchCoast = {
+            windowId: touchScroll.windowId,
+            started: event.timestamp,
+            distance: speed * TOUCH_COAST_MS,
+            applied: 0,
+          };
         }
       }
       touchScroll = undefined;
