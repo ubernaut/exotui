@@ -159,3 +159,42 @@ Consumer, built from `54a426a7`: the same emulated flick moved a document window
 of 3 runs (7 to 8 rows by 240 ms at the old friction). Its nine browser suites pass.
 
 Not verified: a real phone. The maintainer is testing on one.
+
+## 2026-11-19 — The snap preview's whole outline
+
+### Prompt
+
+"can you fix the tiling behavior so the window border is shown? all the way around?" with a screenshot path on the
+maintainer's own machine, which this session could not read. Then, while the tiled layout was being inspected by
+mistake: "this is for the window sizing preview when you drag a window to the side or a corner".
+
+### Response and strategy
+
+The preview is `projection.snapPreview.rect` from the window host. `paintDesktop` drew one line of it by hand, a top
+edge with two corner glyphs. Reproduced in a browser first: a window held at the left edge of a 160 by 50 desktop showed
+corners at columns 0 and 79 of row 1 and nothing else.
+
+The desktop now hands the same rectangle to `borderBoxOnGround`, the painter the window chrome goes through, with the
+thin glyph set and the colours the top edge already had (accent on the wallpaper ground). A ground sampled from the
+cells beneath was considered, so that the outline would keep whatever it crosses behind its lines. It was not taken: the
+existing edge and the tiled separators both sit on the flat wallpaper ground, and the outline should read as one frame
+over windows and wallpaper alike.
+
+No host change. The rectangle was already right; only one side of it was being drawn.
+
+Bytes: the hand-built line is gone and the painter was already bundled, so the bundle shrank by 82 bytes to 899,897.
+
+The first aim at this prompt was wrong. "Tiling" was read as the `g` tiled layout, and time went into capturing that
+layout before the second message arrived. Nothing was changed for it.
+
+A trap in driving the page from a script: the screen is drawn curved, so a pixel computed from the cell grid lands a row
+or a column off near the edges. A press meant for a title bar on row 1 opened the start menu instead. The tool now asks
+the desktop's debug hook which cell the pointer is on and corrects until it is the one wanted.
+
+### Verification
+
+`tests/desktop_ux.test.ts` (12). The new test checks every cell on the edge of three snap rectangles (left edge, top
+right corner, middle of the bottom edge) and that the outline goes when the pointer leaves the edge. It fails on the old
+painter at the first bottom corner. It releases its drag in a `finally`, because the desktop is one per process and an
+open gesture fails every later test. `deno fmt --check`, `deno lint` on the changed files, `web:pages:build`. Headless
+Chromium on the built page: all four corners of each rectangle are on screen while the window is held there.
