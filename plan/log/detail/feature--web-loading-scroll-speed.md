@@ -198,3 +198,14 @@ right corner, middle of the bottom edge) and that the outline goes when the poin
 painter at the first bottom corner. It releases its drag in a `finally`, because the desktop is one per process and an
 open gesture fails every later test. `deno fmt --check`, `deno lint` on the changed files, `web:pages:build`. Headless
 Chromium on the built page: all four corners of each rectangle are on screen while the window is held there.
+
+`deno task health` on `5423e584` (this change and this log up to the previous paragraph): exit 0, 53 of 53 steps ok, 87
+benchmark cases, root tests 4148 passed and 8 ignored, Exomux 574, web 63, workers 54. The commit that adds this
+paragraph changes only planning files; `deno fmt --check` was run on it.
+
+Consumer, built from `5423e584`: a floating document window held at the left edge, the top right corner and the bottom
+edge shows the whole outline over the windows beneath it. Its nine browser suites pass.
+
+Exomux is not affected. It paints its own preview as a full dotted frame (`painter.frame` in `packages/exomux/app.ts`).
+
+Not verified: the maintainer's own screenshot, which this session could not read.

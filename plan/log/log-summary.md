@@ -15,6 +15,9 @@ Later the same day, after the maintainer tried it on a phone: the touch coast ha
 `TOUCH_COAST_MS`, went from 90 to 180 ms, so the same flick goes twice as far for twice as long (17 rows in 540 ms from
 a full-speed flick). The flick threshold and the top speed are unchanged. Bundle 899,979 bytes. Health passes.
 
+Also that day: the preview shown while a window is dragged to an edge or a corner is the whole outline of where it will
+land, not only its top edge. It goes through the shared border painter, which made the bundle smaller: 899,897 bytes.
+
 ## November 18 complete Markdown table cells (branch, not merged)
 
 `feature/markdown-table-wrap` adds opt-in `tableCells: "wrap"` (wrapped cells keeping marks and links, labelled records
