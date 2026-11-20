@@ -741,7 +741,7 @@
   },
   "mod.mermaid.ts": {
     "modules": 132,
-    "bytes": 1570966,
+    "bytes": 1583431,
     "paths": {
       "mod.mermaid.ts": 552,
       "src/app/accessibility_tree.ts": 5721,
@@ -777,7 +777,7 @@
       "src/content/mermaid_bezier_path.ts": 7056,
       "src/content/mermaid_bidi.ts": 1895,
       "src/content/mermaid_bidi_data.ts": 10450,
-      "src/content/mermaid_cells.ts": 32116,
+      "src/content/mermaid_cells.ts": 44365,
       "src/content/mermaid_clip.ts": 4084,
       "src/content/mermaid_compositor.ts": 10212,
       "src/content/mermaid_counter_content_css.ts": 7299,
@@ -812,7 +812,7 @@
       "src/content/mermaid_quotes_data.ts": 12407,
       "src/content/mermaid_quotes_dom.ts": 5639,
       "src/content/mermaid_reference_dom.ts": 2014,
-      "src/content/mermaid_scene.ts": 57539,
+      "src/content/mermaid_scene.ts": 57755,
       "src/content/mermaid_semantics_dom.ts": 10650,
       "src/content/mermaid_standard.ts": 19318,
       "src/content/mermaid_stroke.ts": 6394,
@@ -879,7 +879,7 @@
   },
   "mod.mermaid_headless.ts": {
     "modules": 136,
-    "bytes": 1607763,
+    "bytes": 1620228,
     "paths": {
       "mod.mermaid.ts": 552,
       "mod.mermaid_headless.ts": 190,
@@ -916,7 +916,7 @@
       "src/content/mermaid_bezier_path.ts": 7056,
       "src/content/mermaid_bidi.ts": 1895,
       "src/content/mermaid_bidi_data.ts": 10450,
-      "src/content/mermaid_cells.ts": 32116,
+      "src/content/mermaid_cells.ts": 44365,
       "src/content/mermaid_clip.ts": 4084,
       "src/content/mermaid_compositor.ts": 10212,
       "src/content/mermaid_counter_content_css.ts": 7299,
@@ -953,7 +953,7 @@
       "src/content/mermaid_quotes_dom.ts": 5639,
       "src/content/mermaid_reference_dom.ts": 2014,
       "src/content/mermaid_resources.ts": 8207,
-      "src/content/mermaid_scene.ts": 57539,
+      "src/content/mermaid_scene.ts": 57755,
       "src/content/mermaid_semantics_dom.ts": 10650,
       "src/content/mermaid_standard.ts": 19318,
       "src/content/mermaid_stroke.ts": 6394,

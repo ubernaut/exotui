@@ -6,6 +6,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Experimental `./mermaid` native frames join line strokes that share a cell, so boxes, dividers, lifelines and edges
+  meet in corners, tees and crossings. Arrowheads are drawn as arrow glyphs, tight curves as rounded corners, start and
+  end states as `●` and `◉`, and a line no longer overwrites the label it passes behind. `MermaidScenePath` gains an
+  optional `marker` field.
 - Exomux places a streamed kitty graphics frame at its window even when the frame spans several writes. Before, a frame
   in the active window could appear at the wrong place for a moment, or stay there.
 - Exomux no longer crashes, and no longer fails to reattach, when a session goes away while one of its warnings is still

@@ -3,6 +3,15 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 19 Mermaid native line glyphs
+
+`feature/mermaid-native-line-glyphs`: the maintainer asked for work on the terminal ("ASCII") Mermaid renderer to
+continue. Rendering all 57 catalogue examples to cells showed that the most visible defects were not the MathML and
+typography threads the October log ends on, but basic line drawing. Strokes sharing a cell now resolve to one corner,
+tee or crossing; arrow markers are arrow glyphs; tight curves are rounded corners; start and end states are `●` and `◉`;
+a line no longer overwrites a label. Not merged: it changes what every native diagram looks like, so it waits for the
+maintainer's eye. See `log/detail/feature--mermaid-native-line-glyphs.md`.
+
 ## November 19 kitty chained placement and the warning timer, rebased
 
 `bug/kitty-chained-placement-anchor` (August 30, never merged) is rebased onto 0.10.1. A chained kitty display command

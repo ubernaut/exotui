@@ -145,6 +145,8 @@ export interface MermaidScenePath extends MermaidSceneSubpath {
   strokeDistances?: readonly (readonly number[])[];
   /** Ordered shape operations; markers are separate items and may split this into single-operation paths. */
   paintOrder?: readonly ("fill" | "stroke")[];
+  /** Set on geometry expanded from an SVG marker: which vertex of the owning path it decorates. */
+  marker?: "start" | "mid" | "end";
   /** All contours when the upstream shape contains multiple moveto commands. */
   subpaths?: readonly MermaidSceneSubpath[];
   paint: MermaidScenePaint;
@@ -714,6 +716,7 @@ function extractScene(
               append(
                 {
                   ...item,
+                  ...(item.kind === "path" ? { marker: vertex.position } : {}),
                   clip: item.clip && sourceClip
                     ? { kind: "intersection" as const, children: [item.clip, sourceClip] }
                     : item.clip ?? sourceClip,

@@ -473,6 +473,19 @@ const diagram = await renderer.compile("sequenceDiagram\nAlice->>Bob: Hello");
 const cells = renderMermaidNativeFrame(diagram.scene!);
 ```
 
+Line strokes that share a cell resolve to one box-drawing glyph. Upstream draws a class box as four sides and its
+dividers as further strokes; natively they read as `┌`, `├`, `┬` and `┼` rather than as whichever stroke was painted
+last. An opaque fill clears the lines beneath it, so a later stroke does not join something that is no longer visible. A
+corner that turns within a cell or two is `╭`, `╮`, `╰` or `╯`; only a sustained slope keeps `╱` and `╲`. A label keeps
+its cells when a line passes behind it.
+
+Markers are a few SVG units across, less than a cell. An arrowhead becomes one glyph in the cell before the end of its
+line (`►`, `◄`, `▲`, `▼`, or `▷`, `◁`, `△`, `▽` when it is drawn hollow), and the line stops there so the box or
+lifeline it points at keeps its own border. Diamonds are `◆` or `◇`, round markers `●` or `○`, a crossed pair of strokes
+`×`. Small round shapes that are not markers get the same treatment: a start state is `●` and an end state `◉`. A marker
+in several pieces, such as an entity-relationship cardinality, has no single glyph and keeps its measured geometry.
+`MermaidScenePath.marker` records which vertex of its path a marker decorates.
+
 Compilation runs offscreen for accurate SVG/HTML-label measurements, then releases the DOM tree. SVG is retained as the
 authoritative export; measured vectors, native text runs, styles and links form a serializable scene. Native conversion
 shares circuit line glyphs and existing raster geometry, retains thick/dashed distinctions and real Unicode labels, and

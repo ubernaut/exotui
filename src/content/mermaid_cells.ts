@@ -8,7 +8,7 @@ import { nativePaintOrder, strokeContours } from "./mermaid_stroke_metrics.ts";
 import { clipPredicate } from "./mermaid_clip.ts";
 import { MermaidCompositor } from "./mermaid_compositor.ts";
 import { clipBounds } from "./mermaid_filter.ts";
-import { paintSampler } from "./mermaid_paint.ts";
+import { paintSampler, parsePaintColor } from "./mermaid_paint.ts";
 import { decodeImageAsset } from "./mermaid_image.ts";
 import { mathAssembly } from "./mermaid_math.ts";
 import { projectMermaidScene } from "./mermaid_animation.ts";
@@ -222,6 +222,12 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
     predicate,
   });
   const visibleGrid = { left: 0, top: 0, right: columns - 1, bottom: rows - 1, columns, rows };
+  // Upstream draws a box, its dividers and the edges that reach it as separate
+  // strokes. Each cell remembers which sides its line strokes leave by, so the
+  // strokes sharing a cell resolve to one corner, tee or crossing instead of
+  // the last stroke's glyph. An opaque fill or other ink forgets the cell.
+  const lineArms = new Uint8Array(columns * rows);
+  const cellOwner = new Uint8Array(columns * rows);
   for (const [index, item] of scene.items.entries()) {
     compositor.at(index);
     const raster = compositor.filtering ? compositor.grid : visibleGrid;
@@ -234,14 +240,57 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
       : item.kind === "text"
       ? paintSampler(item.color, item.gradient, item.opacity ?? 1, charge, diagnostics)
       : undefined;
-    const put = (x: number, y: number, cell: Partial<MermaidNativeCell>, coverage = 1) => {
+    const put = (
+      x: number,
+      y: number,
+      cell: Partial<MermaidNativeCell>,
+      coverage = 1,
+      owner = item.kind === "text" && cell.char !== " " ? OWNER_GLYPH : OWNER_FREE,
+      sampler = cell.background ? fill : stroke,
+      clipped = true,
+    ): boolean => {
       const shift = cell.background || item.kind === "text" ? 0.5 : 0;
       const atX = (x + shift) * columnUnits;
       const atY = (y + shift) * rowUnits;
-      if (x >= raster.left && x <= raster.right && y >= raster.top && y <= raster.bottom && inside!(atX, atY)) {
-        const color = (cell.background ? fill : stroke)?.(atX, atY);
-        compositor.put(x, y, cell, color && coverage !== 1 ? { ...color, alpha: color.alpha * coverage } : color);
+      if (x < raster.left || x > raster.right || y < raster.top || y > raster.bottom) return false;
+      if (clipped && !inside!(atX, atY)) return false;
+      const color = sampler?.(atX, atY);
+      const alpha = (color?.alpha ?? 0) * coverage;
+      if (!color || alpha <= 0) return false;
+      compositor.put(x, y, cell, coverage !== 1 ? { ...color, alpha } : color);
+      if (x >= 0 && x < columns && y >= 0 && y < rows && (!cell.background || alpha >= 1)) {
+        cellOwner[y * columns + x] = owner;
+        if (owner !== OWNER_LINE) lineArms[y * columns + x] = 0;
       }
+      return true;
+    };
+    // Join a line stroke with the line strokes already in its cell.
+    const putLine = (
+      x: number,
+      y: number,
+      arms: number,
+      heavy: boolean,
+      round: boolean,
+      dashed: boolean,
+      coverage: number | undefined,
+    ) => {
+      const tracked = x >= 0 && x < columns && y >= 0 && y < rows;
+      const at = y * columns + x;
+      // A label is worth more than the line that happens to share its cell.
+      if (tracked && cellOwner[at] === OWNER_GLYPH) return;
+      let state = arms | (heavy ? ARM_HEAVY : 0) | (round ? ARM_ROUND : 0);
+      if (tracked && cellOwner[at] === OWNER_LINE) {
+        const before = lineArms[at]!;
+        if (!!(before & ARM_HEAVY) === heavy) {
+          state = (before | arms) & ARM_SIDES | (heavy ? ARM_HEAVY : 0) | (before & ARM_ROUND && round ? ARM_ROUND : 0);
+        }
+      }
+      let char = lineGlyph(state);
+      if (dashed) char = ({ "─": "┄", "│": "┆", "═": "┅", "║": "┇" } as Record<string, string>)[char] ?? char;
+      const cell = { char, foreground: item.kind === "path" ? item.paint.stroke : undefined, href: item.href };
+      if (
+        put(x, y, { ...cell, interaction: item.interaction }, coverage, OWNER_LINE) && tracked
+      ) lineArms[at] = state;
     };
     if (item.kind === "image") {
       const asset = item.image === undefined ? undefined : scene.images?.[item.image];
@@ -437,6 +486,39 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
       }
       continue;
     }
+    {
+      const marker = markerGlyph(item, columnUnits, rowUnits);
+      if (marker) {
+        // A ring around a dot is one mark, not two.
+        const at = marker.row * columns + marker.column;
+        const ringed = marker.column >= 0 && marker.column < columns && marker.row >= 0 && marker.row < rows &&
+          cellOwner[at] === OWNER_GLYPH && lineArms[at] === ROUND_MARK && "●○".includes(marker.char);
+        if (ringed) marker.char = "◉";
+        charge(8);
+        // The marker's own viewport clips its geometry, not the cell its glyph moved to.
+        if (inside(marker.x, marker.y)) {
+          put(
+            marker.column,
+            marker.row,
+            { char: marker.char, foreground: marker.filled ? item.paint.fill : item.paint.stroke, href: item.href },
+            1,
+            OWNER_GLYPH,
+            marker.filled ? fill : stroke,
+            false,
+          );
+          if ("●○◉".includes(marker.char) && cellOwner[at] === OWNER_GLYPH) lineArms[at] = ROUND_MARK;
+        }
+        continue;
+      }
+    }
+    // An arrowhead owns the cell before the end of its line; the line itself
+    // stops there, so the box or lifeline it points at keeps its own glyph.
+    const markedEnds = new Set<string>();
+    for (let next = index + 1; next < scene.items.length; next++) {
+      const marker = scene.items[next]!;
+      if (marker.kind !== "path" || !marker.marker) break;
+      if (markerGlyph(marker, columnUnits, rowUnits)?.pointed) markedEnds.add(marker.marker);
+    }
     const subpaths = strokeContours(item);
     const paintOrder = nativePaintOrder(item);
     const pointCount = subpaths.reduce((count, path) => count + path.points.length, 0);
@@ -507,7 +589,16 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
           }
           continue;
         }
-        const path: { x: number; y: number; lower: number; upper: number; incoming: number; outgoing: number }[] = [];
+        const path: {
+          x: number;
+          y: number;
+          lower: number;
+          upper: number;
+          incoming: number;
+          outgoing: number;
+          /** Some segment crossed this cell on a slope, even if it entered and left it straight. */
+          curved: boolean;
+        }[] = [];
         for (let index = 1; index < vertices.length; index++) {
           const first = vertices[index - 1]!;
           const last = vertices[index]!;
@@ -533,7 +624,18 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
               previous.lower = Math.min(previous.lower, lower);
               previous.upper = Math.max(previous.upper, upper);
               previous.outgoing = direction;
-            } else path.push({ x: at.column, y: at.row, lower, upper, incoming: direction, outgoing: direction });
+              previous.curved ||= direction % 2 === 1;
+            } else {
+              path.push({
+                x: at.column,
+                y: at.row,
+                lower,
+                upper,
+                incoming: direction,
+                outgoing: direction,
+                curved: direction % 2 === 1,
+              });
+            }
             if (path.length > maxCells * 4) throw new RangeError("Native Mermaid stroke exceeds its work budget.");
           }
         }
@@ -545,6 +647,21 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
         }
         const trace = closed ? [path.at(-2)!, ...path, path[1]!] : path;
         const glyphs = closed ? routeCells(trace).slice(1, -1) : routeCells(trace);
+        // A corner rounded within a cell or two is still a corner. Only a
+        // sustained slope reads as a diagonal.
+        const sloped = path.map((at) => at.incoming % 2 === 1 || at.outgoing % 2 === 1);
+        const diagonalRun = sloped.map(() => false);
+        for (let from = 0; from < sloped.length; from++) {
+          if (!sloped[from]) continue;
+          let to = from;
+          while (sloped[to + 1]) to++;
+          if (
+            Math.abs(path[to]!.x - path[from]!.x) >= 2 && Math.abs(path[to]!.y - path[from]!.y) >= 2
+          ) diagonalRun.fill(true, from, to + 1);
+          from = to;
+        }
+        const firstContour = contours[0]!.vertices === vertices;
+        const lastContour = contours.at(-1)!.vertices === vertices;
         for (const [index, at] of glyphs.entries()) {
           charge(4 + (pattern?.intervals.length ?? 0) * 3);
           const fraction = movingStroke
@@ -558,30 +675,49 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
             ? "solid"
             : "partial";
           if (coverage === "none") continue;
+          if (
+            !closed && path.length > 2 &&
+            (index === 0 && firstContour && markedEnds.has("start") ||
+              index === path.length - 1 && lastContour && markedEnds.has("end"))
+          ) continue;
           const position = index + (closed ? 1 : 0);
-          const previous = trace[Math.max(0, position - 1)]!;
-          const next = trace[Math.min(trace.length - 1, position + 1)]!;
-          const diagonal = previous.x !== at.x && previous.y !== at.y || next.x !== at.x && next.y !== at.y;
-          // Cell traversal uses cardinal steps, but a continuous diagonal hatch is
-          // not a series of right-angle corners. Preserve its measured direction;
-          // only genuine segment turns need the shared circuit junction glyph.
+          const previous = trace[position - 1];
+          const next = trace[position + 1];
           const tangent = path[index]!;
-          let char = tangent.incoming === tangent.outgoing
-            ? ["─", "╲", "│", "╱", "─", "╲", "│", "╱"][tangent.incoming]!
-            : diagonal
-            ? (next.x - previous.x) * (next.y - previous.y) > 0 ? "╲" : "╱"
-            : at.glyph;
-          if (item.paint.strokeWidth >= 3) {
-            char = ({ "─": "═", "│": "║", "┌": "╔", "┐": "╗", "└": "╚", "┘": "╝" } as Record<string, string>)[char] ??
-              char;
+          const heavy = item.paint.strokeWidth >= 3;
+          if (diagonalRun[index] || !previous && !next) {
+            // Cell traversal uses cardinal steps, but a continuous diagonal hatch is
+            // not a series of right-angle corners. Preserve its measured direction.
+            const before = previous ?? at;
+            const after = next ?? at;
+            let char = tangent.incoming === tangent.outgoing
+              ? ["─", "╲", "│", "╱", "─", "╲", "│", "╱"][tangent.incoming]!
+              : (after.x - before.x) * (after.y - before.y) > 0
+              ? "╲"
+              : (after.x - before.x) * (after.y - before.y) < 0
+              ? "╱"
+              : at.glyph;
+            if (heavy) char = ({ "─": "═", "│": "║" } as Record<string, string>)[char] ?? char;
+            if (coverage === "partial") {
+              char = ({ "─": "┄", "│": "┆", "═": "┅", "║": "┇" } as Record<string, string>)[char] ?? char;
+            }
+            put(
+              at.x,
+              at.y,
+              { char, foreground: item.paint.stroke, href: item.href, interaction: item.interaction },
+              fraction,
+            );
+            continue;
           }
-          if (coverage === "partial") {
-            char = ({ "─": "┄", "│": "┆", "═": "┅", "║": "┇" } as Record<string, string>)[char] ?? char;
-          }
-          put(
+          const arms = (previous ? lineArm(at, previous, tangent.incoming) : 0) |
+            (next ? lineArm(at, next, tangent.outgoing) : 0);
+          putLine(
             at.x,
             at.y,
-            { char, foreground: item.paint.stroke, href: item.href, interaction: item.interaction },
+            arms,
+            heavy,
+            tangent.curved,
+            coverage === "partial",
             fraction,
           );
         }
@@ -605,6 +741,152 @@ export function renderMermaidNativeFrame(scene: MermaidScene, options: MermaidNa
       title: scene.title,
       description: scene.description,
     }),
+  };
+}
+
+const OWNER_FREE = 0;
+const OWNER_LINE = 1;
+const OWNER_GLYPH = 2;
+const ARM_NORTH = 1;
+const ARM_EAST = 2;
+const ARM_SOUTH = 4;
+const ARM_WEST = 8;
+const ARM_SIDES = 15;
+const ARM_HEAVY = 16;
+const ARM_ROUND = 32;
+/** Stored in place of arms for a cell holding a round mark, so its ring and dot can merge. */
+const ROUND_MARK = 255;
+const LIGHT_GLYPHS = [" ", "│", "─", "└", "│", "│", "┌", "├", "─", "┘", "─", "┴", "┐", "┤", "┬", "┼"] as const;
+const HEAVY_GLYPHS = [" ", "║", "═", "╚", "║", "║", "╔", "╠", "═", "╝", "═", "╩", "╗", "╣", "╦", "╬"] as const;
+const ROUND_GLYPHS: Record<number, string> = { 3: "╰", 6: "╭", 9: "╯", 12: "╮" };
+
+function lineGlyph(state: number): string {
+  const sides = state & ARM_SIDES;
+  if (state & ARM_HEAVY) return HEAVY_GLYPHS[sides]!;
+  return state & ARM_ROUND && ROUND_GLYPHS[sides] || LIGHT_GLYPHS[sides]!;
+}
+
+/** The side of `at` that a stroke leaves by on its way to a neighbouring cell. */
+function lineArm(at: { x: number; y: number }, to: { x: number; y: number }, tangent: number): number {
+  const dx = to.x - at.x;
+  const dy = to.y - at.y;
+  // An exact corner-to-corner step has no side of its own; follow the stroke.
+  if (dx && dy) return tangent % 4 === 2 ? dy > 0 ? ARM_SOUTH : ARM_NORTH : dx > 0 ? ARM_EAST : ARM_WEST;
+  return dx > 0 ? ARM_EAST : dx < 0 ? ARM_WEST : dy > 0 ? ARM_SOUTH : dy < 0 ? ARM_NORTH : 0;
+}
+
+/**
+ * An SVG marker is a few units across: sampled as geometry it is one stray
+ * cell or nothing. Read its shape instead, and place one glyph that says the
+ * same thing. Larger or unrecognised markers keep their measured geometry.
+ */
+function markerGlyph(
+  item: MermaidScenePath,
+  columnUnits: number,
+  rowUnits: number,
+): { column: number; row: number; x: number; y: number; char: string; filled: boolean; pointed: boolean } | undefined {
+  const contours = item.subpaths ?? [item];
+  const points: { x: number; y: number }[] = [];
+  for (const contour of contours) {
+    for (const point of contour.points) {
+      if (points.length > 256) return undefined;
+      if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return undefined;
+      if (!points.some((seen) => Math.hypot(seen.x - point.x, seen.y - point.y) < 1e-3)) points.push(point);
+    }
+  }
+  if (points.length < 2) return undefined;
+  const left = Math.min(...points.map((point) => point.x));
+  const right = Math.max(...points.map((point) => point.x));
+  const top = Math.min(...points.map((point) => point.y));
+  const bottom = Math.max(...points.map((point) => point.y));
+  // An arrowhead is glyph-sized by intent. Any other shape must be no larger than the glyph that replaces it.
+  const limit = item.marker ? [6, 3] : [4, 2];
+  if (right - left > columnUnits * limit[0]! || bottom - top > rowUnits * limit[1]!) return undefined;
+  const fill = parsePaintColor(item.paint.fill);
+  const stroke = item.paint.strokeWidth > 0 ? parsePaintColor(item.paint.stroke) : undefined;
+  const light = (color: { rgb: readonly [number, number, number] }) =>
+    (color.rgb[0] * 0.2126 + color.rgb[1] * 0.7152 + color.rgb[2] * 0.0722) / 255;
+  const stroked = !!stroke && stroke.alpha > 0;
+  // Filled with its own ink, as opposed to outlined around the backdrop colour.
+  const filled = !!fill && fill.alpha * (item.paint.fillOpacity ?? 1) > 0 &&
+    (!stroked || Math.abs(light(fill) - light(stroke!)) < 0.4);
+  if (!filled && !stroked) return undefined;
+  const centre = {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+  };
+  const centred = (char: string) => ({
+    column: Math.round((left + right) / 2 / columnUnits),
+    row: Math.round((top + bottom) / 2 / rowUnits),
+    x: (left + right) / 2,
+    y: (top + bottom) / 2,
+    char,
+    filled,
+    pointed: false,
+  });
+  const distances = points.map((point) => Math.hypot(point.x - centre.x, point.y - centre.y));
+  const farthest = Math.max(...distances);
+  if (farthest <= 0) return undefined;
+  if (points.length >= 6 && Math.min(...distances) / farthest > 0.8 && contours.length === 1) {
+    return centred(filled ? "●" : "○");
+  }
+  if (!item.marker) return undefined;
+  if (contours.length > 1) {
+    // Two strokes through one another are a cross. Anything else in several
+    // pieces (an entity-relationship cardinality) has no single glyph.
+    if (contours.length !== 2 || contours.some((contour) => contour.closed || contour.points.length !== 2)) {
+      return undefined;
+    }
+    const [a, b] = [contours[0]!.points, contours[1]!.points];
+    const side = (p: { x: number; y: number }, q: { x: number; y: number }, r: { x: number; y: number }) =>
+      Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+    return side(a[0]!, a[1]!, b[0]!) * side(a[0]!, a[1]!, b[1]!) < 0 &&
+        side(b[0]!, b[1]!, a[0]!) * side(b[0]!, b[1]!, a[1]!) < 0
+      ? centred("×")
+      : undefined;
+  }
+  let tip: { x: number; y: number } | undefined;
+  if (points.length === 3) {
+    // The apex of an arrowhead faces its odd side, whatever the proportions.
+    const side = (index: number) =>
+      Math.hypot(
+        points[(index + 1) % 3]!.x - points[(index + 2) % 3]!.x,
+        points[(index + 1) % 3]!.y - points[(index + 2) % 3]!.y,
+      );
+    const sides = [side(0), side(1), side(2)];
+    const mean = (sides[0]! + sides[1]! + sides[2]!) / 3;
+    const odd = sides.map((length) => Math.abs(length - mean));
+    tip = points[odd.indexOf(Math.max(...odd))];
+  } else if (points.length === 4 && contours.length === 1) {
+    const turn = (index: number) => {
+      const a = points[(index + 3) % 4]!, b = points[index]!, c = points[(index + 1) % 4]!;
+      return (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    };
+    const turns = [turn(0), turn(1), turn(2), turn(3)];
+    const winding = Math.sign(turns.reduce((sum, value) => sum + value, 0));
+    const reflex = turns.findIndex((value) => Math.sign(value) === -winding);
+    if (reflex < 0) return centred(filled ? "◆" : "◇");
+    tip = points[(reflex + 2) % 4];
+  } else tip = points[distances.indexOf(farthest)];
+  if (!tip) return undefined;
+  const dx = tip.x - centre.x;
+  const dy = tip.y - centre.y;
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  const step = horizontal ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+  return {
+    column: Math.round(tip.x / columnUnits) - step.x,
+    row: Math.round(tip.y / rowUnits) - step.y,
+    x: (left + right) / 2,
+    y: (top + bottom) / 2,
+    char: horizontal
+      ? dx > 0 ? filled ? "►" : "▷" : filled ? "◄" : "◁"
+      : dy > 0
+      ? filled ? "▼" : "▽"
+      : filled
+      ? "▲"
+      : "△",
+    filled,
+    pointed: true,
   };
 }
 
