@@ -68,3 +68,8 @@ existing Mermaid and document tests pass unchanged. All 57 catalogue fixtures st
 - Gantt tick labels overlap, the drop shadow paints a column and row of cells beside every box, and node boxes carry
   spare empty rows. All visible, none of them line drawing.
 - Steep pie-slice edges are now connected staircases rather than unconnected stacks of `│`.
+
+### Gate result
+
+`deno task health` exited 0 on `803dd1b6` and left the tree clean. Not merged: the change is visible in every native
+diagram and waits for the maintainer to look at it in a terminal (`deno task mermaid:document-viewer`).
