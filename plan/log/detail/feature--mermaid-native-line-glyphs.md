@@ -73,3 +73,8 @@ existing Mermaid and document tests pass unchanged. All 57 catalogue fixtures st
 
 `deno task health` exited 0 on `803dd1b6` and left the tree clean. Not merged: the change is visible in every native
 diagram and waits for the maintainer to look at it in a terminal (`deno task mermaid:document-viewer`).
+
+### Merge
+
+The maintainer saw the before and after samples and asked for the merge on November 19. Merged into `main` with
+`--no-ff`. Entity-relationship marks and the gantt axis continue on `feature/mermaid-er-marks-gantt-axis`.
