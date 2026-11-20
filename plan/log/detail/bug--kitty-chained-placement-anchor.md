@@ -102,3 +102,30 @@ field is not pinned down (kill, sweep, and refresh are all candidates); the mech
 warning, kill, tick past the TTL) — **verified to fail with the guard removed**, reproducing the field crash exactly.
 New relay test "an orphan continuation chunk is dropped, not forwarded". Relay suite 20 passed; exomux suite 549; root
 suite 3685 with the entrypoint budget regenerated again; `deno task health` in the commit message.
+
+## 2026-11-19 — Rebased onto `main` after 0.10.1
+
+### Prompt
+
+While cutting 0.10.1 the branch turned up as unmerged; the maintainer asked for it to be picked up.
+
+### Response and strategy
+
+The branch was 65 commits behind `main` and neither fix had landed any other way: `main` had not touched
+`src/runtime/kitty_passthrough.ts` since the branch point, and the warning timer in `packages/exomux/controller.ts`
+still wrote to a disposed signal.
+
+- `0132fafe` (ranges widened to `^0.7.0`) is dropped. `main` carries `^0.10.0`, so the commit is obsolete.
+- The two fix commits replay onto `99b0b20b`. Source and tests applied without conflict. The conflicts were all in
+  derived or shared files: `budgets/entrypoints.json` (kept `main`'s, then regenerated), `packages/exomux/deno.lock`
+  (kept `main`'s; the test run re-adds the `FakeTime` entries) and `plan/log/log-summary.md` (kept `main`'s, with one
+  new entry for this landing instead of the two August ones).
+- The fix still fits the code around it: the flush in `packages/exomux/app.ts` still moves the host cursor only for an
+  emission that carries a `cell`, which is what the explicit placement at chain close relies on.
+- The pre-rebase tip is kept as `backup/kitty-chained-placement-anchor-pre-rebase` until the branch is merged.
+
+**Evidence.** Relay suite 20 passed, exomux controller suite 26 passed on the rebased tree; `deno task health` result in
+the gate entry below.
+
+**Still open, unchanged from August:** nobody has watched this on the maintainer's terminal since the crash fix. tode
+under Ghostty, active window: updates, a drag mid-stream, a close mid-stream, and a reattach.

@@ -6,6 +6,11 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Exomux places a streamed kitty graphics frame at its window even when the frame spans several writes. Before, a frame
+  in the active window could appear at the wrong place for a moment, or stay there.
+- Exomux no longer crashes, and no longer fails to reattach, when a session goes away while one of its warnings is still
+  showing.
+
 ## exotui 0.10.1 — 2026-11-19
 
 Exomux is unchanged at 0.6.0. The library code is unchanged; this release covers the Exowebtui web desktop.
