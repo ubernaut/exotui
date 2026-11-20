@@ -129,3 +129,8 @@ the gate entry below.
 
 **Still open, unchanged from August:** nobody has watched this on the maintainer's terminal since the crash fix. tode
 under Ghostty, active window: updates, a drag mid-stream, a close mid-stream, and a reattach.
+
+### Gate result
+
+`deno task health` exited 0 on `3ec33b65` (141 gates) and left the tree clean. Not merged: the live terminal check above
+comes first.
