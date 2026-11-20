@@ -8,8 +8,9 @@ ends, and repro details behind it. Newest first.
 `bug/kitty-chained-placement-anchor` (August 30, never merged) is rebased onto 0.10.1. A chained kitty display command
 is relayed transmit-only and placed explicitly at the cell where the chain opened, so a streamed frame in the active
 window no longer lands at the parked cursor for a frame. Nothing else enters the stream while a chain is open. The
-warning-retirement timer no longer writes to a disposed runtime, which crashed the client and looped on reattach. Not
-yet watched on the maintainer's terminal. See `log/detail/bug--kitty-chained-placement-anchor.md`.
+warning-retirement timer no longer writes to a disposed runtime, which crashed the client and looped on reattach. The
+maintainer checked it on their terminal and it was merged the same day; it ships with the next exomux release. See
+`log/detail/bug--kitty-chained-placement-anchor.md`.
 
 ## November 19 release 0.10.1
 

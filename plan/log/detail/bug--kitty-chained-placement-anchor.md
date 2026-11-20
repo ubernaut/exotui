@@ -134,3 +134,8 @@ under Ghostty, active window: updates, a drag mid-stream, a close mid-stream, an
 
 `deno task health` exited 0 on `3ec33b65` (141 gates) and left the tree clean. Not merged: the live terminal check above
 comes first.
+
+### Live check and merge
+
+The maintainer ran the branch on their terminal on November 19 and reported it "looks fine", then asked for the merge.
+Merged into `main` with `--no-ff`. Exomux's version is not bumped here; the fix ships with the next exomux release.
