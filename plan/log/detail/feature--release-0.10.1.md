@@ -20,3 +20,10 @@ So this is a patch release of the library only: `deno.jsonc` and `package.json` 
 changelog entries move under a 0.10.1 heading. Exomux stays at 0.6.0; its `^0.10.0` range on the library already admits
 0.10.1, so `packages/exomux/deno.json` is untouched. The `v0.10.1` tag still builds exomux binaries for the GitHub
 release, and the npm job leaves the existing 0.6.0 unchanged.
+
+### Gate result
+
+`deno task health` exited 0 on `75c5f0f4` (141 gates). It rewrote the two `links` entries in `packages/exomux/deno.lock`
+from 0.10.0 to 0.10.1, committed separately as `ba1e120e`; `deno task release-check` and the exomux
+`deno publish --dry-run` both pass with that lockfile committed. The older unmerged `bug/kitty-chained-placement-anchor`
+(August 30) was noticed while checking for stray work and left out of this release.
