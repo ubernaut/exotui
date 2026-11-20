@@ -6,6 +6,10 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+## exotui 0.10.1 — 2026-11-19
+
+Exomux is unchanged at 0.6.0. The library code is unchanged; this release covers the Exowebtui web desktop.
+
 - Exowebtui scrolls twice as far for each wheel event by default. Settings → Windows has a scroll speed with three
   steps: slow (the earlier pace), medium (the default) and fast (four times the earlier pace). The choice is saved. A
   finger drag still keeps the content under the finger.

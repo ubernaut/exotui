@@ -3,6 +3,12 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 19 release 0.10.1
+
+`feature/release-0.10.1`: exotui 0.10.1, cut from the web desktop work below. No `src/` change since 0.10.0, so the JSR
+package differs only in its version and changelog; exomux stays at 0.6.0 and npm is not republished. See
+`log/detail/feature--release-0.10.1.md`.
+
 ## November 19 web desktop scroll speed, loading bar, longer coast and full snap preview
 
 `feature/web-loading-scroll-speed`: one wheel event now moves two application ticks by default, with a saved Settings →
