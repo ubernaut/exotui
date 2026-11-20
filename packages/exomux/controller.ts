@@ -1978,7 +1978,11 @@ export class ExomuxController {
     if (existing !== undefined) clearTimeout(existing);
     const timer = setTimeout(() => {
       this.#warningTimers.delete(runtime.sessionId);
-      if (this.#disposed || runtime.warning.peek() !== message) return;
+      // The runtime may be gone by now — killed, swept on an exit broadcast,
+      // or dropped by a session refresh — and a disposed signal rejects
+      // writes. A dead runtime's warning needs no retiring; writing anyway
+      // was an uncaught TypeError that took the whole client down.
+      if (this.#disposed || runtime.warning.disposed || runtime.warning.peek() !== message) return;
       runtime.warning.value = undefined;
       runtime.renderRevision.value += 1;
     }, EXOMUX_WARNING_TTL_MS);
@@ -4152,8 +4156,10 @@ function createTerminalRuntime(
       ? {
         onKittyGraphics: (data, cursor) => {
           // Bounded: a stalled flush must not hold every frame an app ever
-          // streamed. Old emissions are droppable — the app repaints.
-          if (pendingGraphics.length > 512) pendingGraphics.length = 0;
+          // streamed. Only between chains — the host is mid-reassembly of an
+          // open chain's chunks, and a gap desyncs everything after it — and
+          // old emissions are droppable because the app repaints.
+          if (pendingGraphics.length > 512 && !relay.chainOpen) pendingGraphics.length = 0;
           pendingGraphics.push(...relay.ingest(data, cursor));
         },
       }

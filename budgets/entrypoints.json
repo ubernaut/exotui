@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 494,
-    "bytes": 5831025,
+    "bytes": 5833558,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -326,7 +326,7 @@
       "src/runtime/infinite_query.ts": 5781,
       "src/runtime/kitty_graphics.ts": 13025,
       "src/runtime/kitty_keyboard.ts": 5480,
-      "src/runtime/kitty_passthrough.ts": 19183,
+      "src/runtime/kitty_passthrough.ts": 21716,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4934,
       "src/runtime/mod.ts": 3289,

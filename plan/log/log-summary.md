@@ -3,6 +3,15 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 19 kitty chained placement and the warning timer, rebased
+
+`bug/kitty-chained-placement-anchor` (August 30, never merged) is rebased onto 0.10.1. A chained kitty display command
+is relayed transmit-only and placed explicitly at the cell where the chain opened, so a streamed frame in the active
+window no longer lands at the parked cursor for a frame. Nothing else enters the stream while a chain is open. The
+warning-retirement timer no longer writes to a disposed runtime, which crashed the client and looped on reattach. The
+maintainer checked it on their terminal and it was merged the same day; it ships with the next exomux release. See
+`log/detail/bug--kitty-chained-placement-anchor.md`.
+
 ## November 19 release 0.10.1
 
 `feature/release-0.10.1`: exotui 0.10.1, cut from the web desktop work below. No `src/` change since 0.10.0, so the JSR

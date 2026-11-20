@@ -4,7 +4,8 @@ import { assert, assertEquals, assertStringIncludes, assertThrows } from "./deps
 import { MemoryStore } from "@ubernaut/exotui";
 import { grWizardThemePalettes } from "@ubernaut/exotui";
 import { createTestMousePress } from "@ubernaut/exotui/testing";
-import { createExomuxController } from "../controller.ts";
+import { FakeTime } from "https://deno.land/std@0.192.0/testing/time.ts";
+import { createExomuxController, EXOMUX_WARNING_TTL_MS } from "../controller.ts";
 import {
   EXOMUX_T2_SWATCHES,
   EXOMUX_THEMES,
@@ -238,6 +239,39 @@ Deno.test("Exomux closes a window whose session the daemon has already dropped",
     assertEquals(controller.runtime(session.id), undefined);
     assertStringIncludes(controller.status.peek(), "already exited");
   } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("a warning's retirement timer survives its runtime's disposal", async () => {
+  // The write-after-dispose crash: Signal.dispose() redefines `value` as a
+  // read-only property, so a warning-retirement timer firing after its
+  // runtime was killed threw an uncaught TypeError and took the whole client
+  // down. In the field: every reattach of a graphics-heavy session warned
+  // about replay truncation, and the session going away inside the TTL — an
+  // exit sweep, a kill, a refresh — armed the crash.
+  const host = new FakeExomuxHost();
+  const session = host.seed("warned-then-gone", "doomed shell");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  const time = new FakeTime();
+  try {
+    const runtime = controller.runtime(session.id)!;
+    host.emit(session.id, "first");
+    // A skipped sequence arms the transient warning and its retirement timer.
+    host.sessions.get(session.id)!.sequence += 3;
+    host.emit(session.id, "later");
+    assertStringIncludes(runtime.warning.peek() ?? "", "sequence gap");
+
+    // The session dies inside the warning TTL; the kill disposes the runtime.
+    host.sessions.delete(session.id);
+    assertEquals(await controller.killSession(session.id), true);
+    assertEquals(controller.runtime(session.id), undefined);
+
+    // The timer fires against the disposed runtime — and must do nothing.
+    time.tick(EXOMUX_WARNING_TTL_MS + 1);
+  } finally {
+    time.restore();
     await controller.dispose();
   }
 });

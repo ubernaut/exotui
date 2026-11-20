@@ -57,6 +57,57 @@ Deno.test("continuation chunks are relayed untouched and position-free", () => {
   assertEquals(control(next.data).get("i"), "100", "same child id maps to the same host id");
 });
 
+Deno.test("a chained display transmits without displaying and is placed at its anchor on close", () => {
+  // The misplaced-frame bug: the protocol displays a chunked transmission at
+  // the cursor position when the FINAL chunk arrives, and a chain that spans
+  // a relay flush finds that cursor wherever the compositor's own painting
+  // parked it — the streamed frame landed there for a beat, then the next
+  // frame snapped it back. Only the fully visible (active, topmost) window
+  // took this path; occluded ones already went transmit-plus-placement.
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  const first = relay.ingest("Ga=T,f=100,i=1,c=4,r=2,m=1;PART1", CURSOR)[0]!;
+  assertEquals(control(first.data).get("a"), "t", "the display became a transmit");
+  assertEquals(first.cell, undefined, "a transmit needs no cursor");
+  const last = relay.ingest("Gm=0;PART2", CURSOR);
+  assertEquals(last.length, 2, "the final chunk carries the placement");
+  const place = control(last[1]!.data);
+  assertEquals(place.get("a"), "p");
+  assertEquals(place.get("i"), "100");
+  assertEquals(place.get("c"), "4");
+  assertEquals(place.get("r"), "2");
+  assertEquals(last[1]!.cell, CURSOR, "anchored where the chain opened, not where it closed");
+});
+
+Deno.test("an orphan continuation chunk is dropped, not forwarded", () => {
+  // A truncated replay can resume mid-transmission: chunks whose opener the
+  // relay never saw. Forwarding them invented a phantom image out of a frame
+  // fragment; they carry nothing the relay can account for.
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  assertEquals(relay.ingest("Gm=1;FRAGMENT", CURSOR), []);
+  assertEquals(relay.ingest("Gm=0,q=2;TAIL", CURSOR), []);
+  // The stream is clean afterwards: the next real command parses as its own.
+  const next = relay.ingest("Ga=T,f=100,i=1;OK", CURSOR)[0]!;
+  assertEquals(control(next.data).get("a"), "T");
+  assertEquals(next.cell, CURSOR);
+});
+
+Deno.test("a clip arriving mid-chain waits for the close", () => {
+  // The protocol forbids other graphics escapes between chunks; a window
+  // dragged while a frame streams must not inject deletes into the chain.
+  const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
+  relay.ingest("Ga=T,f=100,i=1,c=4,r=4;OLD", { row: 0, column: 0 });
+  relay.ingest("Ga=T,f=100,i=1,c=4,r=4,m=1;PART1", { row: 0, column: 0 });
+  const delta = relay.setClip([{ row: 0, column: 0, width: 4, height: 2 }], CELLS);
+  assertEquals(delta.length, 0, "nothing enters the stream mid-chain");
+  const last = relay.ingest("Gm=0;PART2", { row: 0, column: 0 });
+  assertEquals(last[0]!.data, "Gm=0;PART2");
+  const sweep = last.slice(1).map((emission) => control(emission.data));
+  assertEquals(sweep[0]!.get("a"), "d", "the deferred sweep tears the old placement down");
+  const place = sweep[1]!;
+  assertEquals(place.get("a"), "p");
+  assertEquals(place.get("r"), "2", "placed against the regions the clip set mid-chain");
+});
+
 Deno.test("responses are quieted unless the child asked for them", () => {
   const relay = new KittyPassthroughRelay({ imageIdBase: 100 });
   const quieted = relay.ingest("Ga=T,f=100,i=1;AAAA", CURSOR)[0]!;
@@ -99,7 +150,8 @@ Deno.test("release deletes everything live and is safe to repeat", () => {
   relay.ingest("Ga=T,f=100,i=1;AAAA", CURSOR);
   relay.ingest("Ga=T,f=100,i=2,m=1;PART", CURSOR);
   const released = relay.release();
-  assertEquals(released.length, 2);
+  assertEquals(released.length, 3);
+  assertEquals(released[0]!.data, "Gm=0;", "the dangling chain closes before the deletes");
   assertEquals(relay.release().length, 0);
   // The open chain died with the release; a fresh command parses cleanly.
   const next = relay.ingest("Ga=T,f=100,i=3;CCCC", CURSOR)[0]!;
