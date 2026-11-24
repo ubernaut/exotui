@@ -105,6 +105,12 @@ export interface TerminalScreenControllerOptions {
   onClipboardWrite?: (write: TerminalClipboardWrite) => void;
   /** Maximum decoded UTF-8 byte length accepted for child OSC 52 writes (default 65,536). */
   maxClipboardBytes?: number;
+  /**
+   * Reflow soft-wrapped logical lines on the main screen when column width
+   * changes (matching Ghostty, WezTerm, Kitty, and xterm). Alternate screens
+   * never reflow. Defaults to `true`.
+   */
+  reflowOnResize?: boolean;
 }
 
 /** 8-bit RGB channels a terminal reports for its default colours. */
@@ -254,6 +260,7 @@ export class TerminalScreenController {
   #queryColors?: () => TerminalScreenColorReport | undefined;
   #onClipboardWrite?: (write: TerminalClipboardWrite) => void;
   readonly #maxClipboardBytes: number;
+  readonly #reflowOnResize: boolean;
   readonly #identity: string;
   /** Kitty keyboard flag stacks; the main and alternate screens keep their own. */
   #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
@@ -299,6 +306,7 @@ export class TerminalScreenController {
       0,
       Math.min(DEFAULT_MAX_CLIPBOARD_BYTES, Math.floor(options.maxClipboardBytes ?? DEFAULT_MAX_CLIPBOARD_BYTES)),
     );
+    this.#reflowOnResize = options.reflowOnResize ?? true;
     this.#identity = terminalIdentity(options.identity);
   }
 
@@ -444,21 +452,44 @@ export class TerminalScreenController {
     this.#rows = nextRows;
     const widthChanged = previousColumns !== nextColumns;
     if (this.#mainState) {
-      // Alternate screen has no scrollback; main screen underneath preserves
+      // Alternate screen has no scrollback and never reflows; main screen
+      // underneath reflows soft-wrapped lines on width changes and preserves
       // its cursor row by pushing/pulling against scrollback.
       this.#state = resizeState(this.#state, nextColumns, nextRows);
-      const resizedMain = this.#resizeMainState(this.#mainState, nextColumns, nextRows);
+      const resizedMain = this.#resizeMainState(
+        this.#mainState,
+        previousColumns,
+        nextColumns,
+        nextRows,
+        this.#savedCursor.main,
+      );
       this.#mainState = resizedMain.state;
-      this.#shiftSavedCursor(this.#savedCursor.main, resizedMain.rowShift, widthChanged);
+      this.#applyResizedSavedCursor(
+        this.#savedCursor.main,
+        resizedMain.savedCursor,
+        resizedMain.rowShift,
+        widthChanged,
+      );
       this.#shiftSavedCursor(this.#savedCursor.alternate, 0, widthChanged);
     } else {
-      const resizedMain = this.#resizeMainState(this.#state, nextColumns, nextRows);
+      const resizedMain = this.#resizeMainState(
+        this.#state,
+        previousColumns,
+        nextColumns,
+        nextRows,
+        this.#savedCursor.main,
+      );
       this.#state = resizedMain.state;
-      this.#shiftSavedCursor(this.#savedCursor.main, resizedMain.rowShift, widthChanged);
+      this.#applyResizedSavedCursor(
+        this.#savedCursor.main,
+        resizedMain.savedCursor,
+        resizedMain.rowShift,
+        widthChanged,
+      );
       this.#shiftSavedCursor(this.#savedCursor.alternate, 0, widthChanged);
     }
     this.#recountGlyphs();
-    // Narrowing can slice a wide glyph off at the new right edge.
+    // Narrowing (on alternate or non-reflowing screens) can slice a wide glyph off at the new right edge.
     for (const row of this.#state.cells) this.#repairRow(row);
     if (this.#mainState) { for (const row of this.#mainState.cells) this.#repairRow(row); }
     this.#scrollRegion = fullScrollRegion(this.#rows);
@@ -468,9 +499,14 @@ export class TerminalScreenController {
 
   #resizeMainState(
     state: TerminalScreenState,
+    previousColumns: number,
     columns: number,
     rows: number,
-  ): { state: TerminalScreenState; rowShift: number } {
+    savedCursor?: SavedCursorState,
+  ): { state: TerminalScreenState; rowShift: number; savedCursor?: TerminalScreenCursor } {
+    if (this.#reflowOnResize && columns !== previousColumns) {
+      return this.#reflowMainState(state, columns, rows, savedCursor);
+    }
     const previousRows = state.cells.length;
     if (rows === previousRows) {
       return { state: resizeState(state, columns, rows), rowShift: 0 };
@@ -533,6 +569,145 @@ export class TerminalScreenController {
       },
       rowShift: pulled,
     };
+  }
+
+  #reflowMainState(
+    state: TerminalScreenState,
+    columns: number,
+    rows: number,
+    savedCursor?: SavedCursorState,
+  ): { state: TerminalScreenState; rowShift: number; savedCursor?: TerminalScreenCursor } {
+    const scrollbackCount = this.#scrollback.length;
+    const allRows: TerminalScreenCell[][] = [...this.#scrollback, ...state.cells];
+    const cursorAbsRow = scrollbackCount + state.cursor.row;
+    const savedAbsRow = savedCursor ? scrollbackCount + savedCursor.row : -1;
+
+    // Exclude trailing blank viewport rows below both content and cursor anchors
+    // so reflowed lines expand into unused viewport space before scrolling.
+    let activeEndRow = Math.max(cursorAbsRow, savedAbsRow);
+    for (let row = allRows.length - 1; row > activeEndRow; row -= 1) {
+      if (!isBlankTerminalRow(allRows[row]!)) {
+        activeEndRow = row;
+        break;
+      }
+    }
+
+    const reflowed: TerminalScreenCell[][] = [];
+    let mappedCursor: TerminalScreenCursor = { row: 0, column: 0 };
+    let mappedSaved: TerminalScreenCursor | undefined = savedCursor ? { row: 0, column: 0 } : undefined;
+
+    for (let startRow = 0; startRow <= activeEndRow;) {
+      let endRow = startRow;
+      while (endRow < activeEndRow && allRows[endRow]!.at(-1)?.softWrapped === true) {
+        endRow += 1;
+      }
+      const lineItems: { cell: TerminalScreenCell; width: 1 | 2 }[] = [];
+      let cursorOffset: { index: number; trailing: number } | undefined;
+      let savedOffset: { index: number; trailing: number } | undefined;
+
+      for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+        const row = allRows[rowIndex]!;
+        const isLast = rowIndex === endRow;
+        let limit = row.length;
+        if (!isLast) {
+          while (limit > 0 && row[limit - 1]?.wrapPadding) limit -= 1;
+        } else {
+          while (limit > 0 && isDefaultBlankCell(row[limit - 1])) limit -= 1;
+        }
+
+        for (let column = 0; column < limit;) {
+          const cell = row[column]!;
+          if (cell.continuation) {
+            column += 1;
+            continue;
+          }
+          const wide = column + 1 < limit && row[column + 1]?.continuation === true;
+          const width: 1 | 2 = wide ? 2 : 1;
+          const itemIndex = lineItems.length;
+          if (
+            rowIndex === cursorAbsRow &&
+            (state.cursor.column === column || (wide && state.cursor.column === column + 1))
+          ) {
+            cursorOffset = { index: itemIndex, trailing: 0 };
+          }
+          if (
+            savedCursor && rowIndex === savedAbsRow &&
+            (savedCursor.column === column || (wide && savedCursor.column === column + 1))
+          ) {
+            savedOffset = { index: itemIndex, trailing: 0 };
+          }
+          lineItems.push({ cell: stripWrapMetadata(cell), width });
+          column += width;
+        }
+
+        if (rowIndex === cursorAbsRow && !cursorOffset) {
+          cursorOffset = { index: lineItems.length, trailing: Math.max(0, state.cursor.column - limit) };
+        }
+        if (savedCursor && rowIndex === savedAbsRow && !savedOffset) {
+          savedOffset = { index: lineItems.length, trailing: Math.max(0, savedCursor.column - limit) };
+        }
+      }
+
+      const packed = packLogicalLine(lineItems, columns, cursorOffset, savedOffset, reflowed.length);
+      for (const packedRow of packed.rows) reflowed.push(packedRow);
+      if (packed.cursor) mappedCursor = packed.cursor;
+      if (packed.saved) mappedSaved = packed.saved;
+
+      startRow = endRow + 1;
+    }
+
+    const total = reflowed.length;
+    let visibleStart = 0;
+    if (total > rows) {
+      visibleStart = total - rows;
+      if (mappedCursor.row < visibleStart) visibleStart = mappedCursor.row;
+    }
+
+    const nextScrollback = visibleStart > 0 ? reflowed.slice(0, visibleStart) : [];
+    if (nextScrollback.length > this.#scrollbackLimit) {
+      nextScrollback.splice(0, nextScrollback.length - this.#scrollbackLimit);
+    }
+    this.#scrollback = nextScrollback;
+
+    const cells = new Array<TerminalScreenCell[]>(rows);
+    for (let row = 0; row < rows; row += 1) {
+      cells[row] = reflowed[visibleStart + row] ?? blankRow(columns);
+    }
+
+    return {
+      state: {
+        cells,
+        cursor: {
+          row: clamp(mappedCursor.row - visibleStart, 0, rows - 1),
+          column: clamp(mappedCursor.column, 0, columns - 1),
+        },
+      },
+      rowShift: 0,
+      ...(mappedSaved
+        ? {
+          savedCursor: {
+            row: clamp(mappedSaved.row - visibleStart, 0, rows - 1),
+            column: clamp(mappedSaved.column, 0, columns - 1),
+          },
+        }
+        : {}),
+    };
+  }
+
+  #applyResizedSavedCursor(
+    saved: SavedCursorState | undefined,
+    mapped: TerminalScreenCursor | undefined,
+    rowShift: number,
+    widthChanged: boolean,
+  ): void {
+    if (!saved) return;
+    if (mapped) {
+      saved.row = clamp(mapped.row, 0, this.#rows - 1);
+      saved.column = clamp(mapped.column, 0, this.#columns - 1);
+      if (widthChanged) saved.pendingWrap = false;
+      return;
+    }
+    this.#shiftSavedCursor(saved, rowShift, widthChanged);
   }
 
   #shiftSavedCursor(saved: SavedCursorState | undefined, rowShift: number, widthChanged: boolean): void {
@@ -2049,6 +2224,78 @@ function isBlankTerminalRow(row: readonly TerminalScreenCell[]): boolean {
     if (cell.continuation || cell.char !== " " || cell.background !== undefined) return false;
   }
   return true;
+}
+
+function isDefaultBlankCell(cell: TerminalScreenCell | undefined): boolean {
+  if (!cell) return true;
+  return !cell.continuation && !cell.wrapPadding && cell.char === " " &&
+    cell.background === undefined && cell.foreground === undefined &&
+    !cell.bold && !cell.dim && !cell.italic && !cell.underline &&
+    !cell.overline && !cell.strikethrough && !cell.inverse && cell.hyperlink === undefined;
+}
+
+function stripWrapMetadata(cell: TerminalScreenCell): TerminalScreenCell {
+  if (!cell.softWrapped && !cell.wrapPadding && !cell.clipped && !cell.continuation) return cell;
+  const { softWrapped: _sw, wrapPadding: _wp, clipped: _cl, continuation: _ct, ...clean } = cell;
+  return clean;
+}
+
+function packLogicalLine(
+  items: readonly { cell: TerminalScreenCell; width: 1 | 2 }[],
+  columns: number,
+  cursorAnchor: { index: number; trailing: number } | undefined,
+  savedAnchor: { index: number; trailing: number } | undefined,
+  baseRow: number,
+): {
+  rows: TerminalScreenCell[][];
+  cursor?: TerminalScreenCursor;
+  saved?: TerminalScreenCursor;
+} {
+  const rows: TerminalScreenCell[][] = [];
+  let row = blankRow(columns);
+  let column = 0;
+  let cursor: TerminalScreenCursor | undefined;
+  let saved: TerminalScreenCursor | undefined;
+
+  for (let index = 0; index < items.length; index += 1) {
+    const { cell, width } = items[index]!;
+    if (width > columns) {
+      if (cursorAnchor && cursorAnchor.index === index) {
+        cursor = { row: baseRow + rows.length, column: clamp(column, 0, columns - 1) };
+      }
+      if (savedAnchor && savedAnchor.index === index) {
+        saved = { row: baseRow + rows.length, column: clamp(column, 0, columns - 1) };
+      }
+      continue;
+    }
+    if (column + width > columns) {
+      for (let pad = column; pad < columns; pad += 1) {
+        row[pad] = { char: " ", wrapPadding: true };
+      }
+      row[columns - 1] = { ...row[columns - 1]!, softWrapped: true };
+      rows.push(row);
+      row = blankRow(columns);
+      column = 0;
+    }
+    if (cursorAnchor && cursorAnchor.index === index) {
+      cursor = { row: baseRow + rows.length, column };
+    }
+    if (savedAnchor && savedAnchor.index === index) {
+      saved = { row: baseRow + rows.length, column };
+    }
+    row[column] = cell;
+    if (width === 2) row[column + 1] = CONTINUATION_CELL;
+    column += width;
+  }
+
+  if (cursorAnchor && !cursor) {
+    cursor = { row: baseRow + rows.length, column: clamp(column + cursorAnchor.trailing, 0, columns - 1) };
+  }
+  if (savedAnchor && !saved) {
+    saved = { row: baseRow + rows.length, column: clamp(column + savedAnchor.trailing, 0, columns - 1) };
+  }
+  rows.push(row);
+  return { rows, cursor, saved };
 }
 
 function resizeCellRow(source: readonly TerminalScreenCell[], columns: number): TerminalScreenCell[] {

@@ -108,9 +108,9 @@ Deno.test("terminal soft-wrap metadata survives history and handles wide-glyph p
   assertEquals(rows[0]!.at(-1)?.wrapPadding, true);
 });
 
-Deno.test("terminal soft wraps survive resizes that do not cut the wrapped row", () => {
+Deno.test("terminal soft wraps survive non-reflowing resizes that do not cut the wrapped row", () => {
   const url = "https://example.com/long/path?q=yes";
-  const screen = new TerminalScreenController({ columns: 16, rows: 5 });
+  const screen = new TerminalScreenController({ columns: 16, rows: 5, reflowOnResize: false });
   screen.write(url + "\r\nnext line");
   const linkFromEveryRow = (width: number) => {
     const rows = screen.cellRows();
@@ -143,6 +143,24 @@ Deno.test("terminal soft wraps survive resizes that do not cut the wrapped row",
   // A row that is written again is whole again.
   screen.write("\x1b[1;1Hhttps://a.test/ok\x1b[K");
   assertEquals(terminalLinkAt(screen.cellRows(), { row: 0, column: 2 }), "https://a.test/ok");
+});
+
+Deno.test("terminal links stay intact across width narrowing and widening under default reflow", () => {
+  const url = "https://example.com/long/path?q=yes";
+  const screen = new TerminalScreenController({ columns: 16, rows: 6 });
+  screen.write(url + "\r\nnext line");
+  for (const width of [24, 10, 40, 16]) {
+    screen.resize(width, 6);
+    const rows = screen.cellRows();
+    const linkRows = rows.findIndex((row) => row[0]?.char === "n");
+    for (let row = 0; row < linkRows; row += 1) {
+      assertEquals(terminalLinkAt(rows, { row, column: 2 }), url, `width ${width} row ${row}`);
+    }
+    const selection = new TerminalSelectionController();
+    selection.begin(rows, { column: 0, row: 0 });
+    selection.extend({ column: 8, row: linkRows });
+    assertEquals(selection.selectedText(), url + "\nnext line", `selection at width ${width}`);
+  }
 });
 
 Deno.test("terminal links reject executable schemes and control characters", () => {

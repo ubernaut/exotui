@@ -532,15 +532,25 @@ Deno.test("TerminalScreenController keeps double-width glyphs paired with their 
   erased.write("日本AB\x1b[1;4H\x1b[X");
   assertEquals(cells(erased), ["日", "<cont>", " ", " ", "A", "B"]);
 
-  // Narrowing the screen through a pair drops it rather than leaving a half.
-  const narrowed = new TerminalScreenController({ columns: 6, rows: 2 });
+  // Narrowing a non-reflowing screen through a wide pair drops it rather than leaving a half.
+  const narrowed = new TerminalScreenController({ columns: 6, rows: 2, reflowOnResize: false });
   narrowed.write("ab日cd");
   narrowed.resize(3, 2);
   assertEquals(narrowed.cellRows()[0]!.map((cell) => cell.char), ["a", "b", " "]);
 
+  // Reflowing narrows cleanly by wrapping the wide glyph whole onto the next row.
+  const reflowed = new TerminalScreenController({ columns: 6, rows: 3 });
+  reflowed.write("ab日cd");
+  reflowed.resize(3, 3);
+  assertEquals(reflowed.cellRows()[0]!.map((cell) => cell.char), ["a", "b", " "]);
+  assertEquals(reflowed.cellRows()[0]![2]?.wrapPadding, true);
+  assertEquals(reflowed.cellRows()[0]![2]?.softWrapped, true);
+  assertEquals(reflowed.cellRows()[1]!.map((cell) => cell.char), ["日", " ", "c"]);
+  assertEquals(reflowed.cellRows()[2]!.map((cell) => cell.char), ["d", " ", " "]);
+
   // Whatever was done to the row, the invariant holds both ways: every wide
   // glyph is followed by a continuation, and every continuation follows one.
-  for (const screen of [baseline, rightHalf, leftHalf, deleted, inserted, erased, narrowed]) {
+  for (const screen of [baseline, rightHalf, leftHalf, deleted, inserted, erased, narrowed, reflowed]) {
     for (const row of screen.cellRows()) {
       for (let column = 0; column < row.length; column += 1) {
         const wide = textWidth(row[column]!.char) > 1;
@@ -955,18 +965,47 @@ Deno.test("TerminalScreenController clamps restored cursor after resize", () => 
   assertEquals(screen.inspect().cursor, { column: 3, row: 1 });
 });
 
-Deno.test("TerminalScreenController resizes and clamps cursor", () => {
+Deno.test("TerminalScreenController resizes, reflows main lines, and keeps cursor anchored", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 3 });
 
   screen.write("abcdef\r\n123456\r\nxyz");
   screen.resize(4, 2);
 
-  assertEquals(screen.textRows(), ["1234", "xyz"]);
-  assertEquals(screen.scrollbackRows, 1);
-  assertEquals(screen.cellRowsRange(0, 1)[0]!.map((cell) => cell.char).join("").trimEnd(), "abcdef");
+  assertEquals(screen.textRows(), ["56", "xyz"]);
+  assertEquals(screen.scrollbackRows, 3);
+  assertEquals(screen.scrollbackTextRows(), ["abcd", "ef", "1234"]);
   assertEquals(screen.inspect().columns, 4);
   assertEquals(screen.inspect().rows, 2);
   assertEquals(screen.inspect().cursor, { column: 3, row: 1 });
+
+  // Widening back reconstructs the logical lines losslessly out of scrollback.
+  screen.resize(8, 3);
+  assertEquals(screen.textRows(), ["abcdef", "123456", "xyz"]);
+  assertEquals(screen.scrollbackRows, 0);
+  assertEquals(screen.inspect().cursor, { column: 3, row: 2 });
+});
+
+Deno.test("TerminalScreenController reflows styled lines, hyperlinks, and saved cursors on main screen only", () => {
+  const screen = new TerminalScreenController({ columns: 12, rows: 3 });
+  screen.write("\x1b[32mhello world!\x1b[0m\x1b7\r\nnext");
+  screen.resize(6, 3);
+  assertEquals(screen.textRows(), ["hello", "world!", "next"]);
+  assertEquals(screen.cellRows()[0]![5]?.char, " ");
+  assertEquals(screen.cellRows()[0]![5]?.softWrapped, true);
+  assertEquals(screen.cellRows()[1]![0]?.foreground, 32);
+
+  // Saved cursor follows the reflowed logical offset when widened back.
+  screen.resize(12, 3);
+  assertEquals(screen.textRows(), ["hello world!", "next", ""]);
+  screen.write("\x1b8X");
+  assertEquals(screen.textRows()[0], "hello worldX");
+
+  // Alternate screen does not reflow on width resize.
+  screen.write("\x1b[?1049hALT-LINE-123");
+  screen.resize(5, 3);
+  assertEquals(screen.textRows(), ["ALT-L", "", ""]);
+  screen.resize(12, 3);
+  assertEquals(screen.textRows(), ["ALT-L", "", ""]);
 });
 
 Deno.test("TerminalScreenController supports alternate screen switching", () => {

@@ -69,3 +69,13 @@ with `exomux` standing thinly on top:
 - `packages/exomux/app.ts`: passed `cursorShape: inspection.cursorStyle.shape` into `paintTerminal()`.
 - `packages/exomux/terminal_modes.ts`: tracked `DECSCUSR` (`CSI n SP q`) in `ExomuxTerminalModeTracker` so rotated
   replays preserve child cursor shapes.
+
+## 2026-11-23 — Commit 5: Main-screen text reflow on width resize
+
+### Changes
+
+- `src/runtime/terminal_screen.ts`: implemented main-screen logical-line reflow on column-width resize (default
+  `reflowOnResize: true`, opt-out supported; alternate screens remain non-reflowing). Consecutive `softWrapped` rows
+  across scrollback and live cells merge into logical lines (stripping `wrapPadding` and trailing default blanks while
+  preserving cell styles, wide pairs, and hyperlinks), re-wrap to the new width, map live and saved cursor positions
+  through logical offsets, and rebalance scrollback vs viewport rows cleanly.
