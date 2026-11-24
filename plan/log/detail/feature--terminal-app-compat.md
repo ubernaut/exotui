@@ -42,3 +42,16 @@ with `exomux` standing thinly on top:
   explicitly disabled.
 - `packages/exomux/app.ts`: tracked effective focused terminal session across window switches and host terminal
   focus/blur, forwarding `\x1b[O` / `\x1b[I` only to attached running sessions with `focusReporting` enabled.
+
+## 2026-11-23 — Commit 3: Safe, bounded, write-only child OSC 52 clipboard passthrough
+
+### Changes
+
+- `src/runtime/terminal_services.ts`: exported `TerminalClipboardWrite` and `parseTerminalClipboardWrite()` with strict
+  base64/UTF-8 validation, byte limits (default 64 KiB), selection normalization (`clipboard`/`primary`/`secondary`),
+  and unconditional rejection of OSC 52 read queries (`?`).
+- `src/runtime/terminal_screen.ts`: raised pending control sequence buffer to 128 KiB so 64 KiB base64 OSC 52 writes
+  survive chunk splits, added `onClipboardWrite` / `maxClipboardBytes` options, and dispatched OSC 52 writes safely.
+- `src/runtime/terminal_shell.ts`: forwarded optional `onClipboardWrite` to `TerminalScreenController`.
+- `packages/exomux/controller.ts` & `packages/exomux/app.ts`: wired live attached child OSC 52 writes into
+  `clipboardCopy` (preserving selection target and suppressing historical replay writes on attach).

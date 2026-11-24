@@ -1,6 +1,11 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { assertEquals } from "./deps.ts";
 import { TerminalScreenController } from "../src/runtime/terminal_screen.ts";
+import {
+  parseTerminalClipboardWrite,
+  terminalClipboardSequence,
+  type TerminalClipboardWrite,
+} from "../src/runtime/terminal_services.ts";
 
 function screenWithReplies(options: ConstructorParameters<typeof TerminalScreenController>[0] = {}) {
   const replies: string[] = [];
@@ -102,4 +107,35 @@ Deno.test("the screen tracks the key reporting a child asks for", () => {
   // The pushes and pops never touched the cursor or the pen.
   screen.write("\x1b[>4;2m\x1b[>5uZ");
   assertEquals(screen.cellRows()[0]![0], { char: "Z" });
+});
+
+Deno.test("OSC 52 clipboard writes decode safely, stay write-only, and enforce byte bounds", () => {
+  const writes: TerminalClipboardWrite[] = [];
+  const screen = new TerminalScreenController({
+    columns: 20,
+    rows: 4,
+    maxClipboardBytes: 32,
+    onClipboardWrite: (write) => writes.push(write),
+  });
+  // Standard UTF-8 write via ST and primary selection via BEL.
+  screen.write(terminalClipboardSequence("hello 世界"));
+  screen.write(terminalClipboardSequence("primary", { selection: "primary", terminator: "bel" }));
+  // Read query (`?`), malformed base64, invalid UTF-8 (`//8=`), bad selection, and oversized writes are ignored.
+  screen.write("\x1b]52;c;?\x07");
+  screen.write("\x1b]52;c;!!!not-base64!!!\x1b\\");
+  screen.write("\x1b]52;c;//8=\x1b\\");
+  screen.write("\x1b]52;evil;aGk=\x1b\\");
+  screen.write(terminalClipboardSequence("x".repeat(40)));
+  // Split chunk across ST terminator still decodes cleanly.
+  const split = terminalClipboardSequence("chunked");
+  screen.write(split.slice(0, 10));
+  screen.write(split.slice(10));
+  assertEquals(writes, [
+    { text: "hello 世界", selection: "clipboard" },
+    { text: "primary", selection: "primary" },
+    { text: "chunked", selection: "clipboard" },
+  ]);
+  assertEquals(parseTerminalClipboardWrite("c;?"), undefined);
+  assertEquals(parseTerminalClipboardWrite(";aGk="), { text: "hi", selection: "clipboard" });
+  assertEquals(screen.textRows().every((row) => row.trim() === ""), true);
 });

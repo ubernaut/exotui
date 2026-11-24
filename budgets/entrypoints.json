@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 494,
-    "bytes": 5878107,
+    "bytes": 5882459,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -381,13 +381,13 @@
       "src/runtime/terminal_passthrough.ts": 5374,
       "src/runtime/terminal_queries.ts": 4912,
       "src/runtime/terminal_sanitizer.ts": 5145,
-      "src/runtime/terminal_screen.ts": 87574,
+      "src/runtime/terminal_screen.ts": 88632,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
-      "src/runtime/terminal_services.ts": 24166,
+      "src/runtime/terminal_services.ts": 27154,
       "src/runtime/terminal_session.ts": 4454,
-      "src/runtime/terminal_shell.ts": 13230,
+      "src/runtime/terminal_shell.ts": 13536,
       "src/runtime/terminal_shell_workspace.ts": 11379,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10614,
@@ -1166,8 +1166,8 @@
     }
   },
   "mod.terminal.ts": {
-    "modules": 60,
-    "bytes": 674551,
+    "modules": 61,
+    "bytes": 703069,
     "paths": {
       "mod.terminal.ts": 1052,
       "src/components/bounded_follow_lines.ts": 3469,
@@ -1192,12 +1192,13 @@
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_palette.ts": 11246,
-      "src/runtime/terminal_screen.ts": 87574,
+      "src/runtime/terminal_screen.ts": 88632,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
+      "src/runtime/terminal_services.ts": 27154,
       "src/runtime/terminal_session.ts": 4454,
-      "src/runtime/terminal_shell.ts": 13230,
+      "src/runtime/terminal_shell.ts": 13536,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10614,
       "src/runtime/terminal_values.ts": 1160,
@@ -1316,8 +1317,8 @@
     }
   },
   "mod.web.ts": {
-    "modules": 438,
-    "bytes": 5602090,
+    "modules": 439,
+    "bytes": 5630608,
     "paths": {
       "mod.web.ts": 4344,
       "src/api_stability.ts": 21096,
@@ -1654,11 +1655,12 @@
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_palette.ts": 11246,
-      "src/runtime/terminal_screen.ts": 87574,
+      "src/runtime/terminal_screen.ts": 88632,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
-      "src/runtime/terminal_shell.ts": 13230,
+      "src/runtime/terminal_services.ts": 27154,
+      "src/runtime/terminal_shell.ts": 13536,
       "src/runtime/terminal_shell_workspace.ts": 11379,
       "src/runtime/terminal_status.ts": 9902,
       "src/runtime/terminal_templates.ts": 10614,

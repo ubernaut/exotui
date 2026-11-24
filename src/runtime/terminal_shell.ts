@@ -19,6 +19,7 @@ import {
 import type { DiagnosticsCollector } from "./diagnostics.ts";
 import { TerminalScrollbackController, type TerminalScrollbackInspection } from "./terminal_scrollback.ts";
 import { TerminalScreenController, type TerminalScreenInspection } from "./terminal_screen.ts";
+import type { TerminalClipboardWrite } from "./terminal_services.ts";
 import { shellTerminalTemplate, terminalTemplateToSpawnOptions } from "./terminal_templates.ts";
 import { cloneTerminalCommand, normalizeTerminalDimension } from "./terminal_values.ts";
 
@@ -41,6 +42,8 @@ export interface TerminalShellControllerOptions {
   diagnostics?: DiagnosticsCollector;
   now?: () => number;
   onUpdate?: () => void;
+  /** Optional handler for bounded, write-only child OSC 52 clipboard writes. */
+  onClipboardWrite?: (write: TerminalClipboardWrite) => void;
 }
 
 /** Serializable inspection snapshot for TerminalShellController. */
@@ -116,6 +119,7 @@ export class TerminalShellController {
         columns: this.#columns,
         rows: this.#rows,
         scrollbackLimit: options.scrollbackLimit,
+        ...(options.onClipboardWrite ? { onClipboardWrite: options.onClipboardWrite } : {}),
       });
     this.scrollback = new TerminalScrollbackController({
       screen: this.screen,

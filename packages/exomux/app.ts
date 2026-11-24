@@ -1090,7 +1090,7 @@ export function mountExomuxDesktop(
   controller.clipboardCopy.subscribe((payload) => {
     if (!payload || payload.nonce === lastClipboardNonce) return;
     lastClipboardNonce = payload.nonce;
-    writeHostTerminal(terminalClipboardSequence(payload.text));
+    writeHostTerminal(terminalClipboardSequence(payload.text, { selection: payload.selection }));
   }, subscriptions.signal);
   // Global debug logging (UX-008): while on, console output, exomuxDebugLog
   // calls, uncaught errors, and unhandled rejections all land in one file the

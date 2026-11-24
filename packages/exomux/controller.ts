@@ -17,6 +17,7 @@ import {
   type RuntimePermissionActivationReport,
   type RuntimePermissionManifest,
   Signal,
+  type TerminalClipboardWrite,
   type TerminalScreenColorReport,
   TerminalScreenController,
   TerminalScrollbackController,
@@ -865,10 +866,22 @@ export class ExomuxController {
   readonly savedHosts: Signal<readonly string[]> = new Signal<readonly string[]>([]);
   readonly sessionHosts: Signal<Readonly<Record<string, string>>> = new Signal<Readonly<Record<string, string>>>({});
   /** One-shot clipboard payload the app emits as OSC 52; the nonce retriggers repeats. */
-  readonly clipboardCopy: Signal<{ readonly text: string; readonly nonce: number } | undefined> = new Signal<
-    { readonly text: string; readonly nonce: number } | undefined
+  readonly clipboardCopy: Signal<
+    | { readonly text: string; readonly selection?: TerminalClipboardWrite["selection"]; readonly nonce: number }
+    | undefined
+  > = new Signal<
+    | { readonly text: string; readonly selection?: TerminalClipboardWrite["selection"]; readonly nonce: number }
+    | undefined
   >(undefined);
   #clipboardNonce = 0;
+  readonly #terminalClipboard = (sessionId: string, write: TerminalClipboardWrite): void => {
+    if (this.#disposed) return;
+    const runtime = this.#runtimes.get(sessionId);
+    // Only forward live OSC 52 writes from an attached session; historical writes
+    // replayed from the daemon ring must never overwrite the user's clipboard.
+    if (!runtime || !runtime.attached.peek()) return;
+    this.clipboardCopy.value = { text: write.text, selection: write.selection, nonce: ++this.#clipboardNonce };
+  };
   readonly #networkProbeRunner: TailnetCommandRunner;
   #provider!: ExomuxClientProvider;
   /** Remote-session discovery cache, keyed by SSH target (TSM-012). */
@@ -1068,6 +1081,7 @@ export class ExomuxController {
           this.#cursorQuery,
           this.#terminalReply,
           this.#terminalColors,
+          this.#terminalClipboard,
         ),
       );
     }
@@ -2902,6 +2916,7 @@ export class ExomuxController {
         this.#cursorQuery,
         this.#terminalReply,
         this.#terminalColors,
+        this.#terminalClipboard,
       );
       const candidateRuntimes = new Map(this.#runtimes);
       candidateRuntimes.set(session.id, runtime);
@@ -3277,6 +3292,7 @@ export class ExomuxController {
       this.#cursorQuery,
       this.#terminalReply,
       this.#terminalColors,
+      this.#terminalClipboard,
     );
     const candidates = new Map(this.#runtimes);
     candidates.set(summary.id, runtime);
@@ -3672,6 +3688,7 @@ export class ExomuxController {
           this.#cursorQuery,
           this.#terminalReply,
           this.#terminalColors,
+          this.#terminalClipboard,
         );
         createdRuntimes.push(created);
         candidateRuntimes.set(summary.id, created);
@@ -4350,6 +4367,7 @@ function createTerminalRuntime(
   onCursorQuery?: (sessionId: string, row: number, column: number) => void,
   onReply?: (sessionId: string, data: string) => void,
   queryColors?: (sessionId: string) => TerminalScreenColorReport | undefined,
+  onClipboardWrite?: (sessionId: string, write: TerminalClipboardWrite) => void,
 ): ExomuxTerminalRuntime {
   // A disjoint host-id block per relay, so two sessions both calling their
   // image `i=1` cannot collide at the host. The base skips low ids that the
@@ -4366,6 +4384,7 @@ function createTerminalRuntime(
     ...(onCursorQuery ? { onCursorPositionQuery: (row, column) => onCursorQuery(summary.id, row, column) } : {}),
     ...(onReply ? { onReply: (data) => onReply(summary.id, data) } : {}),
     ...(queryColors ? { queryColors: () => queryColors(summary.id) } : {}),
+    ...(onClipboardWrite ? { onClipboardWrite: (write) => onClipboardWrite(summary.id, write) } : {}),
     identity: { name: "exomux" },
     ...(relay
       ? {

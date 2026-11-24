@@ -17,6 +17,12 @@ export type TerminalOscPolicy = Record<TerminalOscCapability, boolean>;
 /** Clipboard selection used by OSC 52. */
 export type TerminalClipboardSelection = "clipboard" | "primary" | "secondary";
 
+/** Decoded, bounded OSC 52 clipboard write emitted by a child application. */
+export interface TerminalClipboardWrite {
+  readonly text: string;
+  readonly selection: TerminalClipboardSelection;
+}
+
 /** One parsed OSC message routed from terminal input. */
 export interface TerminalOscMessage {
   command: string;
@@ -178,6 +184,46 @@ export function terminalClipboardSequence(
   }
   const selection = options.selection === "primary" ? "p" : options.selection === "secondary" ? "s" : "c";
   return terminalOscSequence(52, `${selection};${encodeBase64(bytes)}`, options.terminator);
+}
+
+/**
+ * Decodes an OSC 52 clipboard write (`<selection>;<base64>` or full OSC 52
+ * sequence) with strict bounds and UTF-8 validation. Read queries (`?`),
+ * malformed base64, invalid UTF-8, unknown selection flags, and oversized
+ * payloads return `undefined`.
+ */
+export function parseTerminalClipboardWrite(
+  payload: string,
+  options: { maxBytes?: number } = {},
+): TerminalClipboardWrite | undefined {
+  let body = payload;
+  if (payload.startsWith(`${ESC}]`)) {
+    const message = parseTerminalOscMessage(payload);
+    if (!message || message.command !== "52") return undefined;
+    body = message.data;
+  }
+  const separator = body.indexOf(";");
+  if (separator < 0) return undefined;
+  const rawSelection = body.slice(0, separator);
+  const encoded = body.slice(separator + 1);
+  if (encoded === "?" || !/^[cps0-7]*$/.test(rawSelection)) return undefined;
+  const maxBytes = Math.max(0, Math.floor(options.maxBytes ?? 65_536));
+  const maxEncodedLength = Math.ceil(maxBytes / 3) * 4 + 4;
+  if (encoded.length > maxEncodedLength) return undefined;
+  const bytes = decodeBase64(encoded, maxBytes);
+  if (!bytes) return undefined;
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return undefined;
+  }
+  const selection: TerminalClipboardSelection = rawSelection.includes("p") && !rawSelection.includes("c")
+    ? "primary"
+    : rawSelection.includes("s") && !rawSelection.includes("c")
+    ? "secondary"
+    : "clipboard";
+  return { text, selection };
 }
 
 /** Builds the widely supported legacy OSC 9 desktop-notification sequence. */
@@ -666,4 +712,38 @@ function encodeBase64(bytes: Uint8Array): string {
     result += third === undefined ? "=" : alphabet[third & 0x3f];
   }
   return result;
+}
+
+const BASE64_VALUES: Readonly<Record<string, number>> = (() => {
+  const table: Record<string, number> = Object.create(null);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  for (let index = 0; index < alphabet.length; index += 1) table[alphabet[index]!] = index;
+  return table;
+})();
+
+function decodeBase64(encoded: string, maxBytes: number): Uint8Array | undefined {
+  if (encoded.length === 0) return new Uint8Array(0);
+  if (encoded.length % 4 === 1) return undefined;
+  let padding = 0;
+  if (encoded.endsWith("==")) padding = 2;
+  else if (encoded.endsWith("=")) padding = 1;
+  const bodyLength = encoded.length - padding;
+  if (padding > 0 && encoded.length % 4 !== 0) return undefined;
+  const byteLength = Math.floor((bodyLength * 3) / 4);
+  if (byteLength > maxBytes) return undefined;
+  const output = new Uint8Array(byteLength);
+  let outIndex = 0;
+  let buffer = 0;
+  let bits = 0;
+  for (let index = 0; index < bodyLength; index += 1) {
+    const value = BASE64_VALUES[encoded[index]!];
+    if (value === undefined) return undefined;
+    buffer = (buffer << 6) | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      output[outIndex++] = (buffer >> bits) & 0xff;
+    }
+  }
+  return output;
 }

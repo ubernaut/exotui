@@ -9,6 +9,7 @@ import { CharacterWidthAccumulator, measureCharacterWidth } from "../utils/chara
 import { UnicodeGraphemeBoundaryCursor } from "../unicode/grapheme.ts";
 import { normalizeTerminalDimension } from "./terminal_values.ts";
 import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { parseTerminalClipboardWrite, type TerminalClipboardWrite } from "./terminal_services.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 import type { AnsiStyleSpec } from "../theme.ts";
 
@@ -97,6 +98,13 @@ export interface TerminalScreenControllerOptions {
   queryColors?: () => TerminalScreenColorReport | undefined;
   /** What XTVERSION reports. Defaults to `exotui`. */
   identity?: { name: string; version?: string };
+  /**
+   * Called for bounded, valid OSC 52 clipboard writes emitted by the child.
+   * Read queries (`?`) are never forwarded.
+   */
+  onClipboardWrite?: (write: TerminalClipboardWrite) => void;
+  /** Maximum decoded UTF-8 byte length accepted for child OSC 52 writes (default 65,536). */
+  maxClipboardBytes?: number;
 }
 
 /** 8-bit RGB channels a terminal reports for its default colours. */
@@ -155,7 +163,8 @@ interface SavedCursorState {
 const DEFAULT_COLUMNS = 80;
 const DEFAULT_ROWS = 24;
 const DEFAULT_SCROLLBACK_LIMIT = 1000;
-const MAX_PENDING_CONTROL_LENGTH = 64 * 1024;
+const MAX_PENDING_CONTROL_LENGTH = 128 * 1024;
+const DEFAULT_MAX_CLIPBOARD_BYTES = 65_536;
 const BLANK_CELL: TerminalScreenCell = Object.freeze({ char: " " });
 /** The blank a double-width glyph parks in the second column it occupies. */
 const CONTINUATION_CELL: TerminalScreenCell = Object.freeze({ char: " ", continuation: true });
@@ -243,6 +252,8 @@ export class TerminalScreenController {
   #onCursorPositionQuery?: (row: number, column: number) => void;
   #onReply?: (data: string) => void;
   #queryColors?: () => TerminalScreenColorReport | undefined;
+  #onClipboardWrite?: (write: TerminalClipboardWrite) => void;
+  readonly #maxClipboardBytes: number;
   readonly #identity: string;
   /** Kitty keyboard flag stacks; the main and alternate screens keep their own. */
   #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
@@ -283,6 +294,11 @@ export class TerminalScreenController {
     this.#onCursorPositionQuery = options.onCursorPositionQuery;
     this.#onReply = options.onReply;
     this.#queryColors = options.queryColors;
+    this.#onClipboardWrite = options.onClipboardWrite;
+    this.#maxClipboardBytes = Math.max(
+      0,
+      Math.min(DEFAULT_MAX_CLIPBOARD_BYTES, Math.floor(options.maxClipboardBytes ?? DEFAULT_MAX_CLIPBOARD_BYTES)),
+    );
     this.#identity = terminalIdentity(options.identity);
   }
 
@@ -1332,7 +1348,16 @@ export class TerminalScreenController {
       this.#applyWorkingDirectory(payload.slice(separator + 1));
       return;
     }
-    if (code === "8") this.#applyHyperlink(payload.slice(separator + 1));
+    if (code === "8") {
+      this.#applyHyperlink(payload.slice(separator + 1));
+      return;
+    }
+    if (code === "52" && this.#onClipboardWrite) {
+      const write = parseTerminalClipboardWrite(payload.slice(separator + 1), {
+        maxBytes: this.#maxClipboardBytes,
+      });
+      if (write) this.#onClipboardWrite(write);
+    }
   }
 
   /**

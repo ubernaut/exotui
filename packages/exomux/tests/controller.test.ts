@@ -1276,3 +1276,33 @@ Deno.test("Exomux suppresses duplicate child query replies from passive mismatch
     await passive.dispose();
   }
 });
+
+Deno.test("Exomux forwards live child OSC 52 writes and suppresses replay and read queries", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("osc52-copy", "vim");
+  // Seed historical OSC 52 output in the replay buffer before any client attaches.
+  host.emit(session.id, "\x1b]52;c;c3RhbGU=\x07");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    // Replaying historical output on attach must not overwrite the host clipboard.
+    assertEquals(controller.clipboardCopy.peek(), undefined);
+
+    // Live write from an attached child forwards decoded text + selection.
+    host.emit(session.id, "\x1b]52;c;aGVsbG8gd29ybGQ=\x1b\\");
+    assertEquals(controller.clipboardCopy.peek()?.text, "hello world");
+    assertEquals(controller.clipboardCopy.peek()?.selection, "clipboard");
+
+    // Read queries (`?`) never touch clipboardCopy.
+    const nonceBefore = controller.clipboardCopy.peek()?.nonce;
+    host.emit(session.id, "\x1b]52;c;?\x07");
+    assertEquals(controller.clipboardCopy.peek()?.nonce, nonceBefore);
+
+    // Primary selection propagates cleanly too.
+    host.emit(session.id, "\x1b]52;p;cHJpbWFyeQ==\x07");
+    assertEquals(controller.clipboardCopy.peek()?.text, "primary");
+    assertEquals(controller.clipboardCopy.peek()?.selection, "primary");
+  } finally {
+    await controller.dispose();
+  }
+});
