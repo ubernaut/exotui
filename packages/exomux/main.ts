@@ -31,7 +31,7 @@ import {
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
 import { detectKittyGraphicsCapability } from "@ubernaut/exotui/runtime";
-import { probeHostTerminal } from "@ubernaut/exotui/terminal";
+import { detectRemoteTerminalEnvironment, probeHostTerminal } from "@ubernaut/exotui/terminal";
 import {
   createExomuxController,
   type ExomuxController,
@@ -459,6 +459,8 @@ async function runExomuxClientSession(
       controller,
       synchronizedOutput: probe.synchronizedOutput === true,
       graphemeClustering: probe.graphemeClustering === "reset",
+      ...(probe.rttMs !== undefined ? { probeRttMs: probe.rttMs } : {}),
+      remoteEnv: detectRemoteTerminalEnvironment((name) => runtimeHost.env.get(name)),
     });
     liveRuntime = runtime;
     bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);

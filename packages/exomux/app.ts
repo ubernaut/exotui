@@ -16,6 +16,7 @@ import { createTerminalApp, type TerminalApp, type TerminalAppOptions } from "@u
 import { createSurfaceTransitionAnimator, type SurfaceTransitionOverlay } from "@ubernaut/exotui/app";
 import type { SurfaceTransition } from "@ubernaut/exotui";
 import {
+  type AnsiFlushTelemetry,
   type AnsiStyleSpec,
   clampContextMenuSelection,
   Component,
@@ -24,14 +25,18 @@ import {
   contextMenuPlacement,
   createAnsiStyle,
   createAnyMotionTracking,
+  createLowBandwidthController,
   DrawObject,
   encodeTerminalFocusEvent,
   encodeTerminalKeyPress,
   listWindowFromTop,
+  type LowBandwidthController,
+  type LowBandwidthProfile,
   modalActionRects,
   ModalController,
   type PointerInputEvent,
   type Rectangle,
+  type RemoteTerminalEnvironmentSignals,
   resolveTerminalCellStyle,
   selectionWindow,
   shiftContextMenuSelection,
@@ -104,6 +109,7 @@ import {
   exomuxBorderGlyphs,
   exomuxControlColor,
   exomuxControlOpacity,
+  exomuxEffectiveGlobalSettings,
   exomuxRelativeLuminance,
   exomuxResolvedOpacity,
   exomuxResolvedScrollLines,
@@ -137,9 +143,11 @@ import { buildExomuxPointerModel, type ExomuxPointerTarget, exomuxWindowRegionRe
 import {
   EXOMUX_FOOTER_ROWS,
   EXOMUX_HEADER_ROWS,
+  EXOMUX_LOW_BANDWIDTH_BADGE,
   EXOMUX_MENU_QUIT_WIDTH,
   EXOMUX_START_BUTTON,
   exomuxBodyRect,
+  exomuxLowBandwidthBadgeRect,
   exomuxMenuQuitRect,
   exomuxShelfBounds,
 } from "./desktop_layout.ts";
@@ -226,6 +234,12 @@ export interface ExomuxAppMount {
   renderRevisionValue(): string;
   /** Window id → background reclaim ratio, for diagnostics and pilots. */
   overgrowthRatios(): ReadonlyMap<string, number>;
+  /** Reactive low-bandwidth active state (`auto` / `on` / `off` resolved). */
+  readonly lowBandwidthActive: Signal<boolean>;
+  /** Returns the current resolved low-bandwidth profile for diagnostics and tests. */
+  lowBandwidthProfile(): LowBandwidthProfile;
+  /** Feeds one drained flush-telemetry window into the adaptive low-bandwidth controller. */
+  recordFlushTelemetry(telemetry: AnsiFlushTelemetry, nowMs?: number): boolean;
   whenIdle(): Promise<void>;
   dispose(): void;
 }
@@ -251,6 +265,12 @@ export interface CreateExomuxAppDefinitionOptions {
   readonly synchronizedOutput?: boolean;
   /** Enable DEC mode 2027 (grapheme cluster width) on the host terminal when it defaults off. */
   readonly graphemeClustering?: boolean;
+  /** Measured pre-launch host terminal RTT in milliseconds for auto low-bandwidth detection. */
+  readonly probeRttMs?: number;
+  /** Remote transport environment hints (`SSH_*`, `MOSH_*`) for auto low-bandwidth detection. */
+  readonly remoteEnv?: RemoteTerminalEnvironmentSignals;
+  /** Optional injectable low-bandwidth controller for deterministic testing. */
+  readonly lowBandwidthController?: LowBandwidthController;
 }
 
 /** Running real-terminal Exomux instance. */
@@ -626,6 +646,9 @@ export async function createExomuxAppDefinition(
     terminalOptions: createExomuxTerminalOptions(controller, mount, {
       synchronizedOutput: options.synchronizedOutput,
       graphemeClustering: options.graphemeClustering,
+      probeRttMs: options.probeRttMs,
+      remoteEnv: options.remoteEnv,
+      lowBandwidthController: options.lowBandwidthController,
     }),
   };
 }
@@ -752,6 +775,22 @@ function startGraphicsPassthroughFlush(
   };
   const apc = (data: string) => `\x1b_${data}\x1b\\`;
   const flush = () => {
+    if (mount.lowBandwidthActive.peek()) {
+      // Suspend Kitty graphics uploads while low-bandwidth mode is active and
+      // release any previously displayed host images cleanly so nothing ghosts.
+      if (displayed.size > 0) {
+        let out = "";
+        for (const sessionId of displayed) {
+          out += controller.releaseGraphics(sessionId).map((emission) => apc(emission.data)).join("");
+        }
+        displayed.clear();
+        clipSignatures.clear();
+        if (out.length > 0) write(out);
+      }
+      const orphaned = controller.takeOrphanGraphics();
+      if (orphaned.length > 0) write(orphaned.map((emission) => apc(emission.data)).join(""));
+      return;
+    }
     const projection = mount.windowProjection.peek();
     const seen = new Set<string>();
     // Host images float above every cell exomux paints, so the compositor's
@@ -837,11 +876,20 @@ function startGraphicsPassthroughFlush(
   };
 }
 
+/** Host terminal capabilities passed from launch probing into the mounted desktop. */
+export interface ExomuxHostCapabilities {
+  readonly synchronizedOutput?: boolean;
+  readonly graphemeClustering?: boolean;
+  readonly probeRttMs?: number;
+  readonly remoteEnv?: RemoteTerminalEnvironmentSignals;
+  readonly lowBandwidthController?: LowBandwidthController;
+}
+
 /** Builds the declarative TerminalApp contract around one controller. */
 export function createExomuxTerminalOptions(
   controller: ExomuxController,
   mount: ExomuxAppMountRef = {},
-  hostCapabilities: { readonly synchronizedOutput?: boolean; readonly graphemeClustering?: boolean } = {},
+  hostCapabilities: ExomuxHostCapabilities = {},
 ): TerminalAppOptions<ExomuxAppAction> {
   return {
     id: "exomux",
@@ -861,7 +909,7 @@ export function createExomuxTerminalOptions(
     commands: exomuxCommands(),
     onAction: (action) => handleExomuxAction(action, mount),
     setup(app) {
-      const mounted = mountExomuxDesktop(app, controller);
+      const mounted = mountExomuxDesktop(app, controller, hostCapabilities);
       mount.current = mounted;
       return () => {
         if (mount.current === mounted) mount.current = undefined;
@@ -876,6 +924,7 @@ export function createExomuxTerminalOptions(
 export function mountExomuxDesktop(
   app: TerminalApp<ExomuxAppAction>,
   controller: ExomuxController,
+  hostCapabilities: ExomuxHostCapabilities = {},
 ): ExomuxAppMount {
   const owned: Array<{ dispose(): void }> = [];
   const unsubscribers: Array<() => void> = [];
@@ -1052,7 +1101,22 @@ export function mountExomuxDesktop(
   // desktop mounts — so the exotui any-motion helper keeps 1003 re-asserted on
   // a keepalive and restores the terminal on teardown (WS-009).
   const anyMotion = createAnyMotionTracking({ keepaliveMs: EXOMUX_ANY_MOTION_KEEPALIVE_MS, write: writeHostTerminal });
-  anyMotion.setEnabled(true);
+  const lowBandwidth = hostCapabilities.lowBandwidthController ?? createLowBandwidthController({
+    mode: controller.globalSettings.peek().lowBandwidth,
+    probeRttMs: hostCapabilities.probeRttMs,
+    remoteEnv: hostCapabilities.remoteEnv,
+  });
+  const lowBandwidthActive = own(new Signal(lowBandwidth.active));
+  const effectiveGlobalSettings = () =>
+    exomuxEffectiveGlobalSettings(controller.globalSettings.peek(), lowBandwidthActive.peek());
+  const activeChildWantsAnyMotion = (): boolean => {
+    const runtime = controller.activeRuntime();
+    return runtime !== undefined && runtime.screen.inspect().privateModes.includes(1003);
+  };
+  const syncAnyMotion = (): void => {
+    anyMotion.setEnabled(!lowBandwidthActive.peek() || activeChildWantsAnyMotion());
+  };
+  syncAnyMotion();
   // The host pointer becomes a hand over a terminal link. OSC 22 takes CSS
   // cursor names in Ghostty and kitty; "text" is the pointer a terminal starts
   // with, and Ghostty ignores a name it does not know, so leaving a link names
@@ -1065,7 +1129,7 @@ export function mountExomuxDesktop(
   };
   let appliedBlockCursor = false;
   const applyBlockCursorMode = (): void => {
-    const enabled = controller.globalSettings.peek().blockCursor;
+    const enabled = effectiveGlobalSettings().blockCursor;
     if (enabled === appliedBlockCursor) return;
     appliedBlockCursor = enabled;
     if (enabled) {
@@ -1096,45 +1160,93 @@ export function mountExomuxDesktop(
   // calls, uncaught errors, and unhandled rejections all land in one file the
   // status line names — the evidence channel for anything the TUI would hide.
   let globalDebugLogger: ExomuxDebugLogger | undefined;
-  // Terminal write-path telemetry (UX-011): while debug logging is on, drain
-  // the sink's counters every few seconds and log one line per window that
-  // emitted anything. Stall time and degraded flushes here are frames blocked
-  // on a saturated terminal — work no CPU graph shows.
+  // Shared terminal write-path telemetry sampler: one drain serves both the
+  // debug log (UX-011) and auto low-bandwidth backpressure detection so neither
+  // consumer steals the other's counters.
   let flushTelemetryTimer: ReturnType<typeof setInterval> | undefined;
+  let flushTelemetryIntervalMs = 0;
   const stopFlushTelemetry = (): void => {
     if (flushTelemetryTimer === undefined) return;
     clearInterval(flushTelemetryTimer);
     flushTelemetryTimer = undefined;
+    flushTelemetryIntervalMs = 0;
   };
-  const startFlushTelemetry = (): void => {
+  const applyLowBandwidthProfile = (): void => {
+    lowBandwidth.setMode(controller.globalSettings.peek().lowBandwidth);
+    const profile = lowBandwidth.inspect();
+    lowBandwidthActive.value = profile.active;
+    app.tui.canvas.sink.configure?.({
+      colorDepth: profile.colorDepth,
+      repeatCompression: profile.repeatCompression,
+    });
+    app.tui.setRefreshRate(profile.frameIntervalMs);
+    syncAnyMotion();
+    if (profile.reduceMouseMotion) {
+      setPointerOverLink(false);
+      backgroundClearPointer();
+    }
+    applyBlockCursorMode();
+  };
+  const recordFlushTelemetry = (telemetry: AnsiFlushTelemetry, nowMs?: number): boolean => {
+    const changed = lowBandwidth.recordFlushTelemetry(telemetry, nowMs);
+    if (changed) applyLowBandwidthProfile();
+    return changed;
+  };
+  const syncFlushTelemetryTimer = (): void => {
     const sink = app.tui.canvas.sink;
     // Headless/memory sinks have no terminal write path to measure.
-    if (!sink.takeFlushTelemetry || flushTelemetryTimer !== undefined) return;
-    exomuxDebugLog("flush", `since launch: ${formatExomuxFlushTelemetry(sink.takeFlushTelemetry())}`);
+    if (!sink.takeFlushTelemetry) return;
+    const autoMonitor = controller.globalSettings.peek().lowBandwidth === "auto";
+    const wantLogging = globalDebugLogger !== undefined;
+    if (!autoMonitor && !wantLogging) {
+      stopFlushTelemetry();
+      return;
+    }
+    const desiredMs = autoMonitor ? Math.min(2_500, EXOMUX_FLUSH_TELEMETRY_MS) : EXOMUX_FLUSH_TELEMETRY_MS;
+    if (flushTelemetryTimer !== undefined && flushTelemetryIntervalMs === desiredMs) return;
+    stopFlushTelemetry();
+    flushTelemetryIntervalMs = desiredMs;
     flushTelemetryTimer = setInterval(() => {
       const drained = sink.takeFlushTelemetry?.();
-      if (drained && (drained.frames > 0 || drained.bytes > 0)) {
+      if (!drained) return;
+      if (globalDebugLogger && (drained.frames > 0 || drained.bytes > 0)) {
         exomuxDebugLog("flush", formatExomuxFlushTelemetry(drained));
       }
-    }, EXOMUX_FLUSH_TELEMETRY_MS);
+      if (controller.globalSettings.peek().lowBandwidth === "auto") {
+        recordFlushTelemetry(drained);
+      }
+    }, desiredMs);
   };
   const applyDebugLogging = (): void => {
     const enabled = controller.globalSettings.peek().debugLogging;
     if (enabled && !globalDebugLogger) {
       globalDebugLogger = createExomuxDebugLogger({ prefix: "exomux", captureGlobalErrors: true });
       exomuxDebugLog("debug", "global debug logging on");
-      startFlushTelemetry();
+      const initial = app.tui.canvas.sink.takeFlushTelemetry?.();
+      if (initial) {
+        exomuxDebugLog("flush", `since launch: ${formatExomuxFlushTelemetry(initial)}`);
+        if (controller.globalSettings.peek().lowBandwidth === "auto") recordFlushTelemetry(initial);
+      }
+      syncFlushTelemetryTimer();
       controller.status.value = `Debug log: ${globalDebugLogger.describe?.() ?? "open"}`;
     } else if (!enabled && globalDebugLogger) {
-      stopFlushTelemetry();
       globalDebugLogger.dispose();
       globalDebugLogger = undefined;
+      syncFlushTelemetryTimer();
       controller.status.value = "Debug logging off";
     }
   };
+  const onGlobalSettingsLowBandwidth = (): void => {
+    applyLowBandwidthProfile();
+    syncFlushTelemetryTimer();
+  };
+  applyLowBandwidthProfile();
   applyDebugLogging();
+  syncFlushTelemetryTimer();
   controller.globalSettings.subscribe(applyDebugLogging);
+  controller.globalSettings.subscribe(onGlobalSettingsLowBandwidth);
   unsubscribers.push(() => controller.globalSettings.unsubscribe(applyDebugLogging));
+  unsubscribers.push(() => controller.globalSettings.unsubscribe(onGlobalSettingsLowBandwidth));
   own({
     dispose: () => {
       stopFlushTelemetry();
@@ -1196,8 +1308,14 @@ export function mountExomuxDesktop(
   let lastBackgroundAdvanceAt = performance.now();
   const bodyRect = own(new Computed<Rectangle>(() => exomuxBodyRect(app.tui.rectangle.value)));
   // The window taskbar shares the top bar: it starts just past the start button
-  // and stops short of the quick quit control on the right.
-  const shelfBounds = own(new Computed<Rectangle>(() => exomuxShelfBounds(app.tui.rectangle.value)));
+  // and stops short of the quick quit control (and optional [LOW-BW] badge).
+  const shelfBounds = own(
+    new Computed<Rectangle>(() => {
+      const bounds = app.tui.rectangle.value;
+      const badge = exomuxLowBandwidthBadgeRect(bounds, lowBandwidthActive.value);
+      return exomuxShelfBounds(bounds, badge ? badge.width + 1 : 0);
+    }),
+  );
   // Live titlebar status tags, projected first-class by the window host
   // (WS-008) instead of being baked into the painted title by hand.
   const windowTitleAdornments = (windowId: string): readonly string[] => {
@@ -1260,12 +1378,18 @@ export function mountExomuxDesktop(
     ingressRevision += 1;
     return disposed ? operationQueue.whenIdle() : operationQueue.enqueueBarrier(operation);
   };
+  const bumpInputRender = (): void => {
+    if (lowBandwidthActive.peek()) {
+      app.tui.renderLoop.requestSoon(lowBandwidth.inspect().inputLatencyFloorMs);
+    }
+  };
   const enqueueRaw = (
     data: string | Uint8Array,
     sessionId = controller.activeRuntime()?.sessionId,
   ): Promise<void> => {
     ingressRevision += 1;
     lastInputActivityAt = performance.now();
+    bumpInputRender();
     return disposed || !sessionId ? operationQueue.whenIdle() : operationQueue.enqueueInput(sessionId, data);
   };
   const enqueueGuardedRaw = (
@@ -1275,6 +1399,7 @@ export function mountExomuxDesktop(
   ): Promise<void> => {
     ingressRevision += 1;
     lastInputActivityAt = performance.now();
+    bumpInputRender();
     return disposed || !sessionId
       ? operationQueue.whenIdle()
       : operationQueue.enqueueGuardedInput(sessionId, data, shouldWrite);
@@ -1539,7 +1664,12 @@ export function mountExomuxDesktop(
       if (terminalRenderSubscriptions.has(session.id)) continue;
       const signal = controller.runtime(session.id)?.renderRevision;
       if (!signal) continue;
+      const windowId = exomuxWindowId(session.id);
       const listener = () => {
+        if (controller.activeRuntime()?.sessionId === session.id) syncAnyMotion();
+        // Hidden/minimized windows do not paint into the frame; skip full
+        // desktop invalidation until the window returns to the projection.
+        if (!windowProjection.peek().windows.some((window) => window.id === windowId)) return;
         terminalRenderRevision.value += 1;
       };
       signal.subscribe(listener, subscriptions.signal);
@@ -1560,7 +1690,7 @@ export function mountExomuxDesktop(
 
   /** True when the active background reclaims idle windows and the user wants it. */
   const overgrowthEnabled = (): boolean =>
-    controller.globalSettings.peek().overgrowInactive &&
+    effectiveGlobalSettings().overgrowInactive &&
     exomuxBackgroundOvergrows(controller.backgroundId.peek());
 
   /**
@@ -1572,6 +1702,7 @@ export function mountExomuxDesktop(
    * freezing it there would leave a still image behind every terminal.
    */
   const transparencyEnabled = (): boolean => {
+    if (lowBandwidthActive.peek()) return false;
     const global = controller.globalSettings.peek();
     if (global.opacity < 1) return true;
     for (const window of windowProjection.peek().windows) {
@@ -1612,6 +1743,10 @@ export function mountExomuxDesktop(
     if (disposed || !app.started) return;
     const projection = windowProjection.peek();
     const now = performance.now();
+    if (lowBandwidthActive.peek()) {
+      if (syncOvergrowth(projection, undefined, now)) metaballRevision.value += 1;
+      return;
+    }
     // Overgrowth keeps advancing even when windows fully occlude the desktop —
     // that is precisely the case where the background is creeping over them.
     const backdropVisible = exomuxMetaballBackgroundVisible(projection, bodyRect.peek()) || transparencyEnabled();
@@ -1740,7 +1875,7 @@ export function mountExomuxDesktop(
   const suppressedWindowIds = new Set<string>();
 
   const applyAnimationSettings = (): ReturnType<typeof controller.globalSettings.peek> => {
-    const global = controller.globalSettings.peek();
+    const global = effectiveGlobalSettings();
     surfaceAnimator.setSettings({
       speed: global.animationSpeed,
       kinds: {
@@ -1880,7 +2015,8 @@ export function mountExomuxDesktop(
     rect: Rectangle | undefined,
   ): void => {
     if (!surfaceAnimationsEnabled || !rect || rect.width <= 0 || rect.height <= 0) return;
-    const global = controller.globalSettings.peek();
+    const global = effectiveGlobalSettings();
+    if (global.animationSpeed === "off") return;
     surfaceAnimator.setSettings({
       speed: global.animationSpeed,
       kinds: { open: global.animationMenus, close: global.animationMenus },
@@ -2031,6 +2167,7 @@ export function mountExomuxDesktop(
         // desktop only repaints because the status line happens to change too.
         JSON.stringify(controller.globalSettings.value),
         JSON.stringify(controller.windowSettings.value),
+        lowBandwidthActive.value,
       ];
       for (const session of sessions) {
         const runtime = controller.runtime(session.id);
@@ -2087,15 +2224,16 @@ export function mountExomuxDesktop(
         startMenuSelection: startMenuSelection.peek(),
         blockCursor: exomuxLinkCursor(
           exomuxBlockCursorRender(
-            controller.globalSettings.peek().blockCursor && cursorBlinkOn.peek(),
+            effectiveGlobalSettings().blockCursor && cursorBlinkOn.peek(),
             mousePointer.peek(),
             windowProjection.peek(),
             !modalOpen(),
           ),
           pointerOverLink.peek(),
         ),
-        backgroundField: activeBackgroundField(),
-        ...(overgrowthRatios.size > 0
+        lowBandwidthActive: lowBandwidthActive.peek(),
+        backgroundField: lowBandwidthActive.peek() ? undefined : activeBackgroundField(),
+        ...(!lowBandwidthActive.peek() && overgrowthRatios.size > 0
           ? {
             overgrowth: {
               ratios: overgrowthRatios,
@@ -4500,6 +4638,7 @@ export function mountExomuxDesktop(
     if (disposed) return;
     controller.syncTerminalGeometry(windowProjection.peek());
     syncChildFocusReporting();
+    syncAnyMotion();
   };
   windowProjection.subscribe(scheduleGeometry, subscriptions.signal);
   // Refit floating windows when the desktop changes shape so a smaller parent
@@ -4533,6 +4672,9 @@ export function mountExomuxDesktop(
     metaballFrameRevision: () => metaballRevision.peek(),
     renderRevisionValue: () => renderRevision.peek(),
     overgrowthRatios: () => overgrowthRatios,
+    lowBandwidthActive,
+    lowBandwidthProfile: () => lowBandwidth.inspect(),
+    recordFlushTelemetry,
     whenIdle: () => operationQueue.whenIdle(),
     dispose() {
       if (disposed) return;
@@ -4712,6 +4854,8 @@ interface RenderExomuxDesktopOptions {
   metaballs: ExomuxMetaballField;
   backgroundField?: ExomuxAnimatedBackground;
   overgrowth?: ExomuxOvergrowthPass;
+  /** True when low-bandwidth mitigations are active for this frame. */
+  lowBandwidthActive?: boolean;
   /** Hosts the settings window's action buttons as real composited widgets. */
   settingsWidgets?: ExomuxSettingsWidgets;
   /** Hosts the settings window's theme/background selectors as real composited Lists. */
@@ -5016,11 +5160,21 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
     background: prefixPending ? theme.warning : theme.accent,
     bold: true,
   });
+  const lowBandwidthActive = options.lowBandwidthActive === true;
+  const effectiveGlobal = exomuxEffectiveGlobalSettings(controller.globalSettings.peek(), lowBandwidthActive);
   paintTerminalBar(
     painter,
     projectExomuxTerminalBar(controller, projection, options.shelf),
     theme,
   );
+  const lowBwBadge = exomuxLowBandwidthBadgeRect(bounds, lowBandwidthActive);
+  if (lowBwBadge) {
+    painter.write(lowBwBadge.column, lowBwBadge.row, EXOMUX_LOW_BANDWIDTH_BADGE, {
+      foreground: theme.background,
+      background: theme.warning,
+      bold: true,
+    });
+  }
   const quitRect = menuQuitRect(bounds);
   painter.write(quitRect.column, 0, "[ ✕ ]", {
     foreground: theme.background,
@@ -5030,11 +5184,14 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   painter.fill(body, " ", { foreground: theme.text, background: theme.background });
   // One rasterization serves both the desktop backdrop and the overgrowth pass,
   // so reclaimed cells line up exactly with the background behind the window.
-  const backgroundGrid = options.backgroundField?.rasterizeCells(body, theme);
+  // Low-bandwidth mode keeps the backdrop flat so blank cells compact cleanly.
+  const backgroundGrid = lowBandwidthActive ? undefined : options.backgroundField?.rasterizeCells(body, theme);
   // The default background is the metaball field, which paints solid cells
   // rather than a glyph grid. Rasterize its levels once so a transparent window
   // shows the same glow it sits on instead of a flat theme background.
-  const metaballLevels = backgroundGrid ? undefined : options.metaballs.rasterize(body, EXOMUX_METABALL_LEVELS);
+  const metaballLevels = lowBandwidthActive || backgroundGrid
+    ? undefined
+    : options.metaballs.rasterize(body, EXOMUX_METABALL_LEVELS);
   const metaballPalette = metaballLevels ? exomuxMetaballPalette(theme) : undefined;
   // Transparent windows read the same source the backdrop is painted from, so
   // what shows through a window is exactly what surrounds it. Windows painted
@@ -5083,6 +5240,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
         options.sessionNameField,
         options.sessionListScrollTop,
         options.killModalSelection,
+        lowBandwidthActive,
       );
       flyIn.capture(window.id, scratch.rows, window.rect);
       if (flyIn.suppressed.has(window.id)) return;
@@ -5099,6 +5257,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
       options.sessionNameField,
       options.sessionListScrollTop,
       options.killModalSelection,
+      lowBandwidthActive,
     );
     exomuxSceneGround.commitWindow();
   };
@@ -5106,7 +5265,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   for (const window of projection.tiledWindows) {
     paintOneWindow(window);
   }
-  const borderGlyphs = exomuxBorderGlyphs(controller.globalSettings.peek().borderStyle);
+  const borderGlyphs = exomuxBorderGlyphs(effectiveGlobal.borderStyle);
   for (const separator of projection.separators) {
     painter.fill(
       separator.rect,
@@ -5121,7 +5280,7 @@ function renderExomuxDesktop(options: RenderExomuxDesktopOptions): string[][] {
   painter.endGroundDeposits();
   // Post-window overlay: effects that sit on top of window chrome (puddles,
   // drizzle, splashes) so they remain visible even in tiled layouts.
-  if (options.backgroundField && exomuxBackgroundHasOverlay(options.backgroundField)) {
+  if (!lowBandwidthActive && options.backgroundField && exomuxBackgroundHasOverlay(options.backgroundField)) {
     for (const entry of options.backgroundField.rasterizeOverlayCells(body, theme)) {
       painter.write(body.column + entry.column, body.row + entry.row, entry.cell.char, {
         foreground: entry.cell.foreground,
@@ -5599,15 +5758,17 @@ function paintWindow(
   sessionNameField?: ExomuxInputField,
   sessionListScrollTop = -1,
   killSelection?: string,
+  lowBandwidthActive = false,
 ): void {
   const theme = controller.theme.peek();
-  const global = controller.globalSettings.peek();
+  const savedGlobal = controller.globalSettings.peek();
+  const global = exomuxEffectiveGlobalSettings(savedGlobal, lowBandwidthActive);
   const sessionId = exomuxSessionIdFromWindow(window.id);
   // Panels carry no per-window override, so they follow the desktop setting;
-  // terminals resolve their own.
+  // terminals resolve their own. Low-bandwidth mode forces opaque windows.
   const windowOpacity = sessionId
-    ? exomuxResolvedOpacity(global, controller.windowSettingsFor(sessionId))
-    : exomuxResolvedOpacity(global);
+    ? exomuxResolvedOpacity(global, controller.windowSettingsFor(sessionId), lowBandwidthActive)
+    : exomuxResolvedOpacity(global, undefined, lowBandwidthActive);
   // Chrome is a control surface: it blends at half the window's transparency
   // (032), so the border, title, and buttons stay more legible than the body.
   const chromeOpacity = exomuxControlOpacity(windowOpacity);
@@ -5728,7 +5889,7 @@ function paintWindow(
       theme,
       window.active,
       settings,
-      exomuxResolvedOpacity(controller.globalSettings.peek(), settings),
+      exomuxResolvedOpacity(global, settings, lowBandwidthActive),
       backdrop,
     );
   }
