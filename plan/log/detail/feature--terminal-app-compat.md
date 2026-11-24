@@ -29,3 +29,16 @@ with `exomux` standing thinly on top:
   `exowebtui` remote terminals can forward `DECCKM`, Kitty/modifyOtherKeys, and bracketed paste options.
 - `packages/exomux/app.ts`: passed `applicationCursorKeys: runtime.screen.applicationCursorKeys` from
   `encodeKeyForActiveTerminal()`.
+
+## 2026-11-23 — Commit 2: DECSET 1004 Focus Reporting (`CSI I` / `CSI O`)
+
+### Changes
+
+- `src/runtime/terminal_screen.ts`: added `TerminalScreenController.focusReporting` (DEC private mode 1004).
+- `src/app/terminal_input.ts`: exported `encodeTerminalFocusEvent(focused)` (`\x1b[I` / `\x1b[O`) and added
+  `focusReporting?: boolean` to `TerminalInputRoutingOptions`.
+- `src/web/remote_terminal.ts`: extended `encodeRemoteTerminalInput()` to encode `terminalFocus` events when
+  `focusReporting` is enabled (including browser focus/blur events with empty raw buffers) and suppress them when
+  explicitly disabled.
+- `packages/exomux/app.ts`: tracked effective focused terminal session across window switches and host terminal
+  focus/blur, forwarding `\x1b[O` / `\x1b[I` only to attached running sessions with `focusReporting` enabled.

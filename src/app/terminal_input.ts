@@ -35,6 +35,8 @@ export interface TerminalInputRoutingOptions {
   modifyOtherKeys?: number;
   /** DECCKM (`CSI ? 1 h`): emit SS3 cursor/Home/End keys instead of CSI when unmodified. */
   applicationCursorKeys?: boolean;
+  /** DECSET 1004 (`CSI ? 1004 h`): forward terminal focus-in (`CSI I`) and focus-out (`CSI O`) reports. */
+  focusReporting?: boolean;
 }
 
 /** Inspection summary used by paste confirmation policies. */
@@ -293,6 +295,11 @@ function legacyChordBytes(chord: KeyChord): string | undefined {
   if (special) return `${prefix}${special}`;
   if ([...chord.key].length !== 1) return undefined;
   return `${prefix}${chord.shift ? chord.key.toUpperCase() : chord.key}`;
+}
+
+/** Encodes a DECSET 1004 focus-in (`CSI I`) or focus-out (`CSI O`) report for a child process. */
+export function encodeTerminalFocusEvent(focused: boolean): Uint8Array {
+  return textEncoder.encode(focused ? "\x1b[I" : "\x1b[O");
 }
 
 /** Encodes paste payload text for a child process, optionally using xterm bracketed paste framing. */

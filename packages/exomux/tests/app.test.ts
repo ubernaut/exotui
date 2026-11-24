@@ -6467,3 +6467,53 @@ Deno.test("Exomux honors DECCKM (CSI ? 1 h) when forwarding cursor keys to the a
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux forwards DECSET 1004 focus reports across window switches and host blur/focus", async () => {
+  const first = session("focus-1", "nvim", 0);
+  const second = session("focus-2", "shell", 0);
+  const client = new FakeExomuxClient([first, second]);
+  const controller = await createExomuxController({ client, initialSessions: [first, second] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 24 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(first.id) }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+
+    // Only `first` opts into DECSET 1004.
+    client.emitOutput({ sessionId: first.id, sequence: 1, data: "\x1b[?1004h" });
+    client.inputs.length = 0;
+
+    // Switching to `second` reports focus-out to `first` and nothing to `second`.
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(second.id) }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+    assertEquals(client.inputs, [{ sessionId: first.id, data: "\x1b[O" }]);
+
+    // Now `second` opts in too; host blur/focus notifies only the active terminal.
+    client.emitOutput({ sessionId: second.id, sequence: 1, data: "\x1b[?1004h" });
+    client.inputs.length = 0;
+    harness.app.tui.emit("terminalFocus", { key: "focus", focused: false, buffer: new Uint8Array() });
+    await mounted.whenIdle();
+    assertEquals(client.inputs, [{ sessionId: second.id, data: "\x1b[O" }]);
+
+    harness.app.tui.emit("terminalFocus", { key: "focus", focused: true, buffer: new Uint8Array() });
+    await mounted.whenIdle();
+    assertEquals(client.inputs.at(-1), { sessionId: second.id, data: "\x1b[I" });
+
+    // Switching back to `first` notifies `second` (out) and `first` (in).
+    client.inputs.length = 0;
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(first.id) }, mounted.bodyRect.peek());
+    await mounted.whenIdle();
+    assertEquals(client.inputs, [
+      { sessionId: second.id, data: "\x1b[O" },
+      { sessionId: first.id, data: "\x1b[I" },
+    ]);
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});

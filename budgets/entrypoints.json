@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 494,
-    "bytes": 5877232,
+    "bytes": 5878107,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -127,7 +127,7 @@
       "src/app/table_commands.ts": 3463,
       "src/app/tabs_commands.ts": 3213,
       "src/app/terminal_commands.ts": 47814,
-      "src/app/terminal_input.ts": 20552,
+      "src/app/terminal_input.ts": 20923,
       "src/app/theme_commands.ts": 16968,
       "src/app/theme_editor.ts": 12311,
       "src/app/theme_plugin.ts": 14624,
@@ -381,7 +381,7 @@
       "src/runtime/terminal_passthrough.ts": 5374,
       "src/runtime/terminal_queries.ts": 4912,
       "src/runtime/terminal_sanitizer.ts": 5145,
-      "src/runtime/terminal_screen.ts": 87411,
+      "src/runtime/terminal_screen.ts": 87574,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
@@ -496,12 +496,12 @@
       "src/visual/raster.ts": 2224,
       "src/visual/scales.ts": 8830,
       "src/visual/series.ts": 5698,
-      "src/web/remote_terminal.ts": 49557
+      "src/web/remote_terminal.ts": 49898
     }
   },
   "mod.app.ts": {
     "modules": 152,
-    "bytes": 2074840,
+    "bytes": 2075552,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/accessibility_tree.ts": 5721,
@@ -519,7 +519,7 @@
       "src/app/router.ts": 53710,
       "src/app/surface_transitions.ts": 7556,
       "src/app/terminal_app.ts": 8902,
-      "src/app/terminal_input.ts": 20552,
+      "src/app/terminal_input.ts": 20923,
       "src/app/widget_surface.ts": 8575,
       "src/app/workbench_button_style.ts": 3712,
       "src/app/workbench_control_layout.ts": 9425,
@@ -654,7 +654,7 @@
       "src/utils/strings.ts": 13819,
       "src/view.ts": 746,
       "src/viewport.ts": 9033,
-      "src/web/remote_terminal.ts": 49557
+      "src/web/remote_terminal.ts": 49898
     }
   },
   "mod.document.ts": {
@@ -1021,10 +1021,10 @@
   },
   "mod.remote.ts": {
     "modules": 37,
-    "bytes": 262832,
+    "bytes": 263544,
     "paths": {
       "mod.remote.ts": 755,
-      "src/app/terminal_input.ts": 20552,
+      "src/app/terminal_input.ts": 20923,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/terminal_output.ts": 3236,
       "src/event_emitter.ts": 4163,
@@ -1059,7 +1059,7 @@
       "src/types.ts": 1689,
       "src/utils/formatting.ts": 450,
       "src/utils/signals.ts": 333,
-      "src/web/remote_terminal.ts": 49557
+      "src/web/remote_terminal.ts": 49898
     }
   },
   "mod.testing.ts": {
@@ -1167,7 +1167,7 @@
   },
   "mod.terminal.ts": {
     "modules": 60,
-    "bytes": 674388,
+    "bytes": 674551,
     "paths": {
       "mod.terminal.ts": 1052,
       "src/components/bounded_follow_lines.ts": 3469,
@@ -1192,7 +1192,7 @@
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_palette.ts": 11246,
-      "src/runtime/terminal_screen.ts": 87411,
+      "src/runtime/terminal_screen.ts": 87574,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
@@ -1317,7 +1317,7 @@
   },
   "mod.web.ts": {
     "modules": 438,
-    "bytes": 5601215,
+    "bytes": 5602090,
     "paths": {
       "mod.web.ts": 4344,
       "src/api_stability.ts": 21096,
@@ -1443,7 +1443,7 @@
       "src/app/table_commands.ts": 3463,
       "src/app/tabs_commands.ts": 3213,
       "src/app/terminal_commands.ts": 47814,
-      "src/app/terminal_input.ts": 20552,
+      "src/app/terminal_input.ts": 20923,
       "src/app/theme_commands.ts": 16968,
       "src/app/theme_editor.ts": 12311,
       "src/app/theme_plugin.ts": 14624,
@@ -1654,7 +1654,7 @@
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_palette.ts": 11246,
-      "src/runtime/terminal_screen.ts": 87411,
+      "src/runtime/terminal_screen.ts": 87574,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
       "src/runtime/terminal_sequences.ts": 6474,
@@ -1755,13 +1755,13 @@
       "src/web/host.ts": 4596,
       "src/web/mod.ts": 283,
       "src/web/platform.ts": 21003,
-      "src/web/remote_terminal.ts": 49557,
+      "src/web/remote_terminal.ts": 49898,
       "src/web/web_presenter.ts": 7685
     }
   },
   "mod.shell.ts": {
     "modules": 97,
-    "bytes": 1716689,
+    "bytes": 1717401,
     "paths": {
       "mod.shell.ts": 2446,
       "src/app/actions.ts": 3908,
@@ -1789,7 +1789,7 @@
       "src/app/shell_background.ts": 17258,
       "src/app/shell_presenter.ts": 5576,
       "src/app/shell_theme.ts": 9795,
-      "src/app/terminal_input.ts": 20552,
+      "src/app/terminal_input.ts": 20923,
       "src/app/workbench_button_style.ts": 3712,
       "src/app/workbench_control_layout.ts": 9425,
       "src/app/workbench_frame.ts": 30694,
@@ -1859,7 +1859,7 @@
       "src/utils/signals.ts": 333,
       "src/utils/strings.ts": 13819,
       "src/viewport.ts": 9033,
-      "src/web/remote_terminal.ts": 49557
+      "src/web/remote_terminal.ts": 49898
     }
   }
 }

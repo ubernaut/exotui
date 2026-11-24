@@ -322,6 +322,11 @@ export class TerminalScreenController {
     return this.#privateModes.has(1);
   }
 
+  /** Whether DECSET 1004 focus reporting (`CSI ? 1004 h`) is currently active. */
+  get focusReporting(): boolean {
+    return this.#privateModes.has(1004);
+  }
+
   get scrollbackRows(): number {
     return this.#scrollback.length;
   }

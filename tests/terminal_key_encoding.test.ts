@@ -1,6 +1,10 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { assertEquals } from "./deps.ts";
-import { encodeTerminalKeyPress, type TerminalKeyEncodingOptions } from "../src/app/terminal_input.ts";
+import {
+  encodeTerminalFocusEvent,
+  encodeTerminalKeyPress,
+  type TerminalKeyEncodingOptions,
+} from "../src/app/terminal_input.ts";
 import { decodeBuffer } from "../src/input_reader/mod.ts";
 
 const encoder = new TextEncoder();
@@ -98,4 +102,9 @@ Deno.test("DECCKM translates unmodified cursor and Home/End keys between CSI and
   // Kitty disambiguation still honors DECCKM for unmodified arrows.
   assertEquals(relay("\x1b[A", { kittyFlags: 1, applicationCursorKeys: true }), "\x1bOA");
   assertEquals(relay("\x1bOA", { kittyFlags: 1, applicationCursorKeys: false }), "\x1b[A");
+});
+
+Deno.test("encodeTerminalFocusEvent encodes DECSET 1004 focus-in and focus-out reports", () => {
+  assertEquals(decoder.decode(encodeTerminalFocusEvent(true)), "\x1b[I");
+  assertEquals(decoder.decode(encodeTerminalFocusEvent(false)), "\x1b[O");
 });

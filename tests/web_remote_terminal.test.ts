@@ -213,6 +213,36 @@ Deno.test("remote terminal input encoder preserves key paste and mouse buffers",
     new TextEncoder().encode("\x1b[200~paste\x1b[201~"),
   );
   assertEquals(
+    encodeRemoteTerminalInput(
+      {
+        kind: "terminalFocus",
+        event: { key: "focus", focused: true, buffer: new Uint8Array() },
+      },
+      { focusReporting: true },
+    ),
+    new TextEncoder().encode("\x1b[I"),
+  );
+  assertEquals(
+    encodeRemoteTerminalInput(
+      {
+        kind: "terminalFocus",
+        event: { key: "focus", focused: false, buffer: new Uint8Array() },
+      },
+      { focusReporting: true },
+    ),
+    new TextEncoder().encode("\x1b[O"),
+  );
+  assertEquals(
+    encodeRemoteTerminalInput(
+      {
+        kind: "terminalFocus",
+        event: { key: "focus", focused: true, buffer: new TextEncoder().encode("\x1b[I") },
+      },
+      { focusReporting: false },
+    ),
+    undefined,
+  );
+  assertEquals(
     encodeRemoteTerminalInput({
       kind: "mousePress",
       event: {

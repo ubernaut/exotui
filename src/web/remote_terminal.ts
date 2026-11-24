@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { EventEmitter } from "../event_emitter.ts";
 import {
+  encodeTerminalFocusEvent,
   encodeTerminalKeyPress,
   encodeTerminalPaste,
   type TerminalInputRoutingOptions,
@@ -1197,7 +1198,7 @@ export function createNegotiatedRemoteTerminalBridge(
 
 /** Optional terminal mode flags applied when encoding remote input events to PTY bytes. */
 export interface RemoteTerminalInputEncodingOptions
-  extends TerminalKeyEncodingOptions, Pick<TerminalInputRoutingOptions, "bracketedPaste"> {}
+  extends TerminalKeyEncodingOptions, Pick<TerminalInputRoutingOptions, "bracketedPaste" | "focusReporting"> {}
 
 /** Converts a remote input event to terminal bytes when the event has a byte representation. */
 export function encodeRemoteTerminalInput(
@@ -1206,6 +1207,11 @@ export function encodeRemoteTerminalInput(
 ): Uint8Array | undefined {
   if (input.kind === "keyPress") return encodeTerminalKeyPress(input.event, options);
   if (input.kind === "paste") return encodeTerminalPaste(input.event, options);
+  if (input.kind === "terminalFocus") {
+    if (options.focusReporting === false) return undefined;
+    if (options.focusReporting === true) return encodeTerminalFocusEvent(input.event.focused);
+    return input.event.buffer.byteLength > 0 ? new Uint8Array(input.event.buffer) : undefined;
+  }
   if (input.event.buffer.byteLength > 0) return new Uint8Array(input.event.buffer);
   return undefined;
 }

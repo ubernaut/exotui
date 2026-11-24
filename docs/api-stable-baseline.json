@@ -1053,6 +1053,7 @@
     {"module":"src/app/terminal_commands.ts","name":"TerminalWorkspaceCommandOptions","kind":"interface","typeOnly":true,"documented":true},
     {"module":"src/app/terminal_commands.ts","name":"TerminalWorkspaceCommandPayload","kind":"interface","typeOnly":true,"documented":true},
     {"module":"src/app/terminal_commands.ts","name":"terminalWorkspaceCommands","kind":"function","typeOnly":false,"documented":true},
+    {"module":"src/app/terminal_input.ts","name":"encodeTerminalFocusEvent","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/app/terminal_input.ts","name":"encodeTerminalKeyPress","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/app/terminal_input.ts","name":"encodeTerminalMouse","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/app/terminal_input.ts","name":"encodeTerminalPaste","kind":"function","typeOnly":false,"documented":true},

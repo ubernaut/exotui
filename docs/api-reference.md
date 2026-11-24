@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 1132
 - Unique re-export declarations: 743
 - Re-export declaration visits: 1129
-- Unique symbol declarations: 5187
-- Symbol declaration visits: 10516
-- Documented symbol declarations: 5156
+- Unique symbol declarations: 5188
+- Symbol declaration visits: 10518
+- Documented symbol declarations: 5157
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,12 +21,12 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4399 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4400 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
 | `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3710 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3711 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     137 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
@@ -50,8 +50,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 459
 - Re-export declarations: 460
-- Exported symbols: 4399
-- Documented symbols: 4399
+- Exported symbols: 4400
+- Documented symbols: 4400
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -125,8 +125,8 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Stability: beta
 - Modules: 366
 - Re-export declarations: 368
-- Exported symbols: 3710
-- Documented symbols: 3710
+- Exported symbols: 3711
+- Documented symbols: 3711
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -467,7 +467,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                               | `.`, `./web`                             |          0 |       6 |          6 |
 | [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                                 | `./app`                                  |          0 |       6 |          6 |
 | [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                       | `.`, `./web`                             |          0 |      29 |         29 |
-| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      18 |         18 |
+| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      19 |         19 |
 | [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                             | `.`, `./web`                             |          0 |      24 |         24 |
 | [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                                 | `.`, `./web`                             |          0 |       9 |          9 |
 | [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                                 | `.`, `./web`                             |          0 |      13 |         13 |
@@ -3414,6 +3414,7 @@ _Entrypoints: `.`, `./web`_
 
 | Symbol                                 | Kind      | Type Only | JSDoc |
 | -------------------------------------- | --------- | --------- | ----- |
+| `encodeTerminalFocusEvent`             | function  | no        | yes   |
 | `encodeTerminalKeyPress`               | function  | no        | yes   |
 | `encodeTerminalMouse`                  | function  | no        | yes   |
 | `encodeTerminalPaste`                  | function  | no        | yes   |

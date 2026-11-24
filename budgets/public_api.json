@@ -1095,6 +1095,7 @@
     "encodeKittyGraphicsControl",
     "encodeKittyGraphicsPayload",
     "encodeScreenPassthrough",
+    "encodeTerminalFocusEvent",
     "encodeTerminalKeyPress",
     "encodeTerminalMouse",
     "encodeTerminalPaste",

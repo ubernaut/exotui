@@ -25,6 +25,7 @@ import {
   createAnsiStyle,
   createAnyMotionTracking,
   DrawObject,
+  encodeTerminalFocusEvent,
   encodeTerminalKeyPress,
   listWindowFromTop,
   modalActionRects,
@@ -4456,12 +4457,49 @@ export function mountExomuxDesktop(
     void enqueueGuardedRaw(paste, allowPasteInBarrier);
   }));
 
+  let hostFocused = true;
+  const currentFocusedTerminalSessionId = (): string | undefined => {
+    if (!hostFocused) return undefined;
+    const activeWindowId = controller.windowHost.controller.inspect().activeWindowId;
+    return activeWindowId ? exomuxSessionIdFromWindow(activeWindowId) : undefined;
+  };
+  let focusedTerminalSessionId = currentFocusedTerminalSessionId();
+  const forwardChildFocus = (sessionId: string | undefined, focused: boolean): void => {
+    if (!sessionId || disposed) return;
+    const runtime = controller.runtime(sessionId);
+    if (!runtime || !runtime.attached.peek() || !runtime.summary.peek().running || !runtime.screen.focusReporting) {
+      return;
+    }
+    void enqueue(() => {
+      const current = controller.runtime(sessionId);
+      if (
+        disposed || !current || !current.attached.peek() || !current.summary.peek().running ||
+        !current.screen.focusReporting
+      ) {
+        return;
+      }
+      return controller.writeSession(sessionId, encodeTerminalFocusEvent(focused)).catch(() => false);
+    });
+  };
+  const syncChildFocusReporting = (): void => {
+    if (disposed) return;
+    const nextId = currentFocusedTerminalSessionId();
+    if (nextId === focusedTerminalSessionId) return;
+    const previousId = focusedTerminalSessionId;
+    focusedTerminalSessionId = nextId;
+    forwardChildFocus(previousId, false);
+    forwardChildFocus(nextId, true);
+  };
+
   unsubscribers.push(app.tui.on("terminalFocus", (event) => {
+    hostFocused = event.focused;
+    syncChildFocusReporting();
     if (!disposed && event.focused) controller.syncTerminalGeometry(windowProjection.peek(), true);
   }));
   const scheduleGeometry = (): void => {
     if (disposed) return;
     controller.syncTerminalGeometry(windowProjection.peek());
+    syncChildFocusReporting();
   };
   windowProjection.subscribe(scheduleGeometry, subscriptions.signal);
   // Refit floating windows when the desktop changes shape so a smaller parent
