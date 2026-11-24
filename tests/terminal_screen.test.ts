@@ -7,7 +7,7 @@ import {
   type TerminalScrollbackCommandAction,
   terminalScrollbackCommands,
 } from "../src/app/terminal_commands.ts";
-import { TerminalScreenController } from "../src/runtime/terminal_screen.ts";
+import { serializeTerminalScreenSnapshot, TerminalScreenController } from "../src/runtime/terminal_screen.ts";
 import { TerminalScrollbackController } from "../src/runtime/terminal_scrollback.ts";
 import { parseTerminalControlSequence, parseTerminalParams } from "../src/runtime/terminal_sequences.ts";
 import {
@@ -1044,6 +1044,43 @@ Deno.test("TerminalScreenController honors DECLRMM (?69h) + DECSLRM (CSI l;r s) 
   // Disabling DECLRMM (`?69l`) resets horizontal margins and restores `CSI s` as SCOSC.
   screen.write("\x1b[?6l\x1b[?69l\x1b[4;9H\x1b[s\x1b[1;1H\x1b[u");
   assertEquals(screen.cursor, { row: 3, column: 8 });
+});
+
+Deno.test("serializeTerminalScreenSnapshot round-trips main/alt screens, scrollback, styles, links, palette, margins, and modes", () => {
+  const source = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  source.write(
+    "\x1b]2;agent shell\x07" +
+      "\x1b]7;file://host/tmp/work\x07" +
+      "\x1b]4;1;#12ab34\x07" +
+      "\x1b[?1h\x1b[?1004h\x1b[?2004h\x1b[>5u\x1b[>4;2m" +
+      "history-row-0\r\n" +
+      "history-row-1\r\n" +
+      "\x1b[1;38;2;10;20;30;4:3;58;5;196m\x1b]8;;https://example.com/a\x1b\\Hi日本\x1b]8;;\x1b\\\x1b[0m\r\n" +
+      "wrapped-text-over-sixteen\r\n" +
+      "prompt> " +
+      "\x1b[2;3r\x1b[?69h\x1b[3;12s\x1b[?6h\x1b[2;4H\x1b[6 q",
+  );
+
+  const snapshot = serializeTerminalScreenSnapshot(source, { includeScrollback: 10 });
+  const restored = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  restored.write(snapshot);
+
+  assertEquals(restored.textRows(), source.textRows());
+  assertEquals(restored.scrollbackTextRows(), source.scrollbackTextRows());
+  assertEquals(restored.cellRows(), source.cellRows());
+  assertEquals(restored.inspect(), source.inspect());
+  assertEquals(restored.keyboardProtocol, source.keyboardProtocol);
+  assertEquals(restored.paletteOverrides().get(1), [0x12, 0xab, 0x34]);
+
+  // Alternate screen with hidden cursor and separate kitty stack round-trips too.
+  source.write("\x1b[?1049h\x1b[>1u\x1b[?25l\x1b[2;3HALT-VIEW");
+  const altRestored = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  altRestored.write(source.serializeSnapshot());
+  assertEquals(altRestored.inspect().alternate, true);
+  assertEquals(altRestored.inspect().cursorVisible, false);
+  assertEquals(altRestored.cursor, source.cursor);
+  assertEquals(altRestored.textRows(), source.textRows());
+  assertEquals(altRestored.keyboardProtocol, { kittyFlags: 1, modifyOtherKeys: 2 });
 });
 
 Deno.test("TerminalScreenController supports alternate screen switching", () => {

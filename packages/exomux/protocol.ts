@@ -80,6 +80,8 @@ export interface ExomuxAttachRequest {
   sessionId: string;
   /** Last output sequence durably observed by the client. Zero requests all retained output. */
   afterSequence?: number;
+  /** When true, allows the daemon to satisfy a rotated replay with a full ANSI screen snapshot. */
+  snapshotFallback?: boolean;
 }
 
 export interface ExomuxSessionRequest {
@@ -219,6 +221,8 @@ export interface ExomuxAttachedMessage {
   latestSequence: number;
   /** True when requested output predates the bounded replay ring. */
   truncated: boolean;
+  /** True when the daemon delivered a complete screen snapshot instead of a truncated raw tail. */
+  snapshot?: boolean;
 }
 
 export interface ExomuxAcknowledgedMessage {
@@ -382,6 +386,7 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
     "title",
     "sessionId",
     "afterSequence",
+    "snapshotFallback",
     "data",
     "descriptorPath",
     "key",
@@ -440,16 +445,20 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
       };
     }
     case "attach": {
-      exact(root, ["version", "type", "requestId", "sessionId"], ["afterSequence"]);
+      exact(root, ["version", "type", "requestId", "sessionId"], ["afterSequence", "snapshotFallback"]);
       const afterSequence = root.afterSequence === undefined
         ? undefined
         : nonNegativeInteger(root.afterSequence, "afterSequence");
+      const snapshotFallback = root.snapshotFallback === undefined
+        ? undefined
+        : booleanValue(root.snapshotFallback, "snapshotFallback");
       return {
         version: 1,
         type,
         requestId: requestId(root.requestId),
         sessionId: sessionId(root.sessionId),
         ...(afterSequence !== undefined ? { afterSequence } : {}),
+        ...(snapshotFallback !== undefined ? { snapshotFallback } : {}),
       };
     }
     case "detach":
@@ -522,6 +531,7 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
     "replayFromSequence",
     "latestSequence",
     "truncated",
+    "snapshot",
     "operation",
     "sessionId",
     "timestamp",
@@ -559,16 +569,21 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
         requestId: requestId(root.requestId),
         session: sessionDescriptor(root.session),
       };
-    case "attached":
-      exact(root, [
-        "version",
-        "type",
-        "requestId",
-        "session",
-        "replayFromSequence",
-        "latestSequence",
-        "truncated",
-      ]);
+    case "attached": {
+      exact(
+        root,
+        [
+          "version",
+          "type",
+          "requestId",
+          "session",
+          "replayFromSequence",
+          "latestSequence",
+          "truncated",
+        ],
+        ["snapshot"],
+      );
+      const snapshot = root.snapshot === undefined ? undefined : booleanValue(root.snapshot, "snapshot");
       return {
         version: 1,
         type,
@@ -577,7 +592,9 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
         replayFromSequence: nonNegativeInteger(root.replayFromSequence, "replayFromSequence"),
         latestSequence: nonNegativeInteger(root.latestSequence, "latestSequence"),
         truncated: booleanValue(root.truncated, "truncated"),
+        ...(snapshot !== undefined ? { snapshot } : {}),
       };
+    }
     case "ack": {
       exact(root, ["version", "type", "requestId", "operation"], ["sessionId"]);
       const operation = stringValue(root.operation, "operation", 16) as ExomuxAcknowledgedMessage["operation"];

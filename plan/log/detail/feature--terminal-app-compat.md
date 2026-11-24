@@ -105,3 +105,18 @@ with `exomux` standing thinly on top:
   bounded glyph wrapping, CR/BS/NEL/CUF/CUB/CHA/CUP/CPR, `SU`/`SD`/`IND`/`RI`, `IL`/`DL`, `ICH`/`DCH`, and
   `DECIC`/`DECDC` (`CSI n ' }` / `CSI n ' ~`) strictly inside the active horizontal+vertical margin box without
   disturbing outside columns or corrupting wide pairs.
+
+## 2026-11-23 — Commit 8: Daemon-side screen snapshot fallback for rotated replays
+
+### Changes
+
+- `src/runtime/terminal_screen.ts`: added `TerminalScreenSnapshotOptions`,
+  `TerminalScreenController.serializeSnapshot()`, and exported `serializeTerminalScreenSnapshot()` to serialize any
+  screen's visible grid, optional main-screen scrollback, SGR styles, OSC 8 hyperlinks, OSC 4 palette overrides, scroll
+  regions (`DECSTBM`/`DECLRMM`/`DECSLRM`), private modes, keyboard protocol, and cursor state into a compact replayable
+  ANSI stream.
+- `packages/exomux/{protocol,model,client,main,host,controller}.ts`: maintained a bounded shadow
+  `TerminalScreenController` (`scrollbackLimit: 200`) per `HostSession` in the daemon, advertised `screenSnapshot: true`
+  in `host.json`, added optional `snapshotFallback` on `attach` and `snapshot` on `attached` (fully backwards- and
+  forwards-compatible across daemon/client version skew), and skipped truncation warnings and resize-wiggle recovery
+  when the daemon restores a rotated attach from a complete snapshot.

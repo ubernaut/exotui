@@ -3880,28 +3880,31 @@ export class ExomuxController {
         }
         if (generation !== runtime.attachGeneration || this.#disposed) return;
         const truncated = attachment.truncated || skippedReplay;
-        if (truncated) {
+        const snapshotRestored = attachment.snapshot === true && !skippedReplay;
+        if (truncated || snapshotRestored) {
           runtime.syncOutput.reset();
           runtime.screen.clear();
-          this.#warn(runtime, "Replay buffer was truncated; this view resumed at the retained boundary.");
+          if (!snapshotRestored) {
+            this.#warn(runtime, "Replay buffer was truncated; this view resumed at the retained boundary.");
+          }
           runtime.lastSequence = 0;
         }
         this.#setHostSummary(runtime, attachment.session);
         for (const frame of attachment.replay) this.#acceptOutput(runtime, frame, generation);
         runtime.attached.value = true;
-        // A truncated ring cannot reconstruct a full-screen child (a nested
-        // exomux, vim, htop): the retained tail is diffs against a screen that
-        // scrolled out of the buffer long ago, so the window resumes blank
-        // until the child repaints. Ask it to, the only way a pty can: a real
-        // size change and back (an unchanged TIOCSWINSZ raises no SIGWINCH).
-        // Attaching is not using: only the window the user is in takes the PTY's
-        // size. A truncated view of any other terminal still needs its child to
-        // repaint, so that one is wiggled around the size the PTY already has.
+        // A truncated ring without a daemon snapshot cannot reconstruct a
+        // full-screen child (a nested exomux, vim, htop): the retained tail is
+        // diffs against a screen that scrolled out of the buffer long ago, so
+        // the window resumes blank until the child repaints. Ask it to, the
+        // only way a pty can: a real size change and back (an unchanged
+        // TIOCSWINSZ raises no SIGWINCH). When the daemon supplied a coherent
+        // snapshot (`snapshotRestored`), skip the wiggle.
+        const needsWiggle = truncated && !snapshotRestored;
         const focusedHere = exomuxWindowId(runtime.sessionId) === this.#focusedGeometryWindow;
         if (focusedHere) {
           runtime.sizeClaimed = true;
-          this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows, truncated);
-        } else if (truncated) {
+          this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows, needsWiggle);
+        } else if (needsWiggle) {
           const host = runtime.summary.peek();
           this.#scheduleTerminalResize(runtime, host.columns, host.rows, true);
         }

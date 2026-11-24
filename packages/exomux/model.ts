@@ -116,6 +116,8 @@ export interface ExomuxAttachResult {
   readonly session: ExomuxSessionSummary;
   readonly replay: readonly ExomuxOutputFrame[];
   readonly truncated: boolean;
+  /** True when the daemon answered a rotated replay with a full ANSI screen snapshot. */
+  readonly snapshot?: boolean;
 }
 
 /** Options accepted when a new real shell is launched. */

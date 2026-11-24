@@ -9,6 +9,7 @@ import { CharacterWidthAccumulator, measureCharacterWidth } from "../utils/chara
 import { UnicodeGraphemeBoundaryCursor } from "../unicode/grapheme.ts";
 import { normalizeTerminalDimension } from "./terminal_values.ts";
 import { decodeTerminalColor, encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { sanitizeTerminalHyperlink } from "./terminal_links.ts";
 import { xtermPaletteRgb } from "./terminal_palette.ts";
 import { parseTerminalClipboardWrite, type TerminalClipboardWrite } from "./terminal_services.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
@@ -151,6 +152,12 @@ export interface TerminalScreenInspection {
   title?: string;
   /** The shell's cwd as last reported through OSC 7 (`file://host/path`). */
   workingDirectory?: string;
+}
+
+/** Options for serializing a {@linkcode TerminalScreenController} into a replayable ANSI byte stream. */
+export interface TerminalScreenSnapshotOptions {
+  /** Maximum main-screen scrollback rows to include ahead of the live viewport (default `0`). */
+  readonly includeScrollback?: number;
 }
 
 interface TerminalScreenState {
@@ -798,6 +805,131 @@ export class TerminalScreenController {
       title: this.#title,
       workingDirectory: this.#workingDirectory,
     };
+  }
+
+  /**
+   * Serializes the screen's visible grid, optional main-screen scrollback, SGR
+   * styles, OSC 8 hyperlinks, OSC 4 palette overrides, scroll regions, modes,
+   * keyboard protocol, and cursor state into a compact ANSI stream that
+   * reconstructs this state on a fresh screen or remote client.
+   */
+  serializeSnapshot(options: TerminalScreenSnapshotOptions = {}): string {
+    let out = "\x1b[0m\x1b[?25l";
+    for (const [slot, rgb] of this.#paletteOverrides) {
+      out += `\x1b]4;${slot};rgb:${rgb.map(colorChannel16).join("/")}\x1b\\`;
+    }
+    if (this.#title !== undefined) {
+      out += `\x1b]2;${sanitizeSnapshotOsc(this.#title)}\x1b\\`;
+    }
+    if (this.#workingDirectory !== undefined) {
+      out += `\x1b]7;file://${encodeURI(this.#workingDirectory)}\x1b\\`;
+    }
+    for (const mode of SNAPSHOT_STICKY_MODES) {
+      if (this.#privateModes.has(mode)) out += `\x1b[?${mode}h`;
+    }
+    const mainKitty = this.#kittyKeyboard.main.at(-1) ?? 0;
+    if (mainKitty !== 0) out += `\x1b[=${mainKitty};1u`;
+    if (this.alternate) {
+      out += "\x1b[?1049h";
+      const altKitty = this.#kittyKeyboard.alternate.at(-1) ?? 0;
+      if (altKitty !== 0) out += `\x1b[=${altKitty};1u`;
+    }
+    if (this.#modifyOtherKeys > 0) out += `\x1b[>4;${this.#modifyOtherKeys}m`;
+
+    // Paint the grid on full bounds with autowrap enabled before restoring margins/DECOM.
+    out += (this.#privateModes.has(7) || !this.#autoWrap ? "\x1b[?7h" : "") + "\x1b[r\x1b[H\x1b[2J";
+
+    const maxScrollback = !this.alternate ? Math.max(0, Math.floor(options.includeScrollback ?? 0)) : 0;
+    const scrollbackSlice = maxScrollback > 0 && this.#scrollback.length > 0
+      ? this.#scrollback.slice(-maxScrollback)
+      : [];
+    const rowsToEmit: readonly TerminalScreenCell[][] = scrollbackSlice.length > 0
+      ? [...scrollbackSlice, ...this.#state.cells]
+      : this.#state.cells;
+
+    let activeSgr = "0";
+    let activeLink = "";
+    const rowContentLimit = (row: readonly TerminalScreenCell[], softWrapped: boolean): number => {
+      let limit = row.length;
+      if (softWrapped) {
+        while (limit > 0 && row[limit - 1]?.wrapPadding) limit -= 1;
+        return limit;
+      }
+      while (limit > 0 && isDefaultBlankCell(row[limit - 1])) limit -= 1;
+      return limit;
+    };
+
+    for (let rowIndex = 0; rowIndex < rowsToEmit.length; rowIndex += 1) {
+      const row = rowsToEmit[rowIndex]!;
+      const hasNext = rowIndex + 1 < rowsToEmit.length;
+      const nextRow = hasNext ? rowsToEmit[rowIndex + 1]! : undefined;
+      const nextSoftWrapped = hasNext && rowIndex + 2 < rowsToEmit.length && nextRow!.at(-1)?.softWrapped === true;
+      const nextHasContent = nextRow !== undefined && rowContentLimit(nextRow, nextSoftWrapped) > 0;
+      const softWrapContinuation = hasNext && row.at(-1)?.softWrapped === true && nextHasContent;
+      const limit = rowContentLimit(row, softWrapContinuation);
+
+      for (let column = 0; column < limit;) {
+        const cell = row[column]!;
+        if (cell.continuation || cell.wrapPadding) {
+          column += 1;
+          continue;
+        }
+        const link = sanitizeTerminalHyperlink(cell.hyperlink) ?? "";
+        if (link !== activeLink) {
+          out += `\x1b]8;;${link}\x1b\\`;
+          activeLink = link;
+        }
+        const sgr = formatSgrState(cell);
+        if (sgr !== activeSgr) {
+          out += `\x1b[${sgr}m`;
+          activeSgr = sgr;
+        }
+        out += cell.char || " ";
+        column += column + 1 < row.length && row[column + 1]?.continuation ? 2 : 1;
+      }
+
+      if (hasNext && !softWrapContinuation) {
+        if (activeLink !== "") {
+          out += "\x1b]8;;\x1b\\";
+          activeLink = "";
+        }
+        if (activeSgr !== "0") {
+          out += "\x1b[0m";
+          activeSgr = "0";
+        }
+        out += "\r\n";
+      }
+    }
+
+    if (activeLink !== "") out += "\x1b]8;;\x1b\\";
+    if (activeSgr !== "0") out += "\x1b[0m";
+
+    if (this.#scrollRegion.top !== 0 || this.#scrollRegion.bottom !== this.#rows - 1) {
+      out += `\x1b[${this.#scrollRegion.top + 1};${this.#scrollRegion.bottom + 1}r`;
+    }
+    if (this.#leftRightMarginsMode) {
+      out += "\x1b[?69h";
+      if (this.#horizontalMargins.left !== 0 || this.#horizontalMargins.right !== this.#columns - 1) {
+        out += `\x1b[${this.#horizontalMargins.left + 1};${this.#horizontalMargins.right + 1}s`;
+      }
+    }
+    if (!this.#autoWrap) out += "\x1b[?7l";
+    if (this.#originMode) out += "\x1b[?6h";
+
+    const cursorRow = this.#originMode
+      ? Math.max(1, this.#state.cursor.row + 1 - this.#scrollRegion.top)
+      : this.#state.cursor.row + 1;
+    const cursorColumn = this.#originMode
+      ? Math.max(1, this.#state.cursor.column + 1 - this.#horizontalMargins.left)
+      : this.#state.cursor.column + 1;
+    out += `\x1b[${cursorRow};${cursorColumn}H`;
+    if (this.#cursorStyleCode !== 0) out += `\x1b[${this.#cursorStyleCode} q`;
+    if (this.#cursorVisible) out += "\x1b[?25h";
+    const penSgr = formatSgrState(this.#style);
+    if (penSgr !== "0") out += `\x1b[${penSgr}m`;
+    const penLink = sanitizeTerminalHyperlink(this.#hyperlink);
+    if (penLink) out += `\x1b]8;;${penLink}\x1b\\`;
+    return out;
   }
 
   #writeChar(char: string): void {
@@ -2264,6 +2396,38 @@ const REPORTED_PRIVATE_MODES: ReadonlySet<number> = new Set([
 const MAX_KITTY_KEYBOARD_STACK = 16;
 const KITTY_KEYBOARD_FLAG_MASK = 0b11111;
 const EMPTY_PALETTE_OVERRIDES: ReadonlyMap<number, readonly [number, number, number]> = new Map();
+const SNAPSHOT_STICKY_MODES: readonly number[] = Object.freeze([
+  1,
+  9,
+  1000,
+  1002,
+  1003,
+  1004,
+  1005,
+  1006,
+  1015,
+  2004,
+  2026,
+  2027,
+]);
+
+/**
+ * Serializes a {@linkcode TerminalScreenController} into a replayable ANSI
+ * escape stream that reconstructs its grid, styles, hyperlinks, palette
+ * overrides, scroll regions, modes, keyboard protocol, and cursor on a fresh
+ * screen or remote terminal client.
+ */
+export function serializeTerminalScreenSnapshot(
+  screen: TerminalScreenController,
+  options?: TerminalScreenSnapshotOptions,
+): string {
+  return screen.serializeSnapshot(options);
+}
+
+function sanitizeSnapshotOsc(value: string): string {
+  // deno-lint-ignore no-control-regex
+  return value.replace(/[\x00-\x1f\x7f-\x9f]/g, "").slice(0, 1024);
+}
 
 function clampKittyFlags(value: number): number {
   return Number.isInteger(value) ? value & KITTY_KEYBOARD_FLAG_MASK : 0;

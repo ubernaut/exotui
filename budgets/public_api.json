@@ -1659,6 +1659,7 @@
     "serializeKittyGraphicsData",
     "serializeRuntimePermissionManifest",
     "serializeSnapshot",
+    "serializeTerminalScreenSnapshot",
     "serializeUnicodeDataPack",
     "serializeWorkbenchWorkspaces",
     "setFormPath",

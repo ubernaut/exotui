@@ -855,6 +855,8 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     sanitizedChildEnv: true,
     // This daemon arbitrates `reply` messages so only one attached client answers child queries.
     queryArbitration: true,
+    // This daemon can restore rotated replays from a bounded shadow screen snapshot.
+    screenSnapshot: true,
     hostId: server.controller.id,
     url: address.url,
     token: authToken,

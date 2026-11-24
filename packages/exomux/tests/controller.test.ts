@@ -1306,3 +1306,50 @@ Deno.test("Exomux forwards live child OSC 52 writes and suppresses replay and re
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux skips truncation warning and resize wiggle when daemon restores a rotated attach via snapshot", async () => {
+  const summary: ExomuxSessionSummary = {
+    id: "snap-1",
+    title: "agy",
+    commandLine: "agy",
+    status: "running",
+    running: true,
+    columns: 40,
+    rows: 6,
+    sequence: 10,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+  const resizes: { columns: number; rows: number }[] = [];
+  const client: ExomuxClientPort = {
+    connected: true,
+    list: () => Promise.resolve([summary]),
+    spawn: () => Promise.resolve(summary),
+    attach: () =>
+      Promise.resolve({
+        session: summary,
+        replay: [{ sessionId: summary.id, sequence: 10, data: "\x1b[1;1HSNAPSHOT OK\x1b[6;1H> " }],
+        truncated: true,
+        snapshot: true,
+      }),
+    detach: () => Promise.resolve(true),
+    input: () => Promise.resolve(true),
+    resize: (_id, columns, rows) => {
+      resizes.push({ columns, rows });
+      return Promise.resolve(true);
+    },
+    kill: () => Promise.resolve(true),
+    shutdownHost: () => Promise.resolve(true),
+    dispose: () => Promise.resolve(),
+  };
+  const controller = await createExomuxController({ client });
+  try {
+    const runtime = controller.runtime(summary.id)!;
+    assertEquals(runtime.warning.peek(), undefined, "snapshot restoration must not display a truncation warning");
+    assertEquals(runtime.screen.textRows()[0], "SNAPSHOT OK");
+    assertEquals(runtime.screen.textRows()[5], ">");
+    assertEquals(resizes, [], "snapshot restoration must not trigger a truncated resize wiggle");
+  } finally {
+    await controller.dispose();
+  }
+});
