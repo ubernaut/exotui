@@ -18,7 +18,7 @@ const ESC_PATTERN = "\\x1b";
 const BEL_PATTERN = "\\x07";
 const STRIP_CSI_SEQUENCE_REGEXP = new RegExp(`${ESC_PATTERN}\\[[0-?]*[ -/]*[@-~]`, "g");
 const STRIP_OSC_SEQUENCE_REGEXP = new RegExp(
-  `${ESC_PATTERN}\\][^${BEL_PATTERN}]*(?:${BEL_PATTERN}|${ESC_PATTERN}\\\\)`,
+  `${ESC_PATTERN}\\][^${BEL_PATTERN}${ESC_PATTERN}]*(?:${BEL_PATTERN}|${ESC_PATTERN}\\\\)`,
   "g",
 );
 

@@ -1,6 +1,6 @@
 // Copyright 2023 Im-Beast. MIT license.
-import { CLEAR_SCREEN, moveCursor } from "../utils/ansi_codes.ts";
-import { readCsiSequenceAt } from "../utils/ansi_text.ts";
+import { BEGIN_SYNCHRONIZED_OUTPUT, CLEAR_SCREEN, END_SYNCHRONIZED_OUTPUT, moveCursor } from "../utils/ansi_codes.ts";
+import { readCsiSequenceAt, readOsc8SequenceAt } from "../utils/ansi_text.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 import type { CanvasRenderStats } from "./canvas.ts";
 
@@ -94,10 +94,24 @@ function emptyFlushTelemetry(): AnsiFlushTelemetry {
   };
 }
 
+/**
+ * Formats one drained {@linkcode AnsiFlushTelemetry} window into a single
+ * greppable `key=value` line with fixed field order for terminal write-path
+ * diagnostics and stall profiling.
+ */
+export function formatAnsiFlushTelemetry(telemetry: AnsiFlushTelemetry): string {
+  return `frames=${telemetry.frames} bytes=${telemetry.bytes} writes=${telemetry.writes} ` +
+    `wouldblock=${telemetry.wouldBlocks} short=${telemetry.shortWrites} ` +
+    `stall_ms=${telemetry.stallMs.toFixed(1)} max_stall_ms=${telemetry.maxStallMs.toFixed(1)} ` +
+    `degraded=${telemetry.degradedFlushes} dropped_bytes=${telemetry.droppedBytes}`;
+}
+
 /** Options for configuring ansi Canvas Sink. */
 export interface AnsiCanvasSinkOptions {
   stdout: CanvasStdout;
   flushLimit?: number;
+  /** Bracket each rendered frame in DEC synchronized output (mode 2026) to avoid mid-flush tearing. */
+  synchronizedOutput?: boolean;
 }
 
 /** Writes a real terminal may refuse mid-frame; how long one flush may stall. */
@@ -118,12 +132,14 @@ export class AnsiCanvasSink implements CanvasCellSink {
 
   readonly #stdout: CanvasStdout;
   readonly #flushLimit: number;
+  readonly #synchronizedOutput: boolean;
   #degraded = false;
   #telemetry = emptyFlushTelemetry();
 
   constructor(options: AnsiCanvasSinkOptions) {
     this.#stdout = options.stdout;
     this.#flushLimit = options.flushLimit ?? defaultAnsiFlushLimit();
+    this.#synchronizedOutput = options.synchronizedOutput ?? false;
   }
 
   takeFlushDegraded(): boolean {
@@ -203,36 +219,38 @@ export class AnsiCanvasSink implements CanvasCellSink {
 
   flush(updates: readonly CanvasCellUpdate[], _stats?: CanvasRenderStats): void {
     this.#telemetry.frames += 1;
-    let drawSequence = "";
+    if (updates.length === 0) return;
+    let drawSequence = this.#synchronizedOutput ? BEGIN_SYNCHRONIZED_OUTPUT : "";
     for (let index = 0; index < updates.length;) {
       const span = compactAnsiUpdateSpan(updates, index);
-      drawSequence += moveCursor(span.row, span.column);
-
-      if (drawSequence.length + span.text.length > this.#flushLimit) {
+      const cursor = moveCursor(span.row, span.column);
+      if (drawSequence.length > 0 && drawSequence.length + cursor.length + span.text.length > this.#flushLimit) {
         this.#write(drawSequence);
-        drawSequence = moveCursor(span.row, span.column);
+        drawSequence = "";
+        if (this.#degraded) break;
       }
-
-      drawSequence += span.text;
+      drawSequence += cursor + span.text;
       index += span.cells;
     }
-
+    if (this.#synchronizedOutput) drawSequence += END_SYNCHRONIZED_OUTPUT;
     this.#write(drawSequence);
   }
 
   flushRanges(ranges: readonly CanvasRowRangeUpdate[], _stats: CanvasRenderStats): void {
     this.#telemetry.frames += 1;
-    let drawSequence = "";
+    if (ranges.length === 0) return;
+    let drawSequence = this.#synchronizedOutput ? BEGIN_SYNCHRONIZED_OUTPUT : "";
     for (const range of ranges) {
-      drawSequence += moveCursor(range.row, range.startColumn);
+      const cursor = moveCursor(range.row, range.startColumn);
       const text = compactAnsiCellRange(range);
-      if (drawSequence.length + text.length > this.#flushLimit) {
+      if (drawSequence.length > 0 && drawSequence.length + cursor.length + text.length > this.#flushLimit) {
         this.#write(drawSequence);
-        drawSequence = moveCursor(range.row, range.startColumn);
+        drawSequence = "";
+        if (this.#degraded) break;
       }
-      drawSequence += text;
+      drawSequence += cursor + text;
     }
-
+    if (this.#synchronizedOutput) drawSequence += END_SYNCHRONIZED_OUTPUT;
     this.#write(drawSequence);
   }
 }
@@ -241,6 +259,7 @@ interface AnsiCellParts {
   prefix: string;
   text: string;
   suffix: string;
+  hyperlink: string;
 }
 
 interface AnsiCellSpan {
@@ -267,15 +286,19 @@ function compactAnsiUpdateSpan(updates: readonly CanvasCellUpdate[], start: numb
     if (update.row !== firstUpdate.row || update.column !== column + 1) break;
     const current = splitAnsiCellValue(update.value);
     if (!isCompactAsciiText(current.text)) break;
-    if (current.prefix !== first.prefix || current.suffix !== first.suffix) break;
+    if (current.prefix !== first.prefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
+      break;
+    }
     text += current.text;
     column = update.column;
     index += 1;
   }
+  const openLink = first.hyperlink ? `\x1b]8;;${first.hyperlink}\x1b\\` : "";
+  const closeLink = first.hyperlink ? "\x1b]8;;\x1b\\" : "";
   return {
     row: firstUpdate.row,
     column: firstUpdate.column,
-    text: `${first.prefix}${text}${first.suffix}`,
+    text: `${openLink}${first.prefix}${text}${first.suffix}${closeLink}`,
     cells: index - start,
   };
 }
@@ -303,7 +326,9 @@ function compactAnsiCellSpan(values: readonly (string | Uint8Array)[], start: nu
   while (index < values.length) {
     const current = splitAnsiCellValue(values[index]!);
     if (!isCompactAsciiText(current.text)) break;
-    if (current.prefix !== first.prefix || current.suffix !== first.suffix) break;
+    if (current.prefix !== first.prefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
+      break;
+    }
     text += current.text;
     index += 1;
   }
@@ -319,16 +344,26 @@ function compactAnsiCellRange(range: CanvasRowRangeUpdate): string {
   let output = "";
   let activePrefix = "";
   let activeState = ansiPrefixState("");
+  let activeHyperlink = "";
   let needsReset = false;
   let isolateNext = false;
 
   for (let index = 0; index < values.length;) {
     const span = compactAnsiCellSpan(values, index);
     const { first } = span;
+    if (!first.text) {
+      // An empty wide-glyph follower emits no text and does not advance the
+      // host cursor, so skip style/link changes and re-address the next cell.
+      isolateNext = true;
+      index += span.cells;
+      continue;
+    }
     const isolated = !isCompactAsciiText(first.text);
-    if (first.text) {
-      if (isolated || isolateNext) output += moveCursor(range.row, range.startColumn + index);
-      isolateNext = isolated;
+    if (isolated || isolateNext) output += moveCursor(range.row, range.startColumn + index);
+    isolateNext = isolated;
+    if (first.hyperlink !== activeHyperlink) {
+      output += `\x1b]8;;${first.hyperlink}\x1b\\`;
+      activeHyperlink = first.hyperlink;
     }
     if (first.prefix !== activePrefix) {
       const nextState = ansiPrefixState(first.prefix);
@@ -345,6 +380,7 @@ function compactAnsiCellRange(range: CanvasRowRangeUpdate): string {
     index += span.cells;
   }
 
+  if (activeHyperlink) output += "\x1b]8;;\x1b\\";
   if (needsReset) output += "\x1b[0m";
   return output;
 }
@@ -411,32 +447,42 @@ function ansiPrefixCanOverrideActive(active: AnsiPrefixState, next: AnsiPrefixSt
 
 function splitAnsiCellValue(value: string | Uint8Array): AnsiCellParts {
   const cell = typeof value === "string" ? value : textDecoder.decode(value);
-  if (!cell.includes("\x1b[")) {
-    return { prefix: "", text: cell, suffix: "" };
+  if (!cell.includes("\x1b")) {
+    return { prefix: "", text: cell, suffix: "", hyperlink: "" };
   }
   const cached = ansiCellPartsCache.get(cell);
   if (cached) return cached;
 
   let textStart = 0;
   let prefix = "";
+  let hyperlink = "";
   while (textStart < cell.length) {
     const sequence = readCsiSequenceAt(cell, textStart);
-    if (!sequence) break;
-    prefix += sequence;
-    textStart += sequence.length;
+    if (sequence) {
+      prefix += sequence;
+      textStart += sequence.length;
+      continue;
+    }
+    const osc8 = readOsc8SequenceAt(cell, textStart);
+    if (osc8) {
+      hyperlink = osc8.uri;
+      textStart += osc8.length;
+      continue;
+    }
+    break;
   }
 
-  const nextControl = cell.indexOf("\x1b[", textStart);
+  const nextControl = cell.indexOf("\x1b", textStart);
   const text = cell.slice(textStart, nextControl < 0 ? cell.length : nextControl);
   if (!text || text.charCodeAt(0) === 0x1b) {
-    return { prefix: "", text: cell, suffix: "" };
+    return { prefix: "", text: cell, suffix: "", hyperlink: "" };
   }
-  const suffix = cell.slice(textStart + text.length);
-  if (!isAnsiSuffix(suffix)) {
-    return { prefix: "", text: cell, suffix: "" };
+  const suffix = parseAnsiSuffix(cell.slice(textStart + text.length));
+  if (suffix === undefined) {
+    return { prefix: "", text: cell, suffix: "", hyperlink: "" };
   }
 
-  const split = { prefix, text, suffix };
+  const split = { prefix, text, suffix, hyperlink };
   if (ansiCellPartsCache.size > MAX_ANSI_CELL_PARTS_CACHE_SIZE) {
     ansiCellPartsCache.clear();
   }
@@ -444,15 +490,25 @@ function splitAnsiCellValue(value: string | Uint8Array): AnsiCellParts {
   return split;
 }
 
-function isAnsiSuffix(value: string): boolean {
-  if (!value) return true;
+function parseAnsiSuffix(value: string): string | undefined {
+  if (!value) return "";
+  let csiSuffix = "";
   let index = 0;
   while (index < value.length) {
     const sequence = readCsiSequenceAt(value, index);
-    if (!sequence) return false;
-    index += sequence.length;
+    if (sequence) {
+      csiSuffix += sequence;
+      index += sequence.length;
+      continue;
+    }
+    const osc8 = readOsc8SequenceAt(value, index);
+    if (osc8 && osc8.uri === "") {
+      index += osc8.length;
+      continue;
+    }
+    return undefined;
   }
-  return true;
+  return csiSuffix;
 }
 
 /** Public class implementing a memory Canvas Sink. */

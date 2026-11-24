@@ -1,6 +1,6 @@
 import { runtimeHost, type RuntimeSignal } from "./runtime/host.ts";
 // Copyright 2023 Im-Beast. MIT license.
-import { BoxObject, Canvas } from "./canvas/mod.ts";
+import { AnsiCanvasSink, BoxObject, Canvas } from "./canvas/mod.ts";
 import type { Component } from "./component.ts";
 import { type EmitterEvent, EventEmitter } from "./event_emitter.ts";
 import type { InputEventRecord } from "./input_reader/mod.ts";
@@ -9,11 +9,16 @@ import type { Style } from "./theme.ts";
 import type { Rectangle, Stdin, Stdout } from "./types.ts";
 import {
   DISABLE_BRACKETED_PASTE,
+  DISABLE_ENHANCED_KEYBOARD,
   DISABLE_FOCUS_EVENTS,
+  DISABLE_GRAPHEME_CLUSTERING,
   DISABLE_MOUSE,
   ENABLE_BRACKETED_PASTE,
+  ENABLE_ENHANCED_KEYBOARD,
   ENABLE_FOCUS_EVENTS,
+  ENABLE_GRAPHEME_CLUSTERING,
   ENABLE_MOUSE,
+  END_SYNCHRONIZED_OUTPUT,
   HIDE_CURSOR,
   SHOW_CURSOR,
   USE_PRIMARY_BUFFER,
@@ -42,6 +47,18 @@ export interface TuiOptions {
   enableMouse?: boolean;
   enableBracketedPaste?: boolean;
   enableFocusEvents?: boolean;
+  /**
+   * Asks the host terminal to report keys through the kitty keyboard protocol
+   * ("disambiguate escape codes"), so chords the legacy encoding folds together
+   * — Shift+Enter and Enter, Ctrl+I and Tab, Escape and Alt — arrive as
+   * themselves. The input reader decodes both forms to the same key names. A
+   * terminal without the protocol ignores the request. Defaults to false.
+   */
+  enableEnhancedKeyboard?: boolean;
+  /** Bracket canvas frame flushes in DEC synchronized output (mode 2026) to prevent mid-flush tearing. Defaults to false. */
+  enableSynchronizedOutput?: boolean;
+  /** Enable Unicode grapheme cluster width mode (mode 2027) on run and disable it on destroy. Defaults to false. */
+  enableGraphemeClustering?: boolean;
   /** Whether this instance should read and track the host terminal size. Defaults to false for a supplied canvas. */
   manageTerminalSize?: boolean;
 }
@@ -80,6 +97,9 @@ export class Tui extends EventEmitter<
   enableMouse: boolean;
   enableBracketedPaste: boolean;
   enableFocusEvents: boolean;
+  enableEnhancedKeyboard: boolean;
+  enableSynchronizedOutput: boolean;
+  enableGraphemeClustering: boolean;
   readonly manageTerminalSize: boolean;
   private readonly updateCanvasSize: (options?: { verifyWithStty?: boolean }) => void;
   private readonly sigwinchResizeHandler?: () => void;
@@ -94,9 +114,14 @@ export class Tui extends EventEmitter<
     this.stdout = options.stdout ?? runtimeHost.stdout;
     this.refreshRate = options.refreshRate ?? 1000 / 60;
     this.enableMouse = options.enableMouse ?? false;
+    this.enableSynchronizedOutput = options.enableSynchronizedOutput ?? false;
+    this.enableGraphemeClustering = options.enableGraphemeClustering ?? false;
     this.manageTerminalSize = options.manageTerminalSize ?? options.canvas === undefined;
     this.canvas = options.canvas ?? new Canvas({
       stdout: this.stdout,
+      ...(this.enableSynchronizedOutput
+        ? { sink: new AnsiCanvasSink({ stdout: this.stdout, synchronizedOutput: true }) }
+        : {}),
       size: terminalSize({ verified: () => this.verifiedTerminalSize }),
     });
     this.updateCanvasSize = (updateOptions = {}) => {
@@ -123,6 +148,7 @@ export class Tui extends EventEmitter<
     });
     this.enableBracketedPaste = options.enableBracketedPaste ?? false;
     this.enableFocusEvents = options.enableFocusEvents ?? false;
+    this.enableEnhancedKeyboard = options.enableEnhancedKeyboard ?? false;
 
     this.style = options.style;
 
@@ -180,7 +206,9 @@ export class Tui extends EventEmitter<
     }
 
     stdout.write(textEncoder.encode(
-      USE_SECONDARY_BUFFER + HIDE_CURSOR +
+      // After the buffer switch: the kitty keyboard stack is per screen.
+      USE_SECONDARY_BUFFER + HIDE_CURSOR + (this.enableEnhancedKeyboard ? ENABLE_ENHANCED_KEYBOARD : "") +
+        (this.enableGraphemeClustering ? ENABLE_GRAPHEME_CLUSTERING : "") +
         (this.enableBracketedPaste ? ENABLE_BRACKETED_PASTE : "") +
         (this.enableFocusEvents ? ENABLE_FOCUS_EVENTS : "") +
         (this.enableMouse ? ENABLE_MOUSE : ""),
@@ -209,9 +237,12 @@ export class Tui extends EventEmitter<
     } catch { /**/ }
 
     this.stdout.write(textEncoder.encode(
-      (this.enableMouse ? DISABLE_MOUSE : "") +
+      (this.enableSynchronizedOutput ? END_SYNCHRONIZED_OUTPUT : "") +
+        (this.enableMouse ? DISABLE_MOUSE : "") +
         (this.enableFocusEvents ? DISABLE_FOCUS_EVENTS : "") +
         (this.enableBracketedPaste ? DISABLE_BRACKETED_PASTE : "") +
+        (this.enableGraphemeClustering ? DISABLE_GRAPHEME_CLUSTERING : "") +
+        (this.enableEnhancedKeyboard ? DISABLE_ENHANCED_KEYBOARD : "") +
         USE_PRIMARY_BUFFER + SHOW_CURSOR,
     ));
 

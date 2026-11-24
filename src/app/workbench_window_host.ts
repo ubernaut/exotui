@@ -51,6 +51,7 @@ import {
   type MarkupWindowCompactMode,
   MarkupWindowController,
   type MarkupWindowControllerInspection,
+  type MarkupWindowCorner,
   type MarkupWindowMoveDelta,
   type MarkupWindowPlacement,
   type MarkupWindowProjection,
@@ -361,6 +362,8 @@ export class WorkbenchWindowHostController<TId extends string = string> {
   readonly #ownsCapture: boolean;
   readonly #input: InputEnvelopeFactory;
   readonly #commandStep: number;
+  readonly #now: () => number;
+  #tileChord?: { edge: TiledWorkspaceDockEdge; at: number; id: string | undefined };
   /** Pending first title-bar click for host-owned double-click-to-maximize. */
   /**
    * Title-bar click/drag/double-click recognition, as one state machine
@@ -398,7 +401,8 @@ export class WorkbenchWindowHostController<TId extends string = string> {
     this.#commandStep = finitePositive(options.commandStep)
       ? Math.max(1, Math.floor(options.commandStep!))
       : DEFAULT_COMMAND_STEP;
-    this.#input = new InputEnvelopeFactory({ now: options.now ?? Date.now });
+    this.#now = options.now ?? Date.now;
+    this.#input = new InputEnvelopeFactory({ now: this.#now });
     const configButton = options.windowConfigButton ?? false;
     this.#windowConfigButton = typeof configButton === "function" ? configButton : () => configButton;
     this.#windowConfigLabel = options.windowConfigLabel ?? "config";
@@ -639,17 +643,21 @@ export class WorkbenchWindowHostController<TId extends string = string> {
         return this.execute({ kind: "switcher-step", direction: -1 }, bounds, options);
       }
     }
-    if (!event.meta) return hostResult("ignored", false, undefined, undefined, undefined, "window-modifier-not-held");
+    // Every window chord but the switcher needs Shift held with Alt. Alt alone
+    // belongs to the program inside the window: Alt+B/F/D are word motions in
+    // any readline, Alt+arrows move by word, and terminal agents bind the rest.
+    if (!event.meta || !(event.shift || event.key === "tab")) {
+      return hostResult("ignored", false, undefined, undefined, undefined, "window-modifier-not-held");
+    }
     if (event.key === "tab") {
       return this.execute({ kind: "switcher-open", direction: event.shift ? -1 : 1 }, bounds, options);
     }
     const edge = keyEdge(event.key);
     if (edge) {
-      if (event.ctrl) return this.execute({ kind: "snap", target: { kind: "workspace", edge } }, bounds, options);
-      if (event.shift) {
-        return this.execute({ kind: "resize", edge, delta: edgeDelta(edge, this.#commandStep) }, bounds, options);
+      if (event.ctrl) {
+        return this.execute({ kind: "nudge", delta: movementDelta(edge, this.#commandStep) }, bounds, options);
       }
-      return this.execute({ kind: "nudge", delta: movementDelta(edge, this.#commandStep) }, bounds, options);
+      return this.execute({ kind: "snap", target: this.#tileTarget(edge) }, bounds, options);
     }
     switch (event.key.toLowerCase()) {
       case "m":
@@ -667,6 +675,31 @@ export class WorkbenchWindowHostController<TId extends string = string> {
       default:
         return hostResult("ignored", false, undefined, undefined, undefined, "unbound-window-key");
     }
+  }
+
+  /**
+   * One arrow tiles to that edge; a second arrow on the other axis, pressed
+   * with it, tiles to the corner between them. A terminal reports two held keys
+   * as two presses a few milliseconds apart, so "together" is a short window
+   * after the first — long enough for a rolled chord, short enough that a
+   * deliberate second press still means "the other half" rather than a corner.
+   */
+  #tileTarget(edge: TiledWorkspaceDockEdge): MarkupWindowSnapTarget {
+    const now = this.#now();
+    const previous = this.#tileChord;
+    const id = this.controller.inspect().activeWindowId;
+    this.#tileChord = { edge, at: now, id };
+    if (
+      previous && previous.id === id && now - previous.at >= 0 && now - previous.at <= TILE_CHORD_MS &&
+      edgeIsVertical(previous.edge) !== edgeIsVertical(edge)
+    ) {
+      const vertical = edgeIsVertical(edge) ? edge : previous.edge;
+      const horizontal = edgeIsVertical(edge) ? previous.edge : edge;
+      // A third arrow starts a new chord rather than re-cornering this one.
+      this.#tileChord = undefined;
+      return { kind: "corner", corner: `${vertical}-${horizontal}` as MarkupWindowCorner };
+    }
+    return { kind: "workspace", edge };
   }
 
   /** Routes normalized pointer input, giving titlebar controls precedence over move/resize chrome. */
@@ -1004,7 +1037,7 @@ export class WorkbenchWindowHostController<TId extends string = string> {
           id: `${id}:control:${control.kind}`,
           role: "button" as const,
           label: control.accessibilityLabel,
-          shortcut: control.shortcut ? `Alt+${control.shortcut}` : undefined,
+          shortcut: control.shortcut ? `Shift+Alt+${control.shortcut}` : undefined,
         },
       };
     });
@@ -1638,6 +1671,13 @@ function insetRect(rect: Rectangle, amount: number): Rectangle {
     width: Math.max(0, rect.width - amount * 2),
     height: Math.max(0, rect.height - amount * 2),
   };
+}
+
+/** How long after one tiling arrow a second on the other axis still counts as pressed together. */
+const TILE_CHORD_MS = 250;
+
+function edgeIsVertical(edge: TiledWorkspaceDockEdge): boolean {
+  return edge === "top" || edge === "bottom";
 }
 
 function keyEdge(key: string): TiledWorkspaceDockEdge | undefined {

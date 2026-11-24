@@ -17,6 +17,12 @@ export const ENABLE_BRACKETED_PASTE = "\x1b[?2004h";
 /** ANSI escape code to disable bracketed paste handling */
 export const DISABLE_BRACKETED_PASTE = "\x1b[?2004l";
 
+/** Pushes kitty keyboard flags (disambiguate escape codes + report alternate keys) on the current screen. */
+export const ENABLE_ENHANCED_KEYBOARD = "\x1b[>5u";
+
+/** Pops the kitty keyboard flags pushed by {@linkcode ENABLE_ENHANCED_KEYBOARD}. */
+export const DISABLE_ENHANCED_KEYBOARD = "\x1b[<u";
+
 /** ANSI escape code to enable terminal focus reporting */
 export const ENABLE_FOCUS_EVENTS = "\x1b[?1004h";
 
@@ -37,3 +43,15 @@ export const USE_SECONDARY_BUFFER = "\x1b[?1049h";
 
 /** ANSI escape code to tell terminal to switch back to primary buffer */
 export const USE_PRIMARY_BUFFER = "\x1b[?1049l";
+
+/** ANSI escape code to begin a DEC synchronized output frame (mode 2026). */
+export const BEGIN_SYNCHRONIZED_OUTPUT = "\x1b[?2026h";
+
+/** ANSI escape code to end a DEC synchronized output frame (mode 2026). */
+export const END_SYNCHRONIZED_OUTPUT = "\x1b[?2026l";
+
+/** ANSI escape code to enable Unicode grapheme cluster width mode (mode 2027). */
+export const ENABLE_GRAPHEME_CLUSTERING = "\x1b[?2027h";
+
+/** ANSI escape code to disable Unicode grapheme cluster width mode (mode 2027). */
+export const DISABLE_GRAPHEME_CLUSTERING = "\x1b[?2027l";

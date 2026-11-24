@@ -300,18 +300,12 @@ function decodeKey(buffer: Uint8Array, code: string): KeyPressEvent {
           break;
         }
 
+        if (decodeEnhancedKey(code)) break;
+
+        // xterm encodes modifiers as 1 + a bitmask (shift 1, alt 2, ctrl 4), so
+        // Shift+Alt+Up is `CSI 1;4A`; matching only 2, 3 and 5 lost every chord.
         const modifier = terminalKeyModifier(code);
-        switch (modifier) {
-          case 5:
-            keyPress.ctrl = true;
-            break;
-          case 3:
-            keyPress.meta = true;
-            break;
-          case 2:
-            keyPress.shift = true;
-            break;
-        }
+        if (modifier > 1) applyModifierBits(modifier - 1);
 
         if (modifier > 0) {
           code = normalizeModifiedKeySequence(code, modifierStart, modifierEnd);
@@ -325,6 +319,64 @@ function decodeKey(buffer: Uint8Array, code: string): KeyPressEvent {
   }
 
   return keyPress;
+}
+
+function applyModifierBits(bits: number): void {
+  keyPress.shift = (bits & 1) !== 0;
+  keyPress.meta = (bits & 2) !== 0;
+  keyPress.ctrl = (bits & 4) !== 0;
+}
+
+const KITTY_KEY_PATTERN = /^\[(\d+)(?::\d*)*(?:;(\d*)(?::\d+)?(?:;[\d:]*)?)?u$/;
+const MODIFY_OTHER_KEYS_PATTERN = /^\[27;(\d+);(\d+)~$/;
+
+/**
+ * Decodes the two enhanced key reports a host terminal sends once asked: the
+ * kitty keyboard protocol's `CSI code ; modifiers u` and xterm modifyOtherKeys'
+ * `CSI 27 ; modifiers ; code ~`. Both carry a Unicode code point and the
+ * modifier bitmask, so chords the legacy encoding folds together — Shift+Enter
+ * and Enter, Ctrl+I and Tab, Escape and Alt — arrive as themselves. The key
+ * name matches what the legacy path produces, so bindings need no second form.
+ */
+function decodeEnhancedKey(code: string): boolean {
+  let codepoint: number;
+  let modifier: number;
+  const kitty = KITTY_KEY_PATTERN.exec(code);
+  if (kitty) {
+    codepoint = Number.parseInt(kitty[1]!, 10);
+    modifier = kitty[2] ? Number.parseInt(kitty[2], 10) : 1;
+  } else {
+    const other = MODIFY_OTHER_KEYS_PATTERN.exec(code);
+    if (!other) return false;
+    modifier = Number.parseInt(other[1]!, 10);
+    codepoint = Number.parseInt(other[2]!, 10);
+  }
+  if (!(codepoint > 0 && codepoint <= 0x10ffff) || (codepoint >= 0xd800 && codepoint <= 0xdfff)) return false;
+  applyModifierBits(Math.max(0, modifier - 1));
+  switch (codepoint) {
+    case 13:
+      keyPress.key = "return";
+      return true;
+    case 9:
+      keyPress.key = "tab";
+      return true;
+    case 8:
+    case 127:
+      keyPress.key = "backspace";
+      return true;
+    case 27:
+      keyPress.key = "escape";
+      return true;
+    case 32:
+      keyPress.key = "space";
+      return true;
+  }
+  // Private-use functional keys (keypad, media, lock keys) have no legacy name here.
+  if (codepoint < 32 || (codepoint >= 57344 && codepoint <= 63743)) return false;
+  const char = String.fromCodePoint(codepoint);
+  // The legacy path reports Shift+letter as the capital and Ctrl+letter as the plain letter; match both.
+  keyPress.key = (keyPress.shift && !keyPress.ctrl ? char.toUpperCase() : char.toLowerCase()) as Key;
+  return true;
 }
 
 function terminalKeyModifier(code: string): number {

@@ -1,6 +1,7 @@
 // Copyright 2023 Im-Beast. MIT license.
 import type { CanvasCellSink, CanvasCellUpdate, CanvasRowRangeUpdate } from "../canvas/sink.ts";
 import type { CanvasRenderStats } from "../canvas/canvas.ts";
+import { readCsiSequenceAt, readOsc8SequenceAt } from "../utils/ansi_text.ts";
 import { characterWidth, stripStyles } from "../utils/strings.ts";
 import { ansi256Color, ansiColor } from "./ansi_color.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
@@ -86,6 +87,8 @@ export interface ParsedAnsiCell {
   overline?: boolean;
   strikethrough?: boolean;
   inverse?: boolean;
+  /** Sanitized OSC 8 hyperlink URI attached to this cell, when present. */
+  hyperlink?: string;
 }
 
 /** Canvas2D-backed cell sink for browser-hosted TUI rendering. */
@@ -504,10 +507,12 @@ export class BrowserCellCanvasSink implements CanvasCellSink {
   }
 }
 
-/** Parses SGR styling from a single terminal cell string. */
+/** Parses SGR styling and any leading OSC 8 hyperlink from a single terminal cell string. */
 export function parseAnsiCell(value: string): ParsedAnsiCell {
   const style: ParsedAnsiCell = { text: stripStyles(value), bold: false, dim: false };
-  const textIndex = firstPrintableIndex(value);
+  const lead = scanAnsiCellLead(value);
+  if (lead.hyperlink) style.hyperlink = lead.hyperlink;
+  const textIndex = lead.textIndex;
   const matches = value.matchAll(SGR_PATTERN);
   for (const match of matches) {
     if (match.index !== undefined && match.index > textIndex) break;
@@ -606,12 +611,30 @@ export function parseAnsiCell(value: string): ParsedAnsiCell {
   return style;
 }
 
-function firstPrintableIndex(value: string): number {
-  for (let index = 0; index < value.length; index += 1) {
-    if (value[index] !== "\x1b") return index;
-    while (index < value.length && value[index] !== "m") index += 1;
+function scanAnsiCellLead(value: string): { textIndex: number; hyperlink?: string } {
+  let index = 0;
+  let hyperlink: string | undefined;
+  while (index < value.length) {
+    if (value[index] !== "\x1b") return { textIndex: index, hyperlink };
+    const csi = readCsiSequenceAt(value, index);
+    if (csi) {
+      index += csi.length;
+      continue;
+    }
+    const osc8 = readOsc8SequenceAt(value, index);
+    if (osc8) {
+      hyperlink = osc8.uri || undefined;
+      index += osc8.length;
+      continue;
+    }
+    // Skip any other unrecognized escape sequence conservatively up to a CSI/ST boundary.
+    index += 1;
+    while (index < value.length && value[index] !== "m" && value[index] !== "\x07" && value[index] !== "\\") {
+      index += 1;
+    }
+    index += 1;
   }
-  return value.length;
+  return { textIndex: value.length, hyperlink };
 }
 
 function dimColor(color: string): string {

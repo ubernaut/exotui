@@ -1,6 +1,12 @@
 // Copyright 2023 Im-Beast. MIT license.
 import { EventEmitter } from "../event_emitter.ts";
-import { encodeTerminalKeyPress, encodeTerminalPaste } from "../app/terminal_input.ts";
+import {
+  encodeTerminalFocusEvent,
+  encodeTerminalKeyPress,
+  encodeTerminalPaste,
+  type TerminalInputRoutingOptions,
+  type TerminalKeyEncodingOptions,
+} from "../app/terminal_input.ts";
 import { formatTerminalOutputLine, type TerminalOutputLine } from "../components/terminal_output.ts";
 import type { ConsoleSize } from "../types.ts";
 import type {
@@ -1190,10 +1196,22 @@ export function createNegotiatedRemoteTerminalBridge(
   return new NegotiatedRemoteTerminalBridge(transport, session, options);
 }
 
+/** Optional terminal mode flags applied when encoding remote input events to PTY bytes. */
+export interface RemoteTerminalInputEncodingOptions
+  extends TerminalKeyEncodingOptions, Pick<TerminalInputRoutingOptions, "bracketedPaste" | "focusReporting"> {}
+
 /** Converts a remote input event to terminal bytes when the event has a byte representation. */
-export function encodeRemoteTerminalInput(input: RemoteTerminalInputEvent): Uint8Array | undefined {
-  if (input.kind === "keyPress") return encodeTerminalKeyPress(input.event);
-  if (input.kind === "paste") return encodeTerminalPaste(input.event);
+export function encodeRemoteTerminalInput(
+  input: RemoteTerminalInputEvent,
+  options: RemoteTerminalInputEncodingOptions = {},
+): Uint8Array | undefined {
+  if (input.kind === "keyPress") return encodeTerminalKeyPress(input.event, options);
+  if (input.kind === "paste") return encodeTerminalPaste(input.event, options);
+  if (input.kind === "terminalFocus") {
+    if (options.focusReporting === false) return undefined;
+    if (options.focusReporting === true) return encodeTerminalFocusEvent(input.event.focused);
+    return input.event.buffer.byteLength > 0 ? new Uint8Array(input.event.buffer) : undefined;
+  }
   if (input.event.buffer.byteLength > 0) return new Uint8Array(input.event.buffer);
   return undefined;
 }

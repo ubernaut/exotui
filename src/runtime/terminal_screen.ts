@@ -8,7 +8,10 @@ import { clamp } from "../utils/numbers.ts";
 import { CharacterWidthAccumulator, measureCharacterWidth } from "../utils/character_width.ts";
 import { UnicodeGraphemeBoundaryCursor } from "../unicode/grapheme.ts";
 import { normalizeTerminalDimension } from "./terminal_values.ts";
-import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { decodeTerminalColor, encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { sanitizeTerminalHyperlink } from "./terminal_links.ts";
+import { xtermPaletteRgb } from "./terminal_palette.ts";
+import { parseTerminalClipboardWrite, type TerminalClipboardWrite } from "./terminal_services.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 import type { AnsiStyleSpec } from "../theme.ts";
 
@@ -83,6 +86,49 @@ export interface TerminalScreenControllerOptions {
   onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
   /** Cursor position requested by CSI 6 n, in one-based terminal coordinates. */
   onCursorPositionQuery?: (row: number, column: number) => void;
+  /**
+   * Called with the bytes that answer a query this screen can answer from its
+   * own state: device attributes, XTVERSION, device status, DECRQM, DECRQSS,
+   * XTGETTCAP, the kitty keyboard flags and — when {@linkcode queryColors} is
+   * given — OSC 10/11 colours. The subscriber writes them to the child's input.
+   *
+   * A program that asks and hears nothing waits out a timeout on every start,
+   * or guesses; without a subscriber the queries are still consumed, silently.
+   */
+  onReply?: (data: string) => void;
+  /** The colours an OSC 10 (foreground) or OSC 11 (background) query reports. Absent or undefined: unanswered. */
+  queryColors?: () => TerminalScreenColorReport | undefined;
+  /** What XTVERSION reports. Defaults to `exotui`. */
+  identity?: { name: string; version?: string };
+  /**
+   * Called for bounded, valid OSC 52 clipboard writes emitted by the child.
+   * Read queries (`?`) are never forwarded.
+   */
+  onClipboardWrite?: (write: TerminalClipboardWrite) => void;
+  /** Maximum decoded UTF-8 byte length accepted for child OSC 52 writes (default 65,536). */
+  maxClipboardBytes?: number;
+  /**
+   * Reflow soft-wrapped logical lines on the main screen when column width
+   * changes (matching Ghostty, WezTerm, Kitty, and xterm). Alternate screens
+   * never reflow. Defaults to `true`.
+   */
+  reflowOnResize?: boolean;
+}
+
+/** 8-bit RGB channels a terminal reports for its default colours and optional indexed palette slots. */
+export interface TerminalScreenColorReport {
+  foreground?: readonly [number, number, number];
+  background?: readonly [number, number, number];
+  /** Optional lookup for OSC 4 indexed palette queries (0–255); falls back to standard xterm-256. */
+  palette?: (index: number) => readonly [number, number, number] | undefined;
+}
+
+/** The key reporting a child program has asked for, so its host can encode input to match. */
+export interface TerminalScreenKeyboardProtocol {
+  /** Kitty progressive-enhancement flags currently in force (0: legacy). */
+  kittyFlags: number;
+  /** xterm modifyOtherKeys level (0, 1 or 2). */
+  modifyOtherKeys: number;
 }
 
 /** Clone-safe diagnostics for terminal glyph retention, including explicit whole-cluster refusals. */
@@ -108,15 +154,33 @@ export interface TerminalScreenInspection {
   workingDirectory?: string;
 }
 
+/** Options for serializing a {@linkcode TerminalScreenController} into a replayable ANSI byte stream. */
+export interface TerminalScreenSnapshotOptions {
+  /** Maximum main-screen scrollback rows to include ahead of the live viewport (default `0`). */
+  readonly includeScrollback?: number;
+}
+
 interface TerminalScreenState {
   cells: TerminalScreenCell[][];
   cursor: TerminalScreenCursor;
 }
 
+interface SavedCursorState {
+  column: number;
+  row: number;
+  style: Omit<TerminalScreenCell, "char">;
+  originMode: boolean;
+  autoWrap: boolean;
+  pendingWrap: boolean;
+  charsetDecGraphics: [boolean, boolean];
+  activeCharset: 0 | 1;
+}
+
 const DEFAULT_COLUMNS = 80;
 const DEFAULT_ROWS = 24;
 const DEFAULT_SCROLLBACK_LIMIT = 1000;
-const MAX_PENDING_CONTROL_LENGTH = 64 * 1024;
+const MAX_PENDING_CONTROL_LENGTH = 128 * 1024;
+const DEFAULT_MAX_CLIPBOARD_BYTES = 65_536;
 const BLANK_CELL: TerminalScreenCell = Object.freeze({ char: " " });
 /** The blank a double-width glyph parks in the second column it occupies. */
 const CONTINUATION_CELL: TerminalScreenCell = Object.freeze({ char: " ", continuation: true });
@@ -160,11 +224,14 @@ export class TerminalScreenController {
   #mainState?: TerminalScreenState;
   #scrollback: TerminalScreenCell[][] = [];
   #style: Omit<TerminalScreenCell, "char"> = {};
-  #savedCursor?: TerminalScreenCursor;
+  /** Main and alternate screens each keep their own DECSC/SCOSC slot. */
+  #savedCursor: { main?: SavedCursorState; alternate?: SavedCursorState } = {};
   #title?: string;
   #workingDirectory?: string;
   #hyperlink?: string;
   #scrollRegion: TerminalScreenScrollRegion;
+  #horizontalMargins: TerminalScreenHorizontalMargins;
+  #leftRightMarginsMode = false;
   #cursorVisible = true;
   #cursorStyle: TerminalScreenCursorStyle = { shape: "block", blinking: true };
   #privateModes = new Set<number>();
@@ -201,6 +268,18 @@ export class TerminalScreenController {
   #onKittyGraphics?: (data: string, cursor: { row: number; column: number }) => void;
   #onWindowSizeQuery?: (kind: 14 | 16 | 18) => void;
   #onCursorPositionQuery?: (row: number, column: number) => void;
+  #onReply?: (data: string) => void;
+  #queryColors?: () => TerminalScreenColorReport | undefined;
+  #onClipboardWrite?: (write: TerminalClipboardWrite) => void;
+  readonly #maxClipboardBytes: number;
+  readonly #reflowOnResize: boolean;
+  readonly #identity: string;
+  /** Kitty keyboard flag stacks; the main and alternate screens keep their own. */
+  #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
+  #modifyOtherKeys = 0;
+  #cursorStyleCode = 0;
+  /** Per-slot RGB overrides set by `OSC 4` and cleared by `OSC 104` or `RIS`. */
+  #paletteOverrides = new Map<number, readonly [number, number, number]>();
   /**
    * Kitty graphics sequences consumed without being drawn.
    *
@@ -230,10 +309,20 @@ export class TerminalScreenController {
       cursor: { column: 0, row: 0 },
     };
     this.#scrollRegion = fullScrollRegion(this.#rows);
+    this.#horizontalMargins = fullHorizontalMargins(this.#columns);
     this.#tabStops = defaultTabStops(this.#columns);
     this.#onKittyGraphics = options.onKittyGraphics;
     this.#onWindowSizeQuery = options.onWindowSizeQuery;
     this.#onCursorPositionQuery = options.onCursorPositionQuery;
+    this.#onReply = options.onReply;
+    this.#queryColors = options.queryColors;
+    this.#onClipboardWrite = options.onClipboardWrite;
+    this.#maxClipboardBytes = Math.max(
+      0,
+      Math.min(DEFAULT_MAX_CLIPBOARD_BYTES, Math.floor(options.maxClipboardBytes ?? DEFAULT_MAX_CLIPBOARD_BYTES)),
+    );
+    this.#reflowOnResize = options.reflowOnResize ?? true;
+    this.#identity = terminalIdentity(options.identity);
   }
 
   get columns(): number {
@@ -260,6 +349,29 @@ export class TerminalScreenController {
 
   get alternate(): boolean {
     return this.#mainState !== undefined;
+  }
+
+  /** The key reporting the child asked for through the kitty keyboard protocol or modifyOtherKeys. */
+  get keyboardProtocol(): TerminalScreenKeyboardProtocol {
+    return { kittyFlags: this.#kittyFlags(), modifyOtherKeys: this.#modifyOtherKeys };
+  }
+
+  /** Whether DECCKM (`CSI ? 1 h`, Application Cursor Keys) is currently active. */
+  get applicationCursorKeys(): boolean {
+    return this.#privateModes.has(1);
+  }
+
+  /** Whether DECSET 1004 focus reporting (`CSI ? 1004 h`) is currently active. */
+  get focusReporting(): boolean {
+    return this.#privateModes.has(1004);
+  }
+
+  /** Clone-safe view of active `OSC 4` indexed palette overrides (empty when none are set). */
+  paletteOverrides(): ReadonlyMap<number, readonly [number, number, number]> {
+    if (this.#paletteOverrides.size === 0) return EMPTY_PALETTE_OVERRIDES;
+    const copy = new Map<number, readonly [number, number, number]>();
+    for (const [index, rgb] of this.#paletteOverrides) copy.set(index, [rgb[0], rgb[1], rgb[2]]);
+    return copy;
   }
 
   get scrollbackRows(): number {
@@ -358,17 +470,275 @@ export class TerminalScreenController {
     const nextRows = normalizeTerminalDimension(rows, this.#rows);
     if (nextColumns === this.#columns && nextRows === this.#rows) return;
     this.#endGlyphRun();
+    const previousColumns = this.#columns;
     this.#columns = nextColumns;
     this.#rows = nextRows;
-    this.#state = resizeState(this.#state, nextColumns, nextRows);
-    if (this.#mainState) this.#mainState = resizeState(this.#mainState, nextColumns, nextRows);
+    const widthChanged = previousColumns !== nextColumns;
+    if (this.#mainState) {
+      // Alternate screen has no scrollback and never reflows; main screen
+      // underneath reflows soft-wrapped lines on width changes and preserves
+      // its cursor row by pushing/pulling against scrollback.
+      this.#state = resizeState(this.#state, nextColumns, nextRows);
+      const resizedMain = this.#resizeMainState(
+        this.#mainState,
+        previousColumns,
+        nextColumns,
+        nextRows,
+        this.#savedCursor.main,
+      );
+      this.#mainState = resizedMain.state;
+      this.#applyResizedSavedCursor(
+        this.#savedCursor.main,
+        resizedMain.savedCursor,
+        resizedMain.rowShift,
+        widthChanged,
+      );
+      this.#shiftSavedCursor(this.#savedCursor.alternate, 0, widthChanged);
+    } else {
+      const resizedMain = this.#resizeMainState(
+        this.#state,
+        previousColumns,
+        nextColumns,
+        nextRows,
+        this.#savedCursor.main,
+      );
+      this.#state = resizedMain.state;
+      this.#applyResizedSavedCursor(
+        this.#savedCursor.main,
+        resizedMain.savedCursor,
+        resizedMain.rowShift,
+        widthChanged,
+      );
+      this.#shiftSavedCursor(this.#savedCursor.alternate, 0, widthChanged);
+    }
     this.#recountGlyphs();
-    // Narrowing can slice a wide glyph off at the new right edge.
+    // Narrowing (on alternate or non-reflowing screens) can slice a wide glyph off at the new right edge.
     for (const row of this.#state.cells) this.#repairRow(row);
     if (this.#mainState) { for (const row of this.#mainState.cells) this.#repairRow(row); }
     this.#scrollRegion = fullScrollRegion(this.#rows);
-    this.#tabStops = resizeTabStops(this.#tabStops, this.#columns);
+    this.#horizontalMargins = fullHorizontalMargins(this.#columns);
+    this.#tabStops = resizeTabStops(this.#tabStops, previousColumns, this.#columns);
     this.#pendingWrap = false;
+  }
+
+  #resizeMainState(
+    state: TerminalScreenState,
+    previousColumns: number,
+    columns: number,
+    rows: number,
+    savedCursor?: SavedCursorState,
+  ): { state: TerminalScreenState; rowShift: number; savedCursor?: TerminalScreenCursor } {
+    if (this.#reflowOnResize && columns !== previousColumns) {
+      return this.#reflowMainState(state, columns, rows, savedCursor);
+    }
+    const previousRows = state.cells.length;
+    if (rows === previousRows) {
+      return { state: resizeState(state, columns, rows), rowShift: 0 };
+    }
+    if (rows < previousRows) {
+      // Like xterm, Ghostty and tmux: drop trailing blank rows below the cursor
+      // first, then push excess top rows into scrollback so the cursor row (and
+      // an inline TUI's prompt) stays visible instead of being truncated off.
+      const delta = previousRows - rows;
+      let trimmedBottom = 0;
+      for (let row = previousRows - 1; row > state.cursor.row && trimmedBottom < delta; row -= 1) {
+        if (!isBlankTerminalRow(state.cells[row]!)) break;
+        trimmedBottom += 1;
+      }
+      const push = Math.min(delta - trimmedBottom, state.cursor.row);
+      for (let row = 0; row < push; row += 1) {
+        if (this.#scrollbackLimit > 0) {
+          this.#scrollback.push(state.cells[row]!);
+          if (this.#scrollback.length > this.#scrollbackLimit) this.#scrollback.shift();
+        }
+      }
+      const cells = new Array<TerminalScreenCell[]>(rows);
+      for (let row = 0; row < rows; row += 1) {
+        const source = state.cells[push + row];
+        cells[row] = source ? resizeCellRow(source, columns) : blankRow(columns);
+      }
+      return {
+        state: {
+          cells,
+          cursor: {
+            column: clamp(state.cursor.column, 0, columns - 1),
+            row: clamp(state.cursor.row - push, 0, rows - 1),
+          },
+        },
+        rowShift: -push,
+      };
+    }
+    // Growing taller pulls recent rows back out of scrollback before padding
+    // blank rows at the bottom, keeping inline cursor addressing in step.
+    const delta = rows - previousRows;
+    const pulled = Math.min(delta, this.#scrollback.length);
+    const restored = pulled > 0 ? this.#scrollback.splice(this.#scrollback.length - pulled, pulled) : [];
+    const cells = new Array<TerminalScreenCell[]>(rows);
+    for (let row = 0; row < pulled; row += 1) {
+      cells[row] = resizeCellRow(restored[row]!, columns);
+    }
+    for (let row = 0; row < previousRows; row += 1) {
+      cells[pulled + row] = resizeCellRow(state.cells[row]!, columns);
+    }
+    for (let row = pulled + previousRows; row < rows; row += 1) {
+      cells[row] = blankRow(columns);
+    }
+    return {
+      state: {
+        cells,
+        cursor: {
+          column: clamp(state.cursor.column, 0, columns - 1),
+          row: clamp(state.cursor.row + pulled, 0, rows - 1),
+        },
+      },
+      rowShift: pulled,
+    };
+  }
+
+  #reflowMainState(
+    state: TerminalScreenState,
+    columns: number,
+    rows: number,
+    savedCursor?: SavedCursorState,
+  ): { state: TerminalScreenState; rowShift: number; savedCursor?: TerminalScreenCursor } {
+    const scrollbackCount = this.#scrollback.length;
+    const allRows: TerminalScreenCell[][] = [...this.#scrollback, ...state.cells];
+    const cursorAbsRow = scrollbackCount + state.cursor.row;
+    const savedAbsRow = savedCursor ? scrollbackCount + savedCursor.row : -1;
+
+    // Exclude trailing blank viewport rows below both content and cursor anchors
+    // so reflowed lines expand into unused viewport space before scrolling.
+    let activeEndRow = Math.max(cursorAbsRow, savedAbsRow);
+    for (let row = allRows.length - 1; row > activeEndRow; row -= 1) {
+      if (!isBlankTerminalRow(allRows[row]!)) {
+        activeEndRow = row;
+        break;
+      }
+    }
+
+    const reflowed: TerminalScreenCell[][] = [];
+    let mappedCursor: TerminalScreenCursor = { row: 0, column: 0 };
+    let mappedSaved: TerminalScreenCursor | undefined = savedCursor ? { row: 0, column: 0 } : undefined;
+
+    for (let startRow = 0; startRow <= activeEndRow;) {
+      let endRow = startRow;
+      while (endRow < activeEndRow && allRows[endRow]!.at(-1)?.softWrapped === true) {
+        endRow += 1;
+      }
+      const lineItems: { cell: TerminalScreenCell; width: 1 | 2 }[] = [];
+      let cursorOffset: { index: number; trailing: number } | undefined;
+      let savedOffset: { index: number; trailing: number } | undefined;
+
+      for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+        const row = allRows[rowIndex]!;
+        const isLast = rowIndex === endRow;
+        let limit = row.length;
+        if (!isLast) {
+          while (limit > 0 && row[limit - 1]?.wrapPadding) limit -= 1;
+        } else {
+          while (limit > 0 && isDefaultBlankCell(row[limit - 1])) limit -= 1;
+        }
+
+        for (let column = 0; column < limit;) {
+          const cell = row[column]!;
+          if (cell.continuation) {
+            column += 1;
+            continue;
+          }
+          const wide = column + 1 < limit && row[column + 1]?.continuation === true;
+          const width: 1 | 2 = wide ? 2 : 1;
+          const itemIndex = lineItems.length;
+          if (
+            rowIndex === cursorAbsRow &&
+            (state.cursor.column === column || (wide && state.cursor.column === column + 1))
+          ) {
+            cursorOffset = { index: itemIndex, trailing: 0 };
+          }
+          if (
+            savedCursor && rowIndex === savedAbsRow &&
+            (savedCursor.column === column || (wide && savedCursor.column === column + 1))
+          ) {
+            savedOffset = { index: itemIndex, trailing: 0 };
+          }
+          lineItems.push({ cell: stripWrapMetadata(cell), width });
+          column += width;
+        }
+
+        if (rowIndex === cursorAbsRow && !cursorOffset) {
+          cursorOffset = { index: lineItems.length, trailing: Math.max(0, state.cursor.column - limit) };
+        }
+        if (savedCursor && rowIndex === savedAbsRow && !savedOffset) {
+          savedOffset = { index: lineItems.length, trailing: Math.max(0, savedCursor.column - limit) };
+        }
+      }
+
+      const packed = packLogicalLine(lineItems, columns, cursorOffset, savedOffset, reflowed.length);
+      for (const packedRow of packed.rows) reflowed.push(packedRow);
+      if (packed.cursor) mappedCursor = packed.cursor;
+      if (packed.saved) mappedSaved = packed.saved;
+
+      startRow = endRow + 1;
+    }
+
+    const total = reflowed.length;
+    let visibleStart = 0;
+    if (total > rows) {
+      visibleStart = total - rows;
+      if (mappedCursor.row < visibleStart) visibleStart = mappedCursor.row;
+    }
+
+    const nextScrollback = visibleStart > 0 ? reflowed.slice(0, visibleStart) : [];
+    if (nextScrollback.length > this.#scrollbackLimit) {
+      nextScrollback.splice(0, nextScrollback.length - this.#scrollbackLimit);
+    }
+    this.#scrollback = nextScrollback;
+
+    const cells = new Array<TerminalScreenCell[]>(rows);
+    for (let row = 0; row < rows; row += 1) {
+      cells[row] = reflowed[visibleStart + row] ?? blankRow(columns);
+    }
+
+    return {
+      state: {
+        cells,
+        cursor: {
+          row: clamp(mappedCursor.row - visibleStart, 0, rows - 1),
+          column: clamp(mappedCursor.column, 0, columns - 1),
+        },
+      },
+      rowShift: 0,
+      ...(mappedSaved
+        ? {
+          savedCursor: {
+            row: clamp(mappedSaved.row - visibleStart, 0, rows - 1),
+            column: clamp(mappedSaved.column, 0, columns - 1),
+          },
+        }
+        : {}),
+    };
+  }
+
+  #applyResizedSavedCursor(
+    saved: SavedCursorState | undefined,
+    mapped: TerminalScreenCursor | undefined,
+    rowShift: number,
+    widthChanged: boolean,
+  ): void {
+    if (!saved) return;
+    if (mapped) {
+      saved.row = clamp(mapped.row, 0, this.#rows - 1);
+      saved.column = clamp(mapped.column, 0, this.#columns - 1);
+      if (widthChanged) saved.pendingWrap = false;
+      return;
+    }
+    this.#shiftSavedCursor(saved, rowShift, widthChanged);
+  }
+
+  #shiftSavedCursor(saved: SavedCursorState | undefined, rowShift: number, widthChanged: boolean): void {
+    if (!saved) return;
+    saved.row = clamp(saved.row + rowShift, 0, this.#rows - 1);
+    saved.column = clamp(saved.column, 0, this.#columns - 1);
+    if (widthChanged || rowShift !== 0) saved.pendingWrap = false;
   }
 
   clear(): void {
@@ -381,6 +751,7 @@ export class TerminalScreenController {
     this.#recountGlyphs();
     this.#state.cursor = { column: 0, row: 0 };
     this.#scrollRegion = fullScrollRegion(this.#rows);
+    this.#horizontalMargins = fullHorizontalMargins(this.#columns);
     this.#tabStops = defaultTabStops(this.#columns);
     this.#charsetDecGraphics[0] = false;
     this.#charsetDecGraphics[1] = false;
@@ -436,6 +807,131 @@ export class TerminalScreenController {
     };
   }
 
+  /**
+   * Serializes the screen's visible grid, optional main-screen scrollback, SGR
+   * styles, OSC 8 hyperlinks, OSC 4 palette overrides, scroll regions, modes,
+   * keyboard protocol, and cursor state into a compact ANSI stream that
+   * reconstructs this state on a fresh screen or remote client.
+   */
+  serializeSnapshot(options: TerminalScreenSnapshotOptions = {}): string {
+    let out = "\x1b[0m\x1b[?25l";
+    for (const [slot, rgb] of this.#paletteOverrides) {
+      out += `\x1b]4;${slot};rgb:${rgb.map(colorChannel16).join("/")}\x1b\\`;
+    }
+    if (this.#title !== undefined) {
+      out += `\x1b]2;${sanitizeSnapshotOsc(this.#title)}\x1b\\`;
+    }
+    if (this.#workingDirectory !== undefined) {
+      out += `\x1b]7;file://${encodeURI(this.#workingDirectory)}\x1b\\`;
+    }
+    for (const mode of SNAPSHOT_STICKY_MODES) {
+      if (this.#privateModes.has(mode)) out += `\x1b[?${mode}h`;
+    }
+    const mainKitty = this.#kittyKeyboard.main.at(-1) ?? 0;
+    if (mainKitty !== 0) out += `\x1b[=${mainKitty};1u`;
+    if (this.alternate) {
+      out += "\x1b[?1049h";
+      const altKitty = this.#kittyKeyboard.alternate.at(-1) ?? 0;
+      if (altKitty !== 0) out += `\x1b[=${altKitty};1u`;
+    }
+    if (this.#modifyOtherKeys > 0) out += `\x1b[>4;${this.#modifyOtherKeys}m`;
+
+    // Paint the grid on full bounds with autowrap enabled before restoring margins/DECOM.
+    out += (this.#privateModes.has(7) || !this.#autoWrap ? "\x1b[?7h" : "") + "\x1b[r\x1b[H\x1b[2J";
+
+    const maxScrollback = !this.alternate ? Math.max(0, Math.floor(options.includeScrollback ?? 0)) : 0;
+    const scrollbackSlice = maxScrollback > 0 && this.#scrollback.length > 0
+      ? this.#scrollback.slice(-maxScrollback)
+      : [];
+    const rowsToEmit: readonly TerminalScreenCell[][] = scrollbackSlice.length > 0
+      ? [...scrollbackSlice, ...this.#state.cells]
+      : this.#state.cells;
+
+    let activeSgr = "0";
+    let activeLink = "";
+    const rowContentLimit = (row: readonly TerminalScreenCell[], softWrapped: boolean): number => {
+      let limit = row.length;
+      if (softWrapped) {
+        while (limit > 0 && row[limit - 1]?.wrapPadding) limit -= 1;
+        return limit;
+      }
+      while (limit > 0 && isDefaultBlankCell(row[limit - 1])) limit -= 1;
+      return limit;
+    };
+
+    for (let rowIndex = 0; rowIndex < rowsToEmit.length; rowIndex += 1) {
+      const row = rowsToEmit[rowIndex]!;
+      const hasNext = rowIndex + 1 < rowsToEmit.length;
+      const nextRow = hasNext ? rowsToEmit[rowIndex + 1]! : undefined;
+      const nextSoftWrapped = hasNext && rowIndex + 2 < rowsToEmit.length && nextRow!.at(-1)?.softWrapped === true;
+      const nextHasContent = nextRow !== undefined && rowContentLimit(nextRow, nextSoftWrapped) > 0;
+      const softWrapContinuation = hasNext && row.at(-1)?.softWrapped === true && nextHasContent;
+      const limit = rowContentLimit(row, softWrapContinuation);
+
+      for (let column = 0; column < limit;) {
+        const cell = row[column]!;
+        if (cell.continuation || cell.wrapPadding) {
+          column += 1;
+          continue;
+        }
+        const link = sanitizeTerminalHyperlink(cell.hyperlink) ?? "";
+        if (link !== activeLink) {
+          out += `\x1b]8;;${link}\x1b\\`;
+          activeLink = link;
+        }
+        const sgr = formatSgrState(cell);
+        if (sgr !== activeSgr) {
+          out += `\x1b[${sgr}m`;
+          activeSgr = sgr;
+        }
+        out += cell.char || " ";
+        column += column + 1 < row.length && row[column + 1]?.continuation ? 2 : 1;
+      }
+
+      if (hasNext && !softWrapContinuation) {
+        if (activeLink !== "") {
+          out += "\x1b]8;;\x1b\\";
+          activeLink = "";
+        }
+        if (activeSgr !== "0") {
+          out += "\x1b[0m";
+          activeSgr = "0";
+        }
+        out += "\r\n";
+      }
+    }
+
+    if (activeLink !== "") out += "\x1b]8;;\x1b\\";
+    if (activeSgr !== "0") out += "\x1b[0m";
+
+    if (this.#scrollRegion.top !== 0 || this.#scrollRegion.bottom !== this.#rows - 1) {
+      out += `\x1b[${this.#scrollRegion.top + 1};${this.#scrollRegion.bottom + 1}r`;
+    }
+    if (this.#leftRightMarginsMode) {
+      out += "\x1b[?69h";
+      if (this.#horizontalMargins.left !== 0 || this.#horizontalMargins.right !== this.#columns - 1) {
+        out += `\x1b[${this.#horizontalMargins.left + 1};${this.#horizontalMargins.right + 1}s`;
+      }
+    }
+    if (!this.#autoWrap) out += "\x1b[?7l";
+    if (this.#originMode) out += "\x1b[?6h";
+
+    const cursorRow = this.#originMode
+      ? Math.max(1, this.#state.cursor.row + 1 - this.#scrollRegion.top)
+      : this.#state.cursor.row + 1;
+    const cursorColumn = this.#originMode
+      ? Math.max(1, this.#state.cursor.column + 1 - this.#horizontalMargins.left)
+      : this.#state.cursor.column + 1;
+    out += `\x1b[${cursorRow};${cursorColumn}H`;
+    if (this.#cursorStyleCode !== 0) out += `\x1b[${this.#cursorStyleCode} q`;
+    if (this.#cursorVisible) out += "\x1b[?25h";
+    const penSgr = formatSgrState(this.#style);
+    if (penSgr !== "0") out += `\x1b[${penSgr}m`;
+    const penLink = sanitizeTerminalHyperlink(this.#hyperlink);
+    if (penLink) out += `\x1b]8;;${penLink}\x1b\\`;
+    return out;
+  }
+
   #writeChar(char: string): void {
     if (char < " ") this.#endGlyphRun();
     // LF, VT and FF all index. They return to column 0 only under LNM; treating
@@ -444,18 +940,18 @@ export class TerminalScreenController {
     // a time — and does it right where the app was drawing.
     if (char === "\n" || char === "\v" || char === "\f") {
       this.#pendingWrap = false;
-      if (this.#lineFeedNewline) this.#state.cursor.column = 0;
+      if (this.#lineFeedNewline) this.#state.cursor.column = this.#activeLeftMargin();
       this.#index();
       return;
     }
     if (char === "\r") {
       this.#pendingWrap = false;
-      this.#state.cursor.column = 0;
+      this.#state.cursor.column = this.#activeLeftMargin();
       return;
     }
     if (char === "\b") {
       this.#pendingWrap = false;
-      this.#state.cursor.column = Math.max(0, this.#state.cursor.column - 1);
+      this.#state.cursor.column = Math.max(this.#activeLeftMargin(), this.#state.cursor.column - 1);
       return;
     }
     if (char === "\x0e") {
@@ -535,7 +1031,8 @@ export class TerminalScreenController {
     }
     const combined: TerminalScreenCell = { ...base, char };
     const oldWidth = row[column + 1]?.continuation ? 2 : 1;
-    if (width > oldWidth && column + width > this.#columns) {
+    const rightEdge = this.#activeRightMargin();
+    if (width > oldWidth && column + width > rightEdge + 1) {
       // A variation selector/keycap can widen a glyph already at the margin.
       // Re-place the whole glyph, letting the normal wrap path own padding,
       // scrolling and scroll-region boundaries; never leave the old base.
@@ -546,7 +1043,7 @@ export class TerminalScreenController {
     } else {
       if (width > oldWidth) {
         if (this.#insertMode) {
-          shiftCellsRight(row, column + oldWidth, width - oldWidth, this.#columns, BLANK_CELL);
+          shiftCellsRight(row, column + oldWidth, width - oldWidth, rightEdge + 1, BLANK_CELL);
           this.#accountGlyphRow(row);
         } else {
           this.#breakPairAt(column + oldWidth);
@@ -556,8 +1053,8 @@ export class TerminalScreenController {
         this.#replaceGlyphCell(row, column + 1, this.#blankLike(row[column + 1]));
       }
       const lastColumn = column + width - 1;
-      this.#state.cursor.column = Math.min(this.#columns - 1, lastColumn + 1);
-      this.#pendingWrap = this.#autoWrap && lastColumn >= this.#columns - 1;
+      this.#state.cursor.column = Math.min(rightEdge, lastColumn + 1);
+      this.#pendingWrap = this.#autoWrap && lastColumn >= rightEdge;
       this.#replaceGlyphCell(row, column, combined);
       this.#graphemeCell = combined;
       if (this.#insertMode && width !== oldWidth) this.#repairRow(row);
@@ -615,29 +1112,37 @@ export class TerminalScreenController {
   }
 
   #placeGlyph(cell: TerminalScreenCell, width: number): void {
+    const initialRight = this.#activeRightMargin();
+    const wrapLeft = this.#leftRightMarginsMode ? this.#horizontalMargins.left : 0;
+    const regionWidth = initialRight - wrapLeft + 1;
     // A wide glyph needs both columns even with DECAWM disabled or a one-cell
-    // screen. Omit it whole, rather than storing an owner no renderer can pair.
-    if (width > this.#columns || (width === 2 && !this.#autoWrap && this.#state.cursor.column === this.#columns - 1)) {
+    // margin region. Omit it whole, rather than storing an owner no renderer can pair.
+    if (
+      width > this.#columns || width > regionWidth ||
+      (width === 2 && !this.#autoWrap && this.#state.cursor.column === initialRight)
+    ) {
       this.#breakPairAt(this.#state.cursor.column);
       this.#putCellAt(this.#state.cursor.column, this.#blankLike(cell), true);
       this.#endGlyphRun();
       this.#pendingWrap = false;
       return;
     }
+    const splitHorizontal = this.#hasHorizontalMargins();
     // Resolve a wrap deferred from a previous edge write before placing this glyph.
     if (this.#pendingWrap) {
       if (this.#autoWrap) {
-        this.#markSoftWrap();
-        this.#state.cursor.column = 0;
+        if (!splitHorizontal) this.#markSoftWrap();
+        this.#state.cursor.column = wrapLeft;
         this.#index();
       }
       this.#pendingWrap = false;
     }
+    const rightEdge = this.#activeRightMargin();
     // A double-width glyph that cannot fit in the final column wraps first.
-    if (width === 2 && this.#autoWrap && this.#state.cursor.column >= this.#columns - 1) {
+    if (width === 2 && this.#autoWrap && this.#state.cursor.column >= rightEdge) {
       this.#putCellAt(this.#state.cursor.column, BLANK_CELL, false);
-      this.#markSoftWrap(true);
-      this.#state.cursor.column = 0;
+      if (!splitHorizontal) this.#markSoftWrap(true);
+      this.#state.cursor.column = wrapLeft;
       this.#index();
     }
     const startColumn = this.#state.cursor.column;
@@ -650,17 +1155,18 @@ export class TerminalScreenController {
       cell = placed;
       width = 1;
     }
-    const lastColumn = Math.min(this.#columns - 1, startColumn + width - 1);
+    const activeRight = this.#activeRightMargin();
+    const lastColumn = Math.min(activeRight, startColumn + width - 1);
     for (let column = startColumn + 1; column <= lastColumn; column += 1) {
       this.#putCellAt(column, CONTINUATION_CELL, false);
     }
     // Insert mode shifted the rest of the row, which can cut a pair further along.
     if (this.#insertMode) this.#repairRow(this.#state.cells[this.#state.cursor.row]!);
     this.#graphemeCell = cell;
-    if (lastColumn >= this.#columns - 1) {
-      // At the right edge park the cursor and defer the wrap; only the next
+    if (lastColumn >= activeRight) {
+      // At the right margin park the cursor and defer the wrap; only the next
       // printable character (if autowrap is on) actually advances + scrolls.
-      this.#state.cursor.column = this.#columns - 1;
+      this.#state.cursor.column = activeRight;
       this.#pendingWrap = this.#autoWrap;
     } else {
       this.#state.cursor.column = lastColumn + 1;
@@ -717,8 +1223,8 @@ export class TerminalScreenController {
   #putCellAt(column: number, cell: TerminalScreenCell, insert: boolean): TerminalScreenCell {
     const row = this.#state.cells[this.#state.cursor.row]!;
     if (insert && this.#insertMode) {
-      row.splice(column, 0, { char: " " });
-      row.length = this.#columns;
+      const rightBound = this.#activeRightMargin() + 1;
+      shiftCellsRight(row, column, 1, rightBound, { char: " " });
       this.#accountGlyphRow(row);
     }
     const available = this.#maxRetainedGlyphExtraUtf16Units - this.#retainedGlyphExtraUtf16Units +
@@ -785,13 +1291,21 @@ export class TerminalScreenController {
     return new Array<TerminalScreenCell>(this.#columns).fill(this.#eraseCell());
   }
 
-  /** NEL: unlike a bare LF this always returns to column 0. */
+  /** NEL: unlike a bare LF this always returns to the active left margin (column 0 without DECLRMM). */
   #newline(): void {
-    this.#state.cursor.column = 0;
+    this.#state.cursor.column = this.#activeLeftMargin();
     this.#index();
   }
 
   #index(): void {
+    if (
+      this.#hasHorizontalMargins() &&
+      (this.#state.cursor.column < this.#horizontalMargins.left ||
+        this.#state.cursor.column > this.#horizontalMargins.right)
+    ) {
+      if (this.#state.cursor.row < this.#rows - 1) this.#state.cursor.row += 1;
+      return;
+    }
     if (this.#state.cursor.row === this.#scrollRegion.bottom) {
       this.#scrollRegionUp(this.#scrollRegion.top, this.#scrollRegion.bottom, 1);
       return;
@@ -805,22 +1319,53 @@ export class TerminalScreenController {
     // cursor stays put; scrolling the whole screen would corrupt every row.
   }
 
+  #hasHorizontalMargins(): boolean {
+    return this.#leftRightMarginsMode &&
+      (this.#horizontalMargins.left > 0 || this.#horizontalMargins.right < this.#columns - 1);
+  }
+
+  #activeLeftMargin(): number {
+    return this.#leftRightMarginsMode && this.#state.cursor.column >= this.#horizontalMargins.left
+      ? this.#horizontalMargins.left
+      : 0;
+  }
+
+  #activeRightMargin(): number {
+    return this.#leftRightMarginsMode && this.#state.cursor.column <= this.#horizontalMargins.right
+      ? this.#horizontalMargins.right
+      : this.#columns - 1;
+  }
+
+  #homeColumn(): number {
+    return this.#originMode ? this.#horizontalMargins.left : 0;
+  }
+
+  #homeRow(): number {
+    return this.#originMode ? this.#scrollRegion.top : 0;
+  }
+
   #applyControl(sequence: ParsedTerminalControlSequence): void {
     if (
       sequence.kind === "csi" && sequence.command === "n" && !sequence.prefix &&
       !sequence.intermediates && sequence.params === "6"
     ) {
       const { row, column } = this.#state.cursor;
-      this.#onCursorPositionQuery?.(Math.max(1, row + 1 - (this.#originMode ? this.#scrollRegion.top : 0)), column + 1);
+      this.#onCursorPositionQuery?.(
+        Math.max(1, row + 1 - (this.#originMode ? this.#scrollRegion.top : 0)),
+        Math.max(1, column + 1 - (this.#originMode ? this.#horizontalMargins.left : 0)),
+      );
       return;
     }
-    // Any control sequence other than a pure style change (SGR `m`) breaks the
-    // printable run, so the deferred-wrap latch no longer applies. SGR keeps it
-    // so autowrap streams that recolor mid-line (pagers, syntax highlighting)
-    // still wrap at the right edge.
+    if (this.#applyQuery(sequence) || this.#applyKeyboardProtocol(sequence)) return;
+    // Any control sequence other than a pure style change (SGR `m`) ends the
+    // printable grapheme run. The deferred-wrap latch, however, only clears on
+    // cursor movement, cell edits, resets, and modes that reposition the cursor
+    // or turn autowrap off — cursor visibility (`?25l`/`?25h`), synchronized
+    // output (`?2026h`/`?2026l`), OSC title/hyperlink, DECSCUSR, DECST8C, and
+    // DECSC all leave a pending wrap intact, matching xterm and Ghostty.
     if (!(sequence.kind === "csi" && sequence.command === "m" && !sequence.private && !sequence.intermediates)) {
-      this.#pendingWrap = false;
       this.#endGlyphRun();
+      if (!preservesPendingWrap(sequence)) this.#pendingWrap = false;
     }
     if (sequence.kind === "osc") {
       this.#applyOsc(sequence.params);
@@ -885,6 +1430,29 @@ export class TerminalScreenController {
       this.#applyModes(params, sequence.command === "h");
       return;
     }
+    if (sequence.kind === "csi") {
+      // DECST8C (`CSI ? 5 W`): reset tab stops to every 8 columns. Cellbuf/
+      // Bubble Tea renderers emit this before horizontal tab positioning.
+      if (sequence.private && !sequence.intermediates && sequence.command === "W" && sequence.params === "5") {
+        this.#tabStops = defaultTabStops(this.#columns);
+        return;
+      }
+      // A private marker or an intermediate byte makes a different function of
+      // the same final byte: `CSI ? u` asks for the kitty keyboard flags, it is
+      // not SCORC; `CSI ? … r` restores DEC modes, it is not DECSTBM. Treating
+      // them as their unmarked namesakes moved the cursor and the scroll region
+      // under programs that had asked for neither. Only the selective erases
+      // (DECSED, DECSEL) share their plain form's effect here, since this model
+      // has no protected cells, and DECSCUSR is the one intermediate it acts on.
+      if (sequence.private && sequence.command !== "J" && sequence.command !== "K") return;
+      if (
+        sequence.intermediates &&
+        !(sequence.command === "q" && sequence.intermediates === " ") &&
+        !(sequence.intermediates === "'" && (sequence.command === "}" || sequence.command === "~"))
+      ) {
+        return;
+      }
+    }
     switch (sequence.command) {
       case "H":
         if (sequence.kind === "esc") {
@@ -896,49 +1464,69 @@ export class TerminalScreenController {
       case "f":
         this.#setCursorPosition(params[0] ?? 1, params[1] ?? 1);
         break;
-      case "A":
-        this.#state.cursor.row = clamp(this.#state.cursor.row - (params[0] || 1), 0, this.#rows - 1);
+      case "A": {
+        const minRow = this.#state.cursor.row >= this.#scrollRegion.top ? this.#scrollRegion.top : 0;
+        this.#state.cursor.row = clamp(this.#state.cursor.row - (params[0] || 1), minRow, this.#rows - 1);
         break;
-      case "B":
-        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, this.#rows - 1);
+      }
+      case "B": {
+        const maxRow = this.#state.cursor.row <= this.#scrollRegion.bottom ? this.#scrollRegion.bottom : this.#rows - 1;
+        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, maxRow);
         break;
+      }
       case "C":
-        this.#state.cursor.column = clamp(this.#state.cursor.column + (params[0] || 1), 0, this.#columns - 1);
+      case "a": {
+        const maxCol = this.#activeRightMargin();
+        this.#state.cursor.column = clamp(this.#state.cursor.column + (params[0] || 1), 0, maxCol);
         break;
-      case "a":
-        this.#state.cursor.column = clamp(this.#state.cursor.column + (params[0] || 1), 0, this.#columns - 1);
-        break;
+      }
       case "D":
         if (sequence.kind === "esc") {
           this.#index();
           break;
         }
-        this.#state.cursor.column = clamp(this.#state.cursor.column - (params[0] || 1), 0, this.#columns - 1);
+        this.#state.cursor.column = clamp(
+          this.#state.cursor.column - (params[0] || 1),
+          this.#activeLeftMargin(),
+          this.#columns - 1,
+        );
         break;
-      case "E":
+      case "E": {
         if (sequence.kind === "esc") {
           this.#newline();
           break;
         }
-        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, this.#rows - 1);
-        this.#state.cursor.column = 0;
+        const maxRow = this.#state.cursor.row <= this.#scrollRegion.bottom ? this.#scrollRegion.bottom : this.#rows - 1;
+        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, maxRow);
+        this.#state.cursor.column = this.#activeLeftMargin();
         break;
-      case "F":
-        this.#state.cursor.row = clamp(this.#state.cursor.row - (params[0] || 1), 0, this.#rows - 1);
-        this.#state.cursor.column = 0;
+      }
+      case "F": {
+        const minRow = this.#state.cursor.row >= this.#scrollRegion.top ? this.#scrollRegion.top : 0;
+        this.#state.cursor.row = clamp(this.#state.cursor.row - (params[0] || 1), minRow, this.#rows - 1);
+        this.#state.cursor.column = this.#activeLeftMargin();
         break;
+      }
       case "G":
-        this.#state.cursor.column = clamp((params[0] || 1) - 1, 0, this.#columns - 1);
-        break;
       case "`":
-        this.#state.cursor.column = clamp((params[0] || 1) - 1, 0, this.#columns - 1);
+        this.#state.cursor.column = this.#originMode
+          ? clamp(
+            this.#horizontalMargins.left + (params[0] || 1) - 1,
+            this.#horizontalMargins.left,
+            this.#horizontalMargins.right,
+          )
+          : clamp((params[0] || 1) - 1, 0, this.#columns - 1);
         break;
       case "d":
-        this.#setCursorPosition(params[0] || 1, this.#state.cursor.column + 1);
+        this.#state.cursor.row = this.#originMode
+          ? clamp(this.#scrollRegion.top + (params[0] || 1) - 1, this.#scrollRegion.top, this.#scrollRegion.bottom)
+          : clamp((params[0] || 1) - 1, 0, this.#rows - 1);
         break;
-      case "e":
-        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, this.#rows - 1);
+      case "e": {
+        const maxRow = this.#state.cursor.row <= this.#scrollRegion.bottom ? this.#scrollRegion.bottom : this.#rows - 1;
+        this.#state.cursor.row = clamp(this.#state.cursor.row + (params[0] || 1), 0, maxRow);
         break;
+      }
       case "I":
         this.#cursorForwardTabs(params[0] || 1);
         break;
@@ -988,7 +1576,18 @@ export class TerminalScreenController {
       case "q":
         if (sequence.intermediates === " ") this.#applyCursorStyle(params[0] ?? 0);
         break;
+      case "}":
+        if (sequence.intermediates === "'") this.#insertColumns(params[0] || 1);
+        break;
+      case "~":
+        if (sequence.intermediates === "'") this.#deleteColumns(params[0] || 1);
+        break;
       case "s":
+        if (sequence.kind === "csi") {
+          if (this.#leftRightMarginsMode) this.#setHorizontalMargins(params);
+          else if (params.length === 0) this.#saveCursor();
+        }
+        break;
       case "7":
         this.#saveCursor();
         break;
@@ -999,19 +1598,215 @@ export class TerminalScreenController {
     }
   }
 
+  /** Answers the queries this model can answer from its own state. True when the sequence was a query. */
+  #applyQuery(sequence: ParsedTerminalControlSequence): boolean {
+    if (sequence.kind === "dcs") {
+      // DECRQSS: only the settings this model holds are valid requests.
+      if (sequence.params.startsWith("$q")) {
+        const setting = sequence.params.slice(2);
+        if (setting === " q") this.#reply(`\x1bP1$r${this.#cursorStyleCode} q\x1b\\`);
+        else if (setting === "r") {
+          this.#reply(`\x1bP1$r${this.#scrollRegion.top + 1};${this.#scrollRegion.bottom + 1}r\x1b\\`);
+        } else if (setting === "s" && this.#leftRightMarginsMode) {
+          this.#reply(`\x1bP1$r${this.#horizontalMargins.left + 1};${this.#horizontalMargins.right + 1}s\x1b\\`);
+        } else if (setting === "m") {
+          this.#reply(`\x1bP1$r${formatSgrState(this.#style)}m\x1b\\`);
+        } else this.#reply("\x1bP0$r\x1b\\");
+        return true;
+      }
+      // XTGETTCAP: no capability is served, and saying so beats a timeout.
+      if (sequence.params.startsWith("+q")) {
+        this.#reply("\x1bP0+r\x1b\\");
+        return true;
+      }
+      return false;
+    }
+    if (sequence.kind === "osc") {
+      const match = /^(10|11);\?$/.exec(sequence.params);
+      if (!match) return false;
+      const colors = this.#queryColors?.();
+      const color = match[1] === "10" ? colors?.foreground : colors?.background;
+      if (color) this.#reply(`\x1b]${match[1]};rgb:${color.map(colorChannel16).join("/")}\x1b\\`);
+      return true;
+    }
+    if (sequence.kind !== "csi") return false;
+    const { prefix, params, intermediates, command } = sequence;
+    if (command === "c" && !intermediates && (params === "" || params === "0")) {
+      // VT220 with ANSI colour; the secondary answer claims no firmware or cartridge.
+      if (prefix === "") this.#reply("\x1b[?62;22c");
+      else if (prefix === ">") this.#reply("\x1b[>1;10;0c");
+      else return false;
+      return true;
+    }
+    if (command === "q" && prefix === ">" && !intermediates && (params === "" || params === "0")) {
+      this.#reply(`\x1bP>|${this.#identity}\x1b\\`);
+      return true;
+    }
+    if (command === "n" && !intermediates) {
+      if (prefix === "" && params === "5") this.#reply("\x1b[0n");
+      else if (prefix === "?" && params === "6") {
+        const { row, column } = this.#state.cursor;
+        this.#reply(
+          `\x1b[?${Math.max(1, row + 1 - (this.#originMode ? this.#scrollRegion.top : 0))};${
+            Math.max(1, column + 1 - (this.#originMode ? this.#horizontalMargins.left : 0))
+          }R`,
+        );
+      } else return false;
+      return true;
+    }
+    if (command === "p" && intermediates === "$" && (prefix === "?" || prefix === "")) {
+      const mode = Number.parseInt(params, 10);
+      if (Number.isInteger(mode)) {
+        const value = prefix === "?" ? this.#privateModeReport(mode) : this.#modeReport(mode);
+        this.#reply(`\x1b[${prefix}${mode};${value}$y`);
+      }
+      return true;
+    }
+    if (command === "u" && prefix === "?" && !intermediates) {
+      this.#reply(`\x1b[?${this.#kittyFlags()}u`);
+      return true;
+    }
+    if (command === "m" && prefix === "?" && !intermediates && params === "4") {
+      this.#reply(`\x1b[>4;${this.#modifyOtherKeys}m`);
+      return true;
+    }
+    return false;
+  }
+
+  /** DECRQM values: 1 set, 2 reset, 3 permanently set, 0 not recognised. */
+  #privateModeReport(mode: number): number {
+    if (mode === 25) return this.#cursorVisible ? 1 : 2;
+    if (mode === 7) return this.#autoWrap ? 1 : 2;
+    // Clusters are always kept whole; there is no unclustered mode to switch to.
+    if (mode === 2027) return 3;
+    if (!REPORTED_PRIVATE_MODES.has(mode)) return 0;
+    return this.#privateModes.has(mode) ? 1 : 2;
+  }
+
+  #modeReport(mode: number): number {
+    if (mode === 4) return this.#insertMode ? 1 : 2;
+    if (mode === 20) return this.#lineFeedNewline ? 1 : 2;
+    return 0;
+  }
+
+  #reply(data: string): void {
+    this.#onReply?.(data);
+  }
+
+  /**
+   * Tracks the key reporting a child asks for: the kitty keyboard stack
+   * (`CSI > flags u` push, `CSI < n u` pop, `CSI = flags ; mode u` set) and
+   * xterm's modifyOtherKeys (`CSI > 4 ; level m`). The screen draws nothing
+   * differently; its host reads {@linkcode keyboardProtocol} to encode keys the
+   * way the child expects.
+   */
+  #applyKeyboardProtocol(sequence: ParsedTerminalControlSequence): boolean {
+    if (sequence.kind !== "csi" || sequence.intermediates) return false;
+    const params = parseTerminalParams(sequence.params);
+    if (sequence.command === "u") {
+      const stack = this.#mainState ? this.#kittyKeyboard.alternate : this.#kittyKeyboard.main;
+      if (sequence.prefix === ">") {
+        stack.push(clampKittyFlags(params[0] ?? 0));
+        if (stack.length > MAX_KITTY_KEYBOARD_STACK) stack.shift();
+        return true;
+      }
+      if (sequence.prefix === "<") {
+        stack.splice(Math.max(0, stack.length - Math.max(1, params[0] || 1)));
+        return true;
+      }
+      if (sequence.prefix === "=") {
+        const flags = clampKittyFlags(params[0] ?? 0);
+        const current = stack.length > 0 ? stack[stack.length - 1]! : 0;
+        const mode = params[1] || 1;
+        const next = mode === 2 ? current | flags : mode === 3 ? current & ~flags : flags;
+        if (stack.length > 0) stack[stack.length - 1] = next;
+        else stack.push(next);
+        return true;
+      }
+      return false;
+    }
+    if (sequence.command === "m" && sequence.prefix === ">") {
+      // `CSI > 4 m` resets the resource; other resources (0–3, 6, 7) are not keys this host encodes.
+      if (params.length === 0 || params[0] === 4) this.#modifyOtherKeys = clamp(params[1] ?? 0, 0, 2);
+      return true;
+    }
+    if (sequence.command === "n" && sequence.prefix === ">") {
+      if (params.length === 0 || params[0] === 4) this.#modifyOtherKeys = 0;
+      return true;
+    }
+    return false;
+  }
+
+  #kittyFlags(): number {
+    const stack = this.#mainState ? this.#kittyKeyboard.alternate : this.#kittyKeyboard.main;
+    return stack.length > 0 ? stack[stack.length - 1]! : 0;
+  }
+
   #applyOsc(payload: string): void {
     const separator = payload.indexOf(";");
-    if (separator < 0) return;
+    if (separator < 0) {
+      if (payload === "104") this.#paletteOverrides.clear();
+      return;
+    }
     const code = payload.slice(0, separator);
     if (code === "0" || code === "2") {
       this.#title = payload.slice(separator + 1);
+      return;
+    }
+    if (code === "4") {
+      this.#applyPaletteOsc(payload.slice(separator + 1));
+      return;
+    }
+    if (code === "104") {
+      this.#resetPaletteOsc(payload.slice(separator + 1));
       return;
     }
     if (code === "7") {
       this.#applyWorkingDirectory(payload.slice(separator + 1));
       return;
     }
-    if (code === "8") this.#applyHyperlink(payload.slice(separator + 1));
+    if (code === "8") {
+      this.#applyHyperlink(payload.slice(separator + 1));
+      return;
+    }
+    if (code === "52" && this.#onClipboardWrite) {
+      const write = parseTerminalClipboardWrite(payload.slice(separator + 1), {
+        maxBytes: this.#maxClipboardBytes,
+      });
+      if (write) this.#onClipboardWrite(write);
+    }
+  }
+
+  #applyPaletteOsc(body: string): void {
+    const parts = body.split(";");
+    for (let index = 0; index + 1 < parts.length; index += 2) {
+      const slot = Number(parts[index]!.trim());
+      if (!Number.isInteger(slot) || slot < 0 || slot > 255) continue;
+      const spec = parts[index + 1]!.trim();
+      if (spec === "?") {
+        const color = this.#paletteOverrides.get(slot) ??
+          this.#queryColors?.()?.palette?.(slot) ??
+          xtermPaletteRgb(slot);
+        this.#reply(`\x1b]4;${slot};rgb:${color.map(colorChannel16).join("/")}\x1b\\`);
+        continue;
+      }
+      const parsed = parseOscColorRgb(spec);
+      if (parsed) this.#paletteOverrides.set(slot, parsed);
+    }
+  }
+
+  #resetPaletteOsc(body: string): void {
+    const trimmed = body.trim();
+    if (trimmed === "") {
+      this.#paletteOverrides.clear();
+      return;
+    }
+    for (const part of trimmed.split(";")) {
+      const slot = Number(part.trim());
+      if (Number.isInteger(slot) && slot >= 0 && slot <= 255) {
+        this.#paletteOverrides.delete(slot);
+      }
+    }
   }
 
   /**
@@ -1065,19 +1860,29 @@ export class TerminalScreenController {
         else this.#privateModes.delete(mode);
         if (mode === 6) {
           this.#originMode = enabled;
+          this.#pendingWrap = false;
           this.#state.cursor = {
-            column: 0,
-            row: enabled ? this.#scrollRegion.top : 0,
+            column: this.#homeColumn(),
+            row: this.#homeRow(),
           };
         }
-        if (mode === 7) this.#autoWrap = enabled;
+        if (mode === 7) {
+          this.#autoWrap = enabled;
+          if (!enabled) this.#pendingWrap = false;
+        }
+        if (mode === 69) {
+          this.#leftRightMarginsMode = enabled;
+          if (!enabled) this.#horizontalMargins = fullHorizontalMargins(this.#columns);
+        }
         if (mode === 47 || mode === 1047) enabled ? this.#enterAlternate() : this.#exitAlternate();
         if (mode === 1048) enabled ? this.#saveCursor() : this.#restoreCursor();
         if (mode === 1049) {
           if (enabled) {
-            this.#saveCursor();
-            this.#enterAlternate();
-          } else {
+            if (!this.#mainState) {
+              this.#saveCursor();
+              this.#enterAlternate();
+            }
+          } else if (this.#mainState) {
             this.#exitAlternate();
             this.#restoreCursor();
           }
@@ -1094,16 +1899,19 @@ export class TerminalScreenController {
   }
 
   #setCursorPosition(row: number, column: number): void {
-    const nextColumn = clamp(column - 1, 0, this.#columns - 1);
     if (!this.#originMode) {
       this.#state.cursor = {
-        column: nextColumn,
+        column: clamp(column - 1, 0, this.#columns - 1),
         row: clamp(row - 1, 0, this.#rows - 1),
       };
       return;
     }
     this.#state.cursor = {
-      column: nextColumn,
+      column: clamp(
+        this.#horizontalMargins.left + column - 1,
+        this.#horizontalMargins.left,
+        this.#horizontalMargins.right,
+      ),
       row: clamp(this.#scrollRegion.top + row - 1, this.#scrollRegion.top, this.#scrollRegion.bottom),
     };
   }
@@ -1113,15 +1921,34 @@ export class TerminalScreenController {
   }
 
   #saveCursor(): void {
-    this.#savedCursor = { ...this.#state.cursor };
+    const slot = this.#mainState ? "alternate" : "main";
+    this.#savedCursor[slot] = {
+      column: this.#state.cursor.column,
+      row: this.#state.cursor.row,
+      style: { ...this.#style },
+      originMode: this.#originMode,
+      autoWrap: this.#autoWrap,
+      pendingWrap: this.#pendingWrap,
+      charsetDecGraphics: [this.#charsetDecGraphics[0]!, this.#charsetDecGraphics[1]!],
+      activeCharset: this.#activeCharset,
+    };
   }
 
   #restoreCursor(): void {
-    if (!this.#savedCursor) return;
+    const slot = this.#mainState ? "alternate" : "main";
+    const saved = this.#savedCursor[slot];
+    if (!saved) return;
     this.#state.cursor = {
-      column: clamp(this.#savedCursor.column, 0, this.#columns - 1),
-      row: clamp(this.#savedCursor.row, 0, this.#rows - 1),
+      column: clamp(saved.column, 0, this.#columns - 1),
+      row: clamp(saved.row, 0, this.#rows - 1),
     };
+    this.#style = { ...saved.style };
+    this.#originMode = saved.originMode;
+    this.#autoWrap = saved.autoWrap;
+    this.#pendingWrap = saved.pendingWrap && this.#state.cursor.column === this.#columns - 1;
+    this.#charsetDecGraphics[0] = saved.charsetDecGraphics[0];
+    this.#charsetDecGraphics[1] = saved.charsetDecGraphics[1];
+    this.#activeCharset = saved.activeCharset;
   }
 
   #clearTabStops(mode: number): void {
@@ -1155,6 +1982,7 @@ export class TerminalScreenController {
   }
 
   #applyCursorStyle(style: number): void {
+    this.#cursorStyleCode = style >= 0 && style <= 6 ? style : 0;
     switch (style) {
       case 3:
         this.#cursorStyle = { shape: "underline", blinking: true };
@@ -1287,16 +2115,28 @@ export class TerminalScreenController {
   #insertCharacters(count: number): void {
     const row = this.#state.cells[this.#state.cursor.row]!;
     const column = this.#state.cursor.column;
-    const amount = clamp(Math.floor(count), 1, this.#columns - column);
-    shiftCellsRight(row, column, amount, this.#columns, this.#eraseCell());
+    if (
+      this.#hasHorizontalMargins() && (column < this.#horizontalMargins.left || column > this.#horizontalMargins.right)
+    ) {
+      return;
+    }
+    const rightBound = this.#hasHorizontalMargins() ? this.#horizontalMargins.right + 1 : this.#columns;
+    const amount = clamp(Math.floor(count), 1, rightBound - column);
+    shiftCellsRight(row, column, amount, rightBound, this.#eraseCell());
     this.#repairRow(row);
   }
 
   #deleteCharacters(count: number): void {
     const row = this.#state.cells[this.#state.cursor.row]!;
     const column = this.#state.cursor.column;
-    const amount = clamp(Math.floor(count), 1, this.#columns - column);
-    shiftCellsLeft(row, column, amount, this.#columns, this.#eraseCell());
+    if (
+      this.#hasHorizontalMargins() && (column < this.#horizontalMargins.left || column > this.#horizontalMargins.right)
+    ) {
+      return;
+    }
+    const rightBound = this.#hasHorizontalMargins() ? this.#horizontalMargins.right + 1 : this.#columns;
+    const amount = clamp(Math.floor(count), 1, rightBound - column);
+    shiftCellsLeft(row, column, amount, rightBound, this.#eraseCell());
     this.#repairRow(row);
   }
 
@@ -1311,7 +2151,18 @@ export class TerminalScreenController {
   #insertLines(count: number): void {
     const row = this.#state.cursor.row;
     if (row < this.#scrollRegion.top || row > this.#scrollRegion.bottom) return;
+    if (
+      this.#hasHorizontalMargins() &&
+      (this.#state.cursor.column < this.#horizontalMargins.left ||
+        this.#state.cursor.column > this.#horizontalMargins.right)
+    ) {
+      return;
+    }
     const amount = clamp(Math.floor(count), 1, this.#scrollRegion.bottom - row + 1);
+    if (this.#hasHorizontalMargins()) {
+      this.#scrollRegionDown(row, this.#scrollRegion.bottom, amount);
+      return;
+    }
     for (let index = 0; index < amount; index += 1) {
       this.#state.cells.splice(row, 0, this.#eraseRow());
       for (const removed of this.#state.cells.splice(this.#scrollRegion.bottom + 1, 1)) this.#releaseGlyphRow(removed);
@@ -1321,32 +2172,104 @@ export class TerminalScreenController {
   #deleteLines(count: number): void {
     const row = this.#state.cursor.row;
     if (row < this.#scrollRegion.top || row > this.#scrollRegion.bottom) return;
+    if (
+      this.#hasHorizontalMargins() &&
+      (this.#state.cursor.column < this.#horizontalMargins.left ||
+        this.#state.cursor.column > this.#horizontalMargins.right)
+    ) {
+      return;
+    }
     const amount = clamp(Math.floor(count), 1, this.#scrollRegion.bottom - row + 1);
+    if (this.#hasHorizontalMargins()) {
+      this.#scrollRegionUp(row, this.#scrollRegion.bottom, amount);
+      return;
+    }
     for (let index = 0; index < amount; index += 1) {
       for (const removed of this.#state.cells.splice(row, 1)) this.#releaseGlyphRow(removed);
       this.#state.cells.splice(this.#scrollRegion.bottom, 0, this.#eraseRow());
     }
   }
 
+  #insertColumns(count: number): void {
+    const { row, column } = this.#state.cursor;
+    const { top, bottom } = this.#scrollRegion;
+    const { left, right } = this.#horizontalMargins;
+    if (row < top || row > bottom || column < left || column > right) return;
+    const rightBound = right + 1;
+    const amount = clamp(Math.floor(count), 1, rightBound - column);
+    const fill = this.#eraseCell();
+    for (let current = top; current <= bottom; current += 1) {
+      const cells = this.#state.cells[current]!;
+      shiftCellsRight(cells, column, amount, rightBound, fill);
+      this.#repairRow(cells);
+    }
+  }
+
+  #deleteColumns(count: number): void {
+    const { row, column } = this.#state.cursor;
+    const { top, bottom } = this.#scrollRegion;
+    const { left, right } = this.#horizontalMargins;
+    if (row < top || row > bottom || column < left || column > right) return;
+    const rightBound = right + 1;
+    const amount = clamp(Math.floor(count), 1, rightBound - column);
+    const fill = this.#eraseCell();
+    for (let current = top; current <= bottom; current += 1) {
+      const cells = this.#state.cells[current]!;
+      shiftCellsLeft(cells, column, amount, rightBound, fill);
+      this.#repairRow(cells);
+    }
+  }
+
   #setScrollRegion(params: number[]): void {
     if (params.length === 0) {
       this.#scrollRegion = fullScrollRegion(this.#rows);
-      this.#state.cursor = { column: 0, row: 0 };
+      this.#state.cursor = { column: this.#homeColumn(), row: this.#homeRow() };
       return;
     }
     const top = clamp((params[0] || 1) - 1, 0, this.#rows - 1);
     const bottom = clamp((params[1] || this.#rows) - 1, 0, this.#rows - 1);
     if (bottom <= top) {
       this.#scrollRegion = fullScrollRegion(this.#rows);
-      this.#state.cursor = { column: 0, row: 0 };
+      this.#state.cursor = { column: this.#homeColumn(), row: this.#homeRow() };
       return;
     }
     this.#scrollRegion = { top, bottom };
-    this.#state.cursor = { column: 0, row: 0 };
+    this.#state.cursor = { column: this.#homeColumn(), row: this.#homeRow() };
+  }
+
+  #setHorizontalMargins(params: number[]): void {
+    if (params.length === 0) {
+      this.#horizontalMargins = fullHorizontalMargins(this.#columns);
+      this.#pendingWrap = false;
+      this.#state.cursor = { column: this.#homeColumn(), row: this.#homeRow() };
+      return;
+    }
+    const left = clamp((params[0] || 1) - 1, 0, this.#columns - 1);
+    const right = clamp((params[1] || this.#columns) - 1, 0, this.#columns - 1);
+    if (left >= right) return;
+    this.#horizontalMargins = { left, right };
+    this.#pendingWrap = false;
+    this.#state.cursor = { column: this.#homeColumn(), row: this.#homeRow() };
   }
 
   #scrollRegionUp(top: number, bottom: number, count: number): void {
     const amount = clamp(Math.floor(count), 1, bottom - top + 1);
+    if (this.#hasHorizontalMargins()) {
+      const { left, right } = this.#horizontalMargins;
+      const fill = this.#eraseCell();
+      for (let row = top; row <= bottom - amount; row += 1) {
+        const dest = this.#state.cells[row]!;
+        const source = this.#state.cells[row + amount]!;
+        for (let column = left; column <= right; column += 1) dest[column] = source[column]!;
+        this.#repairRow(dest);
+      }
+      for (let row = bottom - amount + 1; row <= bottom; row += 1) {
+        const dest = this.#state.cells[row]!;
+        fillCells(dest, left, right - left + 1, fill);
+        this.#repairRow(dest);
+      }
+      return;
+    }
     for (let index = 0; index < amount; index += 1) {
       const shifted = this.#state.cells.splice(top, 1)[0] ?? blankRow(this.#columns);
       // Inline TUIs scroll transcript rows above a fixed composer/footer.
@@ -1364,6 +2287,22 @@ export class TerminalScreenController {
 
   #scrollRegionDown(top: number, bottom: number, count: number): void {
     const amount = clamp(Math.floor(count), 1, bottom - top + 1);
+    if (this.#hasHorizontalMargins()) {
+      const { left, right } = this.#horizontalMargins;
+      const fill = this.#eraseCell();
+      for (let row = bottom; row >= top + amount; row -= 1) {
+        const dest = this.#state.cells[row]!;
+        const source = this.#state.cells[row - amount]!;
+        for (let column = left; column <= right; column += 1) dest[column] = source[column]!;
+        this.#repairRow(dest);
+      }
+      for (let row = top; row < top + amount; row += 1) {
+        const dest = this.#state.cells[row]!;
+        fillCells(dest, left, right - left + 1, fill);
+        this.#repairRow(dest);
+      }
+      return;
+    }
     for (let index = 0; index < amount; index += 1) {
       for (const removed of this.#state.cells.splice(bottom, 1)) this.#releaseGlyphRow(removed);
       this.#state.cells.splice(top, 0, this.#eraseRow());
@@ -1371,6 +2310,14 @@ export class TerminalScreenController {
   }
 
   #reverseIndex(): void {
+    if (
+      this.#hasHorizontalMargins() &&
+      (this.#state.cursor.column < this.#horizontalMargins.left ||
+        this.#state.cursor.column > this.#horizontalMargins.right)
+    ) {
+      this.#state.cursor.row = Math.max(0, this.#state.cursor.row - 1);
+      return;
+    }
     if (this.#state.cursor.row === this.#scrollRegion.top) {
       this.#scrollRegionDown(this.#scrollRegion.top, this.#scrollRegion.bottom, 1);
       return;
@@ -1382,13 +2329,18 @@ export class TerminalScreenController {
     this.#mainState = undefined;
     this.#scrollback = [];
     this.#style = {};
-    this.#savedCursor = undefined;
+    this.#savedCursor = {};
     this.#title = undefined;
     this.#workingDirectory = undefined;
     this.#hyperlink = undefined;
     this.#cursorVisible = true;
     this.#cursorStyle = { shape: "block", blinking: true };
+    this.#cursorStyleCode = 0;
+    this.#kittyKeyboard = { main: [], alternate: [] };
+    this.#modifyOtherKeys = 0;
+    this.#paletteOverrides.clear();
     this.#privateModes.clear();
+    this.#leftRightMarginsMode = false;
     this.#originMode = false;
     this.#autoWrap = true;
     this.#insertMode = false;
@@ -1405,6 +2357,8 @@ export class TerminalScreenController {
     this.#state = { cells: createRows(this.#columns, this.#rows), cursor: { column: 0, row: 0 } };
     this.#recountGlyphs();
     this.#scrollRegion = fullScrollRegion(this.#rows);
+    this.#horizontalMargins = fullHorizontalMargins(this.#columns);
+    this.#pendingWrap = false;
   }
 
   #exitAlternate(): void {
@@ -1413,13 +2367,168 @@ export class TerminalScreenController {
     this.#mainState = undefined;
     this.#recountGlyphs();
     this.#scrollRegion = fullScrollRegion(this.#rows);
+    this.#horizontalMargins = fullHorizontalMargins(this.#columns);
     this.#originMode = false;
+    this.#pendingWrap = false;
   }
+}
+
+/** DEC private modes this model acts on, and so can report as set or reset. */
+const REPORTED_PRIVATE_MODES: ReadonlySet<number> = new Set([
+  1,
+  6,
+  9,
+  47,
+  69,
+  1000,
+  1002,
+  1003,
+  1004,
+  1005,
+  1006,
+  1015,
+  1047,
+  1048,
+  1049,
+  2004,
+  2026,
+]);
+const MAX_KITTY_KEYBOARD_STACK = 16;
+const KITTY_KEYBOARD_FLAG_MASK = 0b11111;
+const EMPTY_PALETTE_OVERRIDES: ReadonlyMap<number, readonly [number, number, number]> = new Map();
+const SNAPSHOT_STICKY_MODES: readonly number[] = Object.freeze([
+  1,
+  9,
+  1000,
+  1002,
+  1003,
+  1004,
+  1005,
+  1006,
+  1015,
+  2004,
+  2026,
+  2027,
+]);
+
+/**
+ * Serializes a {@linkcode TerminalScreenController} into a replayable ANSI
+ * escape stream that reconstructs its grid, styles, hyperlinks, palette
+ * overrides, scroll regions, modes, keyboard protocol, and cursor on a fresh
+ * screen or remote terminal client.
+ */
+export function serializeTerminalScreenSnapshot(
+  screen: TerminalScreenController,
+  options?: TerminalScreenSnapshotOptions,
+): string {
+  return screen.serializeSnapshot(options);
+}
+
+function sanitizeSnapshotOsc(value: string): string {
+  // deno-lint-ignore no-control-regex
+  return value.replace(/[\x00-\x1f\x7f-\x9f]/g, "").slice(0, 1024);
+}
+
+function clampKittyFlags(value: number): number {
+  return Number.isInteger(value) ? value & KITTY_KEYBOARD_FLAG_MASK : 0;
+}
+
+/** Parses `rgb:r/g/b` (1–4 hex digits per channel) or `#rgb`/`#rrggbb`/`#rrrrggggbbbb` into 8-bit RGB. */
+function parseOscColorRgb(spec: string): readonly [number, number, number] | undefined {
+  const rgbMatch = /^rgb:([0-9a-f]{1,4})\/([0-9a-f]{1,4})\/([0-9a-f]{1,4})$/i.exec(spec);
+  if (rgbMatch) {
+    return [
+      parseHexChannel8(rgbMatch[1]!),
+      parseHexChannel8(rgbMatch[2]!),
+      parseHexChannel8(rgbMatch[3]!),
+    ];
+  }
+  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{12})$/i.exec(spec);
+  if (!hexMatch) return undefined;
+  const digits = hexMatch[1]!;
+  const step = digits.length / 3;
+  return [
+    parseHexChannel8(digits.slice(0, step)),
+    parseHexChannel8(digits.slice(step, step * 2)),
+    parseHexChannel8(digits.slice(step * 2)),
+  ];
+}
+
+function parseHexChannel8(hex: string): number {
+  const value = Number.parseInt(hex, 16);
+  if (hex.length === 1) return value * 17;
+  if (hex.length === 2) return value;
+  const max = (1 << (hex.length * 4)) - 1;
+  return Math.round((value * 255) / max);
+}
+
+/** Formats current SGR attributes for `DECRQSS m` and ANSI snapshots. */
+function formatSgrState(style: Omit<TerminalScreenCell, "char">): string {
+  const params: string[] = ["0"];
+  if (style.bold) params.push("1");
+  if (style.dim) params.push("2");
+  if (style.italic) params.push("3");
+  if (style.underline) {
+    const sub = style.underlineStyle
+      ? (["solid", "double", "wavy", "dotted", "dashed"] as const).indexOf(style.underlineStyle) + 1
+      : 0;
+    params.push(sub > 1 ? `4:${sub}` : "4");
+  }
+  if (style.inverse) params.push("7");
+  if (style.strikethrough) params.push("9");
+  if (style.overline) params.push("53");
+  if (style.foreground !== undefined) appendEncodedSgrColor(params, style.foreground, false);
+  if (style.background !== undefined) appendEncodedSgrColor(params, style.background, true);
+  if (style.underlineColor !== undefined) appendEncodedUnderlineColor(params, style.underlineColor);
+  return params.join(";");
+}
+
+function appendEncodedSgrColor(params: string[], code: number, background: boolean): void {
+  const decoded = decodeTerminalColor(code, background);
+  if (!decoded) return;
+  if (decoded.kind === "ansi") {
+    const base = decoded.index < 8
+      ? (background ? 40 : 30) + decoded.index
+      : (background ? 100 : 90) + decoded.index - 8;
+    params.push(String(base));
+  } else if (decoded.kind === "indexed") {
+    params.push(background ? "48" : "38", "5", String(decoded.index));
+  } else {
+    params.push(background ? "48" : "38", "2", String(decoded.red), String(decoded.green), String(decoded.blue));
+  }
+}
+
+function appendEncodedUnderlineColor(params: string[], code: number): void {
+  const decoded = decodeTerminalColor(code, false);
+  if (!decoded) return;
+  if (decoded.kind === "ansi" || decoded.kind === "indexed") {
+    params.push("58", "5", String(decoded.index));
+  } else {
+    params.push("58", "2", String(decoded.red), String(decoded.green), String(decoded.blue));
+  }
+}
+
+/** One 8-bit channel as the 16-bit hex XParseColor form terminals answer with. */
+function colorChannel16(value: number): string {
+  const byte = clamp(Math.round(Number.isFinite(value) ? value : 0), 0, 255);
+  return byte.toString(16).padStart(2, "0").repeat(2);
+}
+
+/** XTVERSION text: printable ASCII only, so the reply cannot carry a control sequence of its own. */
+function terminalIdentity(identity: { name: string; version?: string } | undefined): string {
+  const text = identity ? `${identity.name}${identity.version ? ` ${identity.version}` : ""}` : "exotui";
+  const safe = text.replace(/[^\x20-\x7e]/g, "").slice(0, 64).trim();
+  return safe || "exotui";
 }
 
 interface TerminalScreenScrollRegion {
   top: number;
   bottom: number;
+}
+
+interface TerminalScreenHorizontalMargins {
+  left: number;
+  right: number;
 }
 
 function sortedPrivateModes(modes: ReadonlySet<number>): number[] {
@@ -1580,21 +2689,155 @@ function fullScrollRegion(rows: number): TerminalScreenScrollRegion {
   return { top: 0, bottom: rows - 1 };
 }
 
+function fullHorizontalMargins(columns: number): TerminalScreenHorizontalMargins {
+  return { left: 0, right: columns - 1 };
+}
+
 function defaultTabStops(columns: number): Set<number> {
   const stops = new Set<number>();
   for (let column = 8; column < columns; column += 8) stops.add(column);
   return stops;
 }
 
-function resizeTabStops(stops: Set<number>, columns: number): Set<number> {
+function preservesPendingWrap(sequence: ParsedTerminalControlSequence): boolean {
+  if (
+    sequence.kind === "osc" || sequence.kind === "dcs" || sequence.kind === "apc" ||
+    sequence.kind === "pm" || sequence.kind === "sos"
+  ) {
+    return true;
+  }
+  if (sequence.kind === "esc") {
+    if (sequence.intermediates) return true;
+    return sequence.command === "=" || sequence.command === ">" || sequence.command === "H" ||
+      sequence.command === "7";
+  }
+  // CSI sequences that do not move the cursor or edit cells leave the
+  // deferred-wrap latch untouched; DECSET/DECRST modes that move the cursor or
+  // disable autowrap clear it themselves in `#applyPrivateModes`.
+  if (sequence.prefix && sequence.prefix !== "?") return true;
+  if (sequence.command === "t" || sequence.command === "m") return true;
+  if (sequence.command === "h" || sequence.command === "l") return true;
+  if (sequence.private) {
+    if (!sequence.intermediates && sequence.command === "W" && sequence.params === "5") return true;
+    return sequence.command !== "J" && sequence.command !== "K";
+  }
+  if (sequence.intermediates) return true;
+  return sequence.command === "g" || sequence.command === "s" || sequence.command === "b";
+}
+
+function resizeTabStops(stops: Set<number>, previousColumns: number, columns: number): Set<number> {
   const resized = new Set<number>();
   for (const stop of stops) {
     if (stop > 0 && stop < columns) resized.add(stop);
   }
+  // Widening a terminal populates default 8-column stops in the newly added
+  // columns, matching xterm, Ghostty and tmux; without this, inline renderers
+  // using HT/CBT after a widen jump straight to the right margin.
   for (let column = 8; column < columns; column += 8) {
-    if (stops.has(column)) resized.add(column);
+    if (column >= previousColumns) resized.add(column);
   }
   return resized;
+}
+
+function isBlankTerminalRow(row: readonly TerminalScreenCell[]): boolean {
+  for (let column = 0; column < row.length; column += 1) {
+    const cell = row[column];
+    if (!cell) continue;
+    if (cell.continuation || cell.char !== " " || cell.background !== undefined) return false;
+  }
+  return true;
+}
+
+function isDefaultBlankCell(cell: TerminalScreenCell | undefined): boolean {
+  if (!cell) return true;
+  return !cell.continuation && !cell.wrapPadding && cell.char === " " &&
+    cell.background === undefined && cell.foreground === undefined &&
+    !cell.bold && !cell.dim && !cell.italic && !cell.underline &&
+    !cell.overline && !cell.strikethrough && !cell.inverse && cell.hyperlink === undefined;
+}
+
+function stripWrapMetadata(cell: TerminalScreenCell): TerminalScreenCell {
+  if (!cell.softWrapped && !cell.wrapPadding && !cell.clipped && !cell.continuation) return cell;
+  const { softWrapped: _sw, wrapPadding: _wp, clipped: _cl, continuation: _ct, ...clean } = cell;
+  return clean;
+}
+
+function packLogicalLine(
+  items: readonly { cell: TerminalScreenCell; width: 1 | 2 }[],
+  columns: number,
+  cursorAnchor: { index: number; trailing: number } | undefined,
+  savedAnchor: { index: number; trailing: number } | undefined,
+  baseRow: number,
+): {
+  rows: TerminalScreenCell[][];
+  cursor?: TerminalScreenCursor;
+  saved?: TerminalScreenCursor;
+} {
+  const rows: TerminalScreenCell[][] = [];
+  let row = blankRow(columns);
+  let column = 0;
+  let cursor: TerminalScreenCursor | undefined;
+  let saved: TerminalScreenCursor | undefined;
+
+  for (let index = 0; index < items.length; index += 1) {
+    const { cell, width } = items[index]!;
+    if (width > columns) {
+      if (cursorAnchor && cursorAnchor.index === index) {
+        cursor = { row: baseRow + rows.length, column: clamp(column, 0, columns - 1) };
+      }
+      if (savedAnchor && savedAnchor.index === index) {
+        saved = { row: baseRow + rows.length, column: clamp(column, 0, columns - 1) };
+      }
+      continue;
+    }
+    if (column + width > columns) {
+      for (let pad = column; pad < columns; pad += 1) {
+        row[pad] = { char: " ", wrapPadding: true };
+      }
+      row[columns - 1] = { ...row[columns - 1]!, softWrapped: true };
+      rows.push(row);
+      row = blankRow(columns);
+      column = 0;
+    }
+    if (cursorAnchor && cursorAnchor.index === index) {
+      cursor = { row: baseRow + rows.length, column };
+    }
+    if (savedAnchor && savedAnchor.index === index) {
+      saved = { row: baseRow + rows.length, column };
+    }
+    row[column] = cell;
+    if (width === 2) row[column + 1] = CONTINUATION_CELL;
+    column += width;
+  }
+
+  if (cursorAnchor && !cursor) {
+    cursor = { row: baseRow + rows.length, column: clamp(column + cursorAnchor.trailing, 0, columns - 1) };
+  }
+  if (savedAnchor && !saved) {
+    saved = { row: baseRow + rows.length, column: clamp(column + savedAnchor.trailing, 0, columns - 1) };
+  }
+  rows.push(row);
+  return { rows, cursor, saved };
+}
+
+function resizeCellRow(source: readonly TerminalScreenCell[], columns: number): TerminalScreenCell[] {
+  const target = blankRow(columns);
+  // Resize does not reflow text, so a soft wrap survives only while the row
+  // still ends where it wrapped: widening pads the gap as wrap padding, and
+  // narrowing may drop nothing but such padding.
+  const dropped = source.slice(columns);
+  const wrapped = source.at(-1)?.softWrapped === true && dropped.every((cell) => cell.wrapPadding);
+  const clipped = !wrapped &&
+    dropped.some((cell) => cell.continuation || (!cell.wrapPadding && cell.char.trim() !== ""));
+  for (let column = 0; column < Math.min(columns, source.length); column += 1) {
+    const { softWrapped: _softWrapped, wrapPadding, ...cell } = source[column]!;
+    target[column] = wrapped && wrapPadding ? { ...cell, wrapPadding } : cell;
+  }
+  if (clipped) target[columns - 1] = { ...target[columns - 1]!, clipped: true };
+  if (!wrapped) return target;
+  for (let column = source.length; column < columns; column += 1) target[column] = { char: " ", wrapPadding: true };
+  target[columns - 1] = { ...target[columns - 1]!, softWrapped: true };
+  return target;
 }
 
 function nextTabStop(stops: Set<number>, column: number, columns: number): number {
@@ -1616,23 +2859,7 @@ function previousTabStop(stops: Set<number>, column: number): number {
 function resizeState(state: TerminalScreenState, columns: number, rows: number): TerminalScreenState {
   const cells = createRows(columns, rows);
   for (let row = 0; row < Math.min(rows, state.cells.length); row += 1) {
-    const source = state.cells[row]!;
-    const target = cells[row]!;
-    // Resize does not reflow text, so a soft wrap survives only while the row
-    // still ends where it wrapped: widening pads the gap as wrap padding, and
-    // narrowing may drop nothing but such padding.
-    const dropped = source.slice(columns);
-    const wrapped = source.at(-1)?.softWrapped === true && dropped.every((cell) => cell.wrapPadding);
-    const clipped = !wrapped &&
-      dropped.some((cell) => cell.continuation || (!cell.wrapPadding && cell.char.trim() !== ""));
-    for (let column = 0; column < Math.min(columns, source.length); column += 1) {
-      const { softWrapped: _softWrapped, wrapPadding, ...cell } = source[column]!;
-      target[column] = wrapped && wrapPadding ? { ...cell, wrapPadding } : cell;
-    }
-    if (clipped) target[columns - 1] = { ...target[columns - 1]!, clipped: true };
-    if (!wrapped) continue;
-    for (let column = source.length; column < columns; column += 1) target[column] = { char: " ", wrapPadding: true };
-    target[columns - 1] = { ...target[columns - 1]!, softWrapped: true };
+    cells[row] = resizeCellRow(state.cells[row]!, columns);
   }
   return {
     cells,
@@ -1648,4 +2875,145 @@ function cloneState(state: TerminalScreenState): TerminalScreenState {
     cells: cloneTerminalCellRows(state.cells),
     cursor: { ...state.cursor },
   };
+}
+
+/** Frozen screen frame held while DEC synchronized output (mode 2026) is open. */
+export interface TerminalSynchronizedOutputSnapshot {
+  readonly cells: readonly (readonly TerminalScreenCell[])[];
+  readonly inspection: TerminalScreenInspection;
+}
+
+/** Options for {@linkcode TerminalSynchronizedOutputController}. */
+export interface TerminalSynchronizedOutputControllerOptions {
+  readonly screen: TerminalScreenController;
+  /** Maximum hold duration before releasing live frames if a child never closes mode 2026. Defaults to 150 ms. */
+  readonly timeoutMs?: number;
+  /** Invoked when the safety timeout releases a held snapshot so the renderer repaints. */
+  readonly onTimeout?: () => void;
+}
+
+/**
+ * Reusable DEC synchronized output (mode 2026) frame holder for any terminal
+ * renderer (`exomux`, `exowebtui`, embedded shells). Freezes the last complete
+ * frame across split `?2026h ... ?2026l` chunks so repaint ticks never draw
+ * mid-erase or mid-redraw states, bounded by a safety timeout.
+ */
+export class TerminalSynchronizedOutputController {
+  readonly #screen: TerminalScreenController;
+  readonly #timeoutMs: number;
+  readonly #onTimeout?: () => void;
+  #snapshot?: TerminalSynchronizedOutputSnapshot;
+  #timer?: ReturnType<typeof setTimeout>;
+  #timedOut = false;
+  #lastStableFrame?: TerminalSynchronizedOutputSnapshot;
+  #pendingPreSnapshot?: TerminalSynchronizedOutputSnapshot;
+
+  constructor(options: TerminalSynchronizedOutputControllerOptions) {
+    this.#screen = options.screen;
+    this.#timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? 150));
+    this.#onTimeout = options.onTimeout;
+  }
+
+  /** Held pre-sync frame while mode 2026 is open, or undefined when painting live. */
+  get snapshot(): TerminalSynchronizedOutputSnapshot | undefined {
+    return this.#snapshot;
+  }
+
+  /** Captures a pre-write snapshot only when `data` could leave mode 2026 open. */
+  beforeWrite(data: string | Uint8Array, live: boolean): void {
+    this.#pendingPreSnapshot = undefined;
+    if (!live || this.#snapshot || this.#timedOut || !chunkMayLeaveSynchronizedOutputOpen(data)) return;
+    const beforeInspection = this.#screen.inspect();
+    if (!beforeInspection.privateModes.includes(2026)) {
+      this.#pendingPreSnapshot = { cells: this.#screen.cellRows(), inspection: beforeInspection };
+    }
+  }
+
+  /**
+   * Reconciles hold state after writing to the screen. Returns `true` when the
+   * caller should schedule a repaint, or `false` while a frozen frame is held.
+   */
+  afterWrite(inspection: TerminalScreenInspection, live: boolean): boolean {
+    const preSnapshot = this.#pendingPreSnapshot;
+    this.#pendingPreSnapshot = undefined;
+    const syncActive = inspection.privateModes.includes(2026);
+    if (!syncActive) {
+      this.#timedOut = false;
+      this.#clearSnapshot();
+      return true;
+    }
+    if (!live || this.#timedOut) return true;
+    if (this.#snapshot) return false;
+    const hold = preSnapshot ?? this.#lastStableFrame;
+    if (!hold) return true;
+    this.#snapshot = hold;
+    this.#timer = setTimeout(() => {
+      this.#timer = undefined;
+      if (!this.#snapshot) return;
+      this.#timedOut = true;
+      this.#snapshot = undefined;
+      this.#onTimeout?.();
+    }, this.#timeoutMs);
+    return false;
+  }
+
+  /** Records the last painted live frame for reuse if a sync opener splits across chunks. */
+  recordStableFrame(cells: readonly (readonly TerminalScreenCell[])[], inspection: TerminalScreenInspection): void {
+    if (!inspection.privateModes.includes(2026)) {
+      this.#lastStableFrame = { cells, inspection };
+    }
+  }
+
+  /** Clears any held frame, timer, and cached stable base (on resize, clear, detach, or exit). */
+  reset(): void {
+    this.#clearSnapshot();
+    this.#timedOut = false;
+    this.#lastStableFrame = undefined;
+    this.#pendingPreSnapshot = undefined;
+  }
+
+  /** Disposes any active safety timer and releases retained snapshots. */
+  dispose(): void {
+    this.reset();
+  }
+
+  #clearSnapshot(): void {
+    if (this.#timer !== undefined) {
+      clearTimeout(this.#timer);
+      this.#timer = undefined;
+    }
+    this.#snapshot = undefined;
+  }
+}
+
+function chunkMayLeaveSynchronizedOutputOpen(data: string | Uint8Array): boolean {
+  if (typeof data === "string") {
+    let cursor = data.length;
+    while (cursor >= 4) {
+      const index = data.lastIndexOf("2026", cursor - 4);
+      if (index < 0) return false;
+      for (let pos = index + 4; pos < data.length; pos += 1) {
+        const code = data.charCodeAt(pos);
+        if (code === 0x68) return true;
+        if (code === 0x6c) return false;
+        if (code >= 0x40 && code <= 0x7e) break;
+      }
+      cursor = index;
+    }
+    return false;
+  }
+  for (let index = data.length - 4; index >= 0; index -= 1) {
+    if (
+      data[index] === 0x32 && data[index + 1] === 0x30 &&
+      data[index + 2] === 0x32 && data[index + 3] === 0x36
+    ) {
+      for (let pos = index + 4; pos < data.length; pos += 1) {
+        const byte = data[pos]!;
+        if (byte === 0x68) return true;
+        if (byte === 0x6c) return false;
+        if (byte >= 0x40 && byte <= 0x7e) break;
+      }
+    }
+  }
+  return false;
 }

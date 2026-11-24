@@ -23,6 +23,29 @@ export function normalizeTerminalLink(value: string): string | undefined {
 }
 
 /**
+ * Validates an OSC 8 hyperlink URI before forwarding it to a host terminal or
+ * browser surface, rejecting control bytes (`ESC`, `BEL`, C0/C1) and unsafe
+ * schemes while allowing `http:`, `https:`, `file:`, and `mailto:` links.
+ */
+export function sanitizeTerminalHyperlink(uri: string | undefined): string | undefined {
+  if (!uri || uri.length > 2048) return undefined;
+  // deno-lint-ignore no-control-regex
+  if (/[\x00-\x1f\x7f-\x9f]/.test(uri)) return undefined;
+  try {
+    const parsed = new URL(uri);
+    if (
+      parsed.protocol !== "http:" && parsed.protocol !== "https:" &&
+      parsed.protocol !== "file:" && parsed.protocol !== "mailto:"
+    ) {
+      return undefined;
+    }
+    return uri;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Finds an OSC 8 link or a plain URL at a viewport cell. Rows marked as soft
  * wraps always join. A hard line break joins only where a URL runs to the right
  * edge and the next row continues it, because applications such as Claude Code

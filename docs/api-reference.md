@@ -6,13 +6,13 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 19
-- Unique modules: 577
-- Module visits: 1132
-- Unique re-export declarations: 743
-- Re-export declaration visits: 1129
-- Unique symbol declarations: 5173
-- Symbol declaration visits: 10482
-- Documented symbol declarations: 5142
+- Unique modules: 581
+- Module visits: 1146
+- Unique re-export declarations: 753
+- Re-export declaration visits: 1143
+- Unique symbol declarations: 5209
+- Symbol declaration visits: 10591
+- Documented symbol declarations: 5178
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,21 +21,21 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4386 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     463 |    4421 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
 | `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3702 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     368 |    3725 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
-| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     136 | 100.00% |
+| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     137 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     907 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     210 |  99.52% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      93 |     933 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      26 |     234 |  99.57% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -48,10 +48,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 459
-- Re-export declarations: 460
-- Exported symbols: 4386
-- Documented symbols: 4386
+- Modules: 463
+- Re-export declarations: 464
+- Exported symbols: 4421
+- Documented symbols: 4421
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -123,10 +123,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 366
-- Re-export declarations: 368
-- Exported symbols: 3702
-- Documented symbols: 3702
+- Modules: 368
+- Re-export declarations: 370
+- Exported symbols: 3725
+- Documented symbols: 3725
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -155,8 +155,8 @@ Hosted terminal/client bridge protocol and browser WebSocket transport.
 - Stability: experimental
 - Modules: 14
 - Re-export declarations: 13
-- Exported symbols: 136
-- Documented symbols: 136
+- Exported symbols: 137
+- Documented symbols: 137
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -243,10 +243,10 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Path: `./mod.runtime.ts`
 - Runtime: shared
 - Stability: beta
-- Modules: 89
-- Re-export declarations: 88
-- Exported symbols: 907
-- Documented symbols: 907
+- Modules: 93
+- Re-export declarations: 92
+- Exported symbols: 933
+- Documented symbols: 933
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -258,11 +258,11 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Path: `./mod.terminal.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 22
-- Re-export declarations: 21
-- Exported symbols: 210
-- Documented symbols: 209
-- Documentation coverage: 99.52%
+- Modules: 26
+- Re-export declarations: 25
+- Exported symbols: 234
+- Documented symbols: 233
+- Documentation coverage: 99.57%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -337,12 +337,12 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
 | [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         20 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         24 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                              |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                                |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                           | `./three-ascii`                          |          3 |       0 |          0 |
 | [`mod.ts`](#mod-ts)                                                                                   | `.`                                      |         66 |       0 |          0 |
-| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         85 |       0 |          0 |
+| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         87 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                       | `.`, `./web`                             |          0 |      14 |         14 |
 | [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                             |          0 |       8 |          8 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)                     | `.`, `./web`                             |          0 |      24 |         24 |
@@ -467,7 +467,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                               | `.`, `./web`                             |          0 |       6 |          6 |
 | [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                                 | `./app`                                  |          0 |       6 |          6 |
 | [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                       | `.`, `./web`                             |          0 |      29 |         29 |
-| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      17 |         17 |
+| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      19 |         19 |
 | [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                             | `.`, `./web`                             |          0 |      24 |         24 |
 | [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                                 | `.`, `./web`                             |          0 |       9 |          9 |
 | [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                                 | `.`, `./web`                             |          0 |      13 |         13 |
@@ -509,7 +509,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                             | `.`, `./web`                             |          0 |       2 |          2 |
 | [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                             | `.`, `./web`                             |          8 |       0 |          0 |
 | [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                       | `.`, `./web`                             |          0 |      19 |         19 |
-| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                           | `.`, `./web`                             |          0 |       9 |          9 |
+| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                           | `.`, `./web`                             |          0 |      10 |         10 |
 | [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                         | `.`, `./web`                             |          0 |       2 |          2 |
 | [`src/canvas/text.ts`](#src-canvas-text-ts)                                                           | `.`, `./web`                             |          0 |       3 |          3 |
 | [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                             | `./web`, `./three-ascii`                 |          0 |       6 |          6 |
@@ -693,6 +693,8 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/diagnostics.ts`](#src-runtime-diagnostics-ts)                                           | `.`, `./runtime`                         |          0 |      12 |         12 |
 | [`src/runtime/graphics_surface.ts`](#src-runtime-graphics-surface-ts)                                 | `.`, `./web`, `./runtime`                |          0 |      24 |         24 |
 | [`src/runtime/health_snapshot.ts`](#src-runtime-health-snapshot-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
+| [`src/runtime/host_desktop.ts`](#src-runtime-host-desktop-ts)                                         | `.`, `./runtime`, `./terminal`           |          0 |       4 |          4 |
+| [`src/runtime/host_terminal_probe.ts`](#src-runtime-host-terminal-probe-ts)                           | `.`, `./runtime`, `./terminal`           |          0 |       6 |          6 |
 | [`src/runtime/host_types.ts`](#src-runtime-host-types-ts)                                             | `.`, `./runtime`                         |          0 |      26 |         26 |
 | [`src/runtime/host.ts`](#src-runtime-host-ts)                                                         | `.`, `./runtime`                         |          1 |       1 |          1 |
 | [`src/runtime/infinite_query.ts`](#src-runtime-infinite-query-ts)                                     | `.`, `./runtime`                         |          0 |       5 |          5 |
@@ -700,7 +702,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/kitty_keyboard.ts`](#src-runtime-kitty-keyboard-ts)                                     | `.`, `./runtime`                         |          0 |       9 |          9 |
 | [`src/runtime/kitty_passthrough.ts`](#src-runtime-kitty-passthrough-ts)                               | `.`, `./runtime`                         |          0 |       8 |          8 |
 | [`src/runtime/line_attributes.ts`](#src-runtime-line-attributes-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
-| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         85 |       0 |          0 |
+| [`src/runtime/mod.ts`](#src-runtime-mod-ts)                                                           | `.`, `./runtime`                         |         89 |       0 |          0 |
 | [`src/runtime/mutations.ts`](#src-runtime-mutations-ts)                                               | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/observability_context.ts`](#src-runtime-observability-context-ts)                       | `.`, `./runtime`                         |          0 |       3 |          3 |
 | [`src/runtime/observability.ts`](#src-runtime-observability-ts)                                       | `.`, `./runtime`                         |          0 |      15 |         15 |
@@ -742,19 +744,21 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       9 |          9 |
 | [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                       | `.`, `./runtime`, `./terminal`           |          0 |      27 |         27 |
 | [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                                     | `./terminal`                             |          0 |       4 |          3 |
-| [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
+| [`src/runtime/terminal_env.ts`](#src-runtime-terminal-env-ts)                                         | `.`, `./runtime`, `./terminal`           |          0 |       3 |          3 |
+| [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       3 |          3 |
 | [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                                 | `.`, `./runtime`                         |          0 |       2 |          2 |
+| [`src/runtime/terminal_modes.ts`](#src-runtime-terminal-modes-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                           | `.`, `./runtime`                         |          0 |       5 |          5 |
-| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
+| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       9 |          9 |
 | [`src/runtime/terminal_parser.ts`](#src-runtime-terminal-parser-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                         | `.`, `./runtime`                         |          0 |      11 |         11 |
 | [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                                 | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                             | `.`, `./runtime`                         |          0 |       4 |          4 |
-| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       7 |          7 |
+| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |      14 |         14 |
 | [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                           | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
 | [`src/runtime/terminal_selection.ts`](#src-runtime-terminal-selection-ts)                             | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                             | `./terminal`                             |          0 |       3 |          3 |
-| [`src/runtime/terminal_services.ts`](#src-runtime-terminal-services-ts)                               | `.`, `./runtime`                         |          0 |      32 |         32 |
+| [`src/runtime/terminal_services.ts`](#src-runtime-terminal-services-ts)                               | `.`, `./runtime`                         |          0 |      34 |         34 |
 | [`src/runtime/terminal_session.ts`](#src-runtime-terminal-session-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
 | [`src/runtime/terminal_shell_workspace.ts`](#src-runtime-terminal-shell-workspace-ts)                 | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/terminal_shell.ts`](#src-runtime-terminal-shell-ts)                                     | `.`, `./runtime`, `./terminal`           |          0 |       3 |          3 |
@@ -855,7 +859,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/unicode/source_display.ts`](#src-unicode-source-display-ts)                                     | `.`                                      |          0 |       5 |          5 |
 | [`src/unicode/text_index.ts`](#src-unicode-text-index-ts)                                             | `.`                                      |          0 |       6 |          6 |
 | [`src/unicode/width.ts`](#src-unicode-width-ts)                                                       | `.`, `./web`, `./terminal`               |          0 |      21 |         21 |
-| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                                 | `.`                                      |          0 |      12 |         12 |
+| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                                 | `.`                                      |          0 |      18 |         18 |
 | [`src/utils/async.ts`](#src-utils-async-ts)                                                           | `.`, `./web`                             |          0 |       1 |          1 |
 | [`src/utils/component.ts`](#src-utils-component-ts)                                                   | `.`                                      |          0 |       2 |          2 |
 | [`src/utils/mod.ts`](#src-utils-mod-ts)                                                               | `.`                                      |          7 |       0 |          0 |
@@ -905,7 +909,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/web/mermaid_svg.ts`](#src-web-mermaid-svg-ts)                                                   | `./mermaid`                              |          0 |       7 |          7 |
 | [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                  |          7 |       0 |          0 |
 | [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                  |          0 |       7 |          7 |
-| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                      |          0 |      33 |         33 |
+| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                      |          0 |      34 |         34 |
 | [`src/web/web_presenter.ts`](#src-web-web-presenter-ts)                                               | `./web`                                  |          0 |       4 |          4 |
 
 ## Module Details
@@ -1084,6 +1088,10 @@ _Entrypoints: `./terminal`_
 | `src/runtime/terminal_backend_registry.ts` | star | -     |
 | `src/runtime/terminal_capabilities.ts`     | star | -     |
 | `src/runtime/terminal_palette.ts`          | star | -     |
+| `src/runtime/terminal_modes.ts`            | star | -     |
+| `src/runtime/terminal_env.ts`              | star | -     |
+| `src/runtime/host_terminal_probe.ts`       | star | -     |
+| `src/runtime/host_desktop.ts`              | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
 | `src/runtime/terminal_selection.ts`        | star | -     |
@@ -1314,6 +1322,8 @@ _Entrypoints: `./web`_
 | `src/runtime/scheduler.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/storage.ts`                | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/telemetry.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/runtime/terminal_modes.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/runtime/terminal_palette.ts`       | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_screen.ts`        | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_scrollback.ts`    | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/runtime/terminal_selection.ts`     | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -3414,6 +3424,7 @@ _Entrypoints: `.`, `./web`_
 
 | Symbol                                 | Kind      | Type Only | JSDoc |
 | -------------------------------------- | --------- | --------- | ----- |
+| `encodeTerminalFocusEvent`             | function  | no        | yes   |
 | `encodeTerminalKeyPress`               | function  | no        | yes   |
 | `encodeTerminalMouse`                  | function  | no        | yes   |
 | `encodeTerminalPaste`                  | function  | no        | yes   |
@@ -3426,6 +3437,7 @@ _Entrypoints: `.`, `./web`_
 | `TerminalInputRouteDecision`           | interface | yes       | yes   |
 | `TerminalInputRoutingOptions`          | interface | yes       | yes   |
 | `TerminalInputTarget`                  | interface | yes       | yes   |
+| `TerminalKeyEncodingOptions`           | interface | yes       | yes   |
 | `TerminalMouseInputEvent`              | interface | yes       | yes   |
 | `terminalMouseRoutingFromPrivateModes` | function  | no        | yes   |
 | `TerminalMouseTrackingMode`            | type      | yes       | yes   |
@@ -4360,17 +4372,18 @@ _Entrypoints: `.`, `./web`_
 
 _Entrypoints: `.`, `./web`_
 
-| Symbol                    | Kind      | Type Only | JSDoc |
-| ------------------------- | --------- | --------- | ----- |
-| `AnsiCanvasSink`          | class     | no        | yes   |
-| `AnsiCanvasSinkOptions`   | interface | yes       | yes   |
-| `AnsiFlushTelemetry`      | interface | yes       | yes   |
-| `CanvasCellSink`          | interface | yes       | yes   |
-| `CanvasCellUpdate`        | interface | yes       | yes   |
-| `CanvasRowRangeUpdate`    | interface | yes       | yes   |
-| `CanvasStdout`            | interface | yes       | yes   |
-| `coalesceCanvasRowRanges` | function  | no        | yes   |
-| `MemoryCanvasSink`        | class     | no        | yes   |
+| Symbol                     | Kind      | Type Only | JSDoc |
+| -------------------------- | --------- | --------- | ----- |
+| `AnsiCanvasSink`           | class     | no        | yes   |
+| `AnsiCanvasSinkOptions`    | interface | yes       | yes   |
+| `AnsiFlushTelemetry`       | interface | yes       | yes   |
+| `CanvasCellSink`           | interface | yes       | yes   |
+| `CanvasCellUpdate`         | interface | yes       | yes   |
+| `CanvasRowRangeUpdate`     | interface | yes       | yes   |
+| `CanvasStdout`             | interface | yes       | yes   |
+| `coalesceCanvasRowRanges`  | function  | no        | yes   |
+| `formatAnsiFlushTelemetry` | function  | no        | yes   |
+| `MemoryCanvasSink`         | class     | no        | yes   |
 
 ### src/canvas/spatial_index.ts
 
@@ -7392,6 +7405,30 @@ _Entrypoints: `.`, `./runtime`_
 | `HealthSnapshot`      | interface | yes       | yes   |
 | `SubsystemHealth`     | interface | yes       | yes   |
 
+### src/runtime/host_desktop.ts
+
+_Entrypoints: `.`, `./runtime`, `./terminal`_
+
+| Symbol                           | Kind      | Type Only | JSDoc |
+| -------------------------------- | --------- | --------- | ----- |
+| `openLocalTerminalLink`          | function  | no        | yes   |
+| `readLocalHostClipboard`         | function  | no        | yes   |
+| `ReadLocalHostClipboardOptions`  | interface | yes       | yes   |
+| `sanitizeTerminalClipboardPaste` | function  | no        | yes   |
+
+### src/runtime/host_terminal_probe.ts
+
+_Entrypoints: `.`, `./runtime`, `./terminal`_
+
+| Symbol                          | Kind      | Type Only | JSDoc |
+| ------------------------------- | --------- | --------- | ----- |
+| `HOST_TERMINAL_PROBE_IMAGE_ID`  | const     | no        | yes   |
+| `HOST_TERMINAL_PROBE_SEQUENCE`  | const     | no        | yes   |
+| `HostTerminalProbe`             | interface | yes       | yes   |
+| `hostTerminalProbeComplete`     | function  | no        | yes   |
+| `parseHostTerminalProbeReplies` | function  | no        | yes   |
+| `probeHostTerminal`             | function  | no        | yes   |
+
 ### src/runtime/host_types.ts
 
 _Entrypoints: `.`, `./runtime`_
@@ -7560,6 +7597,10 @@ _Entrypoints: `.`, `./runtime`_
 | `src/runtime/terminal_status.ts`           | star  | -                                                                   |
 | `src/runtime/process_session.ts`           | star  | -                                                                   |
 | `src/runtime/terminal_palette.ts`          | star  | -                                                                   |
+| `src/runtime/terminal_modes.ts`            | star  | -                                                                   |
+| `src/runtime/terminal_env.ts`              | star  | -                                                                   |
+| `src/runtime/host_terminal_probe.ts`       | star  | -                                                                   |
+| `src/runtime/host_desktop.ts`              | star  | -                                                                   |
 | `src/runtime/terminal_screen.ts`           | star  | -                                                                   |
 | `src/runtime/terminal_scrollback.ts`       | star  | -                                                                   |
 | `src/runtime/terminal_selection.ts`        | star  | -                                                                   |
@@ -8329,14 +8370,25 @@ _Entrypoints: `./terminal`_
 | `encodeTerminalIndexedColor` | function | no        | yes   |
 | `encodeTerminalRgbColor`     | function | no        | yes   |
 
+### src/runtime/terminal_env.ts
+
+_Entrypoints: `.`, `./runtime`, `./terminal`_
+
+| Symbol                            | Kind      | Type Only | JSDoc |
+| --------------------------------- | --------- | --------- | ----- |
+| `HOST_TERMINAL_IDENTITY_ENV_VARS` | const     | no        | yes   |
+| `terminalChildEnvironment`        | function  | no        | yes   |
+| `TerminalChildEnvironmentOptions` | interface | yes       | yes   |
+
 ### src/runtime/terminal_links.ts
 
 _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 
-| Symbol                  | Kind     | Type Only | JSDoc |
-| ----------------------- | -------- | --------- | ----- |
-| `normalizeTerminalLink` | function | no        | yes   |
-| `terminalLinkAt`        | function | no        | yes   |
+| Symbol                      | Kind     | Type Only | JSDoc |
+| --------------------------- | -------- | --------- | ----- |
+| `normalizeTerminalLink`     | function | no        | yes   |
+| `sanitizeTerminalHyperlink` | function | no        | yes   |
+| `terminalLinkAt`            | function | no        | yes   |
 
 ### src/runtime/terminal_margins.ts
 
@@ -8346,6 +8398,15 @@ _Entrypoints: `.`, `./runtime`_
 | -------------------- | -------- | --------- | ----- |
 | `createMarginScreen` | function | no        | yes   |
 | `MarginScreen`       | class    | no        | yes   |
+
+### src/runtime/terminal_modes.ts
+
+_Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
+
+| Symbol                   | Kind      | Type Only | JSDoc |
+| ------------------------ | --------- | --------- | ----- |
+| `TerminalModeInspection` | interface | yes       | yes   |
+| `TerminalModeTracker`    | class     | no        | yes   |
 
 ### src/runtime/terminal_operations.ts
 
@@ -8361,7 +8422,7 @@ _Entrypoints: `.`, `./runtime`_
 
 ### src/runtime/terminal_palette.ts
 
-_Entrypoints: `.`, `./runtime`, `./terminal`_
+_Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 
 | Symbol                          | Kind      | Type Only | JSDoc |
 | ------------------------------- | --------- | --------- | ----- |
@@ -8373,6 +8434,7 @@ _Entrypoints: `.`, `./runtime`, `./terminal`_
 | `terminalPaletteRgb`            | function  | no        | yes   |
 | `terminalReadableForegroundRgb` | function  | no        | yes   |
 | `TerminalRgb`                   | type      | yes       | yes   |
+| `xtermPaletteRgb`               | function  | no        | yes   |
 
 ### src/runtime/terminal_parser.ts
 
@@ -8430,15 +8492,22 @@ _Entrypoints: `.`, `./runtime`_
 
 _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 
-| Symbol                            | Kind      | Type Only | JSDoc |
-| --------------------------------- | --------- | --------- | ----- |
-| `TerminalScreenCell`              | interface | yes       | yes   |
-| `TerminalScreenController`        | class     | no        | yes   |
-| `TerminalScreenControllerOptions` | interface | yes       | yes   |
-| `TerminalScreenCursor`            | interface | yes       | yes   |
-| `TerminalScreenCursorStyle`       | interface | yes       | yes   |
-| `TerminalScreenGlyphInspection`   | interface | yes       | yes   |
-| `TerminalScreenInspection`        | interface | yes       | yes   |
+| Symbol                                        | Kind      | Type Only | JSDoc |
+| --------------------------------------------- | --------- | --------- | ----- |
+| `serializeTerminalScreenSnapshot`             | function  | no        | yes   |
+| `TerminalScreenCell`                          | interface | yes       | yes   |
+| `TerminalScreenColorReport`                   | interface | yes       | yes   |
+| `TerminalScreenController`                    | class     | no        | yes   |
+| `TerminalScreenControllerOptions`             | interface | yes       | yes   |
+| `TerminalScreenCursor`                        | interface | yes       | yes   |
+| `TerminalScreenCursorStyle`                   | interface | yes       | yes   |
+| `TerminalScreenGlyphInspection`               | interface | yes       | yes   |
+| `TerminalScreenInspection`                    | interface | yes       | yes   |
+| `TerminalScreenKeyboardProtocol`              | interface | yes       | yes   |
+| `TerminalScreenSnapshotOptions`               | interface | yes       | yes   |
+| `TerminalSynchronizedOutputController`        | class     | no        | yes   |
+| `TerminalSynchronizedOutputControllerOptions` | interface | yes       | yes   |
+| `TerminalSynchronizedOutputSnapshot`          | interface | yes       | yes   |
 
 ### src/runtime/terminal_scrollback.ts
 
@@ -8482,11 +8551,13 @@ _Entrypoints: `.`, `./runtime`_
 | `createTerminalOscService`          | function  | no        | yes   |
 | `createTerminalThemeProbe`          | function  | no        | yes   |
 | `disabledTerminalOscPolicy`         | const     | no        | yes   |
+| `parseTerminalClipboardWrite`       | function  | no        | yes   |
 | `parseTerminalOscColorResponse`     | function  | no        | yes   |
 | `parseTerminalOscMessage`           | function  | no        | yes   |
 | `sanitizeTerminalOscText`           | function  | no        | yes   |
 | `TerminalClipboardSelection`        | type      | yes       | yes   |
 | `terminalClipboardSequence`         | function  | no        | yes   |
+| `TerminalClipboardWrite`            | interface | yes       | yes   |
 | `terminalColorQuerySequence`        | function  | no        | yes   |
 | `terminalDynamicColorSequence`      | function  | no        | yes   |
 | `terminalNotificationSequence`      | function  | no        | yes   |
@@ -10205,20 +10276,26 @@ _Entrypoints: `.`, `./web`, `./terminal`_
 
 _Entrypoints: `.`_
 
-| Symbol                    | Kind     | Type Only | JSDoc |
-| ------------------------- | -------- | --------- | ----- |
-| `CLEAR_SCREEN`            | const    | no        | yes   |
-| `DISABLE_BRACKETED_PASTE` | const    | no        | yes   |
-| `DISABLE_FOCUS_EVENTS`    | const    | no        | yes   |
-| `DISABLE_MOUSE`           | const    | no        | yes   |
-| `ENABLE_BRACKETED_PASTE`  | const    | no        | yes   |
-| `ENABLE_FOCUS_EVENTS`     | const    | no        | yes   |
-| `ENABLE_MOUSE`            | const    | no        | yes   |
-| `HIDE_CURSOR`             | const    | no        | yes   |
-| `moveCursor`              | function | no        | yes   |
-| `SHOW_CURSOR`             | const    | no        | yes   |
-| `USE_PRIMARY_BUFFER`      | const    | no        | yes   |
-| `USE_SECONDARY_BUFFER`    | const    | no        | yes   |
+| Symbol                        | Kind     | Type Only | JSDoc |
+| ----------------------------- | -------- | --------- | ----- |
+| `BEGIN_SYNCHRONIZED_OUTPUT`   | const    | no        | yes   |
+| `CLEAR_SCREEN`                | const    | no        | yes   |
+| `DISABLE_BRACKETED_PASTE`     | const    | no        | yes   |
+| `DISABLE_ENHANCED_KEYBOARD`   | const    | no        | yes   |
+| `DISABLE_FOCUS_EVENTS`        | const    | no        | yes   |
+| `DISABLE_GRAPHEME_CLUSTERING` | const    | no        | yes   |
+| `DISABLE_MOUSE`               | const    | no        | yes   |
+| `ENABLE_BRACKETED_PASTE`      | const    | no        | yes   |
+| `ENABLE_ENHANCED_KEYBOARD`    | const    | no        | yes   |
+| `ENABLE_FOCUS_EVENTS`         | const    | no        | yes   |
+| `ENABLE_GRAPHEME_CLUSTERING`  | const    | no        | yes   |
+| `ENABLE_MOUSE`                | const    | no        | yes   |
+| `END_SYNCHRONIZED_OUTPUT`     | const    | no        | yes   |
+| `HIDE_CURSOR`                 | const    | no        | yes   |
+| `moveCursor`                  | function | no        | yes   |
+| `SHOW_CURSOR`                 | const    | no        | yes   |
+| `USE_PRIMARY_BUFFER`          | const    | no        | yes   |
+| `USE_SECONDARY_BUFFER`        | const    | no        | yes   |
 
 ### src/utils/async.ts
 
@@ -10937,6 +11014,7 @@ _Entrypoints: `./web`, `./remote`_
 | `RemoteTerminalClientEvents`                    | type      | yes       | yes   |
 | `RemoteTerminalClientInspection`                | interface | yes       | yes   |
 | `RemoteTerminalClientMessage`                   | type      | yes       | yes   |
+| `RemoteTerminalInputEncodingOptions`            | interface | yes       | yes   |
 | `RemoteTerminalInputEvent`                      | type      | yes       | yes   |
 | `RemoteTerminalNegotiationError`                | class     | no        | yes   |
 | `RemoteTerminalNegotiationErrorCode`            | type      | yes       | yes   |

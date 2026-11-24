@@ -39,6 +39,7 @@ export type ExomuxRequestOperation =
   | "attach"
   | "detach"
   | "input"
+  | "reply"
   | "resize"
   | "kill"
   | "ping"
@@ -79,6 +80,8 @@ export interface ExomuxAttachRequest {
   sessionId: string;
   /** Last output sequence durably observed by the client. Zero requests all retained output. */
   afterSequence?: number;
+  /** When true, allows the daemon to satisfy a rotated replay with a full ANSI screen snapshot. */
+  snapshotFallback?: boolean;
 }
 
 export interface ExomuxSessionRequest {
@@ -94,6 +97,20 @@ export interface ExomuxInputRequest {
   requestId: number;
   sessionId: string;
   /** Canonical base64 bytes, preserving terminal control sequences exactly. */
+  data: string;
+}
+
+/**
+ * Terminal-emulator query reply (DSR/CPR, DECRQM, DA, OSC 10/11, XTWINOPS).
+ * Routed separately from user `input` so the daemon forwards only the active
+ * query owner's answer and drops duplicates from co-attached clients.
+ */
+export interface ExomuxReplyRequest {
+  version: typeof EXOMUX_PROTOCOL_VERSION;
+  type: "reply";
+  requestId: number;
+  sessionId: string;
+  /** Canonical base64 bytes of the terminal reply sequence. */
   data: string;
 }
 
@@ -151,6 +168,7 @@ export type ExomuxClientRequest =
   | ExomuxAttachRequest
   | ExomuxSessionRequest
   | ExomuxInputRequest
+  | ExomuxReplyRequest
   | ExomuxResizeRequest
   | ExomuxPingRequest
   | ExomuxShutdownRequest
@@ -203,13 +221,15 @@ export interface ExomuxAttachedMessage {
   latestSequence: number;
   /** True when requested output predates the bounded replay ring. */
   truncated: boolean;
+  /** True when the daemon delivered a complete screen snapshot instead of a truncated raw tail. */
+  snapshot?: boolean;
 }
 
 export interface ExomuxAcknowledgedMessage {
   version: typeof EXOMUX_PROTOCOL_VERSION;
   type: "ack";
   requestId: number;
-  operation: "detach" | "input" | "resize" | "kill" | "shutdown" | "rename" | "workspace";
+  operation: "detach" | "input" | "reply" | "resize" | "kill" | "shutdown" | "rename" | "workspace";
   sessionId?: string;
 }
 
@@ -278,6 +298,7 @@ const STATUSES = new Set<ExomuxSessionStatus>(["idle", "running", "exited", "fai
 const ACK_OPERATIONS = new Set<ExomuxAcknowledgedMessage["operation"]>([
   "detach",
   "input",
+  "reply",
   "resize",
   "kill",
   "shutdown",
@@ -365,6 +386,7 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
     "title",
     "sessionId",
     "afterSequence",
+    "snapshotFallback",
     "data",
     "descriptorPath",
     "key",
@@ -423,16 +445,20 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
       };
     }
     case "attach": {
-      exact(root, ["version", "type", "requestId", "sessionId"], ["afterSequence"]);
+      exact(root, ["version", "type", "requestId", "sessionId"], ["afterSequence", "snapshotFallback"]);
       const afterSequence = root.afterSequence === undefined
         ? undefined
         : nonNegativeInteger(root.afterSequence, "afterSequence");
+      const snapshotFallback = root.snapshotFallback === undefined
+        ? undefined
+        : booleanValue(root.snapshotFallback, "snapshotFallback");
       return {
         version: 1,
         type,
         requestId: requestId(root.requestId),
         sessionId: sessionId(root.sessionId),
         ...(afterSequence !== undefined ? { afterSequence } : {}),
+        ...(snapshotFallback !== undefined ? { snapshotFallback } : {}),
       };
     }
     case "detach":
@@ -445,7 +471,8 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
         sessionId: sessionId(root.sessionId),
       };
     }
-    case "input": {
+    case "input":
+    case "reply": {
       exact(root, ["version", "type", "requestId", "sessionId", "data"]);
       const data = stringValue(root.data, "data", Math.ceil(EXOMUX_PROTOCOL_LIMITS.inputBytes / 3) * 4);
       decodeExomuxData(data);
@@ -504,6 +531,7 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
     "replayFromSequence",
     "latestSequence",
     "truncated",
+    "snapshot",
     "operation",
     "sessionId",
     "timestamp",
@@ -541,16 +569,21 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
         requestId: requestId(root.requestId),
         session: sessionDescriptor(root.session),
       };
-    case "attached":
-      exact(root, [
-        "version",
-        "type",
-        "requestId",
-        "session",
-        "replayFromSequence",
-        "latestSequence",
-        "truncated",
-      ]);
+    case "attached": {
+      exact(
+        root,
+        [
+          "version",
+          "type",
+          "requestId",
+          "session",
+          "replayFromSequence",
+          "latestSequence",
+          "truncated",
+        ],
+        ["snapshot"],
+      );
+      const snapshot = root.snapshot === undefined ? undefined : booleanValue(root.snapshot, "snapshot");
       return {
         version: 1,
         type,
@@ -559,7 +592,9 @@ export function normalizeExomuxServerMessage(value: unknown): ExomuxServerMessag
         replayFromSequence: nonNegativeInteger(root.replayFromSequence, "replayFromSequence"),
         latestSequence: nonNegativeInteger(root.latestSequence, "latestSequence"),
         truncated: booleanValue(root.truncated, "truncated"),
+        ...(snapshot !== undefined ? { snapshot } : {}),
       };
+    }
     case "ack": {
       exact(root, ["version", "type", "requestId", "operation"], ["sessionId"]);
       const operation = stringValue(root.operation, "operation", 16) as ExomuxAcknowledgedMessage["operation"];

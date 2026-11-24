@@ -7,7 +7,7 @@ import {
   type TerminalScrollbackCommandAction,
   terminalScrollbackCommands,
 } from "../src/app/terminal_commands.ts";
-import { TerminalScreenController } from "../src/runtime/terminal_screen.ts";
+import { serializeTerminalScreenSnapshot, TerminalScreenController } from "../src/runtime/terminal_screen.ts";
 import { TerminalScrollbackController } from "../src/runtime/terminal_scrollback.ts";
 import { parseTerminalControlSequence, parseTerminalParams } from "../src/runtime/terminal_sequences.ts";
 import {
@@ -532,15 +532,25 @@ Deno.test("TerminalScreenController keeps double-width glyphs paired with their 
   erased.write("日本AB\x1b[1;4H\x1b[X");
   assertEquals(cells(erased), ["日", "<cont>", " ", " ", "A", "B"]);
 
-  // Narrowing the screen through a pair drops it rather than leaving a half.
-  const narrowed = new TerminalScreenController({ columns: 6, rows: 2 });
+  // Narrowing a non-reflowing screen through a wide pair drops it rather than leaving a half.
+  const narrowed = new TerminalScreenController({ columns: 6, rows: 2, reflowOnResize: false });
   narrowed.write("ab日cd");
   narrowed.resize(3, 2);
   assertEquals(narrowed.cellRows()[0]!.map((cell) => cell.char), ["a", "b", " "]);
 
+  // Reflowing narrows cleanly by wrapping the wide glyph whole onto the next row.
+  const reflowed = new TerminalScreenController({ columns: 6, rows: 3 });
+  reflowed.write("ab日cd");
+  reflowed.resize(3, 3);
+  assertEquals(reflowed.cellRows()[0]!.map((cell) => cell.char), ["a", "b", " "]);
+  assertEquals(reflowed.cellRows()[0]![2]?.wrapPadding, true);
+  assertEquals(reflowed.cellRows()[0]![2]?.softWrapped, true);
+  assertEquals(reflowed.cellRows()[1]!.map((cell) => cell.char), ["日", " ", "c"]);
+  assertEquals(reflowed.cellRows()[2]!.map((cell) => cell.char), ["d", " ", " "]);
+
   // Whatever was done to the row, the invariant holds both ways: every wide
   // glyph is followed by a continuation, and every continuation follows one.
-  for (const screen of [baseline, rightHalf, leftHalf, deleted, inserted, erased, narrowed]) {
+  for (const screen of [baseline, rightHalf, leftHalf, deleted, inserted, erased, narrowed, reflowed]) {
     for (const row of screen.cellRows()) {
       for (let column = 0; column < row.length; column += 1) {
         const wide = textWidth(row[column]!.char) > 1;
@@ -955,16 +965,122 @@ Deno.test("TerminalScreenController clamps restored cursor after resize", () => 
   assertEquals(screen.inspect().cursor, { column: 3, row: 1 });
 });
 
-Deno.test("TerminalScreenController resizes and clamps cursor", () => {
+Deno.test("TerminalScreenController resizes, reflows main lines, and keeps cursor anchored", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 3 });
 
   screen.write("abcdef\r\n123456\r\nxyz");
   screen.resize(4, 2);
 
-  assertEquals(screen.textRows(), ["abcd", "1234"]);
+  assertEquals(screen.textRows(), ["56", "xyz"]);
+  assertEquals(screen.scrollbackRows, 3);
+  assertEquals(screen.scrollbackTextRows(), ["abcd", "ef", "1234"]);
   assertEquals(screen.inspect().columns, 4);
   assertEquals(screen.inspect().rows, 2);
   assertEquals(screen.inspect().cursor, { column: 3, row: 1 });
+
+  // Widening back reconstructs the logical lines losslessly out of scrollback.
+  screen.resize(8, 3);
+  assertEquals(screen.textRows(), ["abcdef", "123456", "xyz"]);
+  assertEquals(screen.scrollbackRows, 0);
+  assertEquals(screen.inspect().cursor, { column: 3, row: 2 });
+});
+
+Deno.test("TerminalScreenController reflows styled lines, hyperlinks, and saved cursors on main screen only", () => {
+  const screen = new TerminalScreenController({ columns: 12, rows: 3 });
+  screen.write("\x1b[32mhello world!\x1b[0m\x1b7\r\nnext");
+  screen.resize(6, 3);
+  assertEquals(screen.textRows(), ["hello", "world!", "next"]);
+  assertEquals(screen.cellRows()[0]![5]?.char, " ");
+  assertEquals(screen.cellRows()[0]![5]?.softWrapped, true);
+  assertEquals(screen.cellRows()[1]![0]?.foreground, 32);
+
+  // Saved cursor follows the reflowed logical offset when widened back.
+  screen.resize(12, 3);
+  assertEquals(screen.textRows(), ["hello world!", "next", ""]);
+  screen.write("\x1b8X");
+  assertEquals(screen.textRows()[0], "hello worldX");
+
+  // Alternate screen does not reflow on width resize.
+  screen.write("\x1b[?1049hALT-LINE-123");
+  screen.resize(5, 3);
+  assertEquals(screen.textRows(), ["ALT-L", "", ""]);
+  screen.resize(12, 3);
+  assertEquals(screen.textRows(), ["ALT-L", "", ""]);
+});
+
+Deno.test("TerminalScreenController honors DECLRMM (?69h) + DECSLRM (CSI l;r s) without disturbing outside columns", () => {
+  const screen = new TerminalScreenController({ columns: 10, rows: 4 });
+  screen.write("L0|1234|R0\r\nL1|5678|R1\r\nL2|abcd|R2\r\nL3|efgh|R3");
+
+  // With DECLRMM off, `CSI s` remains SCOSC (save cursor) and `CSI 4;7 s` is ignored.
+  screen.write("\x1b[2;2H\x1b[s\x1b[4;7s\x1b[1;1H\x1b[u");
+  assertEquals(screen.cursor, { row: 1, column: 1 });
+
+  // Enable DECLRMM and confine margins to the middle 4-column pane (cols 4..7, rows 2..3).
+  screen.write("\x1b[?69h\x1b[2;3r\x1b[4;7s");
+  assertEquals(screen.cursor, { row: 0, column: 0 });
+
+  // Scroll up inside the margin box: only rows 1..2 cols 3..6 shift; side panes and row 0/3 stay intact.
+  screen.write("\x1b[S");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|abcd|R1", "L2|    |R2", "L3|efgh|R3"]);
+
+  // Origin mode (`?6h`) + printing wraps at the right margin to the left margin and scrolls inside the box.
+  screen.write("\x1b[?6hWXYZpqrs");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|WXYZ|R1", "L2|pqrs|R2", "L3|efgh|R3"]);
+  // One more character wraps at col 7, scrolls the inner box up, and lands at col 4 of row 3.
+  screen.write("!");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|pqrs|R1", "L2|!   |R2", "L3|efgh|R3"]);
+
+  // ICH/DCH and DECIC/DECDC respect horizontal margins without shifting the right pane.
+  screen.write("\x1b[1;2H\x1b[1@+");
+  assertEquals(screen.textRows()[1], "L1|p+qr|R1");
+  screen.write("\x1b[1;2H\x1b[1P");
+  assertEquals(screen.textRows()[1], "L1|pqr |R1");
+  screen.write("\x1b[1;1H\x1b[1'}");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1| pqr|R1", "L2| !  |R2", "L3|efgh|R3"]);
+  screen.write("\x1b[1;1H\x1b[1'~");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|pqr |R1", "L2|!   |R2", "L3|efgh|R3"]);
+
+  // Disabling DECLRMM (`?69l`) resets horizontal margins and restores `CSI s` as SCOSC.
+  screen.write("\x1b[?6l\x1b[?69l\x1b[4;9H\x1b[s\x1b[1;1H\x1b[u");
+  assertEquals(screen.cursor, { row: 3, column: 8 });
+});
+
+Deno.test("serializeTerminalScreenSnapshot round-trips main/alt screens, scrollback, styles, links, palette, margins, and modes", () => {
+  const source = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  source.write(
+    "\x1b]2;agent shell\x07" +
+      "\x1b]7;file://host/tmp/work\x07" +
+      "\x1b]4;1;#12ab34\x07" +
+      "\x1b[?1h\x1b[?1004h\x1b[?2004h\x1b[>5u\x1b[>4;2m" +
+      "history-row-0\r\n" +
+      "history-row-1\r\n" +
+      "\x1b[1;38;2;10;20;30;4:3;58;5;196m\x1b]8;;https://example.com/a\x1b\\Hi日本\x1b]8;;\x1b\\\x1b[0m\r\n" +
+      "wrapped-text-over-sixteen\r\n" +
+      "prompt> " +
+      "\x1b[2;3r\x1b[?69h\x1b[3;12s\x1b[?6h\x1b[2;4H\x1b[6 q",
+  );
+
+  const snapshot = serializeTerminalScreenSnapshot(source, { includeScrollback: 10 });
+  const restored = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  restored.write(snapshot);
+
+  assertEquals(restored.textRows(), source.textRows());
+  assertEquals(restored.scrollbackTextRows(), source.scrollbackTextRows());
+  assertEquals(restored.cellRows(), source.cellRows());
+  assertEquals(restored.inspect(), source.inspect());
+  assertEquals(restored.keyboardProtocol, source.keyboardProtocol);
+  assertEquals(restored.paletteOverrides().get(1), [0x12, 0xab, 0x34]);
+
+  // Alternate screen with hidden cursor and separate kitty stack round-trips too.
+  source.write("\x1b[?1049h\x1b[>1u\x1b[?25l\x1b[2;3HALT-VIEW");
+  const altRestored = new TerminalScreenController({ columns: 16, rows: 4, scrollbackLimit: 20 });
+  altRestored.write(source.serializeSnapshot());
+  assertEquals(altRestored.inspect().alternate, true);
+  assertEquals(altRestored.inspect().cursorVisible, false);
+  assertEquals(altRestored.cursor, source.cursor);
+  assertEquals(altRestored.textRows(), source.textRows());
+  assertEquals(altRestored.keyboardProtocol, { kittyFlags: 1, modifyOtherKeys: 2 });
 });
 
 Deno.test("TerminalScreenController supports alternate screen switching", () => {
@@ -1267,4 +1383,109 @@ Deno.test("TerminalScreen clear resets charset shift state", () => {
   screen.clear();
   screen.write("qx");
   assertEquals(screen.textRows()[0], "qx");
+});
+
+Deno.test("TerminalScreenController populates default 8-column tab stops when widened and on DECST8C", () => {
+  const screen = new TerminalScreenController({ columns: 16, rows: 2 });
+  screen.resize(10, 2);
+  screen.resize(32, 2);
+
+  // Widening past previous width must restore 8-column stops in newly added columns (16, 24).
+  screen.write("\x1b[1G\t\t\tX");
+  assertEquals(screen.inspect().cursor.column, 25);
+  assertEquals(screen.textRows()[0]![24], "X");
+
+  // Backward tab from col 30 lands on 24, then 16, then 8.
+  screen.write("\x1b[31G\x1b[2ZY");
+  assertEquals(screen.textRows()[0]![16], "Y");
+
+  // DECST8C (`CSI ? 5 W`) resets 8-column stops after TBC 3 cleared them all.
+  screen.write("\x1b[3g\x1b[?5W\x1b[1G\t\tZ");
+  assertEquals(screen.textRows()[0]![16], "Z");
+});
+
+Deno.test("TerminalScreenController preserves main prompt via scrollback on height shrink/grow and keeps alt screen top-anchored", () => {
+  const screen = new TerminalScreenController({ columns: 12, rows: 5 });
+  screen.write("row0\r\nrow1\r\nrow2\r\nprompt>");
+  // Row 4 is blank below cursor on row 3: shrinking 5 -> 3 drops blank row 4 first,
+  // then pushes only row0 into scrollback so prompt stays on bottom row.
+  screen.resize(12, 3);
+  assertEquals(screen.textRows(), ["row1", "row2", "prompt>"]);
+  assertEquals(screen.scrollbackRows, 1);
+  assertEquals(screen.cursor, { column: 7, row: 2 });
+
+  // Growing back 3 -> 5 pulls row0 out of scrollback and pads one blank row at bottom.
+  screen.resize(12, 5);
+  assertEquals(screen.textRows(), ["row0", "row1", "row2", "prompt>", ""]);
+  assertEquals(screen.scrollbackRows, 0);
+  assertEquals(screen.cursor, { column: 7, row: 3 });
+
+  // Alternate screen does not push/pull scrollback when resized.
+  screen.write("\x1b[?1049hA0\r\nA1\r\nA2\r\nA3");
+  screen.resize(12, 2);
+  assertEquals(screen.textRows(), ["A0", "A1"]);
+  assertEquals(screen.scrollbackRows, 2);
+  screen.write("\x1b[?1049l");
+  assertEquals(screen.textRows(), ["row2", "prompt>"]);
+});
+
+Deno.test("TerminalScreenController preserves deferred wrap across non-moving controls", () => {
+  const controls = [
+    "\x1b[?25l",
+    "\x1b[?25h",
+    "\x1b[?2026h",
+    "\x1b[?2026l",
+    "\x1b[?2027h",
+    "\x1b]0;title\x07",
+    "\x1b]8;;https://example.com\x07",
+    "\x1b[5 q",
+    "\x1b[?5W",
+    "\x1b7",
+  ];
+  for (const control of controls) {
+    const screen = new TerminalScreenController({ columns: 4, rows: 2 });
+    screen.write(`abcd${control}e`);
+    assertEquals(screen.textRows(), ["abcd", "e"], `deferred wrap must survive ${JSON.stringify(control)}`);
+  }
+
+  // Disabling autowrap (`?7l`) or moving the cursor cancels deferred wrap.
+  const noWrap = new TerminalScreenController({ columns: 4, rows: 2 });
+  noWrap.write("abcd\x1b[?7le");
+  assertEquals(noWrap.textRows(), ["abce", ""]);
+});
+
+Deno.test("TerminalScreenController separates main and alternate DECSC slots and restores full cursor state", () => {
+  const screen = new TerminalScreenController({ columns: 10, rows: 4 });
+  screen.write("\x1b[2;4H\x1b[31m\x1b(0");
+  // Entering alt screen saves main's cursor, style, and charset; a redundant 1049h
+  // or a save inside alt screen must not overwrite main's saved slot.
+  screen.write("\x1b[?1049h\x1b[?1049h\x1b[1;1H\x1b[0m\x1b(B\x1b7ALT\x1b8X\x1b[?1049l");
+  screen.write("q");
+  assertEquals(screen.cursor, { column: 4, row: 1 });
+  assertEquals(screen.textRows()[1], "   ─");
+  assertEquals(screen.cellRows()[1]![3]?.foreground, 31);
+});
+
+Deno.test("TerminalScreenController clamps vertical relative cursor moves to DECSTBM scroll region", () => {
+  const screen = new TerminalScreenController({ columns: 10, rows: 6 });
+  screen.write("\x1b[2;5r"); // rows 1..4 (0-based)
+  screen.write("\x1b[3;4H"); // inside region at (row 2, col 3)
+  screen.write("\x1b[99A");
+  assertEquals(screen.cursor, { column: 3, row: 1 });
+  screen.write("\x1b[99B");
+  assertEquals(screen.cursor, { column: 3, row: 4 });
+  screen.write("\x1b[99F");
+  assertEquals(screen.cursor, { column: 0, row: 1 });
+  screen.write("\x1b[99E");
+  assertEquals(screen.cursor, { column: 0, row: 4 });
+
+  // Outside the scroll region, movement still reaches screen bounds.
+  screen.write("\x1b[1;1H\x1b[99B");
+  assertEquals(screen.cursor, { column: 0, row: 4 });
+  screen.write("\x1b[6;1H\x1b[99A");
+  assertEquals(screen.cursor, { column: 0, row: 1 });
+
+  // DECSTBM respects origin mode when homing the cursor.
+  screen.write("\x1b[?6h\x1b[3;5r");
+  assertEquals(screen.cursor, { column: 0, row: 2 });
 });

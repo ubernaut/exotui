@@ -8,6 +8,7 @@ import { exomuxChildEnvironment } from "./terminal_env.ts";
 import {
   createProcessTerminalBackend,
   type TerminalBackend,
+  TerminalScreenController,
   type TerminalSessionHandle,
 } from "@ubernaut/exotui/terminal";
 import { createBunPtyTerminalBackend, createSigmaPtyTerminalBackend } from "@ubernaut/exotui/terminal";
@@ -176,6 +177,20 @@ function prependModePreamble(
   if (!first) {
     return [{ sequence: latestSequence, data: encodeExomuxData(bytes), bytes: bytes.byteLength }];
   }
+  // A frame is already at the protocol's size limit whenever the child wrote
+  // more than one frame's worth at once — an agent redrawing its transcript
+  // does it on every resize — and the preamble cannot ride on one of those:
+  // encoding the merged frame threw, and the throw refused the whole attach, so
+  // the terminal could not be reattached until the ring rotated past the burst.
+  // The preamble takes the sequence just before it instead. A client resuming
+  // from exactly that point drops it as already seen, and that client never
+  // lost the modes in the first place.
+  if (bytes.byteLength + first.bytes > EXOMUX_PROTOCOL_LIMITS.outputBytes) {
+    return [
+      { sequence: Math.max(0, first.sequence - 1), data: encodeExomuxData(bytes), bytes: bytes.byteLength },
+      ...retained,
+    ];
+  }
   // Replay payloads are base64, so the preamble is merged before encoding
   // rather than concatenated after it.
   const head = decodeExomuxData(first.data);
@@ -186,6 +201,46 @@ function prependModePreamble(
     { sequence: first.sequence, data: encodeExomuxData(merged), bytes: merged.byteLength },
     ...retained.slice(1),
   ];
+}
+
+/** Bounded scrollback kept in each daemon shadow screen for rotated-replay snapshots. */
+const HOST_SHADOW_SCROLLBACK_LIMIT = 200;
+
+/**
+ * Serializes the daemon's shadow screen into one or more protocol-bounded
+ * output frames ending at `latestSequence`, splitting strictly on UTF-8
+ * boundaries. Returns undefined if the snapshot cannot fit within the
+ * session's available sequence range.
+ */
+function buildScreenSnapshotEntries(
+  screen: TerminalScreenController,
+  latestSequence: number,
+): ReplayEntry[] | undefined {
+  if (latestSequence < 1) return undefined;
+  let bytes = OUTPUT_ENCODER.encode(screen.serializeSnapshot({ includeScrollback: HOST_SHADOW_SCROLLBACK_LIMIT }));
+  const chunkLimit = EXOMUX_PROTOCOL_LIMITS.outputBytes;
+  if (bytes.byteLength > chunkLimit) {
+    bytes = OUTPUT_ENCODER.encode(screen.serializeSnapshot({ includeScrollback: 0 }));
+  }
+  const chunks: Uint8Array[] = [];
+  for (let offset = 0; offset < bytes.byteLength;) {
+    let end = Math.min(bytes.byteLength, offset + chunkLimit);
+    if (end < bytes.byteLength) {
+      // Back up off any UTF-8 continuation bytes so each chunk decodes cleanly on its own.
+      let safeEnd = end;
+      while (safeEnd > offset && (bytes[safeEnd]! & 0xc0) === 0x80) safeEnd -= 1;
+      if (safeEnd > offset) end = safeEnd;
+    }
+    chunks.push(bytes.subarray(offset, end));
+    offset = end;
+  }
+  if (chunks.length === 0 || chunks.length > latestSequence) return undefined;
+  const startSequence = latestSequence - chunks.length + 1;
+  return chunks.map((chunk, index) => ({
+    sequence: startSequence + index,
+    data: encodeExomuxData(chunk),
+    bytes: chunk.byteLength,
+  }));
 }
 
 interface HostSession {
@@ -203,7 +258,11 @@ interface HostSession {
   replayBytes: number;
   /** Sticky DEC private modes, so a rotated replay cannot lose them. */
   modes: ExomuxTerminalModeTracker;
+  /** Bounded daemon-side screen shadow used to synthesize coherent snapshots on rotated attaches. */
+  screen: TerminalScreenController;
   clients: Set<HostConnection>;
+  /** Single attached client authorized to answer child terminal queries for this session. */
+  queryOwner?: HostConnection;
   /** Unattached drain budget accounting; see ExomuxHostLimits.unattachedBytesPerSecond. */
   drainWindowStart: number;
   drainWindowBytes: number;
@@ -433,9 +492,23 @@ export class ExomuxHostController {
     if (this.#connections.get(connection.id) !== connection) return;
     this.#connections.delete(connection.id);
     for (const sessionId of connection.attachments) {
-      this.#sessions.get(sessionId)?.clients.delete(connection);
+      const session = this.#sessions.get(sessionId);
+      if (!session) continue;
+      session.clients.delete(connection);
+      this.#releaseQueryOwner(session, connection);
     }
     connection.attachments.clear();
+  }
+
+  #releaseQueryOwner(session: HostSession, connection: HostConnection): void {
+    if (session.queryOwner !== connection) return;
+    session.queryOwner = undefined;
+    for (const remaining of session.clients) {
+      if (!remaining.closed) {
+        session.queryOwner = remaining;
+        return;
+      }
+    }
   }
 
   async #dispatch(connection: HostConnection, request: ExomuxClientRequest): Promise<void> {
@@ -452,11 +525,18 @@ export class ExomuxHostController {
         await this.#spawn(connection, request);
         return;
       case "attach":
-        this.#attach(connection, request.requestId, request.sessionId, request.afterSequence ?? 0);
+        this.#attach(
+          connection,
+          request.requestId,
+          request.sessionId,
+          request.afterSequence ?? 0,
+          request.snapshotFallback === true,
+        );
         return;
       case "detach": {
         const session = this.#requireSession(request.sessionId);
         session.clients.delete(connection);
+        this.#releaseQueryOwner(session, connection);
         connection.attachments.delete(session.id);
         connection.cancelReplay(session.id);
         connection.enqueue(ack(request.requestId, "detach", session.id));
@@ -468,6 +548,7 @@ export class ExomuxHostController {
         if (!session.handle.inspect().running) {
           throw hostError("session-not-running", "Terminal session is not running.");
         }
+        session.queryOwner = connection;
         const accepted = await session.handle.write(decodeExomuxData(request.data));
         if (!accepted) throw hostError("input-rejected", "Terminal backend rejected input.");
         session.updatedAt = this.#now();
@@ -480,15 +561,33 @@ export class ExomuxHostController {
         }, SESSION_TITLE_REFRESH_MS);
         return;
       }
+      case "reply": {
+        const session = this.#requireSession(request.sessionId);
+        requireAttachment(connection, session);
+        if (!session.handle.inspect().running) {
+          throw hostError("session-not-running", "Terminal session is not running.");
+        }
+        // Only the designated query owner answers child queries so co-attached
+        // clients (even at identical geometry) never inject duplicate replies.
+        if (session.queryOwner === connection) {
+          const accepted = await session.handle.write(decodeExomuxData(request.data));
+          if (!accepted) throw hostError("input-rejected", "Terminal backend rejected input.");
+          session.updatedAt = this.#now();
+        }
+        connection.enqueue(ack(request.requestId, "reply", session.id));
+        return;
+      }
       case "resize": {
         const session = this.#requireSession(request.sessionId);
         requireAttachment(connection, session);
+        session.queryOwner = connection;
         const accepted = await session.handle.resize(request.columns, request.rows);
         if (!accepted && session.handle.inspect().resizeSupported) {
           throw hostError("resize-rejected", "Terminal backend rejected resize.");
         }
         session.columns = request.columns;
         session.rows = request.rows;
+        session.screen.resize(request.columns, request.rows);
         session.updatedAt = this.#now();
         connection.enqueue(ack(request.requestId, "resize", session.id));
         this.#broadcastState(session);
@@ -606,20 +705,28 @@ export class ExomuxHostController {
 
       const inspection = safeHandleInspection(handle);
       const fallbackTitle = normalizeApplicationTitle(request.title) ?? applicationCommandName(request.command);
+      const initialColumns = request.columns ?? inspection.columns ?? 80;
+      const initialRows = request.rows ?? inspection.rows ?? 24;
       const session: HostSession = {
         id,
         handle,
         title: normalizeApplicationTitle(inspection.title) ?? fallbackTitle,
         titleCheckedAt: createdAt,
-        columns: request.columns ?? inspection.columns ?? 80,
-        rows: request.rows ?? inspection.rows ?? 24,
+        columns: initialColumns,
+        rows: initialRows,
         createdAt,
         updatedAt: createdAt,
         sequence: 0,
         replay: [],
         replayBytes: 0,
         modes: new ExomuxTerminalModeTracker(),
+        screen: new TerminalScreenController({
+          columns: initialColumns,
+          rows: initialRows,
+          scrollbackLimit: HOST_SHADOW_SCROLLBACK_LIMIT,
+        }),
         clients: new Set([connection]),
+        queryOwner: connection,
         drainWindowStart: createdAt,
         drainWindowBytes: 0,
         ready: false,
@@ -647,7 +754,13 @@ export class ExomuxHostController {
     }
   }
 
-  #attach(connection: HostConnection, requestId: number, sessionId: string, afterSequence: number): void {
+  #attach(
+    connection: HostConnection,
+    requestId: number,
+    sessionId: string,
+    afterSequence: number,
+    snapshotFallback = false,
+  ): void {
     const session = this.#requireSession(sessionId);
     if (afterSequence > session.sequence) {
       throw hostError("invalid-sequence", "Requested output sequence is ahead of the session.");
@@ -655,22 +768,30 @@ export class ExomuxHostController {
     const earliest = session.replay[0]?.sequence ?? session.sequence + 1;
     const truncated = afterSequence < earliest - 1;
     const latestSequence = session.sequence;
+    // When the raw ring rotated past the caller's watermark and the caller
+    // opted into snapshot recovery, synthesize the full screen state from the
+    // daemon's shadow screen instead of sending a torn raw tail.
+    const snapshotEntries = truncated && snapshotFallback
+      ? buildScreenSnapshotEntries(session.screen, latestSequence)
+      : undefined;
     // Snapshot references, not payloads: live ring rotation must not move the
     // attach barrier while this connection lazily produces its replay.
-    const retained = session.replay.filter((entry) =>
-      entry.sequence > afterSequence && entry.sequence <= latestSequence
-    );
+    const retained = snapshotEntries ??
+      session.replay.filter((entry) => entry.sequence > afterSequence && entry.sequence <= latestSequence);
     // The raw ring rotates, so the bytes that switched on mouse reporting,
     // bracketed paste or the alternate screen are long gone on a busy session.
     // Re-assert the modes the child currently holds ahead of whatever survived;
     // the replay that follows ends in the same state, so this is idempotent.
-    const replay = prependModePreamble(retained, session.modes.preamble(), latestSequence);
+    const replay = snapshotEntries ?? prependModePreamble(retained, session.modes.preamble(), latestSequence);
     const replayFromSequence = replay[0]?.sequence ?? latestSequence + 1;
     if (!connection.beginReplay(session.id)) {
       if (!connection.closed) throw hostError("attach-in-progress", "Session attachment is already replaying.");
       return;
     }
     session.clients.add(connection);
+    if (!session.queryOwner || session.queryOwner.closed || !session.clients.has(session.queryOwner)) {
+      session.queryOwner = connection;
+    }
     connection.attachments.add(session.id);
     // A watcher arrived: leave the unattached drain budget behind immediately.
     session.drainWindowStart = this.#now();
@@ -684,6 +805,7 @@ export class ExomuxHostController {
         replayFromSequence,
         latestSequence,
         truncated,
+        ...(snapshotEntries ? { snapshot: true } : {}),
       },
       replay,
     );
@@ -777,6 +899,7 @@ export class ExomuxHostController {
     if (session.terminated || chunk.byteLength === 0) return;
     session.drainWindowBytes += chunk.byteLength;
     session.modes.write(chunk);
+    session.screen.write(chunk);
     const entry: ReplayEntry = {
       sequence: ++session.sequence,
       data: encodeExomuxData(chunk),

@@ -31,6 +31,7 @@ import {
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
 import { detectKittyGraphicsCapability } from "@ubernaut/exotui/runtime";
+import { probeHostTerminal } from "@ubernaut/exotui/terminal";
 import {
   createExomuxController,
   type ExomuxController,
@@ -454,7 +455,11 @@ async function runExomuxClientSession(
   }
   try {
     await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
-    const runtime = await createExomuxTerminalApp({ controller });
+    const runtime = await createExomuxTerminalApp({
+      controller,
+      synchronizedOutput: probe.synchronizedOutput === true,
+      graphemeClustering: probe.graphemeClustering === "reset",
+    });
     liveRuntime = runtime;
     bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
     runtime.start();
@@ -691,87 +696,11 @@ export async function launchInitialExomuxTerminalIfEmpty(
   return firstTerminal !== undefined;
 }
 
-/** What one pre-launch round trip learned about the host terminal. */
-export interface ExomuxHostProbe {
-  /**
-   * Whether the host answered the kitty graphics query. `true` and `false`
-   * are answers; undefined means silence, and silence falls back to the
-   * environment rather than deciding either way.
-   */
-  readonly graphics?: boolean;
-  readonly cellPixels?: { readonly width: number; readonly height: number };
-}
-
-/** The image id used only for the launch probe, matched in the reply. */
-const HOST_PROBE_IMAGE_ID = 4_242_424;
-
-/**
- * Parses the accumulated reply bytes of the launch probe.
- *
- * Pure, because the parsing is the part worth pinning: the graphics reply is
- * an APC naming the probe id — `OK` is support, any other status (an EBADPNG,
- * an ENOTSUPPORTED) is a host that parses the protocol without honouring it —
- * and the cell size arrives as `CSI 6 ; height ; width t`.
- */
-export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
-  const result: { graphics?: boolean; cellPixels?: { width: number; height: number } } = {};
-  const graphics = new RegExp(`\\x1b_Gi=${HOST_PROBE_IMAGE_ID}[^;]*;([^\\x1b]*)\\x1b\\\\`).exec(seen);
-  if (graphics) result.graphics = graphics[1] === "OK";
-  const cell = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
-  if (cell) {
-    const height = Number(cell[1]);
-    const width = Number(cell[2]);
-    if (width > 0 && height > 0) result.cellPixels = { width, height };
-  }
-  return result;
-}
-
-/**
- * Asks the host terminal, once, what it can do: the kitty graphics query and
- * the XTWINOPS cell-size query in one write, replies collected until both
- * arrive or the deadline does.
- *
- * A raw, bounded round trip on the real stdin/stdout, run before the TUI owns
- * either. Asking beats recognising: a terminal's name says what it is, the
- * probe says what it does, and only the second survives new terminals.
- */
-async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
-  if (!runtimeHost.stdin.isTerminal() || !runtimeHost.stdout.isTerminal()) return {};
-  try {
-    runtimeHost.stdin.setRaw(true);
-  } catch {
-    return {};
-  }
-  try {
-    await runtimeHost.stdout.write(new TextEncoder().encode(
-      `\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t`,
-    ));
-    const decoder = new TextDecoder();
-    const buffer = new Uint8Array(256);
-    let seen = "";
-    const deadline = Date.now() + deadlineMs;
-    while (Date.now() < deadline) {
-      const read = await Promise.race([
-        runtimeHost.stdin.read(buffer),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), Math.max(10, deadline - Date.now()))),
-      ]);
-      if (read === null || read === 0) break;
-      seen += decoder.decode(buffer.subarray(0, read));
-      const parsed = parseHostProbeReplies(seen);
-      if (parsed.graphics !== undefined && parsed.cellPixels) return parsed;
-      if (seen.length > 1024) break;
-    }
-    return parseHostProbeReplies(seen);
-  } catch {
-    return {};
-  } finally {
-    try {
-      runtimeHost.stdin.setRaw(false);
-    } catch {
-      // The TUI re-enables raw mode moments later either way.
-    }
-  }
-}
+export {
+  type HostTerminalProbe as ExomuxHostProbe,
+  hostTerminalProbeComplete as hostProbeComplete,
+  parseHostTerminalProbeReplies as parseHostProbeReplies,
+} from "@ubernaut/exotui/terminal";
 
 /** Runs the retaining host until an authenticated shutdown or process signal. */
 export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Promise<void> {
@@ -815,6 +744,10 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     // descriptor without it is a daemon that hands children Ghostty's
     // environment — the client warns rather than letting an app believe it.
     sanitizedChildEnv: true,
+    // This daemon arbitrates `reply` messages so only one attached client answers child queries.
+    queryArbitration: true,
+    // This daemon can restore rotated replays from a bounded shadow screen snapshot.
+    screenSnapshot: true,
     hostId: server.controller.id,
     url: address.url,
     token: authToken,

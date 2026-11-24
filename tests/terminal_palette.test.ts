@@ -130,3 +130,160 @@ Deno.test("TerminalScreen component renders a PTY screen with palette, cursor, a
     surface.dispose();
   }
 });
+
+Deno.test("TerminalScreen component forwards sanitized OSC 8 hyperlinks and drops unsafe schemes", async () => {
+  const screen = new TerminalScreenController({ columns: 12, rows: 2 });
+  screen.write(
+    "\x1b]8;;https://example.com/docs\x1b\\ok\x1b]8;;\x1b\\ \x1b]8;;javascript:alert(1)\x1b\\no\x1b]8;;\x1b\\",
+  );
+  const revision = new Signal(0);
+  const surface = new WidgetSurface(12, 2);
+  try {
+    surface.mount((tui) => [
+      new TerminalScreen({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 12, height: 2 },
+        screen,
+        revision,
+        colors: {
+          defaultBackground: SURFACE,
+          defaultForeground: TEXT,
+          cursorForeground: [0, 0, 0],
+          cursorBackground: [255, 200, 0],
+        },
+        showCursor: false,
+      }),
+    ]);
+    await surface.render();
+    const first = surface.cellAt(0, 0);
+    const unsafe = surface.cellAt(0, 3);
+    assert(typeof first === "string" && first.includes("\x1b]8;;https://example.com/docs\x1b\\"));
+    assert(typeof unsafe === "string" && !unsafe.includes("javascript:"));
+  } finally {
+    surface.dispose();
+  }
+});
+
+Deno.test("resolveTerminalCellStyle and TerminalScreen render DECSCUSR block, underline, bar, and blink cues", async () => {
+  const options: TerminalCellStyleOptions = {
+    defaultBackground: SURFACE,
+    defaultForeground: TEXT,
+    contrastLift: true,
+    cursorForeground: [0, 0, 0],
+    cursorBackground: [255, 200, 0],
+  };
+
+  // Underline cursor preserves text & background while applying an accent underline.
+  const underline = resolveTerminalCellStyle({ char: "x" }, 0, 0, true, { ...options, cursorShape: "underline" });
+  assertEquals(underline.glyph, "x");
+  assertEquals(underline.background, SURFACE);
+  assertEquals(underline.underline, true);
+  assertEquals(underline.underlineStyle, "solid");
+  assertEquals(underline.underlineColor, [255, 200, 0]);
+
+  // Bar cursor paints a thin vertical bar on empty cells and tints existing glyphs legibly.
+  const barBlank = resolveTerminalCellStyle({ char: " " }, 0, 0, true, { ...options, cursorShape: "bar" });
+  assertEquals(barBlank.glyph, "▏");
+  assertEquals(barBlank.foreground, [255, 200, 0]);
+  assertEquals(barBlank.background, SURFACE);
+
+  const barText = resolveTerminalCellStyle({ char: "x" }, 0, 0, true, { ...options, cursorShape: "bar" });
+  assertEquals(barText.glyph, "x");
+  assertEquals(barText.background, mixTerminalRgb(SURFACE, [255, 200, 0], 0.35));
+  assert(terminalContrastRatio(barText.foreground, barText.background) >= 4.5);
+
+  // cursorHidden suppresses the cursor cue during blink off-phase.
+  const hidden = resolveTerminalCellStyle({ char: "x" }, 0, 0, true, {
+    ...options,
+    cursorShape: "block",
+    cursorHidden: true,
+  });
+  assertEquals(hidden.background, SURFACE);
+  assertEquals(hidden.foreground, TEXT);
+
+  // Mounted TerminalScreen honors DECSCUSR shape + blinking phase.
+  const screen = new TerminalScreenController({ columns: 8, rows: 2 });
+  const revision = new Signal(0);
+  const blinkOn = new Signal(true);
+  const surface = new WidgetSurface(8, 2);
+  try {
+    surface.mount((tui) => [
+      new TerminalScreen({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 8, height: 2 },
+        screen,
+        revision,
+        colors: {
+          defaultBackground: SURFACE,
+          defaultForeground: TEXT,
+          cursorForeground: [0, 0, 0],
+          cursorBackground: [255, 200, 0],
+        },
+        showCursor: true,
+        cursorBlinkOn: blinkOn,
+      }),
+    ]);
+
+    screen.write("\x1b[6 q");
+    revision.value += 1;
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.glyph, "▏");
+
+    // Steady cursor (`6 q`) stays visible even when blinkOn is false.
+    blinkOn.value = false;
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.glyph, "▏");
+
+    // Blinking cursor (`5 q`) hides during blink off-phase.
+    screen.write("\x1b[5 q");
+    revision.value += 1;
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.glyph, " ");
+
+    // Underline cursor (`4 q`) renders underline SGR on the cursor cell.
+    screen.write("\x1b[4 qA\x1b[D");
+    revision.value += 1;
+    await surface.render();
+    const cell = surface.cellAt(0, 0);
+    assert(typeof cell === "string" && cell.includes("58;2;255;200;0"));
+  } finally {
+    surface.dispose();
+  }
+});
+
+Deno.test("TerminalScreen applies dynamic OSC 4 palette overrides and restores defaults on OSC 104", async () => {
+  const screen = new TerminalScreenController({ columns: 6, rows: 2 });
+  screen.write("\x1b]4;1;#12ab34\x07\x1b[31mR\x1b[0m");
+  const revision = new Signal(0);
+  const surface = new WidgetSurface(6, 2);
+  try {
+    surface.mount((tui) => [
+      new TerminalScreen({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 6, height: 2 },
+        screen,
+        revision,
+        contrastLift: false,
+        colors: {
+          defaultBackground: SURFACE,
+          defaultForeground: TEXT,
+          cursorForeground: [0, 0, 0],
+          cursorBackground: [255, 200, 0],
+        },
+        showCursor: false,
+      }),
+    ]);
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.foreground, [0x12, 0xab, 0x34]);
+
+    screen.write("\x1b]104;1\x07");
+    revision.value += 1;
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.foreground, [205, 49, 49]);
+  } finally {
+    surface.dispose();
+  }
+});

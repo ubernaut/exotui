@@ -267,9 +267,10 @@ means:
   materialises a full environment per spawn: host identities stripped, `TERM=xterm-256color`, `TERM_PROGRAM=exomux`,
   `COLORTERM=truecolor`, request env winning. tode's own detection logic runs against the sanitised env in a test and
   concludes text-only.
-- **Open: the emulator answers no queries.** Not OSC 10/11/4 colour queries (tode asks, then falls back), not DSR, not
-  DA. Answering needs a reply channel from the ingest side back to PTY stdin — daemon-side, since replies must beat a
-  round trip through a client — so it is a design task, not a patch.
+- **Mostly closed Nov 21 2026: the emulator answers queries.** DA1/DA2, XTVERSION, DSR, DECRQM, DECRQSS, XTGETTCAP, the
+  kitty keyboard query and OSC 10/11 are answered through `TerminalScreenController`'s `onReply`, client-side like the
+  cursor report (branch `bug/exomux-agy-compat`). Still open: OSC 4 palette queries, and the daemon-side reply channel —
+  every attached client answers, so two clients answer twice, and none answers while detached.
 - **Open: actually drawing the graphics.** The real endgame is kitty-graphics support in exomux windows: parse the APC
   (done), decode the image, composite it — or pass it through to the host terminal when the host really is Ghostty, with
   placements translated. `src/runtime/kitty_graphics.ts` and `todo/hiatus/kitty-graphics-integration.md` are the

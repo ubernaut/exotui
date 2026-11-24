@@ -56,6 +56,10 @@ export interface ExomuxLocalHostDescriptor {
   readonly sharedWorkspace?: true;
   /** Absence identifies a daemon that hands PTY children the host terminal's identity. */
   readonly sanitizedChildEnv?: true;
+  /** New hosts arbitrate `reply` messages so only one attached client answers child queries. */
+  readonly queryArbitration?: true;
+  /** New hosts maintain a shadow screen model to restore rotated replays via ANSI snapshots. */
+  readonly screenSnapshot?: true;
 }
 
 /** Minimal WebSocket seam used by deterministic client tests. */
@@ -75,6 +79,8 @@ export interface ConnectExomuxWebSocketOptions {
   readonly requestTimeoutMs?: number;
   readonly flowControlledReplay?: boolean;
   readonly sharedWorkspace?: boolean;
+  readonly queryArbitration?: boolean;
+  readonly screenSnapshot?: boolean;
   /** Retry lost transports after authentication; never launches or replaces a daemon. Default: true. */
   readonly reconnect?: boolean;
   /** Initial retry delay, doubling up to five seconds. */
@@ -190,6 +196,8 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
   readonly #requestTimeoutMs: number;
   readonly #flowControlledReplay: boolean;
   readonly #sharedWorkspace: boolean;
+  readonly #queryArbitration: boolean;
+  readonly #screenSnapshot: boolean;
   readonly #pending = new Map<number, PendingRequest>();
   readonly #attachments = new Map<string, ClientAttachment>();
   readonly #sessionListeners = new Set<(session: ExomuxSessionSummary) => void>();
@@ -254,6 +262,8 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
     this.#reconnectDelayMs = normalizeTimeout(options.reconnectDelayMs, 250);
     this.#flowControlledReplay = options.flowControlledReplay === true;
     this.#sharedWorkspace = options.sharedWorkspace === true;
+    this.#queryArbitration = options.queryArbitration === true;
+    this.#screenSnapshot = options.screenSnapshot === true;
     this.#options = { ...options, url };
     this.#socket = options.createWebSocket?.(url) ?? new WebSocket(url);
     this.#listen();
@@ -275,6 +285,10 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
 
   get connected(): boolean {
     return this.#connected && !this.#disposed;
+  }
+
+  get queryArbitration(): boolean {
+    return this.#queryArbitration;
   }
 
   get hostId(): string | undefined {
@@ -397,6 +411,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
           type: "attach",
           sessionId,
           ...(boundedSince > 0 || options.sinceSequence !== undefined ? { afterSequence: boundedSince } : {}),
+          ...(this.#screenSnapshot ? { snapshotFallback: true } : {}),
         },
         ["attached"],
         deadline,
@@ -435,6 +450,7 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
       session: sessionSummary(response.session),
       replay,
       truncated: response.truncated || boundedSince > requestedSince,
+      ...(response.snapshot === true ? { snapshot: true } : {}),
     };
   }
 
@@ -453,6 +469,18 @@ export class ExomuxWebSocketClient implements ExomuxClientPort {
       data: encodeExomuxData(data),
     }, ["ack"]);
     assertAck(response, "input", sessionId);
+    return true;
+  }
+
+  async reply(sessionId: string, data: string | Uint8Array): Promise<boolean> {
+    if (!this.#queryArbitration) return await this.input(sessionId, data);
+    const response = await this.#request({
+      version: 1,
+      type: "reply",
+      sessionId,
+      data: encodeExomuxData(data),
+    }, ["ack"]);
+    assertAck(response, "reply", sessionId);
     return true;
   }
 
@@ -1068,7 +1096,9 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     typeof record.startedAt !== "number" || !Number.isFinite(record.startedAt) || record.startedAt < 0 ||
     (keys.includes("flowControlledReplay") && record.flowControlledReplay !== true) ||
     (keys.includes("sharedWorkspace") && record.sharedWorkspace !== true) ||
-    (keys.includes("sanitizedChildEnv") && record.sanitizedChildEnv !== true)
+    (keys.includes("sanitizedChildEnv") && record.sanitizedChildEnv !== true) ||
+    (keys.includes("queryArbitration") && record.queryArbitration !== true) ||
+    (keys.includes("screenSnapshot") && record.screenSnapshot !== true)
   ) {
     throw invalidDescriptor();
   }
@@ -1082,6 +1112,8 @@ function normalizeExomuxHostDescriptor(value: unknown): ExomuxLocalHostDescripto
     ...(record.flowControlledReplay === true ? { flowControlledReplay: true as const } : {}),
     ...(record.sharedWorkspace === true ? { sharedWorkspace: true as const } : {}),
     ...(record.sanitizedChildEnv === true ? { sanitizedChildEnv: true as const } : {}),
+    ...(record.queryArbitration === true ? { queryArbitration: true as const } : {}),
+    ...(record.screenSnapshot === true ? { screenSnapshot: true as const } : {}),
   });
 }
 
@@ -1103,6 +1135,8 @@ async function tryConnectDescriptor(
       requestTimeoutMs: options.requestTimeoutMs ?? Math.min(1_500, options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS),
       flowControlledReplay: descriptor.flowControlledReplay === true,
       sharedWorkspace: descriptor.sharedWorkspace === true,
+      queryArbitration: descriptor.queryArbitration === true,
+      screenSnapshot: descriptor.screenSnapshot === true,
       createWebSocket: options.createWebSocket,
     });
     await client.ping();
