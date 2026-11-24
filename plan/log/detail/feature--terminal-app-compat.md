@@ -95,3 +95,13 @@ with `exomux` standing thinly on top:
   (`rgb:r/g/b`, `#rgb`/`#rrggbb`), `OSC 104` selective/full reset, `TerminalScreenController.paletteOverrides()`, and
   `DECRQSS m` active SGR reporting.
 - `src/components/terminal_screen.ts` & `packages/exomux/app.ts`: wired `paletteOverrides` into cell rendering.
+
+## 2026-11-23 — Commit 7: Left/Right scroll margins (`DECLRMM` `?69h` + `DECSLRM` `CSI l;r s`)
+
+### Changes
+
+- `src/runtime/terminal_screen.ts`: added mode `69` (`DECLRMM`) to `REPORTED_PRIVATE_MODES`, disambiguated `DECSLRM`
+  (`CSI l;r s` when `?69h` active) from `SCOSC` (`CSI s` when `?69l` and parameterless), added `DECRQSS s` reporting,
+  bounded glyph wrapping, CR/BS/NEL/CUF/CUB/CHA/CUP/CPR, `SU`/`SD`/`IND`/`RI`, `IL`/`DL`, `ICH`/`DCH`, and
+  `DECIC`/`DECDC` (`CSI n ' }` / `CSI n ' ~`) strictly inside the active horizontal+vertical margin box without
+  disturbing outside columns or corrupting wide pairs.

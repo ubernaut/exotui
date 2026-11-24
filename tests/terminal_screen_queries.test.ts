@@ -60,6 +60,11 @@ Deno.test("the screen answers the queries a program waits on", () => {
   assertEquals(ask("\x1b[?2026$p"), ["\x1b[?2026;2$y"]);
   assertEquals(ask("\x1b[?2026h\x1b[?2026$p"), ["\x1b[?2026;1$y"]);
   assertEquals(ask("\x1b[?2026l\x1b[?2026$p"), ["\x1b[?2026;2$y"]);
+  assertEquals(ask("\x1b[?69$p"), ["\x1b[?69;2$y"]);
+  assertEquals(ask("\x1b[?69h\x1b[3;8s\x1b[?69$p\x1bP$qs\x1b\\\x1b[?69l"), [
+    "\x1b[?69;1$y",
+    "\x1bP1$r3;8s\x1b\\",
+  ]);
   assertEquals(ask("\x1b[?2027$p"), ["\x1b[?2027;3$y"]);
   assertEquals(ask("\x1b[4$p"), ["\x1b[4;2$y"]);
   assertEquals(ask("\x1b[4 q\x1bP$q q\x1b\\"), ["\x1bP1$r4 q\x1b\\"]);

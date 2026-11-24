@@ -1008,6 +1008,44 @@ Deno.test("TerminalScreenController reflows styled lines, hyperlinks, and saved 
   assertEquals(screen.textRows(), ["ALT-L", "", ""]);
 });
 
+Deno.test("TerminalScreenController honors DECLRMM (?69h) + DECSLRM (CSI l;r s) without disturbing outside columns", () => {
+  const screen = new TerminalScreenController({ columns: 10, rows: 4 });
+  screen.write("L0|1234|R0\r\nL1|5678|R1\r\nL2|abcd|R2\r\nL3|efgh|R3");
+
+  // With DECLRMM off, `CSI s` remains SCOSC (save cursor) and `CSI 4;7 s` is ignored.
+  screen.write("\x1b[2;2H\x1b[s\x1b[4;7s\x1b[1;1H\x1b[u");
+  assertEquals(screen.cursor, { row: 1, column: 1 });
+
+  // Enable DECLRMM and confine margins to the middle 4-column pane (cols 4..7, rows 2..3).
+  screen.write("\x1b[?69h\x1b[2;3r\x1b[4;7s");
+  assertEquals(screen.cursor, { row: 0, column: 0 });
+
+  // Scroll up inside the margin box: only rows 1..2 cols 3..6 shift; side panes and row 0/3 stay intact.
+  screen.write("\x1b[S");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|abcd|R1", "L2|    |R2", "L3|efgh|R3"]);
+
+  // Origin mode (`?6h`) + printing wraps at the right margin to the left margin and scrolls inside the box.
+  screen.write("\x1b[?6hWXYZpqrs");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|WXYZ|R1", "L2|pqrs|R2", "L3|efgh|R3"]);
+  // One more character wraps at col 7, scrolls the inner box up, and lands at col 4 of row 3.
+  screen.write("!");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|pqrs|R1", "L2|!   |R2", "L3|efgh|R3"]);
+
+  // ICH/DCH and DECIC/DECDC respect horizontal margins without shifting the right pane.
+  screen.write("\x1b[1;2H\x1b[1@+");
+  assertEquals(screen.textRows()[1], "L1|p+qr|R1");
+  screen.write("\x1b[1;2H\x1b[1P");
+  assertEquals(screen.textRows()[1], "L1|pqr |R1");
+  screen.write("\x1b[1;1H\x1b[1'}");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1| pqr|R1", "L2| !  |R2", "L3|efgh|R3"]);
+  screen.write("\x1b[1;1H\x1b[1'~");
+  assertEquals(screen.textRows(), ["L0|1234|R0", "L1|pqr |R1", "L2|!   |R2", "L3|efgh|R3"]);
+
+  // Disabling DECLRMM (`?69l`) resets horizontal margins and restores `CSI s` as SCOSC.
+  screen.write("\x1b[?6l\x1b[?69l\x1b[4;9H\x1b[s\x1b[1;1H\x1b[u");
+  assertEquals(screen.cursor, { row: 3, column: 8 });
+});
+
 Deno.test("TerminalScreenController supports alternate screen switching", () => {
   const screen = new TerminalScreenController({ columns: 8, rows: 2 });
 
