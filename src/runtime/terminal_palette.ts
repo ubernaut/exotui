@@ -12,7 +12,7 @@
 // every live PTY window.
 
 import { decodeTerminalColor } from "./terminal_color.ts";
-import type { TerminalScreenCell } from "./terminal_screen.ts";
+import type { TerminalScreenCell, TerminalScreenCursorStyle } from "./terminal_screen.ts";
 import type { AnsiStyleSpec } from "../theme.ts";
 
 /** One renderable RGB triple. */
@@ -103,6 +103,10 @@ export interface TerminalCellStyleOptions {
   /** The inverted cursor block's colors. */
   readonly cursorForeground: TerminalRgb;
   readonly cursorBackground: TerminalRgb;
+  /** Child cursor shape (`DECSCUSR`). Defaults to `"block"`. */
+  readonly cursorShape?: TerminalScreenCursorStyle["shape"];
+  /** Suppresses the cursor cue when a blinking cursor is in its off phase. */
+  readonly cursorHidden?: boolean;
 }
 
 /** One resolved, renderable terminal cell. */
@@ -200,16 +204,39 @@ export function resolveTerminalCellStyle(
   let foreground = entry.foreground;
   if (cell.inverse) [foreground, background] = [background, foreground];
   // Reverse video follows the actual resolved ground. Explicit underline ink
-  // remains independent, and cursor colors override reverse without losing typography.
-  if (cursor) {
-    foreground = options.cursorForeground;
-    background = options.cursorBackground;
-    if (options.dimToward) {
-      foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
-      background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
+  // remains independent, and cursor styling layers over reverse without losing
+  // typography.
+  const glyph = cell.char || " ";
+  if (cursor && !options.cursorHidden) {
+    const shape = options.cursorShape ?? "block";
+    const cursorAccent = options.dimToward
+      ? mixTerminalRgb(options.cursorBackground, options.dimToward, DIM_RATIO)
+      : options.cursorBackground;
+    const cursorInk = options.dimToward
+      ? mixTerminalRgb(options.cursorForeground, options.dimToward, DIM_RATIO)
+      : options.cursorForeground;
+    if (shape === "underline") {
+      return {
+        ...entry,
+        glyph,
+        foreground,
+        background,
+        underline: true,
+        underlineStyle: "solid",
+        underlineColor: cursorAccent,
+      };
     }
+    if (shape === "bar") {
+      if (glyph === " ") {
+        return { ...entry, glyph: "▏", foreground: cursorAccent, background };
+      }
+      const barBackground = mixTerminalRgb(background, cursorAccent, 0.35);
+      const barForeground = terminalContrastRatio(foreground, barBackground) >= 4.5 ? foreground : cursorInk;
+      return { ...entry, glyph, foreground: barForeground, background: barBackground };
+    }
+    return { ...entry, glyph, foreground: cursorInk, background: cursorAccent, bold: true };
   }
-  return { ...entry, glyph: cell.char || " ", foreground, background, bold: cursor || entry.bold };
+  return { ...entry, glyph, foreground, background };
 }
 
 function xtermPaletteRgb(index: number): TerminalRgb {

@@ -37,6 +37,7 @@ const KITTY_KEYBOARD_FLAG_MASK = 0b11111;
 export interface ExomuxTerminalModeInspection {
   readonly modes: readonly number[];
   readonly cursorVisible: boolean;
+  readonly cursorStyleCode: number;
 }
 
 /**
@@ -53,6 +54,7 @@ export class ExomuxTerminalModeTracker {
   #pending = "";
   readonly #modes = new Set<number>();
   #cursorVisible = true;
+  #cursorStyleCode = 0;
   #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
   #modifyOtherKeys = 0;
   readonly #decoder = new TextDecoder();
@@ -91,11 +93,18 @@ export class ExomuxTerminalModeTracker {
     if (sequence.kind === "esc" && sequence.command === "c") {
       this.#modes.clear();
       this.#cursorVisible = true;
+      this.#cursorStyleCode = 0;
       this.#kittyKeyboard = { main: [], alternate: [] };
       this.#modifyOtherKeys = 0;
       return;
     }
-    if (sequence.kind !== "csi" || sequence.intermediates) return;
+    if (sequence.kind !== "csi") return;
+    if (sequence.intermediates === " " && !sequence.prefix && sequence.command === "q") {
+      const code = sequence.params === "" ? 0 : Number.parseInt(sequence.params.split(";")[0] ?? "0", 10);
+      this.#cursorStyleCode = Number.isInteger(code) && code >= 0 && code <= 6 ? code : 0;
+      return;
+    }
+    if (sequence.intermediates) return;
     if (sequence.prefix === ">" || sequence.prefix === "<" || sequence.prefix === "=") {
       this.#applyKeyboardProtocol(sequence);
       return;
@@ -173,11 +182,16 @@ export class ExomuxTerminalModeTracker {
       if (altKitty !== 0) output += `\x1b[=${altKitty};1u`;
     }
     if (this.#modifyOtherKeys > 0) output += `\x1b[>4;${this.#modifyOtherKeys}m`;
+    if (this.#cursorStyleCode !== 0) output += `\x1b[${this.#cursorStyleCode} q`;
     if (!this.#cursorVisible) output += "\x1b[?25l";
     return output;
   }
 
   inspect(): ExomuxTerminalModeInspection {
-    return { modes: [...this.#modes].sort((left, right) => left - right), cursorVisible: this.#cursorVisible };
+    return {
+      modes: [...this.#modes].sort((left, right) => left - right),
+      cursorVisible: this.#cursorVisible,
+      cursorStyleCode: this.#cursorStyleCode,
+    };
   }
 }

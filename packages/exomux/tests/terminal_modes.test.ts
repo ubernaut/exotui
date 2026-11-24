@@ -119,3 +119,21 @@ Deno.test("mode tracker preserves kitty keyboard protocol, modifyOtherKeys, and 
   assertEquals(mainScreen.inspect().alternate, false);
   assertEquals(mainScreen.keyboardProtocol, { kittyFlags: 5, modifyOtherKeys: 2 });
 });
+
+Deno.test("mode tracker preserves DECSCUSR cursor shape across rotated replays and resets on RIS", () => {
+  const tracker = new ExomuxTerminalModeTracker();
+  tracker.write("\x1b[6 q");
+  assertEquals(tracker.inspect().cursorStyleCode, 6);
+  const screen = new TerminalScreenController({ columns: 80, rows: 24 });
+  screen.write(tracker.preamble());
+  assertEquals(screen.inspect().cursorStyle, { shape: "bar", blinking: false });
+
+  tracker.write("\x1b[4 q");
+  const underlineScreen = new TerminalScreenController({ columns: 80, rows: 24 });
+  underlineScreen.write(tracker.preamble());
+  assertEquals(underlineScreen.inspect().cursorStyle, { shape: "underline", blinking: false });
+
+  tracker.write("\x1bc");
+  assertEquals(tracker.inspect().cursorStyleCode, 0);
+  assertEquals(tracker.preamble(), "");
+});

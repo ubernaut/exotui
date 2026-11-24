@@ -55,3 +55,17 @@ with `exomux` standing thinly on top:
 - `src/runtime/terminal_shell.ts`: forwarded optional `onClipboardWrite` to `TerminalScreenController`.
 - `packages/exomux/controller.ts` & `packages/exomux/app.ts`: wired live attached child OSC 52 writes into
   `clipboardCopy` (preserving selection target and suppressing historical replay writes on attach).
+
+## 2026-11-23 — Commit 4: Child cursor shape rendering (`DECSCUSR`: block / bar / underline + blinking)
+
+### Changes
+
+- `src/runtime/terminal_palette.ts`: added `cursorShape` (`"block"` / `"underline"` / `"bar"`) and `cursorHidden` (for
+  blink off-phase) to `TerminalCellStyleOptions` and implemented distinct rendering in `resolveTerminalCellStyle()`
+  (inverted block, solid accent underline preserving text/ground, thin `▏` bar on empty cells or contrast-safe accent
+  tint over text).
+- `src/components/terminal_screen.ts`: wired `cursorShape: inspection.cursorStyle.shape` and optional `cursorBlinkOn`
+  signal into core `TerminalScreen` (shared by `exotui` and `exowebtui`).
+- `packages/exomux/app.ts`: passed `cursorShape: inspection.cursorStyle.shape` into `paintTerminal()`.
+- `packages/exomux/terminal_modes.ts`: tracked `DECSCUSR` (`CSI n SP q`) in `ExomuxTerminalModeTracker` so rotated
+  replays preserve child cursor shapes.

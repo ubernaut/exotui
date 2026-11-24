@@ -5996,6 +5996,7 @@ function paintTerminal(
     opacity,
     cursorForeground: theme.background,
     cursorBackground: theme.accent,
+    cursorShape: inspection.cursorStyle.shape,
   };
   for (let row = 0; row < rect.height; row += 1) {
     const cells = rows[row] ?? [];

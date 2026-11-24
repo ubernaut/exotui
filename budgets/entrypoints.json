@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 494,
-    "bytes": 5882459,
+    "bytes": 5884011,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -214,7 +214,7 @@
       "src/components/table.ts": 19532,
       "src/components/tabs.ts": 4105,
       "src/components/terminal_output.ts": 3236,
-      "src/components/terminal_screen.ts": 12866,
+      "src/components/terminal_screen.ts": 13297,
       "src/components/text.ts": 2717,
       "src/components/text_area.ts": 9326,
       "src/components/text_children.ts": 3856,
@@ -376,7 +376,7 @@
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_margins.ts": 6624,
       "src/runtime/terminal_operations.ts": 7445,
-      "src/runtime/terminal_palette.ts": 11246,
+      "src/runtime/terminal_palette.ts": 12367,
       "src/runtime/terminal_parser.ts": 11207,
       "src/runtime/terminal_passthrough.ts": 5374,
       "src/runtime/terminal_queries.ts": 4912,
@@ -1167,7 +1167,7 @@
   },
   "mod.terminal.ts": {
     "modules": 61,
-    "bytes": 703069,
+    "bytes": 704190,
     "paths": {
       "mod.terminal.ts": 1052,
       "src/components/bounded_follow_lines.ts": 3469,
@@ -1191,7 +1191,7 @@
       "src/runtime/terminal_capabilities.ts": 22693,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
-      "src/runtime/terminal_palette.ts": 11246,
+      "src/runtime/terminal_palette.ts": 12367,
       "src/runtime/terminal_screen.ts": 88632,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,
@@ -1318,7 +1318,7 @@
   },
   "mod.web.ts": {
     "modules": 439,
-    "bytes": 5630608,
+    "bytes": 5632160,
     "paths": {
       "mod.web.ts": 4344,
       "src/api_stability.ts": 21096,
@@ -1532,7 +1532,7 @@
       "src/components/table.ts": 19532,
       "src/components/tabs.ts": 4105,
       "src/components/terminal_output.ts": 3236,
-      "src/components/terminal_screen.ts": 12866,
+      "src/components/terminal_screen.ts": 13297,
       "src/components/text.ts": 2717,
       "src/components/text_area.ts": 9326,
       "src/components/text_children.ts": 3856,
@@ -1654,7 +1654,7 @@
       "src/runtime/terminal_capabilities.ts": 22693,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
-      "src/runtime/terminal_palette.ts": 11246,
+      "src/runtime/terminal_palette.ts": 12367,
       "src/runtime/terminal_screen.ts": 88632,
       "src/runtime/terminal_scrollback.ts": 11772,
       "src/runtime/terminal_selection.ts": 5393,

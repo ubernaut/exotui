@@ -54,6 +54,8 @@ export interface TerminalScreenComponentOptions extends Omit<ComponentOptions, "
   dimToward?: Signal<TerminalRgb | undefined>;
   /** Gates the cursor block (focus/attachment); the model's visibility still applies. */
   showCursor?: boolean | Signal<boolean>;
+  /** Blink phase for blinking DECSCUSR cursors (`true` = visible, `false` = off phase). Defaults to `true`. */
+  cursorBlinkOn?: boolean | Signal<boolean>;
   /** One-line warning rendered over the bottom row while set. */
   warning?: Signal<string | undefined>;
   /**
@@ -80,6 +82,7 @@ export class TerminalScreen extends Component {
   readonly #contrastLift: Signal<boolean>;
   readonly #dimToward?: Signal<TerminalRgb | undefined>;
   readonly #showCursor: Signal<boolean>;
+  readonly #cursorBlinkOn: Signal<boolean>;
   readonly #warning?: Signal<string | undefined>;
   readonly #ground?: (column: number, row: number) => TerminalRgb;
   readonly #opacity: Signal<number>;
@@ -94,6 +97,7 @@ export class TerminalScreen extends Component {
     this.#contrastLift = signalify(options.contrastLift ?? true);
     this.#dimToward = options.dimToward;
     this.#showCursor = signalify(options.showCursor ?? true);
+    this.#cursorBlinkOn = signalify(options.cursorBlinkOn ?? true);
     this.#warning = options.warning;
     this.#ground = options.ground;
     this.#opacity = signalify(options.opacity ?? 1);
@@ -112,6 +116,7 @@ export class TerminalScreen extends Component {
         this.#colors,
         this.#contrastLift,
         this.#showCursor,
+        this.#cursorBlinkOn,
         this.#opacity,
         ...(this.#dimToward ? [this.#dimToward] : []),
         ...(this.#warning ? [this.#warning] : []),
@@ -182,6 +187,8 @@ export class TerminalScreen extends Component {
       defaultForeground: colors.defaultForeground,
       cursorForeground: colors.cursorForeground,
       cursorBackground: colors.cursorBackground,
+      cursorShape: inspection.cursorStyle.shape,
+      cursorHidden: inspection.cursorStyle.blinking && !this.#cursorBlinkOn.peek(),
       contrastLift: this.#contrastLift.peek(),
       dimToward: this.#dimToward?.peek(),
       ground: this.#ground,

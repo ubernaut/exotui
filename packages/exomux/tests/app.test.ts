@@ -6517,3 +6517,49 @@ Deno.test("Exomux forwards DECSET 1004 focus reports across window switches and 
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux renders child DECSCUSR bar, underline, and block cursor shapes", async () => {
+  const initial = session("cursor-shape", "nvim", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 24 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(initial.id) }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+
+    const terminal = mounted.windowProjection.peek().windows.find(
+      (window) => window.id === exomuxWindowId(initial.id),
+    )!;
+    const rawCursorCell = (): string => {
+      const value = harness.canvas.frameBuffer[terminal.clientRect.row]?.[terminal.clientRect.column];
+      return typeof value === "string" ? value : value ? new TextDecoder().decode(value) : "";
+    };
+
+    // Steady bar cursor on blank cell renders the thin vertical bar glyph.
+    client.emitOutput({ sessionId: initial.id, sequence: 1, data: "\x1b[6 q" });
+    await harness.pilot.settle();
+    assertEquals(stripAnsi(rawCursorCell()), "▏");
+
+    // Steady underline cursor preserves the character and applies accent underline color.
+    const accent = controller.theme.peek().accent;
+    client.emitOutput({ sessionId: initial.id, sequence: 2, data: "\x1b[4 qX\x1b[D" });
+    await harness.pilot.settle();
+    assertEquals(stripAnsi(rawCursorCell()), "X");
+    assert(rawCursorCell().includes(`58;2;${accent[0]};${accent[1]};${accent[2]}`));
+
+    // Steady block cursor fills the cell background with accent.
+    client.emitOutput({ sessionId: initial.id, sequence: 3, data: "\x1b[2 q" });
+    await harness.pilot.settle();
+    assertEquals(stripAnsi(rawCursorCell()), "X");
+    assert(rawCursorCell().includes(`48;2;${accent[0]};${accent[1]};${accent[2]}`));
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
