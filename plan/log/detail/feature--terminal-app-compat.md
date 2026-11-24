@@ -143,3 +143,12 @@ with `exomux` standing thinly on top:
   terminal color/cursor-shape rendering and replay mode tracking.
 - `tests/terminal_host_primitives.test.ts`: added core unit tests covering all promoted primitives and `mod.web.ts`
   re-exports.
+
+## 2026-11-23 — Full health gate stabilization
+
+### Changes
+
+- `packages/exomux/tests/app.test.ts`: sized `stack-under`'s opaque red fixture row to its 28-column client width so
+  narrowing from 80 columns does not reflow a 60-cell styled line into 4-column tail rows.
+- `scripts/e2e.ts` & `docs/assets/*`: rebuilt GitHub Pages web bundles and ratcheted `web-workbench-bundle` `maxBytes`
+  from `600_000` to `615_000` (`586,664 -> 606,701` bytes from the new `TerminalScreenController` VT features).

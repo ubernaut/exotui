@@ -5390,9 +5390,11 @@ Deno.test("Exomux transparent windows show the windows beneath them, stacking pe
   const under = session("stack-under", "under", 0);
   const over = session("stack-over", "over", 1);
   const top = session("stack-top", "top", 2);
-  // The lower terminal paints an explicit red block; explicit backgrounds stay
-  // opaque and deposit their exact colour into the scene ground.
-  const redRow = "\x1b[48;2;200;30;40m" + " ".repeat(60);
+  // The lower terminal paints an explicit red block sized to its 28-column
+  // client width so narrowing from 80 columns does not reflow a 60-cell line
+  // into short tail rows; explicit backgrounds stay opaque and deposit their
+  // exact colour into the scene ground.
+  const redRow = "\x1b[48;2;200;30;40m" + " ".repeat(28);
   const client = new FakeExomuxClient([under, over, top], {
     "stack-under": [{ sessionId: "stack-under", sequence: 1, data: Array(10).fill(redRow).join("\r\n") }],
   });
