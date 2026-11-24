@@ -68,6 +68,8 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
   updateObjects: DrawObject[];
   resizeNeeded: boolean;
   lastRenderStats: CanvasRenderStats;
+  /** True when the most recent render pass saw a degraded/truncated sink flush. */
+  lastFlushDegraded = false;
   drawnOrderVersion: number;
   cellUpdatesBuffer: CanvasCellUpdate[];
   rowRangesBuffer: ReturnType<typeof coalesceCanvasRowRanges>;
@@ -448,6 +450,7 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
       flushedCells,
     };
 
+    this.lastFlushDegraded = false;
     if (cellUpdates.length > 0 || (this.sink.flushRanges && rowRanges.length > 0)) {
       if (this.sink.flushRanges) {
         this.sink.flushRanges(rowRanges, this.lastRenderStats, cellUpdates);
@@ -457,7 +460,10 @@ export class Canvas extends EventEmitter<CanvasEventMap> {
       // A saturated terminal may have swallowed part of this frame; the diff
       // would then never repaint those cells. Force a clean full repaint so a
       // truncated frame heals on the next render instead of ghosting forever.
-      if (this.sink.takeFlushDegraded?.()) this.rerenderAll();
+      if (this.sink.takeFlushDegraded?.()) {
+        this.lastFlushDegraded = true;
+        this.rerenderAll();
+      }
     }
 
     this.emit("render");

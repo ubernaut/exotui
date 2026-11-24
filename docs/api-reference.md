@@ -6,14 +6,14 @@ separate while shared module declarations are listed once with explicit entrypoi
 ## Summary
 
 - Entrypoints: 19
-- Unique modules: 581
-- Module visits: 1146
-- Unique re-export declarations: 753
-- Re-export declaration visits: 1143
-- Unique symbol declarations: 5209
-- Symbol declaration visits: 10591
-- Documented symbol declarations: 5178
-- Documentation coverage: 99.40%
+- Unique modules: 582
+- Module visits: 1149
+- Unique re-export declarations: 756
+- Re-export declaration visits: 1146
+- Unique symbol declarations: 5221
+- Symbol declaration visits: 10624
+- Documented symbol declarations: 5190
+- Documentation coverage: 99.41%
 - Duplicate symbol groups: 0
 - Missing targets: 0
 
@@ -21,12 +21,12 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     463 |    4421 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     464 |    4433 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
 | `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     368 |    3725 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     369 |    3737 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     137 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
@@ -35,7 +35,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
 | `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      93 |     933 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      26 |     234 |  99.57% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      27 |     243 |  99.59% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -48,10 +48,10 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Path: `./mod.ts`
 - Runtime: terminal
 - Stability: stable
-- Modules: 463
-- Re-export declarations: 464
-- Exported symbols: 4421
-- Documented symbols: 4421
+- Modules: 464
+- Re-export declarations: 465
+- Exported symbols: 4433
+- Documented symbols: 4433
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -123,10 +123,10 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Path: `./mod.web.ts`
 - Runtime: browser
 - Stability: beta
-- Modules: 368
-- Re-export declarations: 370
-- Exported symbols: 3725
-- Documented symbols: 3725
+- Modules: 369
+- Re-export declarations: 371
+- Exported symbols: 3737
+- Documented symbols: 3737
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -258,11 +258,11 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Path: `./mod.terminal.ts`
 - Runtime: terminal
 - Stability: beta
-- Modules: 26
-- Re-export declarations: 25
-- Exported symbols: 234
-- Documented symbols: 233
-- Documentation coverage: 99.57%
+- Modules: 27
+- Re-export declarations: 26
+- Exported symbols: 243
+- Documented symbols: 242
+- Documentation coverage: 99.59%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -337,12 +337,12 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`mod.remote.ts`](#mod-remote-ts)                                                                     | `./remote`                               |         13 |       0 |          0 |
 | [`mod.runtime.ts`](#mod-runtime-ts)                                                                   | `./runtime`                              |          1 |       0 |          0 |
 | [`mod.shell.ts`](#mod-shell-ts)                                                                       | `./shell`                                |         10 |       0 |          0 |
-| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         24 |       0 |          0 |
+| [`mod.terminal.ts`](#mod-terminal-ts)                                                                 | `./terminal`                             |         25 |       0 |          0 |
 | [`mod.testing.ts`](#mod-testing-ts)                                                                   | `./testing`                              |         15 |       0 |          0 |
 | [`mod.theme.ts`](#mod-theme-ts)                                                                       | `./theme`                                |         15 |       0 |          0 |
 | [`mod.three_ascii.ts`](#mod-three-ascii-ts)                                                           | `./three-ascii`                          |          3 |       0 |          0 |
-| [`mod.ts`](#mod-ts)                                                                                   | `.`                                      |         66 |       0 |          0 |
-| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         87 |       0 |          0 |
+| [`mod.ts`](#mod-ts)                                                                                   | `.`                                      |         67 |       0 |          0 |
+| [`mod.web.ts`](#mod-web-ts)                                                                           | `./web`                                  |         88 |       0 |          0 |
 | [`src/api_stability.ts`](#src-api-stability-ts)                                                       | `.`, `./web`                             |          0 |      14 |         14 |
 | [`src/app/accessibility_tree.ts`](#src-app-accessibility-tree-ts)                                     | `.`, `./web`                             |          0 |       8 |          8 |
 | [`src/app/action_journal_checkpoints.ts`](#src-app-action-journal-checkpoints-ts)                     | `.`, `./web`                             |          0 |      24 |         24 |
@@ -509,7 +509,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/canvas/draw_object.ts`](#src-canvas-draw-object-ts)                                             | `.`, `./web`                             |          0 |       2 |          2 |
 | [`src/canvas/mod.ts`](#src-canvas-mod-ts)                                                             | `.`, `./web`                             |          8 |       0 |          0 |
 | [`src/canvas/pixel_samplers.ts`](#src-canvas-pixel-samplers-ts)                                       | `.`, `./web`                             |          0 |      19 |         19 |
-| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                           | `.`, `./web`                             |          0 |      10 |         10 |
+| [`src/canvas/sink.ts`](#src-canvas-sink-ts)                                                           | `.`, `./web`                             |          0 |      13 |         13 |
 | [`src/canvas/spatial_index.ts`](#src-canvas-spatial-index-ts)                                         | `.`, `./web`                             |          0 |       2 |          2 |
 | [`src/canvas/text.ts`](#src-canvas-text-ts)                                                           | `.`, `./web`                             |          0 |       3 |          3 |
 | [`src/canvas/three_ascii.ts`](#src-canvas-three-ascii-ts)                                             | `./web`, `./three-ascii`                 |          0 |       6 |          6 |
@@ -658,6 +658,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/perf/frame_packets.ts`](#src-perf-frame-packets-ts)                                             | `.`, `./web`                             |          0 |       5 |          5 |
 | [`src/perf/incremental_serialization.ts`](#src-perf-incremental-serialization-ts)                     | `.`, `./web`                             |          0 |       6 |          6 |
 | [`src/perf/layout_benchmarks.ts`](#src-perf-layout-benchmarks-ts)                                     | `.`, `./web`                             |          0 |       5 |          5 |
+| [`src/perf/low_bandwidth.ts`](#src-perf-low-bandwidth-ts)                                             | `.`, `./web`, `./terminal`               |          0 |       9 |          9 |
 | [`src/perf/pools.ts`](#src-perf-pools-ts)                                                             | `.`, `./web`                             |          0 |       5 |          5 |
 | [`src/perf/profile_tuner.ts`](#src-perf-profile-tuner-ts)                                             | `.`, `./web`                             |          0 |       5 |          5 |
 | [`src/perf/versioned_cache.ts`](#src-perf-versioned-cache-ts)                                         | `.`, `./web`                             |          0 |       4 |          4 |
@@ -1091,6 +1092,7 @@ _Entrypoints: `./terminal`_
 | `src/runtime/terminal_modes.ts`            | star | -     |
 | `src/runtime/terminal_env.ts`              | star | -     |
 | `src/runtime/host_terminal_probe.ts`       | star | -     |
+| `src/perf/low_bandwidth.ts`                | star | -     |
 | `src/runtime/host_desktop.ts`              | star | -     |
 | `src/runtime/terminal_screen.ts`           | star | -     |
 | `src/runtime/terminal_scrollback.ts`       | star | -     |
@@ -1234,6 +1236,7 @@ _Entrypoints: `.`_
 | `src/perf/cache_budget.ts`              | star | -     |
 | `src/perf/diff_planner.ts`              | star | -     |
 | `src/perf/frame_cadence.ts`             | star | -     |
+| `src/perf/low_bandwidth.ts`             | star | -     |
 | `src/perf/frame_packets.ts`             | star | -     |
 | `src/perf/incremental_serialization.ts` | star | -     |
 | `src/perf/write_coalescer.ts`           | star | -     |
@@ -1292,6 +1295,7 @@ _Entrypoints: `./web`_
 | `src/perf/diff_planner.ts`              | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/entrypoint_budget.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/frame_cadence.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `src/perf/low_bandwidth.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/frame_packets.ts`             | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/incremental_serialization.ts` | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `src/perf/layout_benchmarks.ts`         | star  | -                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -4376,7 +4380,9 @@ _Entrypoints: `.`, `./web`_
 | -------------------------- | --------- | --------- | ----- |
 | `AnsiCanvasSink`           | class     | no        | yes   |
 | `AnsiCanvasSinkOptions`    | interface | yes       | yes   |
+| `AnsiColorDepth`           | type      | yes       | yes   |
 | `AnsiFlushTelemetry`       | interface | yes       | yes   |
+| `AnsiWireEncodingOptions`  | interface | yes       | yes   |
 | `CanvasCellSink`           | interface | yes       | yes   |
 | `CanvasCellUpdate`         | interface | yes       | yes   |
 | `CanvasRowRangeUpdate`     | interface | yes       | yes   |
@@ -4384,6 +4390,7 @@ _Entrypoints: `.`, `./web`_
 | `coalesceCanvasRowRanges`  | function  | no        | yes   |
 | `formatAnsiFlushTelemetry` | function  | no        | yes   |
 | `MemoryCanvasSink`         | class     | no        | yes   |
+| `rgbToXterm256`            | function  | no        | yes   |
 
 ### src/canvas/spatial_index.ts
 
@@ -6757,6 +6764,22 @@ _Entrypoints: `.`, `./web`_
 | `LayoutBenchmarkResult`  | interface | yes       | yes   |
 | `LayoutBenchmarkSpec`    | interface | yes       | yes   |
 | `runLayoutBenchmark`     | function  | no        | yes   |
+
+### src/perf/low_bandwidth.ts
+
+_Entrypoints: `.`, `./web`, `./terminal`_
+
+| Symbol                             | Kind      | Type Only | JSDoc |
+| ---------------------------------- | --------- | --------- | ----- |
+| `createLowBandwidthController`     | function  | no        | yes   |
+| `detectRemoteTerminalEnvironment`  | function  | no        | yes   |
+| `LOW_BANDWIDTH_MODES`              | const     | no        | yes   |
+| `LowBandwidthController`           | class     | no        | yes   |
+| `LowBandwidthControllerOptions`    | interface | yes       | yes   |
+| `LowBandwidthMode`                 | type      | yes       | yes   |
+| `LowBandwidthProfile`              | interface | yes       | yes   |
+| `LowBandwidthReason`               | type      | yes       | yes   |
+| `RemoteTerminalEnvironmentSignals` | interface | yes       | yes   |
 
 ### src/perf/pools.ts
 

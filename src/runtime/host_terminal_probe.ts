@@ -17,6 +17,8 @@ export interface HostTerminalProbe {
    * never turning off a host that defaults grapheme clustering `"set"`.
    */
   readonly graphemeClustering?: "set" | "reset" | "unsupported";
+  /** Measured round-trip latency in milliseconds for the pre-launch DA1 probe batch. */
+  readonly rttMs?: number;
 }
 
 /** Image id reserved for the single-pixel kitty graphics support probe. */
@@ -83,10 +85,12 @@ export async function probeHostTerminal(deadlineMs = 300): Promise<HostTerminalP
     return {};
   }
   try {
+    const startedAt = performance.now();
     await runtimeHost.stdout.write(new TextEncoder().encode(HOST_TERMINAL_PROBE_SEQUENCE));
     const decoder = new TextDecoder();
     const buffer = new Uint8Array(256);
     let seen = "";
+    let rttMs: number | undefined;
     const deadline = Date.now() + deadlineMs;
     while (Date.now() < deadline) {
       const read = await Promise.race([
@@ -95,9 +99,14 @@ export async function probeHostTerminal(deadlineMs = 300): Promise<HostTerminalP
       ]);
       if (read === null || read === 0) break;
       seen += decoder.decode(buffer.subarray(0, read));
-      if (hostTerminalProbeComplete(seen) || seen.length > 1024) break;
+      if (hostTerminalProbeComplete(seen)) {
+        rttMs = Math.max(0, Math.round(performance.now() - startedAt));
+        break;
+      }
+      if (seen.length > 1024) break;
     }
-    return parseHostTerminalProbeReplies(seen);
+    const parsed = parseHostTerminalProbeReplies(seen);
+    return rttMs !== undefined ? { ...parsed, rttMs } : parsed;
   } catch {
     return {};
   } finally {

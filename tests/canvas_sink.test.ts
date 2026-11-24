@@ -8,6 +8,7 @@ import {
   type CanvasRenderStats,
   coalesceCanvasRowRanges,
   MemoryCanvasSink,
+  rgbToXterm256,
 } from "../src/canvas/mod.ts";
 import { Signal } from "../src/signals/mod.ts";
 
@@ -707,4 +708,91 @@ Deno.test("ansi canvas sink coalesces OSC 8 hyperlinks across cells and closes t
   assertStringIncludes(emitted, `\x1b]8;;${link}\x1b\\\x1b[34mhi`);
   assertStringIncludes(emitted, "\x1b[1;5H!\x1b]8;;\x1b\\");
   assert(emitted.includes("\x1b]8;;\x1b\\") && emitted.indexOf("\x1b]8;;\x1b\\") < emitted.lastIndexOf("X"));
+});
+
+Deno.test("ansi canvas sink persists color state across ranges and emits partial fg/bg deltas", () => {
+  const chunks: Uint8Array[] = [];
+  const sink = new AnsiCanvasSink({
+    stdout: {
+      writeSync(data) {
+        chunks.push(data.slice());
+        return data.length;
+      },
+    },
+  });
+
+  // Row 0 sets fg+bg, then changes ONLY fg (bg stays identical); Row 1 starts with Row 0's ending style.
+  sink.flushRanges([
+    {
+      row: 0,
+      startColumn: 0,
+      values: [
+        "\x1b[38;2;200;210;220;48;2;10;20;30mA\x1b[0m",
+        "\x1b[38;2;255;100;50;48;2;10;20;30mB\x1b[0m",
+      ],
+    },
+    {
+      row: 1,
+      startColumn: 0,
+      values: [
+        "\x1b[38;2;255;100;50;48;2;10;20;30mC\x1b[0m",
+      ],
+    },
+  ], emptyCanvasRenderStats({ dirtyCells: 3, dirtyRowRanges: 2, dirtyRows: 2, flushedCells: 3 }));
+
+  const emitted = new TextDecoder().decode(Uint8Array.from(chunks.flatMap((chunk) => Array.from(chunk))));
+  // Background 48;2;10;20;30 is emitted only ONCE across both cells and both rows, and only one \x1b[0m at frame end.
+  assertEquals(emitted.split("48;2;10;20;30").length - 1, 1);
+  assertEquals(emitted.split("\x1b[0m").length - 1, 1);
+  assertStringIncludes(
+    emitted,
+    "\x1b[1;1H\x1b[38;2;200;210;220;48;2;10;20;30mA\x1b[38;2;255;100;50mB\x1b[2;1HC\x1b[0m",
+  );
+});
+
+Deno.test("ansi canvas sink 256-color quantization and REP compression drastically shrink wire bytes", () => {
+  assertEquals(rgbToXterm256(0, 0, 0), 16);
+  assertEquals(rgbToXterm256(255, 255, 255), 231);
+  assertEquals(rgbToXterm256(128, 128, 128), 244);
+
+  const capture = (options: { colorDepth?: "truecolor" | "256"; repeatCompression?: boolean }) => {
+    const chunks: Uint8Array[] = [];
+    const sink = new AnsiCanvasSink({
+      stdout: {
+        writeSync(data) {
+          chunks.push(data.slice());
+          return data.length;
+        },
+      },
+      ...options,
+    });
+    const ranges = Array.from({ length: 10 }, (_, row) => ({
+      row,
+      startColumn: 0,
+      values: [
+        // Subtle gradient shades that quantize to the same xterm-256 index plus 60 blank spaces.
+        ...Array.from({ length: 10 }, (_, col) => `\x1b[38;2;${220 + (col % 3)};230;240;48;2;12;16;22mX\x1b[0m`),
+        ...Array.from({ length: 60 }, () => "\x1b[38;2;220;230;240;48;2;12;16;22m \x1b[0m"),
+      ],
+    }));
+    sink.flushRanges(ranges, emptyCanvasRenderStats({ dirtyCells: 700, dirtyRowRanges: 10, dirtyRows: 10 }));
+    return { sink, output: new TextDecoder().decode(Uint8Array.from(chunks.flatMap((c) => Array.from(c)))) };
+  };
+
+  const full = capture({ colorDepth: "truecolor", repeatCompression: false });
+  const lowBw = capture({ colorDepth: "256", repeatCompression: true });
+
+  assert(!lowBw.output.includes("38;2;"), "256-color mode must not emit 24-bit fg sequences");
+  assert(!lowBw.output.includes("48;2;"), "256-color mode must not emit 24-bit bg sequences");
+  assertStringIncludes(lowBw.output, " \x1b[59b", "60 spaces compress via REP");
+  assert(
+    lowBw.output.length < full.output.length * 0.25,
+    `expected >75% reduction (full=${full.output.length}B, lowBw=${lowBw.output.length}B)`,
+  );
+
+  // Runtime reconfiguration toggles cleanly without replacing the sink.
+  full.sink.configure({ colorDepth: "256", repeatCompression: true });
+  assertEquals(full.sink.inspectEncoding(), { colorDepth: "256", repeatCompression: true });
+  full.sink.configure({ colorDepth: "truecolor", repeatCompression: false });
+  assertEquals(full.sink.inspectEncoding(), { colorDepth: "truecolor", repeatCompression: false });
 });

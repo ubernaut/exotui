@@ -44,6 +44,7 @@ export * from "./src/perf/cache_budget.ts";
 export * from "./src/perf/diff_planner.ts";
 export * from "./src/perf/entrypoint_budget.ts";
 export * from "./src/perf/frame_cadence.ts";
+export * from "./src/perf/low_bandwidth.ts";
 export * from "./src/perf/frame_packets.ts";
 export * from "./src/perf/incremental_serialization.ts";
 export * from "./src/perf/layout_benchmarks.ts";

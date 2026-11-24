@@ -231,6 +231,8 @@ export class RenderLoop {
   readonly #onError?: (error: unknown) => void;
   #intervalMs: number;
   #handle: unknown;
+  #scheduledForAt: number | undefined;
+  #pendingMinDelayMs = 0;
   #running = false;
   #frame = 0;
   #lastStartedAt: number | undefined;
@@ -279,7 +281,36 @@ export class RenderLoop {
       this.#timer.clearTimeout(this.#handle);
       this.#handle = undefined;
     }
+    this.#scheduledForAt = undefined;
+    this.#pendingMinDelayMs = 0;
     this.#running = false;
+  }
+
+  /**
+   * Pulls the next scheduled tick forward to fire within `maxDelayMs` (for
+   * example, keeping interactive input snappy when output cadence is lowered).
+   * Returns `true` when the pending timer was rescheduled earlier.
+   */
+  requestSoon(maxDelayMs = 16): boolean {
+    if (!this.#running || this.#handle === undefined || this.#scheduledForAt === undefined) return false;
+    const now = this.#timer.now();
+    const targetDelay = Math.max(0, maxDelayMs);
+    const targetAt = now + targetDelay;
+    if (this.#scheduledForAt <= targetAt) return false;
+    this.#timer.clearTimeout(this.#handle);
+    this.#handle = undefined;
+    this.#schedule(targetDelay);
+    return true;
+  }
+
+  /**
+   * Ensures the next scheduled frame waits at least `minDelayMs` (used to back
+   * off gently after a degraded or saturated flush instead of immediately
+   * retrying a full repaint).
+   */
+  deferNext(minDelayMs: number): void {
+    const delay = Math.max(0, minDelayMs);
+    if (delay > this.#pendingMinDelayMs) this.#pendingMinDelayMs = delay;
   }
 
   step(): void {
@@ -304,10 +335,14 @@ export class RenderLoop {
   #run(): void {
     if (!this.#running) return;
     this.#handle = undefined;
+    this.#scheduledForAt = undefined;
     try {
       this.#invokeTick();
       const frameStartedAt = this.#lastStartedAt ?? this.#timer.now();
-      this.#schedule(nextFrameDelay(this.#intervalMs, frameStartedAt, this.#timer.now()));
+      const baseDelay = nextFrameDelay(this.#intervalMs, frameStartedAt, this.#timer.now());
+      const delay = Math.max(baseDelay, this.#pendingMinDelayMs);
+      this.#pendingMinDelayMs = 0;
+      this.#schedule(delay);
     } catch (error) {
       this.#lastError = error;
       this.#onError?.(error);
@@ -330,7 +365,9 @@ export class RenderLoop {
 
   #schedule(delay = this.#intervalMs): void {
     if (!this.#running) return;
-    this.#handle = this.#timer.setTimeout(() => this.#run(), delay);
+    const clamped = Math.max(0, delay);
+    this.#scheduledForAt = this.#timer.now() + clamped;
+    this.#handle = this.#timer.setTimeout(() => this.#run(), clamped);
   }
 }
 

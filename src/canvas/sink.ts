@@ -11,6 +11,19 @@ const MAX_ANSI_PREFIX_STATE_CACHE_SIZE = 8192;
 const ansiCellPartsCache = new Map<string, AnsiCellParts>();
 const emptyAnsiPrefixState: AnsiPrefixState = { foreground: false, background: false, other: false };
 const ansiPrefixStateCache = new Map<string, AnsiPrefixState>();
+const ansi256PrefixCache = new Map<string, string>();
+const XTERM_CUBE_LEVELS = [0, 95, 135, 175, 215, 255] as const;
+
+/** Wire color depth emitted by {@linkcode AnsiCanvasSink}. */
+export type AnsiColorDepth = "truecolor" | "256";
+
+/** Runtime-adjustable wire encoding options for {@linkcode AnsiCanvasSink}. */
+export interface AnsiWireEncodingOptions {
+  /** Emit 24-bit RGB (`"truecolor"`) or quantize RGB SGR sequences to xterm-256 (`"256"`). */
+  readonly colorDepth?: AnsiColorDepth;
+  /** Compress long runs of identical ASCII glyphs with ECMA-48 `REP` (`CSI n b`). */
+  readonly repeatCompression?: boolean;
+}
 
 /** Public interface describing a canvas Stdout. */
 export interface CanvasStdout {
@@ -56,6 +69,8 @@ export interface CanvasCellSink {
    * as load on any CPU graph.
    */
   takeFlushTelemetry?(): AnsiFlushTelemetry;
+  /** Updates wire-encoding parameters (such as 256-color quantization or `REP` compression) at runtime. */
+  configure?(options: AnsiWireEncodingOptions): void;
 }
 
 /** Write-path telemetry accumulated between {@linkcode CanvasCellSink.takeFlushTelemetry} drains. */
@@ -107,7 +122,7 @@ export function formatAnsiFlushTelemetry(telemetry: AnsiFlushTelemetry): string 
 }
 
 /** Options for configuring ansi Canvas Sink. */
-export interface AnsiCanvasSinkOptions {
+export interface AnsiCanvasSinkOptions extends AnsiWireEncodingOptions {
   stdout: CanvasStdout;
   flushLimit?: number;
   /** Bracket each rendered frame in DEC synchronized output (mode 2026) to avoid mid-flush tearing. */
@@ -133,6 +148,8 @@ export class AnsiCanvasSink implements CanvasCellSink {
   readonly #stdout: CanvasStdout;
   readonly #flushLimit: number;
   readonly #synchronizedOutput: boolean;
+  #colorDepth: AnsiColorDepth;
+  #repeatCompression: boolean;
   #degraded = false;
   #telemetry = emptyFlushTelemetry();
 
@@ -140,6 +157,22 @@ export class AnsiCanvasSink implements CanvasCellSink {
     this.#stdout = options.stdout;
     this.#flushLimit = options.flushLimit ?? defaultAnsiFlushLimit();
     this.#synchronizedOutput = options.synchronizedOutput ?? false;
+    this.#colorDepth = options.colorDepth ?? "truecolor";
+    this.#repeatCompression = options.repeatCompression ?? false;
+  }
+
+  /** Updates wire-encoding mode (color quantization and repeat compression) without replacing the sink. */
+  configure(options: AnsiWireEncodingOptions): void {
+    if (options.colorDepth !== undefined) this.#colorDepth = options.colorDepth;
+    if (options.repeatCompression !== undefined) this.#repeatCompression = options.repeatCompression;
+  }
+
+  /** Returns the currently active wire-encoding parameters. */
+  inspectEncoding(): Required<AnsiWireEncodingOptions> {
+    return {
+      colorDepth: this.#colorDepth,
+      repeatCompression: this.#repeatCompression,
+    };
   }
 
   takeFlushDegraded(): boolean {
@@ -220,9 +253,13 @@ export class AnsiCanvasSink implements CanvasCellSink {
   flush(updates: readonly CanvasCellUpdate[], _stats?: CanvasRenderStats): void {
     this.#telemetry.frames += 1;
     if (updates.length === 0) return;
+    const encodeOptions: AnsiRangeEncodeOptions = {
+      quantize256: this.#colorDepth === "256",
+      repeatCompression: this.#repeatCompression,
+    };
     let drawSequence = this.#synchronizedOutput ? BEGIN_SYNCHRONIZED_OUTPUT : "";
     for (let index = 0; index < updates.length;) {
-      const span = compactAnsiUpdateSpan(updates, index);
+      const span = compactAnsiUpdateSpan(updates, index, encodeOptions);
       const cursor = moveCursor(span.row, span.column);
       if (drawSequence.length > 0 && drawSequence.length + cursor.length + span.text.length > this.#flushLimit) {
         this.#write(drawSequence);
@@ -239,10 +276,19 @@ export class AnsiCanvasSink implements CanvasCellSink {
   flushRanges(ranges: readonly CanvasRowRangeUpdate[], _stats: CanvasRenderStats): void {
     this.#telemetry.frames += 1;
     if (ranges.length === 0) return;
+    const encodeOptions: AnsiRangeEncodeOptions = {
+      quantize256: this.#colorDepth === "256",
+      repeatCompression: this.#repeatCompression,
+    };
+    const frameState: AnsiRangeFrameState = {
+      activePrefix: "",
+      activeState: emptyAnsiPrefixState,
+      needsReset: false,
+    };
     let drawSequence = this.#synchronizedOutput ? BEGIN_SYNCHRONIZED_OUTPUT : "";
     for (const range of ranges) {
       const cursor = moveCursor(range.row, range.startColumn);
-      const text = compactAnsiCellRange(range);
+      const text = compactAnsiCellRange(range, frameState, encodeOptions);
       if (drawSequence.length > 0 && drawSequence.length + cursor.length + text.length > this.#flushLimit) {
         this.#write(drawSequence);
         drawSequence = "";
@@ -250,9 +296,23 @@ export class AnsiCanvasSink implements CanvasCellSink {
       }
       drawSequence += cursor + text;
     }
-    if (this.#synchronizedOutput) drawSequence += END_SYNCHRONIZED_OUTPUT;
-    this.#write(drawSequence);
+    if (!this.#degraded) {
+      if (frameState.needsReset) drawSequence += "\x1b[0m";
+      if (this.#synchronizedOutput) drawSequence += END_SYNCHRONIZED_OUTPUT;
+      this.#write(drawSequence);
+    }
   }
+}
+
+interface AnsiRangeEncodeOptions {
+  readonly quantize256: boolean;
+  readonly repeatCompression: boolean;
+}
+
+interface AnsiRangeFrameState {
+  activePrefix: string;
+  activeState: AnsiPrefixState;
+  needsReset: boolean;
 }
 
 interface AnsiCellParts {
@@ -266,6 +326,7 @@ interface AnsiCellSpan {
   text: string;
   cells: number;
   first: AnsiCellParts;
+  prefix: string;
 }
 
 interface AnsiUpdateSpan {
@@ -275,9 +336,14 @@ interface AnsiUpdateSpan {
   column: number;
 }
 
-function compactAnsiUpdateSpan(updates: readonly CanvasCellUpdate[], start: number): AnsiUpdateSpan {
+function compactAnsiUpdateSpan(
+  updates: readonly CanvasCellUpdate[],
+  start: number,
+  options: AnsiRangeEncodeOptions,
+): AnsiUpdateSpan {
   const firstUpdate = updates[start]!;
   const first = splitAnsiCellValue(firstUpdate.value);
+  const firstPrefix = options.quantize256 ? quantizeAnsiPrefixTo256(first.prefix) : first.prefix;
   let text = first.text;
   let index = start + 1;
   let column = firstUpdate.column;
@@ -286,71 +352,83 @@ function compactAnsiUpdateSpan(updates: readonly CanvasCellUpdate[], start: numb
     if (update.row !== firstUpdate.row || update.column !== column + 1) break;
     const current = splitAnsiCellValue(update.value);
     if (!isCompactAsciiText(current.text)) break;
-    if (current.prefix !== first.prefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
+    const currentPrefix = options.quantize256 ? quantizeAnsiPrefixTo256(current.prefix) : current.prefix;
+    if (currentPrefix !== firstPrefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
       break;
     }
     text += current.text;
     column = update.column;
     index += 1;
   }
+  const encodedText = options.repeatCompression && isCompactAsciiText(text) ? compressAnsiRepeatedText(text) : text;
   const openLink = first.hyperlink ? `\x1b]8;;${first.hyperlink}\x1b\\` : "";
   const closeLink = first.hyperlink ? "\x1b]8;;\x1b\\" : "";
   return {
     row: firstUpdate.row,
     column: firstUpdate.column,
-    text: `${openLink}${first.prefix}${text}${first.suffix}${closeLink}`,
+    text: `${openLink}${firstPrefix}${encodedText}${first.suffix}${closeLink}`,
     cells: index - start,
   };
 }
 
-function compactAnsiCellSpan(values: readonly (string | Uint8Array)[], start: number): AnsiCellSpan {
+function compactAnsiCellSpan(
+  values: readonly (string | Uint8Array)[],
+  start: number,
+  options: AnsiRangeEncodeOptions,
+): AnsiCellSpan {
   const firstValue = values[start]!;
   const first = splitAnsiCellValue(firstValue);
+  const firstPrefix = options.quantize256 ? quantizeAnsiPrefixTo256(first.prefix) : first.prefix;
   // Separate authored cells are not one Unicode text run. Keep non-ASCII
   // cells (and empty wide followers) distinct so CUP can retain boundaries.
-  if (!isCompactAsciiText(first.text)) return { text: first.text, cells: 1, first };
+  if (!isCompactAsciiText(first.text)) return { text: first.text, cells: 1, first, prefix: firstPrefix };
   let repeatedCells = 1;
   while (start + repeatedCells < values.length && values[start + repeatedCells] === firstValue) {
     repeatedCells += 1;
   }
-  if (repeatedCells > 1) {
+  if (repeatedCells > 1 && !options.quantize256) {
+    const raw = first.text.repeat(repeatedCells);
     return {
-      text: first.text.repeat(repeatedCells),
+      text: options.repeatCompression ? compressAnsiRepeatedText(raw) : raw,
       cells: repeatedCells,
       first,
+      prefix: firstPrefix,
     };
   }
 
-  let text = first.text;
-  let index = start + 1;
+  let text = repeatedCells > 1 ? first.text.repeat(repeatedCells) : first.text;
+  let index = start + repeatedCells;
   while (index < values.length) {
     const current = splitAnsiCellValue(values[index]!);
     if (!isCompactAsciiText(current.text)) break;
-    if (current.prefix !== first.prefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
+    const currentPrefix = options.quantize256 ? quantizeAnsiPrefixTo256(current.prefix) : current.prefix;
+    if (currentPrefix !== firstPrefix || current.suffix !== first.suffix || current.hyperlink !== first.hyperlink) {
       break;
     }
     text += current.text;
     index += 1;
   }
   return {
-    text,
+    text: options.repeatCompression ? compressAnsiRepeatedText(text) : text,
     cells: index - start,
     first,
+    prefix: firstPrefix,
   };
 }
 
-function compactAnsiCellRange(range: CanvasRowRangeUpdate): string {
+function compactAnsiCellRange(
+  range: CanvasRowRangeUpdate,
+  frameState: AnsiRangeFrameState,
+  options: AnsiRangeEncodeOptions,
+): string {
   const { values } = range;
   let output = "";
-  let activePrefix = "";
-  let activeState = ansiPrefixState("");
   let activeHyperlink = "";
-  let needsReset = false;
   let isolateNext = false;
 
   for (let index = 0; index < values.length;) {
-    const span = compactAnsiCellSpan(values, index);
-    const { first } = span;
+    const span = compactAnsiCellSpan(values, index, options);
+    const { first, prefix } = span;
     if (!first.text) {
       // An empty wide-glyph follower emits no text and does not advance the
       // host cursor, so skip style/link changes and re-address the next cell.
@@ -365,23 +443,137 @@ function compactAnsiCellRange(range: CanvasRowRangeUpdate): string {
       output += `\x1b]8;;${first.hyperlink}\x1b\\`;
       activeHyperlink = first.hyperlink;
     }
-    if (first.prefix !== activePrefix) {
-      const nextState = ansiPrefixState(first.prefix);
-      if (needsReset && !ansiPrefixCanOverrideActive(activeState, nextState)) {
+    if (prefix !== frameState.activePrefix) {
+      const nextState = ansiPrefixState(prefix);
+      if (frameState.needsReset && !ansiPrefixCanOverrideActive(frameState.activeState, nextState)) {
         output += "\x1b[0m";
-        needsReset = false;
+        frameState.needsReset = false;
+        output += prefix;
+      } else {
+        output += emitAnsiPrefixDelta(frameState.activeState, nextState, prefix);
       }
-      output += first.prefix;
-      activePrefix = first.prefix;
-      activeState = nextState;
+      frameState.activePrefix = prefix;
+      frameState.activeState = nextState;
     }
     output += span.text;
-    if (first.prefix || first.suffix) needsReset = true;
+    if (first.text.includes("\x1b")) {
+      frameState.activePrefix = "";
+      frameState.activeState = emptyAnsiPrefixState;
+      frameState.needsReset = true;
+    } else if (prefix || first.suffix) {
+      frameState.needsReset = true;
+    }
     index += span.cells;
   }
 
   if (activeHyperlink) output += "\x1b]8;;\x1b\\";
-  if (needsReset) output += "\x1b[0m";
+  return output;
+}
+
+/** Emits only the changed SGR channel(s) when both active and next prefixes are simple color-only codes. */
+function emitAnsiPrefixDelta(active: AnsiPrefixState, next: AnsiPrefixState, rawNextPrefix: string): string {
+  if (active.other || next.other) return rawNextPrefix;
+  if (!next.foreground && !next.background) return rawNextPrefix;
+  const fgChanged = next.foreground && next.fgParam !== active.fgParam;
+  const bgChanged = next.background && next.bgParam !== active.bgParam;
+  if (!fgChanged && !bgChanged) return "";
+  if (fgChanged && bgChanged) return `\x1b[${next.fgParam};${next.bgParam}m`;
+  return fgChanged ? `\x1b[${next.fgParam}m` : `\x1b[${next.bgParam}m`;
+}
+
+/** Compresses runs of 7+ identical printable ASCII characters with ECMA-48 `REP` (`CSI n b`). */
+function compressAnsiRepeatedText(text: string): string {
+  if (text.length < 7) return text;
+  let output = "";
+  let index = 0;
+  while (index < text.length) {
+    const char = text[index]!;
+    let end = index + 1;
+    while (end < text.length && text[end] === char) end += 1;
+    const count = end - index;
+    if (count >= 7) {
+      output += `${char}\x1b[${count - 1}b`;
+    } else {
+      output += text.slice(index, end);
+    }
+    index = end;
+  }
+  return output;
+}
+
+/**
+ * Quantizes an 8-bit RGB triple to the closest xterm-256 palette index
+ * (`16..255`: 6x6x6 color cube and 24-level grayscale ramp).
+ */
+export function rgbToXterm256(red: number, green: number, blue: number): number {
+  const r = Math.max(0, Math.min(255, Math.round(red)));
+  const g = Math.max(0, Math.min(255, Math.round(green)));
+  const b = Math.max(0, Math.min(255, Math.round(blue)));
+  const ri = nearestXtermCubeIndex(r);
+  const gi = nearestXtermCubeIndex(g);
+  const bi = nearestXtermCubeIndex(b);
+  const cubeR = XTERM_CUBE_LEVELS[ri]!;
+  const cubeG = XTERM_CUBE_LEVELS[gi]!;
+  const cubeB = XTERM_CUBE_LEVELS[bi]!;
+  const cubeDist = (r - cubeR) ** 2 + (g - cubeG) ** 2 + (b - cubeB) ** 2;
+  const cubeIndex = 16 + 36 * ri + 6 * gi + bi;
+
+  const avg = (r + g + b) / 3;
+  const grayStep = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
+  const grayLevel = 8 + grayStep * 10;
+  const grayDist = (r - grayLevel) ** 2 + (g - grayLevel) ** 2 + (b - grayLevel) ** 2;
+  return grayDist < cubeDist ? 232 + grayStep : cubeIndex;
+}
+
+function nearestXtermCubeIndex(value: number): number {
+  if (value < 48) return 0;
+  if (value < 115) return 1;
+  return Math.min(5, Math.floor((value - 35) / 40));
+}
+
+function quantizeAnsiPrefixTo256(prefix: string): string {
+  if (!prefix || !prefix.includes(";2;") && !prefix.includes(":2:")) return prefix;
+  const cached = ansi256PrefixCache.get(prefix);
+  if (cached !== undefined) return cached;
+  let output = "";
+  for (let offset = 0; offset < prefix.length;) {
+    const sequence = readCsiSequenceAt(prefix, offset);
+    if (!sequence) {
+      output += prefix[offset]!;
+      offset += 1;
+      continue;
+    }
+    if (!sequence.endsWith("m") || !/^[\d;:]*$/.test(sequence.slice(2, -1))) {
+      output += sequence;
+      offset += sequence.length;
+      continue;
+    }
+    const parameters = sgrParameters(sequence.slice(2, -1));
+    const nextParams: string[] = [];
+    for (let index = 0; index < parameters.length;) {
+      const command = Number(parameters[index]!.split(":")[0]);
+      if (command === 38 || command === 48 || command === 58) {
+        const color = sgrColor(parameters, index);
+        if (color.rgb) {
+          const [r, g, b] = color.rgb;
+          nextParams.push(`${command};5;${rgbToXterm256(r, g, b)}`);
+          index += color.consumed;
+          continue;
+        }
+        for (let consumed = 0; consumed < color.consumed; consumed += 1) {
+          nextParams.push(parameters[index + consumed]!);
+        }
+        index += color.consumed;
+      } else {
+        nextParams.push(parameters[index]!);
+        index += 1;
+      }
+    }
+    output += `\x1b[${nextParams.join(";")}m`;
+    offset += sequence.length;
+  }
+  if (ansi256PrefixCache.size > MAX_ANSI_PREFIX_STATE_CACHE_SIZE) ansi256PrefixCache.clear();
+  ansi256PrefixCache.set(prefix, output);
   return output;
 }
 
@@ -398,13 +590,15 @@ interface AnsiPrefixState {
   foreground: boolean;
   background: boolean;
   other: boolean;
+  fgParam?: string;
+  bgParam?: string;
 }
 
 function ansiPrefixState(prefix: string): AnsiPrefixState {
   if (!prefix) return emptyAnsiPrefixState;
   const cached = ansiPrefixStateCache.get(prefix);
   if (cached) return cached;
-  const state = { foreground: false, background: false, other: false };
+  const state: AnsiPrefixState = { foreground: false, background: false, other: false };
   // Only complete color-only prefixes can safely replace a previous prefix
   // without resetting. Attributes may be combined with color parameters;
   // channel values and colon subparameters are not independent SGR commands.
@@ -420,8 +614,14 @@ function ansiPrefixState(prefix: string): AnsiPrefixState {
       if (command === 38 || command === 48) {
         const color = sgrColor(parameters, index);
         if (color.rgb || color.palette !== undefined) {
-          if (command === 38) state.foreground = true;
-          else state.background = true;
+          const token = parameters.slice(index, index + color.consumed).join(";");
+          if (command === 38) {
+            state.foreground = true;
+            state.fgParam = token;
+          } else {
+            state.background = true;
+            state.bgParam = token;
+          }
         } else state.other = true;
         index += color.consumed;
       } else {
