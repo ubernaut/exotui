@@ -1,7 +1,7 @@
 {
   "mod.ts": {
     "modules": 499,
-    "bytes": 5959345,
+    "bytes": 5959353,
     "paths": {
       "mod.ts": 2866,
       "src/api_stability.ts": 21096,
@@ -296,7 +296,7 @@
       "src/perf/frame_packets.ts": 3658,
       "src/perf/incremental_serialization.ts": 3416,
       "src/perf/layout_benchmarks.ts": 5089,
-      "src/perf/low_bandwidth.ts": 10395,
+      "src/perf/low_bandwidth.ts": 10403,
       "src/perf/pools.ts": 3968,
       "src/perf/profile_tuner.ts": 4938,
       "src/perf/versioned_cache.ts": 4296,
@@ -1172,7 +1172,7 @@
   },
   "mod.terminal.ts": {
     "modules": 76,
-    "bytes": 844263,
+    "bytes": 844271,
     "paths": {
       "mod.terminal.ts": 1294,
       "src/canvas/canvas.ts": 18707,
@@ -1187,7 +1187,7 @@
       "src/event_emitter.ts": 4163,
       "src/input_reader/mod.ts": 21013,
       "src/input_reader/types.ts": 3161,
-      "src/perf/low_bandwidth.ts": 10395,
+      "src/perf/low_bandwidth.ts": 10403,
       "src/permissions.ts": 27807,
       "src/runtime/bun_pty_backend.ts": 10917,
       "src/runtime/diagnostics.ts": 7123,
@@ -1338,7 +1338,7 @@
   },
   "mod.web.ts": {
     "modules": 441,
-    "bytes": 5695732,
+    "bytes": 5695740,
     "paths": {
       "mod.web.ts": 4489,
       "src/api_stability.ts": 21096,
@@ -1631,7 +1631,7 @@
       "src/perf/frame_packets.ts": 3658,
       "src/perf/incremental_serialization.ts": 3416,
       "src/perf/layout_benchmarks.ts": 5089,
-      "src/perf/low_bandwidth.ts": 10395,
+      "src/perf/low_bandwidth.ts": 10403,
       "src/perf/pools.ts": 3968,
       "src/perf/profile_tuner.ts": 4938,
       "src/perf/versioned_cache.ts": 4296,

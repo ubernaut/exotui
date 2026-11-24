@@ -177,7 +177,7 @@ export class LowBandwidthController {
    * Feeds one drained {@linkcode AnsiFlushTelemetry} sample into the adaptive
    * backpressure detector. Returns `true` when the effective active state flips.
    */
-  recordFlushTelemetry(telemetry: AnsiFlushTelemetry, nowMs = performance.now()): boolean {
+  recordFlushTelemetry(telemetry: AnsiFlushTelemetry, nowMs: number = performance.now()): boolean {
     const before = this.active;
     const degraded = telemetry.degradedFlushes > 0;
     const pressured = degraded ||
