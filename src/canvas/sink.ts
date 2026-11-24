@@ -94,6 +94,18 @@ function emptyFlushTelemetry(): AnsiFlushTelemetry {
   };
 }
 
+/**
+ * Formats one drained {@linkcode AnsiFlushTelemetry} window into a single
+ * greppable `key=value` line with fixed field order for terminal write-path
+ * diagnostics and stall profiling.
+ */
+export function formatAnsiFlushTelemetry(telemetry: AnsiFlushTelemetry): string {
+  return `frames=${telemetry.frames} bytes=${telemetry.bytes} writes=${telemetry.writes} ` +
+    `wouldblock=${telemetry.wouldBlocks} short=${telemetry.shortWrites} ` +
+    `stall_ms=${telemetry.stallMs.toFixed(1)} max_stall_ms=${telemetry.maxStallMs.toFixed(1)} ` +
+    `degraded=${telemetry.degradedFlushes} dropped_bytes=${telemetry.droppedBytes}`;
+}
+
 /** Options for configuring ansi Canvas Sink. */
 export interface AnsiCanvasSinkOptions {
   stdout: CanvasStdout;

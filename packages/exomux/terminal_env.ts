@@ -1,59 +1,10 @@
-// The environment a child of an exomux terminal should see.
-//
-// The daemon inherits its environment from whatever launched it — a Ghostty
-// window, usually — and PTY children inherit the daemon's. So a program inside
-// an exomux terminal saw GHOSTTY_RESOURCES_DIR and TERM=xterm-ghostty and
-// reasonably concluded it could use everything Ghostty speaks. tode did
-// exactly that and sent kitty graphics; exomux's emulator does not draw
-// images, and before it learned to consume APC strings it printed the
-// transmission as a wall of base64.
-//
-// The identity a child should see is exomux's own. Capability-by-environment
-// is a hint system, and the only honest hint is the terminal the child is
-// actually talking to.
+// Copyright 2023 Im-Beast. MIT license.
 
-/**
- * Environment variables that name a specific terminal emulator.
- *
- * Removed rather than blanked where possible; the spawn path materialises the
- * full environment, so removal genuinely removes. TERM and TERM_PROGRAM are
- * replaced instead, because a child with no TERM at all is worse off than one
- * with the right one.
- */
-const HOST_TERMINAL_IDENTITY = [
-  "GHOSTTY_RESOURCES_DIR",
-  "GHOSTTY_BIN_DIR",
-  "GHOSTTY_SHELL_FEATURES",
-  "GHOSTTY_SHELL_INTEGRATION_NO_SUDO",
-  "KITTY_WINDOW_ID",
-  "KITTY_PID",
-  "KITTY_PUBLIC_KEY",
-  "KITTY_LISTEN_ON",
-  "KITTY_INSTALLATION_DIR",
-  "KITTY_SHELL_INTEGRATION",
-  "WEZTERM_EXECUTABLE",
-  "WEZTERM_EXECUTABLE_DIR",
-  "WEZTERM_PANE",
-  "WEZTERM_UNIX_SOCKET",
-  "WEZTERM_CONFIG_FILE",
-  "WEZTERM_CONFIG_DIR",
-  "ITERM_SESSION_ID",
-  "ITERM_PROFILE",
-  "ITERM2_SQUELCH_MARK",
-  "ALACRITTY_SOCKET",
-  "ALACRITTY_LOG",
-  "ALACRITTY_WINDOW_ID",
-  "KONSOLE_VERSION",
-  "KONSOLE_DBUS_SERVICE",
-  "KONSOLE_DBUS_SESSION",
-  "KONSOLE_DBUS_WINDOW",
-  "VTE_VERSION",
-  "TERM_PROGRAM_VERSION",
-  // A terminal identity of its own kind: children of an exomux terminal are
-  // not in the tmux the daemon may have been started under.
-  "TMUX",
-  "TMUX_PANE",
-] as const;
+// Child PTY environment sanitization is now a core exotui runtime module
+// (`terminal_env.ts`). Exomux supplies its own `TERM_PROGRAM` identity while
+// delegating host-identity stripping and capability defaults to core.
+
+import { terminalChildEnvironment } from "@ubernaut/exotui/terminal";
 
 export interface ExomuxChildEnvironmentOptions {
   /** The environment the daemon itself runs in. */
@@ -65,30 +16,14 @@ export interface ExomuxChildEnvironmentOptions {
 }
 
 /**
- * Builds the full environment for a PTY child.
- *
- * Full rather than a patch: the PTY backend passes an env object through to
- * the child as its entire environment only when one is provided, so removal
- * has to happen by materialising everything and leaving the offenders out.
+ * Builds the full sanitized environment for an exomux PTY child, stripping
+ * outer-host terminal identity variables and advertising `TERM_PROGRAM=exomux`.
  */
 export function exomuxChildEnvironment(options: ExomuxChildEnvironmentOptions): Record<string, string> {
-  const env: Record<string, string> = { ...options.inherited };
-  for (const name of HOST_TERMINAL_IDENTITY) delete env[name];
-  // What exomux's emulator honestly is: an xterm-family screen with 256-colour
-  // and truecolor SGR, no images. `xterm-ghostty` inherited from the host
-  // terminal points ncurses at terminfo for a terminal this is not.
-  env.TERM = "xterm-256color";
-  env.TERM_PROGRAM = "exomux";
-  if (options.version) env.TERM_PROGRAM_VERSION = options.version;
-  else delete env.TERM_PROGRAM_VERSION;
-  env.COLORTERM = "truecolor";
-  // The emulator keeps OSC 8 targets and opens them on Ctrl-click, but
-  // hyperlink detection allowlists TERM_PROGRAM, and "exomux" is on no list.
-  // FORCE_HYPERLINK is the shared override. Claude Code honours it and links
-  // the URLs in its output, and a link survives the hard wraps it breaks
-  // long URLs with.
-  // One inherited from the user's own environment still decides.
-  env.FORCE_HYPERLINK ??= "1";
-  for (const [name, value] of Object.entries(options.requested ?? {})) env[name] = value;
-  return env;
+  return terminalChildEnvironment({
+    inherited: options.inherited,
+    requested: options.requested,
+    program: "exomux",
+    version: options.version,
+  });
 }

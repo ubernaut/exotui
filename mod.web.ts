@@ -100,6 +100,8 @@ export * from "./src/runtime/render_loop.ts";
 export * from "./src/runtime/scheduler.ts";
 export * from "./src/runtime/storage.ts";
 export * from "./src/runtime/telemetry.ts";
+export * from "./src/runtime/terminal_modes.ts";
+export * from "./src/runtime/terminal_palette.ts";
 export * from "./src/runtime/terminal_screen.ts";
 export * from "./src/runtime/terminal_scrollback.ts";
 export * from "./src/runtime/terminal_selection.ts";

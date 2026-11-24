@@ -31,6 +31,7 @@ import {
   resolveExomuxSessionPaths,
 } from "./sessions.ts";
 import { detectKittyGraphicsCapability } from "@ubernaut/exotui/runtime";
+import { probeHostTerminal } from "@ubernaut/exotui/terminal";
 import {
   createExomuxController,
   type ExomuxController,
@@ -695,121 +696,11 @@ export async function launchInitialExomuxTerminalIfEmpty(
   return firstTerminal !== undefined;
 }
 
-/** What one pre-launch round trip learned about the host terminal. */
-export interface ExomuxHostProbe {
-  /**
-   * Whether the host answered the kitty graphics query. `true` and `false`
-   * are answers; undefined means silence, and silence falls back to the
-   * environment rather than deciding either way.
-   */
-  readonly graphics?: boolean;
-  readonly cellPixels?: { readonly width: number; readonly height: number };
-  /** Whether DECRQM `?2026$p` reported host support for synchronized output. */
-  readonly synchronizedOutput?: boolean;
-  /** DECRQM `?2027$p` state: enable `?2027h` only when currently `"reset"`, never disabling a host's default `"set"`. */
-  readonly graphemeClustering?: "set" | "reset" | "unsupported";
-}
-
-/** The image id used only for the launch probe, matched in the reply. */
-const HOST_PROBE_IMAGE_ID = 4_242_424;
-
-/**
- * Parses the accumulated reply bytes of the launch probe.
- *
- * Pure, because the parsing is the part worth pinning: the graphics reply is
- * an APC naming the probe id — `OK` is support, any other status (an EBADPNG,
- * an ENOTSUPPORTED) is a host that parses the protocol without honouring it —
- * the cell size arrives as `CSI 6 ; height ; width t`, and DECRQM reports
- * mode `2026` (synchronized output) and `2027` (grapheme clustering).
- */
-export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
-  const result: {
-    graphics?: boolean;
-    cellPixels?: { width: number; height: number };
-    synchronizedOutput?: boolean;
-    graphemeClustering?: "set" | "reset" | "unsupported";
-  } = {};
-  const graphics = new RegExp(`\\x1b_Gi=${HOST_PROBE_IMAGE_ID}[^;]*;([^\\x1b]*)\\x1b\\\\`).exec(seen);
-  if (graphics) result.graphics = graphics[1] === "OK";
-  const cell = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
-  if (cell) {
-    const height = Number(cell[1]);
-    const width = Number(cell[2]);
-    if (width > 0 && height > 0) result.cellPixels = { width, height };
-  }
-  const syncMode = /\x1b\[\?2026;([0-4])\$y/.exec(seen);
-  if (syncMode) {
-    const value = Number(syncMode[1]);
-    result.synchronizedOutput = value === 1 || value === 2 || value === 3;
-  }
-  const graphemeMode = /\x1b\[\?2027;([0-4])\$y/.exec(seen);
-  if (graphemeMode) {
-    const value = Number(graphemeMode[1]);
-    result.graphemeClustering = value === 1 || value === 3 ? "set" : value === 2 ? "reset" : "unsupported";
-  }
-  return result;
-}
-
-/**
- * True once the launch probe has heard everything it is going to: both answers,
- * or the primary device attributes reply that closes the batch.
- *
- * Every terminal answers DA1, and answers in order, so its reply arriving means
- * the two optional queries ahead of it were answered or never will be. Without
- * that sentinel a host that answers neither — tmux, a plain SSH client — left
- * the probe's last `read` pending past its deadline, and that orphaned read
- * swallowed the first keystrokes the user typed into the new session.
- */
-export function hostProbeComplete(seen: string): boolean {
-  const parsed = parseHostProbeReplies(seen);
-  if (parsed.graphics !== undefined && parsed.cellPixels) return true;
-  return /\x1b\[\?[0-9;]*c/.test(seen);
-}
-
-/**
- * Asks the host terminal, once, what it can do: the kitty graphics query and
- * the XTWINOPS cell-size query in one write, closed by a DA1 query, replies
- * collected until the batch is complete or the deadline passes.
- *
- * A raw, bounded round trip on the real stdin/stdout, run before the TUI owns
- * either. Asking beats recognising: a terminal's name says what it is, the
- * probe says what it does, and only the second survives new terminals.
- */
-async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
-  if (!runtimeHost.stdin.isTerminal() || !runtimeHost.stdout.isTerminal()) return {};
-  try {
-    runtimeHost.stdin.setRaw(true);
-  } catch {
-    return {};
-  }
-  try {
-    await runtimeHost.stdout.write(new TextEncoder().encode(
-      `\x1b[?2026$p\x1b[?2027$p\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t\x1b[c`,
-    ));
-    const decoder = new TextDecoder();
-    const buffer = new Uint8Array(256);
-    let seen = "";
-    const deadline = Date.now() + deadlineMs;
-    while (Date.now() < deadline) {
-      const read = await Promise.race([
-        runtimeHost.stdin.read(buffer),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), Math.max(10, deadline - Date.now()))),
-      ]);
-      if (read === null || read === 0) break;
-      seen += decoder.decode(buffer.subarray(0, read));
-      if (hostProbeComplete(seen) || seen.length > 1024) break;
-    }
-    return parseHostProbeReplies(seen);
-  } catch {
-    return {};
-  } finally {
-    try {
-      runtimeHost.stdin.setRaw(false);
-    } catch {
-      // The TUI re-enables raw mode moments later either way.
-    }
-  }
-}
+export {
+  type HostTerminalProbe as ExomuxHostProbe,
+  hostTerminalProbeComplete as hostProbeComplete,
+  parseHostTerminalProbeReplies as parseHostProbeReplies,
+} from "@ubernaut/exotui/terminal";
 
 /** Runs the retaining host until an authenticated shutdown or process signal. */
 export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Promise<void> {

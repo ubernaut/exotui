@@ -1,7 +1,7 @@
 {
   "mod.ts": {
-    "modules": 494,
-    "bytes": 5918568,
+    "modules": 498,
+    "bytes": 5938327,
     "paths": {
       "mod.ts": 2821,
       "src/api_stability.ts": 21096,
@@ -169,7 +169,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -322,6 +322,8 @@
       "src/runtime/graphics_surface.ts": 14821,
       "src/runtime/health_snapshot.ts": 3455,
       "src/runtime/host.ts": 950,
+      "src/runtime/host_desktop.ts": 4114,
+      "src/runtime/host_terminal_probe.ts": 4543,
       "src/runtime/host_types.ts": 11417,
       "src/runtime/infinite_query.ts": 5781,
       "src/runtime/kitty_graphics.ts": 13025,
@@ -329,7 +331,7 @@
       "src/runtime/kitty_passthrough.ts": 21716,
       "src/runtime/line_attributes.ts": 3865,
       "src/runtime/linux_foreground_process.ts": 4934,
-      "src/runtime/mod.ts": 3289,
+      "src/runtime/mod.ts": 3438,
       "src/runtime/mutations.ts": 4853,
       "src/runtime/observability.ts": 3970,
       "src/runtime/observability_context.ts": 3332,
@@ -373,8 +375,10 @@
       "src/runtime/terminal_backend_registry.ts": 9894,
       "src/runtime/terminal_capabilities.ts": 22693,
       "src/runtime/terminal_color.ts": 2344,
+      "src/runtime/terminal_env.ts": 2687,
       "src/runtime/terminal_links.ts": 7380,
       "src/runtime/terminal_margins.ts": 6624,
+      "src/runtime/terminal_modes.ts": 7633,
       "src/runtime/terminal_operations.ts": 7445,
       "src/runtime/terminal_palette.ts": 12924,
       "src/runtime/terminal_parser.ts": 11207,
@@ -501,7 +505,7 @@
   },
   "mod.app.ts": {
     "modules": 152,
-    "bytes": 2080256,
+    "bytes": 2080889,
     "paths": {
       "mod.app.ts": 4757,
       "src/app/accessibility_tree.ts": 5721,
@@ -534,7 +538,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -659,7 +663,7 @@
   },
   "mod.document.ts": {
     "modules": 76,
-    "bytes": 722026,
+    "bytes": 722659,
     "paths": {
       "mod.document.ts": 680,
       "src/app/accessibility_tree.ts": 5721,
@@ -670,7 +674,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -741,7 +745,7 @@
   },
   "mod.mermaid.ts": {
     "modules": 132,
-    "bytes": 1591394,
+    "bytes": 1592027,
     "paths": {
       "mod.mermaid.ts": 552,
       "src/app/accessibility_tree.ts": 5721,
@@ -752,7 +756,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -879,7 +883,7 @@
   },
   "mod.mermaid_headless.ts": {
     "modules": 136,
-    "bytes": 1628191,
+    "bytes": 1628824,
     "paths": {
       "mod.mermaid.ts": 552,
       "mod.mermaid_headless.ts": 190,
@@ -891,7 +895,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -1064,7 +1068,7 @@
   },
   "mod.testing.ts": {
     "modules": 97,
-    "bytes": 838197,
+    "bytes": 838830,
     "paths": {
       "mod.testing.ts": 744,
       "src/app/accessibility_tree.ts": 5721,
@@ -1091,7 +1095,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -1166,10 +1170,10 @@
     }
   },
   "mod.terminal.ts": {
-    "modules": 61,
-    "bytes": 733915,
+    "modules": 65,
+    "bytes": 753089,
     "paths": {
-      "mod.terminal.ts": 1052,
+      "mod.terminal.ts": 1249,
       "src/components/bounded_follow_lines.ts": 3469,
       "src/components/catalog.ts": 17590,
       "src/components/terminal_output.ts": 3236,
@@ -1180,6 +1184,8 @@
       "src/runtime/bun_pty_backend.ts": 10917,
       "src/runtime/diagnostics.ts": 7123,
       "src/runtime/host.ts": 950,
+      "src/runtime/host_desktop.ts": 4114,
+      "src/runtime/host_terminal_probe.ts": 4543,
       "src/runtime/host_types.ts": 11417,
       "src/runtime/linux_foreground_process.ts": 4934,
       "src/runtime/output_line_buffer.ts": 2379,
@@ -1190,7 +1196,9 @@
       "src/runtime/terminal_backend_registry.ts": 9894,
       "src/runtime/terminal_capabilities.ts": 22693,
       "src/runtime/terminal_color.ts": 2344,
+      "src/runtime/terminal_env.ts": 2687,
       "src/runtime/terminal_links.ts": 7380,
+      "src/runtime/terminal_modes.ts": 7633,
       "src/runtime/terminal_palette.ts": 12924,
       "src/runtime/terminal_screen.ts": 117800,
       "src/runtime/terminal_scrollback.ts": 11772,
@@ -1234,7 +1242,7 @@
   },
   "mod.theme.ts": {
     "modules": 78,
-    "bytes": 666633,
+    "bytes": 667266,
     "paths": {
       "mod.theme.ts": 671,
       "src/app/disposables.ts": 2297,
@@ -1245,7 +1253,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/component.ts": 9053,
@@ -1317,10 +1325,10 @@
     }
   },
   "mod.web.ts": {
-    "modules": 439,
-    "bytes": 5666717,
+    "modules": 440,
+    "bytes": 5675083,
     "paths": {
-      "mod.web.ts": 4344,
+      "mod.web.ts": 4444,
       "src/api_stability.ts": 21096,
       "src/app/accessibility_tree.ts": 5721,
       "src/app/action_journal.ts": 18998,
@@ -1486,7 +1494,7 @@
       "src/canvas/mod.ts": 520,
       "src/canvas/pixel_samplers.ts": 14592,
       "src/canvas/rerender_queue.ts": 3698,
-      "src/canvas/sink.ts": 20465,
+      "src/canvas/sink.ts": 21098,
       "src/canvas/spatial_index.ts": 5026,
       "src/canvas/text.ts": 12182,
       "src/canvas/three_ascii.ts": 34453,
@@ -1654,6 +1662,7 @@
       "src/runtime/terminal_capabilities.ts": 22693,
       "src/runtime/terminal_color.ts": 2344,
       "src/runtime/terminal_links.ts": 7380,
+      "src/runtime/terminal_modes.ts": 7633,
       "src/runtime/terminal_palette.ts": 12924,
       "src/runtime/terminal_screen.ts": 117800,
       "src/runtime/terminal_scrollback.ts": 11772,

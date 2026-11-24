@@ -120,3 +120,26 @@ with `exomux` standing thinly on top:
   in `host.json`, added optional `snapshotFallback` on `attach` and `snapshot` on `attached` (fully backwards- and
   forwards-compatible across daemon/client version skew), and skipped truncation warnings and resize-wiggle recovery
   when the daemon restores a rotated attach from a complete snapshot.
+
+## 2026-11-23 — Commit 9: Core upstreaming pass (host terminal & runtime primitives)
+
+### Changes
+
+- `src/runtime/terminal_modes.ts`: promoted `TerminalModeTracker` and `TerminalModeInspection` into core runtime (and
+  exposed on `mod.terminal.ts` and browser-safe `mod.web.ts`); `packages/exomux/terminal_modes.ts` is now a thin
+  compatibility re-export.
+- `src/runtime/terminal_env.ts`: promoted `HOST_TERMINAL_IDENTITY_ENV_VARS`, `TerminalChildEnvironmentOptions`, and
+  `terminalChildEnvironment()` into core runtime; `packages/exomux/terminal_env.ts` delegates with `program: "exomux"`.
+- `src/runtime/host_terminal_probe.ts`: promoted `HostTerminalProbe`, `HOST_TERMINAL_PROBE_IMAGE_ID`,
+  `HOST_TERMINAL_PROBE_SEQUENCE`, `parseHostTerminalProbeReplies()`, `hostTerminalProbeComplete()`, and
+  `probeHostTerminal()` into core runtime; `packages/exomux/main.ts` imports `probeHostTerminal` and re-exports the
+  existing probe aliases.
+- `src/runtime/host_desktop.ts`: promoted `ReadLocalHostClipboardOptions`, `readLocalHostClipboard()`,
+  `sanitizeTerminalClipboardPaste()`, and `openLocalTerminalLink()` into core runtime; `packages/exomux/clipboard.ts`
+  and `packages/exomux/open_link.ts` delegate thinly to core.
+- `src/canvas/sink.ts`: promoted `formatAnsiFlushTelemetry()` alongside `AnsiFlushTelemetry`;
+  `packages/exomux/debug_log.ts` re-exports it as `formatExomuxFlushTelemetry`.
+- `mod.web.ts`: exported browser-safe `terminal_modes.ts` and `terminal_palette.ts` so `exowebtui` apps have parity with
+  terminal color/cursor-shape rendering and replay mode tracking.
+- `tests/terminal_host_primitives.test.ts`: added core unit tests covering all promoted primitives and `mod.web.ts`
+  re-exports.
