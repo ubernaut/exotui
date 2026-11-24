@@ -8,7 +8,8 @@ import { clamp } from "../utils/numbers.ts";
 import { CharacterWidthAccumulator, measureCharacterWidth } from "../utils/character_width.ts";
 import { UnicodeGraphemeBoundaryCursor } from "../unicode/grapheme.ts";
 import { normalizeTerminalDimension } from "./terminal_values.ts";
-import { encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { decodeTerminalColor, encodeTerminalIndexedColor, encodeTerminalRgbColor } from "./terminal_color.ts";
+import { xtermPaletteRgb } from "./terminal_palette.ts";
 import { parseTerminalClipboardWrite, type TerminalClipboardWrite } from "./terminal_services.ts";
 import { sgrColor, sgrParameters } from "../utils/sgr_parameters.ts";
 import type { AnsiStyleSpec } from "../theme.ts";
@@ -113,10 +114,12 @@ export interface TerminalScreenControllerOptions {
   reflowOnResize?: boolean;
 }
 
-/** 8-bit RGB channels a terminal reports for its default colours. */
+/** 8-bit RGB channels a terminal reports for its default colours and optional indexed palette slots. */
 export interface TerminalScreenColorReport {
   foreground?: readonly [number, number, number];
   background?: readonly [number, number, number];
+  /** Optional lookup for OSC 4 indexed palette queries (0–255); falls back to standard xterm-256. */
+  palette?: (index: number) => readonly [number, number, number] | undefined;
 }
 
 /** The key reporting a child program has asked for, so its host can encode input to match. */
@@ -266,6 +269,8 @@ export class TerminalScreenController {
   #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
   #modifyOtherKeys = 0;
   #cursorStyleCode = 0;
+  /** Per-slot RGB overrides set by `OSC 4` and cleared by `OSC 104` or `RIS`. */
+  #paletteOverrides = new Map<number, readonly [number, number, number]>();
   /**
    * Kitty graphics sequences consumed without being drawn.
    *
@@ -349,6 +354,14 @@ export class TerminalScreenController {
   /** Whether DECSET 1004 focus reporting (`CSI ? 1004 h`) is currently active. */
   get focusReporting(): boolean {
     return this.#privateModes.has(1004);
+  }
+
+  /** Clone-safe view of active `OSC 4` indexed palette overrides (empty when none are set). */
+  paletteOverrides(): ReadonlyMap<number, readonly [number, number, number]> {
+    if (this.#paletteOverrides.size === 0) return EMPTY_PALETTE_OVERRIDES;
+    const copy = new Map<number, readonly [number, number, number]>();
+    for (const [index, rgb] of this.#paletteOverrides) copy.set(index, [rgb[0], rgb[1], rgb[2]]);
+    return copy;
   }
 
   get scrollbackRows(): number {
@@ -1384,6 +1397,8 @@ export class TerminalScreenController {
         if (setting === " q") this.#reply(`\x1bP1$r${this.#cursorStyleCode} q\x1b\\`);
         else if (setting === "r") {
           this.#reply(`\x1bP1$r${this.#scrollRegion.top + 1};${this.#scrollRegion.bottom + 1}r\x1b\\`);
+        } else if (setting === "m") {
+          this.#reply(`\x1bP1$r${formatSgrState(this.#style)}m\x1b\\`);
         } else this.#reply("\x1bP0$r\x1b\\");
         return true;
       }
@@ -1513,10 +1528,21 @@ export class TerminalScreenController {
 
   #applyOsc(payload: string): void {
     const separator = payload.indexOf(";");
-    if (separator < 0) return;
+    if (separator < 0) {
+      if (payload === "104") this.#paletteOverrides.clear();
+      return;
+    }
     const code = payload.slice(0, separator);
     if (code === "0" || code === "2") {
       this.#title = payload.slice(separator + 1);
+      return;
+    }
+    if (code === "4") {
+      this.#applyPaletteOsc(payload.slice(separator + 1));
+      return;
+    }
+    if (code === "104") {
+      this.#resetPaletteOsc(payload.slice(separator + 1));
       return;
     }
     if (code === "7") {
@@ -1532,6 +1558,38 @@ export class TerminalScreenController {
         maxBytes: this.#maxClipboardBytes,
       });
       if (write) this.#onClipboardWrite(write);
+    }
+  }
+
+  #applyPaletteOsc(body: string): void {
+    const parts = body.split(";");
+    for (let index = 0; index + 1 < parts.length; index += 2) {
+      const slot = Number(parts[index]!.trim());
+      if (!Number.isInteger(slot) || slot < 0 || slot > 255) continue;
+      const spec = parts[index + 1]!.trim();
+      if (spec === "?") {
+        const color = this.#paletteOverrides.get(slot) ??
+          this.#queryColors?.()?.palette?.(slot) ??
+          xtermPaletteRgb(slot);
+        this.#reply(`\x1b]4;${slot};rgb:${color.map(colorChannel16).join("/")}\x1b\\`);
+        continue;
+      }
+      const parsed = parseOscColorRgb(spec);
+      if (parsed) this.#paletteOverrides.set(slot, parsed);
+    }
+  }
+
+  #resetPaletteOsc(body: string): void {
+    const trimmed = body.trim();
+    if (trimmed === "") {
+      this.#paletteOverrides.clear();
+      return;
+    }
+    for (const part of trimmed.split(";")) {
+      const slot = Number(part.trim());
+      if (Number.isInteger(slot) && slot >= 0 && slot <= 255) {
+        this.#paletteOverrides.delete(slot);
+      }
     }
   }
 
@@ -1938,6 +1996,7 @@ export class TerminalScreenController {
     this.#cursorStyleCode = 0;
     this.#kittyKeyboard = { main: [], alternate: [] };
     this.#modifyOtherKeys = 0;
+    this.#paletteOverrides.clear();
     this.#privateModes.clear();
     this.#originMode = false;
     this.#autoWrap = true;
@@ -1990,9 +2049,85 @@ const REPORTED_PRIVATE_MODES: ReadonlySet<number> = new Set([
 ]);
 const MAX_KITTY_KEYBOARD_STACK = 16;
 const KITTY_KEYBOARD_FLAG_MASK = 0b11111;
+const EMPTY_PALETTE_OVERRIDES: ReadonlyMap<number, readonly [number, number, number]> = new Map();
 
 function clampKittyFlags(value: number): number {
   return Number.isInteger(value) ? value & KITTY_KEYBOARD_FLAG_MASK : 0;
+}
+
+/** Parses `rgb:r/g/b` (1–4 hex digits per channel) or `#rgb`/`#rrggbb`/`#rrrrggggbbbb` into 8-bit RGB. */
+function parseOscColorRgb(spec: string): readonly [number, number, number] | undefined {
+  const rgbMatch = /^rgb:([0-9a-f]{1,4})\/([0-9a-f]{1,4})\/([0-9a-f]{1,4})$/i.exec(spec);
+  if (rgbMatch) {
+    return [
+      parseHexChannel8(rgbMatch[1]!),
+      parseHexChannel8(rgbMatch[2]!),
+      parseHexChannel8(rgbMatch[3]!),
+    ];
+  }
+  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{12})$/i.exec(spec);
+  if (!hexMatch) return undefined;
+  const digits = hexMatch[1]!;
+  const step = digits.length / 3;
+  return [
+    parseHexChannel8(digits.slice(0, step)),
+    parseHexChannel8(digits.slice(step, step * 2)),
+    parseHexChannel8(digits.slice(step * 2)),
+  ];
+}
+
+function parseHexChannel8(hex: string): number {
+  const value = Number.parseInt(hex, 16);
+  if (hex.length === 1) return value * 17;
+  if (hex.length === 2) return value;
+  const max = (1 << (hex.length * 4)) - 1;
+  return Math.round((value * 255) / max);
+}
+
+/** Formats current SGR attributes for `DECRQSS m` and ANSI snapshots. */
+function formatSgrState(style: Omit<TerminalScreenCell, "char">): string {
+  const params: string[] = ["0"];
+  if (style.bold) params.push("1");
+  if (style.dim) params.push("2");
+  if (style.italic) params.push("3");
+  if (style.underline) {
+    const sub = style.underlineStyle
+      ? (["solid", "double", "wavy", "dotted", "dashed"] as const).indexOf(style.underlineStyle) + 1
+      : 0;
+    params.push(sub > 1 ? `4:${sub}` : "4");
+  }
+  if (style.inverse) params.push("7");
+  if (style.strikethrough) params.push("9");
+  if (style.overline) params.push("53");
+  if (style.foreground !== undefined) appendEncodedSgrColor(params, style.foreground, false);
+  if (style.background !== undefined) appendEncodedSgrColor(params, style.background, true);
+  if (style.underlineColor !== undefined) appendEncodedUnderlineColor(params, style.underlineColor);
+  return params.join(";");
+}
+
+function appendEncodedSgrColor(params: string[], code: number, background: boolean): void {
+  const decoded = decodeTerminalColor(code, background);
+  if (!decoded) return;
+  if (decoded.kind === "ansi") {
+    const base = decoded.index < 8
+      ? (background ? 40 : 30) + decoded.index
+      : (background ? 100 : 90) + decoded.index - 8;
+    params.push(String(base));
+  } else if (decoded.kind === "indexed") {
+    params.push(background ? "48" : "38", "5", String(decoded.index));
+  } else {
+    params.push(background ? "48" : "38", "2", String(decoded.red), String(decoded.green), String(decoded.blue));
+  }
+}
+
+function appendEncodedUnderlineColor(params: string[], code: number): void {
+  const decoded = decodeTerminalColor(code, false);
+  if (!decoded) return;
+  if (decoded.kind === "ansi" || decoded.kind === "indexed") {
+    params.push("58", "5", String(decoded.index));
+  } else {
+    params.push("58", "2", String(decoded.red), String(decoded.green), String(decoded.blue));
+  }
 }
 
 /** One 8-bit channel as the 16-bit hex XParseColor form terminals answer with. */

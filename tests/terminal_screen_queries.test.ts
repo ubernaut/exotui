@@ -63,7 +63,9 @@ Deno.test("the screen answers the queries a program waits on", () => {
   assertEquals(ask("\x1b[?2027$p"), ["\x1b[?2027;3$y"]);
   assertEquals(ask("\x1b[4$p"), ["\x1b[4;2$y"]);
   assertEquals(ask("\x1b[4 q\x1bP$q q\x1b\\"), ["\x1bP1$r4 q\x1b\\"]);
-  assertEquals(ask("\x1bP$qm\x1b\\"), ["\x1bP0$r\x1b\\"]);
+  assertEquals(ask("\x1bP$qm\x1b\\"), ["\x1bP1$r0m\x1b\\"]);
+  assertEquals(ask("\x1b[1;31m\x1bP$qm\x1b\\\x1b[0m"), ["\x1bP1$r0;1;31m\x1b\\"]);
+  assertEquals(ask('\x1bP$q"p\x1b\\'), ["\x1bP0$r\x1b\\"]);
   assertEquals(ask("\x1bP+q524742\x1b\\"), ["\x1bP0+r\x1b\\"]);
   // None of it reached the grid.
   assertEquals(screen.textRows().every((row) => row.trim() === ""), true);
@@ -138,4 +140,47 @@ Deno.test("OSC 52 clipboard writes decode safely, stay write-only, and enforce b
   assertEquals(parseTerminalClipboardWrite("c;?"), undefined);
   assertEquals(parseTerminalClipboardWrite(";aGk="), { text: "hi", selection: "clipboard" });
   assertEquals(screen.textRows().every((row) => row.trim() === ""), true);
+});
+
+Deno.test("OSC 4 answers ANSI palette queries, tracks dynamic overrides, and resets via OSC 104 or RIS", () => {
+  const { screen, replies } = screenWithReplies({
+    queryColors: () => ({
+      palette: (index) => index === 2 ? [10, 20, 30] : undefined,
+    }),
+  });
+  const ask = (seq: string): string[] => {
+    replies.length = 0;
+    screen.write(seq);
+    return [...replies];
+  };
+  // Default xterm slot 1 = [205, 49, 49] (cd/31/31); slot 2 comes from queryColors.palette.
+  assertEquals(ask("\x1b]4;1;?;2;?\x07"), [
+    "\x1b]4;1;rgb:cdcd/3131/3131\x1b\\",
+    "\x1b]4;2;rgb:0a0a/1414/1e1e\x1b\\",
+  ]);
+  // Dynamic overrides via rgb: and #hex take precedence over defaults and queryColors.
+  assertEquals(ask("\x1b]4;1;rgb:11/22/33;2;#445566;1;?;2;?\x1b\\"), [
+    "\x1b]4;1;rgb:1111/2222/3333\x1b\\",
+    "\x1b]4;2;rgb:4444/5555/6666\x1b\\",
+  ]);
+  assertEquals(screen.paletteOverrides().get(1), [0x11, 0x22, 0x33]);
+  assertEquals(screen.paletteOverrides().get(2), [0x44, 0x55, 0x66]);
+
+  // Selective OSC 104 resets slot 1 only.
+  assertEquals(ask("\x1b]104;1\x07\x1b]4;1;?;2;?\x07"), [
+    "\x1b]4;1;rgb:cdcd/3131/3131\x1b\\",
+    "\x1b]4;2;rgb:4444/5555/6666\x1b\\",
+  ]);
+  assertEquals(screen.paletteOverrides().has(1), false);
+  assertEquals(screen.paletteOverrides().has(2), true);
+
+  // Bare OSC 104 clears all remaining overrides.
+  screen.write("\x1b]104\x1b\\");
+  assertEquals(screen.paletteOverrides().size, 0);
+
+  // RIS clears overrides too.
+  screen.write("\x1b]4;5;#abc\x07");
+  assertEquals(screen.paletteOverrides().get(5), [0xaa, 0xbb, 0xcc]);
+  screen.write("\x1bc");
+  assertEquals(screen.paletteOverrides().size, 0);
 });

@@ -252,3 +252,38 @@ Deno.test("resolveTerminalCellStyle and TerminalScreen render DECSCUSR block, un
     surface.dispose();
   }
 });
+
+Deno.test("TerminalScreen applies dynamic OSC 4 palette overrides and restores defaults on OSC 104", async () => {
+  const screen = new TerminalScreenController({ columns: 6, rows: 2 });
+  screen.write("\x1b]4;1;#12ab34\x07\x1b[31mR\x1b[0m");
+  const revision = new Signal(0);
+  const surface = new WidgetSurface(6, 2);
+  try {
+    surface.mount((tui) => [
+      new TerminalScreen({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 6, height: 2 },
+        screen,
+        revision,
+        contrastLift: false,
+        colors: {
+          defaultBackground: SURFACE,
+          defaultForeground: TEXT,
+          cursorForeground: [0, 0, 0],
+          cursorBackground: [255, 200, 0],
+        },
+        showCursor: false,
+      }),
+    ]);
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.foreground, [0x12, 0xab, 0x34]);
+
+    screen.write("\x1b]104;1\x07");
+    revision.value += 1;
+    await surface.render();
+    assertEquals(widgetSurfaceCellData(surface.cellAt(0, 0))?.foreground, [205, 49, 49]);
+  } finally {
+    surface.dispose();
+  }
+});

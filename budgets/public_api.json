@@ -1929,7 +1929,8 @@
     "writeOnGround",
     "writeProtected",
     "writeStringFrameRow",
-    "writeWorkbenchAnsiScreenOutput"
+    "writeWorkbenchAnsiScreenOutput",
+    "xtermPaletteRgb"
   ],
   "mod.app.ts": [
     "Box",

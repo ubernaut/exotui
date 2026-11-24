@@ -27,7 +27,7 @@ Deno.test("a legacy host and a legacy child exchange the host's bytes unchanged"
 });
 
 Deno.test("a child that asked for the kitty keyboard protocol gets disambiguated chords", () => {
-  const kitty = { kittyFlags: 5 };
+  const kitty = { kittyFlags: 1 };
   assertEquals(relay("\x1b", kitty), "\x1b[27u");
   assertEquals(relay("\x03", kitty), "\x1b[99;5u");
   assertEquals(relay("\x1bm", kitty), "\x1b[109;3u");
@@ -36,6 +36,7 @@ Deno.test("a child that asked for the kitty keyboard protocol gets disambiguated
   // Text, and the keys the protocol leaves in their legacy form, stay as they were.
   assertEquals(relay("a", kitty), "a");
   assertEquals(relay("A", kitty), "A");
+  assertEquals(relay("?", kitty), "?");
   assertEquals(relay("\r", kitty), "\r");
   assertEquals(relay("\t", kitty), "\t");
   assertEquals(relay("\x1b[1;5C", kitty), "\x1b[1;5C");
@@ -44,6 +45,23 @@ Deno.test("a child that asked for the kitty keyboard protocol gets disambiguated
   assertEquals(relay("\x1b[13;2u", kitty), "\x1b[13;2u");
   assertEquals(relay("\x1b[122;6u", kitty), "\x1b[122;6u");
   assertEquals(relay("\x1b[27;2;13~", kitty), "\x1b[13;2u");
+  // Flag 1 alone omits alternate-key subfields.
+  assertEquals(relay("\x1b[47:63;6u", kitty), "\x1b[47;6u");
+  assertEquals(relay("\x1b[1072::97;5u", kitty), "\x1b[1072;5u");
+});
+
+Deno.test("kitty flag 4 reports shifted and base-layout alternate keys and downgrades cleanly for legacy children", () => {
+  const kittyAlt = { kittyFlags: 5 };
+  assertEquals(relay("\x1bM", kittyAlt), "\x1b[109:77;4u");
+  assertEquals(relay("\x1b[122;6u", kittyAlt), "\x1b[122:90;6u");
+  assertEquals(relay("\x1b?", kittyAlt), "\x1b[47:63;4u");
+  assertEquals(relay("\x1b[47:63;6u", kittyAlt), "\x1b[47:63;6u");
+  assertEquals(relay("\x1b[1072::97;5u", kittyAlt), "\x1b[1072::97;5u");
+  // Plain shifted punctuation without Ctrl/Alt stays plain text under flags 1 | 4.
+  assertEquals(relay("?", kittyAlt), "?");
+  // Legacy child receives the shifted symbol when host reports CSI-u alternate keys.
+  assertEquals(relay("\x1b[47:63;4u"), "\x1b?");
+  assertEquals(relay("\x1b[47:63;6u", { modifyOtherKeys: 2 }), "\x1b[27;6;63~");
 });
 
 Deno.test("a legacy child never sees the enhanced form its host reports in", () => {

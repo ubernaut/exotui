@@ -18,13 +18,18 @@ import type { AnsiStyleSpec } from "../theme.ts";
 /** One renderable RGB triple. */
 export type TerminalRgb = readonly [number, number, number];
 
-/** Resolves compact TerminalScreen SGR values through the xterm color palette. */
-export function terminalPaletteRgb(code: number | undefined, background: boolean): TerminalRgb | undefined {
+/** Resolves compact TerminalScreen SGR values through the xterm color palette and optional OSC 4 overrides. */
+export function terminalPaletteRgb(
+  code: number | undefined,
+  background: boolean,
+  paletteOverrides?: ReadonlyMap<number, TerminalRgb>,
+): TerminalRgb | undefined {
   if (code === undefined) return undefined;
   const decoded = decodeTerminalColor(code, background);
   if (!decoded) return undefined;
-  if (decoded.kind === "ansi") return xtermPaletteRgb(decoded.index);
-  if (decoded.kind === "indexed") return xtermPaletteRgb(decoded.index);
+  if (decoded.kind === "ansi" || decoded.kind === "indexed") {
+    return paletteOverrides?.get(decoded.index) ?? xtermPaletteRgb(decoded.index);
+  }
   return [decoded.red, decoded.green, decoded.blue];
 }
 
@@ -38,9 +43,10 @@ export function terminalReadableForegroundRgb(
   code: number | undefined,
   background: TerminalRgb,
   preferredText: TerminalRgb,
+  paletteOverrides?: ReadonlyMap<number, TerminalRgb>,
 ): TerminalRgb | undefined {
   if (code === undefined) return undefined;
-  const color = terminalPaletteRgb(code, false);
+  const color = terminalPaletteRgb(code, false, paletteOverrides);
   const decoded = decodeTerminalColor(code, false);
   if (!color || decoded?.kind !== "ansi" || terminalContrastRatio(color, background) >= 4.5) return color;
   if (terminalContrastRatio(preferredText, background) < 4.5) {
@@ -107,6 +113,8 @@ export interface TerminalCellStyleOptions {
   readonly cursorShape?: TerminalScreenCursorStyle["shape"];
   /** Suppresses the cursor cue when a blinking cursor is in its off phase. */
   readonly cursorHidden?: boolean;
+  /** Optional per-index RGB overrides installed by child `OSC 4` palette writes. */
+  readonly paletteOverrides?: ReadonlyMap<number, TerminalRgb>;
 }
 
 /** One resolved, renderable terminal cell. */
@@ -170,13 +178,17 @@ export function resolveTerminalCellStyle(
     `\u001f${flags}\u001f${cell.underlineStyle ?? ""}\u001f${cell.underlineColor ?? ""}`;
   let entry = memo.get(key);
   if (entry === undefined) {
-    const explicit = terminalPaletteRgb(cell.background, true);
+    const explicit = terminalPaletteRgb(cell.background, true, options.paletteOverrides);
     let background = explicit ?? (transparent ? undefined : options.defaultBackground);
     let foreground = cell.background === undefined && options.contrastLift
-      ? terminalReadableForegroundRgb(cell.foreground, options.defaultBackground, options.defaultForeground) ??
-        options.defaultForeground
-      : terminalPaletteRgb(cell.foreground, false) ?? options.defaultForeground;
-    let underlineColor = terminalPaletteRgb(cell.underlineColor, false);
+      ? terminalReadableForegroundRgb(
+        cell.foreground,
+        options.defaultBackground,
+        options.defaultForeground,
+        options.paletteOverrides,
+      ) ?? options.defaultForeground
+      : terminalPaletteRgb(cell.foreground, false, options.paletteOverrides) ?? options.defaultForeground;
+    let underlineColor = terminalPaletteRgb(cell.underlineColor, false, options.paletteOverrides);
     if (options.dimToward) {
       if (background !== undefined) background = mixTerminalRgb(background, options.dimToward, DIM_RATIO);
       foreground = mixTerminalRgb(foreground, options.dimToward, DIM_RATIO);
@@ -239,7 +251,8 @@ export function resolveTerminalCellStyle(
   return { ...entry, glyph, foreground, background };
 }
 
-function xtermPaletteRgb(index: number): TerminalRgb {
+/** Resolves a standard xterm-256 palette slot (0–255) to its default 8-bit RGB triple. */
+export function xtermPaletteRgb(index: number): TerminalRgb {
   if (index < 8) return ANSI_NORMAL[index]!;
   if (index < 16) return ANSI_BRIGHT[index - 8]!;
   if (index < 232) {

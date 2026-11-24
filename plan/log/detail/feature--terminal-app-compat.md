@@ -79,3 +79,19 @@ with `exomux` standing thinly on top:
   across scrollback and live cells merge into logical lines (stripping `wrapPadding` and trailing default blanks while
   preserving cell styles, wide pairs, and hyperlinks), re-wrap to the new width, map live and saved cursor positions
   through logical offsets, and rebalance scrollback vs viewport rows cleanly.
+
+## 2026-11-23 — Commit 6: Richer Kitty keyboard flags (`CSI > 5 u` / flag 4) & `OSC 4` ANSI palette queries/overrides
+
+### Changes
+
+- `src/utils/ansi_codes.ts`: upgraded `ENABLE_ENHANCED_KEYBOARD` from `\x1b[>1u` to `\x1b[>5u` (disambiguate + report
+  alternate/shifted keys) so host terminals report shifted punctuation and base-layout codepoints.
+- `src/app/terminal_input.ts`: preserved Kitty alternate-key fields (`codepoint:shifted:base`) and US-shifted
+  punctuation chords, emitting `code:shifted[:base];mod u` for flag-4 children, clean legacy downgrade (`\x1b?`) for
+  non-Kitty children, and accurate `modifyOtherKeys` level-2 shifted punctuation.
+- `src/runtime/terminal_palette.ts`: exported `xtermPaletteRgb()` and added `paletteOverrides` support to
+  `terminalPaletteRgb()`, `terminalReadableForegroundRgb()`, and `resolveTerminalCellStyle()`.
+- `src/runtime/terminal_screen.ts`: implemented `OSC 4` indexed palette queries (`?`) and dynamic RGB overrides
+  (`rgb:r/g/b`, `#rgb`/`#rrggbb`), `OSC 104` selective/full reset, `TerminalScreenController.paletteOverrides()`, and
+  `DECRQSS m` active SGR reporting.
+- `src/components/terminal_screen.ts` & `packages/exomux/app.ts`: wired `paletteOverrides` into cell rendering.

@@ -3523,6 +3523,7 @@
     {"module":"src/runtime/terminal_palette.ts","name":"terminalPaletteRgb","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/terminal_palette.ts","name":"terminalReadableForegroundRgb","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/terminal_palette.ts","name":"TerminalRgb","kind":"type","typeOnly":true,"documented":true},
+    {"module":"src/runtime/terminal_palette.ts","name":"xtermPaletteRgb","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/terminal_parser.ts","name":"createIncrementalTerminalParser","kind":"function","typeOnly":false,"documented":true},
     {"module":"src/runtime/terminal_parser.ts","name":"IncrementalTerminalParser","kind":"class","typeOnly":false,"documented":true},
     {"module":"src/runtime/terminal_parser.ts","name":"TerminalParserBreach","kind":"type","typeOnly":true,"documented":true},

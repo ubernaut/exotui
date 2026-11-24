@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 1132
 - Unique re-export declarations: 743
 - Re-export declaration visits: 1129
-- Unique symbol declarations: 5190
-- Symbol declaration visits: 10522
-- Documented symbol declarations: 5159
+- Unique symbol declarations: 5191
+- Symbol declaration visits: 10525
+- Documented symbol declarations: 5160
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,7 +21,7 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4402 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4403 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
@@ -34,8 +34,8 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     915 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     216 |  99.54% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     916 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     217 |  99.54% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -50,8 +50,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 459
 - Re-export declarations: 460
-- Exported symbols: 4402
-- Documented symbols: 4402
+- Exported symbols: 4403
+- Documented symbols: 4403
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -245,8 +245,8 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Stability: beta
 - Modules: 89
 - Re-export declarations: 88
-- Exported symbols: 915
-- Documented symbols: 915
+- Exported symbols: 916
+- Documented symbols: 916
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -260,8 +260,8 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Stability: beta
 - Modules: 22
 - Re-export declarations: 21
-- Exported symbols: 216
-- Documented symbols: 215
+- Exported symbols: 217
+- Documented symbols: 216
 - Documentation coverage: 99.54%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -745,7 +745,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       3 |          3 |
 | [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                                 | `.`, `./runtime`                         |          0 |       2 |          2 |
 | [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                           | `.`, `./runtime`                         |          0 |       5 |          5 |
-| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
+| [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       9 |          9 |
 | [`src/runtime/terminal_parser.ts`](#src-runtime-terminal-parser-ts)                                   | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                         | `.`, `./runtime`                         |          0 |      11 |         11 |
 | [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                                 | `.`, `./runtime`                         |          0 |       4 |          4 |
@@ -8376,6 +8376,7 @@ _Entrypoints: `.`, `./runtime`, `./terminal`_
 | `terminalPaletteRgb`            | function  | no        | yes   |
 | `terminalReadableForegroundRgb` | function  | no        | yes   |
 | `TerminalRgb`                   | type      | yes       | yes   |
+| `xtermPaletteRgb`               | function  | no        | yes   |
 
 ### src/runtime/terminal_parser.ts
 

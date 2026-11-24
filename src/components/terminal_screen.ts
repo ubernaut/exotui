@@ -182,6 +182,7 @@ export class TerminalScreen extends Component {
       : this.#screen.cellRows();
     const inspection = this.#screen.inspect();
     const cursorActive = !copyMode && this.#showCursor.peek() && inspection.cursorVisible;
+    const paletteOverrides = this.#screen.paletteOverrides();
     const cellOptions: TerminalCellStyleOptions = {
       defaultBackground: colors.defaultBackground,
       defaultForeground: colors.defaultForeground,
@@ -189,6 +190,7 @@ export class TerminalScreen extends Component {
       cursorBackground: colors.cursorBackground,
       cursorShape: inspection.cursorStyle.shape,
       cursorHidden: inspection.cursorStyle.blinking && !this.#cursorBlinkOn.peek(),
+      ...(paletteOverrides.size > 0 ? { paletteOverrides } : {}),
       contrastLift: this.#contrastLift.peek(),
       dimToward: this.#dimToward?.peek(),
       ground: this.#ground,

@@ -111,12 +111,13 @@ export function encodeTerminalKeyPress(
   options: TerminalKeyEncodingOptions = {},
 ): Uint8Array | undefined {
   const enhancedSource = isEnhancedKeyReport(event.buffer);
-  const kitty = ((options.kittyFlags ?? 0) & (KITTY_DISAMBIGUATE | KITTY_REPORT_ALL)) !== 0;
+  const kittyFlags = options.kittyFlags ?? 0;
+  const kitty = (kittyFlags & (KITTY_DISAMBIGUATE | KITTY_REPORT_ALL)) !== 0;
   const modifyOtherKeys = options.modifyOtherKeys ?? 0;
   if (kitty || modifyOtherKeys > 0 || enhancedSource) {
     const chord = keyChord(event, enhancedSource);
     const enhanced = kitty
-      ? kittyKeyBytes(chord)
+      ? kittyKeyBytes(chord, kittyFlags)
       : modifyOtherKeys > 0
       ? modifyOtherKeysBytes(chord, modifyOtherKeys)
       : undefined;
@@ -146,13 +147,45 @@ export function encodeTerminalKeyPress(
 }
 
 const KITTY_DISAMBIGUATE = 1;
+const KITTY_REPORT_ALTERNATE = 4;
 const KITTY_REPORT_ALL = 8;
+
+const US_SHIFTED_TO_UNSHIFTED: Readonly<Record<string, string>> = Object.freeze({
+  "!": "1",
+  "@": "2",
+  "#": "3",
+  "$": "4",
+  "%": "5",
+  "^": "6",
+  "&": "7",
+  "*": "8",
+  "(": "9",
+  ")": "0",
+  "_": "-",
+  "+": "=",
+  "{": "[",
+  "}": "]",
+  "|": "\\",
+  ":": ";",
+  '"': "'",
+  "<": ",",
+  ">": ".",
+  "?": "/",
+  "~": "`",
+});
+
+const US_UNSHIFTED_TO_SHIFTED: Readonly<Record<string, string>> = Object.freeze(
+  Object.fromEntries(Object.entries(US_SHIFTED_TO_UNSHIFTED).map(([shifted, unshifted]) => [unshifted, shifted])),
+);
 
 interface KeyChord {
   key: string;
   shift: boolean;
   alt: boolean;
   ctrl: boolean;
+  codepoint?: number;
+  shiftedCodepoint?: number;
+  baseLayoutCodepoint?: number;
 }
 
 /** `CSI code ; modifiers u` (kitty) or `CSI 27 ; modifiers ; code ~` (modifyOtherKeys). */
@@ -170,10 +203,35 @@ function isEnhancedKeyReport(buffer: Uint8Array): boolean {
   return final === 0x7e && buffer[2] === 0x32 && buffer[3] === 0x37 && buffer[4] === 0x3b;
 }
 
+function parseKittyKeyAlternates(
+  buffer: Uint8Array,
+): { codepoint: number; shiftedCodepoint?: number; baseLayoutCodepoint?: number } | undefined {
+  if (buffer.byteLength < 4 || buffer[0] !== 0x1b || buffer[1] !== 0x5b || buffer[buffer.byteLength - 1] !== 0x75) {
+    return undefined;
+  }
+  let body = "";
+  for (let index = 2; index < buffer.byteLength - 1; index += 1) {
+    const byte = buffer[index]!;
+    if (byte === 0x3b) break;
+    body += String.fromCharCode(byte);
+  }
+  const parts = body.split(":");
+  const codepoint = Number.parseInt(parts[0] ?? "", 10);
+  if (!Number.isInteger(codepoint) || codepoint <= 0) return undefined;
+  const shifted = parts[1] ? Number.parseInt(parts[1], 10) : undefined;
+  const base = parts[2] ? Number.parseInt(parts[2], 10) : undefined;
+  return {
+    codepoint,
+    ...(shifted !== undefined && Number.isInteger(shifted) && shifted > 0 ? { shiftedCodepoint: shifted } : {}),
+    ...(base !== undefined && Number.isInteger(base) && base > 0 ? { baseLayoutCodepoint: base } : {}),
+  };
+}
+
 /**
  * The chord a key event stands for. A legacy `ESC` + byte report of Alt+Enter,
  * Alt+Tab or Alt+Backspace decodes without its Alt, so that one modifier is
- * read back off the bytes.
+ * read back off the bytes. Shifted punctuation and kitty alternate-key fields
+ * are preserved so flag-4 children receive `codepoint:shifted[:base]`.
  */
 function keyChord(
   event: Pick<KeyPressEvent, "key" | "buffer" | "ctrl" | "meta" | "shift">,
@@ -183,7 +241,53 @@ function keyChord(
   if (!enhancedSource && !alt && event.buffer.byteLength === 2 && event.buffer[0] === 0x1b) {
     alt = event.key === "return" || event.key === "tab" || event.key === "backspace" || event.key === "space";
   }
-  return { key: event.key, shift: event.shift, alt, ctrl: event.ctrl };
+  const alternates = enhancedSource ? parseKittyKeyAlternates(event.buffer) : undefined;
+  let key: string = event.key;
+  let shift = event.shift;
+  let codepoint = alternates?.codepoint;
+  let shiftedCodepoint = alternates?.shiftedCodepoint;
+  const baseLayoutCodepoint = alternates?.baseLayoutCodepoint;
+
+  if (!alternates && [...key].length === 1) {
+    const unshiftedPunct = US_SHIFTED_TO_UNSHIFTED[key];
+    if (unshiftedPunct !== undefined) {
+      shift = true;
+      codepoint = unshiftedPunct.codePointAt(0);
+      shiftedCodepoint = key.codePointAt(0);
+      key = unshiftedPunct;
+    } else if (shift) {
+      const upper = key.toUpperCase();
+      if (upper !== key.toLowerCase()) {
+        codepoint = key.toLowerCase().codePointAt(0);
+        shiftedCodepoint = upper.codePointAt(0);
+      } else {
+        const shiftedPunct = US_UNSHIFTED_TO_SHIFTED[key];
+        if (shiftedPunct !== undefined) {
+          codepoint = key.codePointAt(0);
+          shiftedCodepoint = shiftedPunct.codePointAt(0);
+        }
+      }
+    }
+  } else if (alternates && shift && shiftedCodepoint === undefined) {
+    const char = String.fromCodePoint(alternates.codepoint);
+    const upper = char.toUpperCase();
+    if (upper !== char.toLowerCase()) {
+      shiftedCodepoint = upper.codePointAt(0);
+    } else {
+      const shiftedPunct = US_UNSHIFTED_TO_SHIFTED[char];
+      if (shiftedPunct !== undefined) shiftedCodepoint = shiftedPunct.codePointAt(0);
+    }
+  }
+
+  return {
+    key,
+    shift,
+    alt,
+    ctrl: event.ctrl,
+    ...(codepoint !== undefined ? { codepoint } : {}),
+    ...(shiftedCodepoint !== undefined ? { shiftedCodepoint } : {}),
+    ...(baseLayoutCodepoint !== undefined ? { baseLayoutCodepoint } : {}),
+  };
 }
 
 function chordModifier(chord: KeyChord): number {
@@ -192,6 +296,7 @@ function chordModifier(chord: KeyChord): number {
 
 /** The code point both enhanced protocols name a key by: unshifted, lower case. */
 function chordCodepoint(chord: KeyChord): number | undefined {
+  if (chord.codepoint !== undefined) return chord.codepoint;
   switch (chord.key) {
     case "return":
       return 13;
@@ -209,19 +314,31 @@ function chordCodepoint(chord: KeyChord): number | undefined {
 }
 
 /**
- * Kitty "disambiguate escape codes": Escape, and every text key held with Ctrl
- * or Alt, and Enter, Tab or Backspace held with any modifier, become
- * `CSI code ; modifiers u`. Plain and shifted text stays text, and the cursor
- * and function keys keep the legacy forms the protocol leaves them in.
+ * Kitty progressive enhancement: disambiguate escape codes (flag 1) turns
+ * Escape, text keys held with Ctrl or Alt, and Enter/Tab/Backspace held with
+ * any modifier into `CSI code ; modifiers u`. When report-alternate-keys
+ * (flag 4) is also active, shifted and base-layout code points ride along as
+ * `code:shifted[:base]`.
  */
-function kittyKeyBytes(chord: KeyChord): string | undefined {
+function kittyKeyBytes(chord: KeyChord, kittyFlags: number): string | undefined {
   const codepoint = chordCodepoint(chord);
   if (codepoint === undefined) return undefined;
   const modifier = chordModifier(chord);
   const functional = codepoint === 13 || codepoint === 9 || codepoint === 127;
   if (codepoint === 27) return modifier === 1 ? "\x1b[27u" : `\x1b[27;${modifier}u`;
   if (functional ? modifier === 1 : !(chord.ctrl || chord.alt)) return undefined;
-  return `\x1b[${codepoint};${modifier}u`;
+  let keySpec = String(codepoint);
+  if ((kittyFlags & KITTY_REPORT_ALTERNATE) !== 0) {
+    const shifted = chord.shift && chord.shiftedCodepoint !== undefined && chord.shiftedCodepoint !== codepoint
+      ? chord.shiftedCodepoint
+      : undefined;
+    const base = chord.baseLayoutCodepoint !== undefined && chord.baseLayoutCodepoint !== codepoint
+      ? chord.baseLayoutCodepoint
+      : undefined;
+    if (base !== undefined) keySpec = `${codepoint}:${shifted ?? ""}:${base}`;
+    else if (shifted !== undefined) keySpec = `${codepoint}:${shifted}`;
+  }
+  return `\x1b[${keySpec};${modifier}u`;
 }
 
 /**
@@ -245,8 +362,13 @@ function modifyOtherKeysBytes(chord: KeyChord, level: number): string | undefine
   if (!chord.ctrl) return undefined;
   const letter = codepoint >= 97 && codepoint <= 122;
   if (letter && !chord.shift) return undefined;
-  if (!letter && level < 2 && legacyControlByte(chord.key) !== undefined) return undefined;
-  return `\x1b[27;${modifier};${codepoint}~`;
+  const reportedCodepoint = !letter && chord.shift && chord.shiftedCodepoint !== undefined
+    ? chord.shiftedCodepoint
+    : codepoint;
+  if (!letter && level < 2 && legacyControlByte(String.fromCodePoint(reportedCodepoint)) !== undefined) {
+    return undefined;
+  }
+  return `\x1b[27;${modifier};${reportedCodepoint}~`;
 }
 
 /** The control byte a legacy terminal sends for Ctrl held with this key, when it has one. */
@@ -288,11 +410,17 @@ function legacyChordBytes(chord: KeyChord): string | undefined {
   if (chord.key === "tab" && chord.shift) return `${prefix}\x1b[Z`;
   if (chord.key === "backspace") return `${prefix}${chord.ctrl ? "\b" : "\x7f"}`;
   if (chord.ctrl) {
-    const control = legacyControlByte(chord.key);
+    const controlTarget = chord.shift && chord.shiftedCodepoint !== undefined
+      ? String.fromCodePoint(chord.shiftedCodepoint)
+      : chord.key;
+    const control = legacyControlByte(controlTarget) ?? legacyControlByte(chord.key);
     if (control !== undefined) return `${prefix}${String.fromCharCode(control)}`;
   }
   const special = specialKeyBytes(chord.key);
   if (special) return `${prefix}${special}`;
+  if (chord.shift && chord.shiftedCodepoint !== undefined) {
+    return `${prefix}${String.fromCodePoint(chord.shiftedCodepoint)}`;
+  }
   if ([...chord.key].length !== 1) return undefined;
   return `${prefix}${chord.shift ? chord.key.toUpperCase() : chord.key}`;
 }

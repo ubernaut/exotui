@@ -17,8 +17,8 @@ export const ENABLE_BRACKETED_PASTE = "\x1b[?2004h";
 /** ANSI escape code to disable bracketed paste handling */
 export const DISABLE_BRACKETED_PASTE = "\x1b[?2004l";
 
-/** Pushes the kitty keyboard protocol's "disambiguate escape codes" flag on the current screen. */
-export const ENABLE_ENHANCED_KEYBOARD = "\x1b[>1u";
+/** Pushes kitty keyboard flags (disambiguate escape codes + report alternate keys) on the current screen. */
+export const ENABLE_ENHANCED_KEYBOARD = "\x1b[>5u";
 
 /** Pops the kitty keyboard flags pushed by {@linkcode ENABLE_ENHANCED_KEYBOARD}. */
 export const DISABLE_ENHANCED_KEYBOARD = "\x1b[<u";

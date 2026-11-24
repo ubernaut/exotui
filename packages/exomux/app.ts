@@ -5987,6 +5987,7 @@ function paintTerminal(
   // Palette resolution, contrast lift, translucent grounds, cursor inversion,
   // and dim fading all live in the shared exotui resolver (WS-002).
   const themed = settings.themed;
+  const paletteOverrides = runtime.screen.paletteOverrides();
   const cellOptions: TerminalCellStyleOptions = {
     defaultBackground: themed ? theme.surface : EXOMUX_RAW_TERMINAL_BACKGROUND,
     defaultForeground: themed ? theme.text : EXOMUX_RAW_TERMINAL_FOREGROUND,
@@ -5997,6 +5998,7 @@ function paintTerminal(
     cursorForeground: theme.background,
     cursorBackground: theme.accent,
     cursorShape: inspection.cursorStyle.shape,
+    ...(paletteOverrides.size > 0 ? { paletteOverrides } : {}),
   };
   for (let row = 0; row < rect.height; row += 1) {
     const cells = rows[row] ?? [];
