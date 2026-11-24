@@ -430,8 +430,10 @@ Deno.test("Exomux coalesces a live resize burst to the first and latest PTY geom
 
     assertEquals(client.resizes, [{ sessionId: session.id, columns: 81, rows: 25 }]);
     assertEquals(client.pendingResizeCount, 1);
-    assertEquals(controller.runtime(session.id)!.screen.inspect().columns, 83);
-    assertEquals(controller.runtime(session.id)!.screen.inspect().rows, 27);
+    // The screen stays the PTY's size until the daemon says the PTY changed:
+    // output still in flight was laid out for the old one.
+    assertEquals(controller.runtime(session.id)!.screen.inspect().columns, 80);
+    assertEquals(controller.runtime(session.id)!.screen.inspect().rows, 24);
 
     client.resolveNextResize();
     await Promise.resolve();
@@ -439,14 +441,85 @@ Deno.test("Exomux coalesces a live resize burst to the first and latest PTY geom
       { sessionId: session.id, columns: 81, rows: 25 },
       { sessionId: session.id, columns: 83, rows: 27 },
     ]);
+    assertEquals(controller.runtime(session.id)!.screen.inspect().columns, 81);
     assertEquals(client.pendingResizeCount, 1);
     client.resolveNextResize();
     await Promise.resolve();
     assertEquals(client.resizes.length, 2);
+    assertEquals(controller.runtime(session.id)!.screen.inspect().columns, 83);
+    assertEquals(controller.runtime(session.id)!.screen.inspect().rows, 27);
   } finally {
     client.delayResize = false;
     client.resolveAllResizes();
     await controller.dispose();
+  }
+});
+
+Deno.test("two clients share one PTY size: the screen follows it and only use claims it", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("shared-size", "agent");
+  const deskClient = host.client();
+  const phoneClient = host.client();
+  const desk = await createExomuxController({ client: deskClient });
+  const phone = await createExomuxController({ client: phoneClient });
+  const windowId = exomuxWindowId(session.id);
+  const projectAt = (controller: typeof desk, columns: number, rows: number, active: boolean) => {
+    const projection = controller.windowHost.project(BOUNDS);
+    return {
+      ...projection,
+      windows: projection.windows.map((window) =>
+        window.id === windowId
+          ? { ...window, active, clientRect: { ...window.clientRect, width: columns, height: rows } }
+          : { ...window, active: false }
+      ),
+    };
+  };
+  const size = (controller: typeof desk) => {
+    const screen = controller.runtime(session.id)!.screen;
+    return `${screen.columns}x${screen.rows}`;
+  };
+  try {
+    await Promise.resolve();
+    // The desk is where the user is: its focused window takes the PTY.
+    desk.syncTerminalGeometry(projectAt(desk, 94, 22, true), true);
+    await Promise.resolve();
+    assertEquals(deskClient.resizes.at(-1), { sessionId: session.id, columns: 94, rows: 22 });
+    assertEquals([size(desk), size(phone)], ["94x22", "94x22"], "both screens are the PTY's size");
+
+    // A second client lays the same terminal out smaller without anyone using
+    // it there. It must not take the size, and its screen stays the PTY's.
+    phoneClient.resizes.splice(0);
+    phone.syncTerminalGeometry(projectAt(phone, 54, 20, false));
+    phone.syncTerminalGeometry(projectAt(phone, 52, 18, false));
+    await Promise.resolve();
+    assertEquals(phoneClient.resizes, [], "a passive layout change resizes nothing");
+    assertEquals([size(desk), size(phone)], ["94x22", "94x22"]);
+
+    // Using it on the phone claims the size, and the desk's screen follows —
+    // cropped in its larger window, never laid out for a size the PTY lacks.
+    phone.claimTerminalSize(session.id);
+    await Promise.resolve();
+    assertEquals(phoneClient.resizes, [{ sessionId: session.id, columns: 52, rows: 18 }]);
+    assertEquals([size(desk), size(phone)], ["52x18", "52x18"]);
+
+    // The desk's own layout shifting no longer resizes either: it lost the size.
+    deskClient.resizes.splice(0);
+    desk.syncTerminalGeometry(projectAt(desk, 93, 22, false));
+    await Promise.resolve();
+    assertEquals(deskClient.resizes, []);
+    // Typing at the desk takes it back, at the desk window's current size.
+    desk.claimTerminalSize(session.id);
+    await Promise.resolve();
+    assertEquals(deskClient.resizes, [{ sessionId: session.id, columns: 93, rows: 22 }]);
+    assertEquals([size(desk), size(phone)], ["93x22", "93x22"]);
+    // And while it holds the size, resizing its window resizes the PTY as before.
+    desk.syncTerminalGeometry(projectAt(desk, 100, 30, false));
+    await Promise.resolve();
+    assertEquals(deskClient.resizes.at(-1), { sessionId: session.id, columns: 100, rows: 30 });
+    assertEquals(size(phone), "100x30");
+  } finally {
+    await desk.dispose();
+    await phone.dispose();
   }
 });
 
@@ -931,6 +1004,8 @@ class FakeExomuxClient implements ExomuxClientPort {
     const apply = () => {
       session.columns = columns;
       session.rows = rows;
+      // The daemon reports a resize to every attached client, the resizer included.
+      for (const client of this.host.attachments.get(sessionId) ?? []) client.acceptSession(cloneSession(session));
     };
     if (!this.delayResize) {
       apply();
@@ -965,6 +1040,10 @@ class FakeExomuxClient implements ExomuxClientPort {
     for (const sessionId of this.#callbacks.keys()) this.host.attachments.get(sessionId)?.delete(this);
     this.#callbacks.clear();
     return Promise.resolve();
+  }
+
+  acceptSession(summary: ExomuxSessionSummary): void {
+    this.#callbacks.get(summary.id)?.onSession?.(summary);
   }
 
   accept(frame: ExomuxOutputFrame, summary: ExomuxSessionSummary): void {
@@ -1018,9 +1097,11 @@ Deno.test("Exomux refits floating windows that a smaller desktop would strand of
     assertEquals(controller.reflowFloatingWindows(small), false);
     assertEquals(floatingRectOf(), after);
 
-    // Growing the desktop back does not disturb a window that already fits.
+    // Growing the desktop back returns the window to where it was parked: the
+    // rescue was a loan, and nothing the user did since made the fitted rect theirs.
+    assertEquals(controller.reflowFloatingWindows(big), true);
+    assertEquals(floatingRectOf(), before);
     assertEquals(controller.reflowFloatingWindows(big), false);
-    assertEquals(floatingRectOf(), after);
   } finally {
     await controller.dispose();
   }
@@ -1133,5 +1214,65 @@ Deno.test("a killed session's relayed kitty images are deleted via the orphan st
     assertEquals(controller.takeOrphanGraphics(), []);
   } finally {
     await controller.dispose();
+  }
+});
+
+Deno.test("Exomux holds a frozen snapshot across split DEC 2026 synchronized output frames", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("sync-2026", "agy");
+  const client = host.client();
+  const controller = await createExomuxController({ client });
+  try {
+    const runtime = controller.runtime(session.id)!;
+    host.emit(session.id, "stable line 1\r\nstable prompt>");
+    const beforeRev = runtime.renderRevision.peek();
+
+    // Begin a multi-chunk synchronized update that clears the screen mid-frame.
+    host.emit(session.id, "\x1b[?2026h\x1b[2J\x1b[Hpartial");
+    assert(runtime.syncOutput.snapshot, "syncOutput must hold the pre-update frame while mode 2026 is open");
+    assertEquals(runtime.renderRevision.peek(), beforeRev, "mid-sync chunk must not bump renderRevision");
+    assertEquals(
+      runtime.syncOutput.snapshot.cells[0]!.slice(0, 13).map((cell) => cell.char).join(""),
+      "stable line 1",
+    );
+
+    // Completing the update releases the hold and publishes the final frame atomically.
+    host.emit(session.id, " complete\x1b[?2026l");
+    assertEquals(runtime.syncOutput.snapshot, undefined);
+    assertEquals(runtime.renderRevision.peek(), beforeRev + 1);
+    assertEquals(runtime.screen.textRows()[0], "partial complete");
+  } finally {
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux suppresses duplicate child query replies from passive mismatched-geometry clients", async () => {
+  const host = new FakeExomuxHost();
+  const session = host.seed("dual-client", "agy");
+  const activeClient = host.client();
+  const passiveClient = host.client();
+  const active = await createExomuxController({ client: activeClient });
+  const passive = await createExomuxController({ client: passiveClient });
+  try {
+    const activeBounds = { column: 0, row: 1, width: 105, height: 40 };
+    const passiveBounds = { column: 0, row: 1, width: 54, height: 24 };
+    const windowId = exomuxWindowId(session.id);
+    active.presentWindow(windowId, activeBounds);
+    active.syncTerminalGeometry(active.windowHost.project(activeBounds));
+    await Promise.resolve();
+    passive.presentWindow(windowId, passiveBounds);
+    passive.openSessionManager(passiveBounds);
+    passive.syncTerminalGeometry(passive.windowHost.project(passiveBounds));
+    await Promise.resolve();
+    activeClient.inputs.length = 0;
+    passiveClient.inputs.length = 0;
+
+    // Emit queries the child sends on startup or redraw.
+    host.emit(session.id, "\x1b[6n\x1b[?2026$p\x1b[18t");
+    assertEquals(activeClient.inputs.length, 3, "active owner answers every query once");
+    assertEquals(passiveClient.inputs, [], "passive mismatched viewer must not inject duplicate replies");
+  } finally {
+    await active.dispose();
+    await passive.dispose();
   }
 });

@@ -609,3 +609,102 @@ Deno.test("ansi sink telemetry records degraded flushes and dropped bytes", () =
   assert(telemetry.bytes >= telemetry.droppedBytes);
   assert(telemetry.maxStallMs > 30, "the stall budget was exhausted before dropping");
 });
+
+Deno.test("ansi canvas sink does not shift following cell left when a dirty range starts on a wide-glyph follower", () => {
+  const chunks: Uint8Array[] = [];
+  const sink = new AnsiCanvasSink({
+    stdout: {
+      writeSync(data: Uint8Array): number {
+        chunks.push(data.slice());
+        return data.length;
+      },
+    },
+  });
+  // Column 0 holds a 2-column glyph, column 1 is its empty follower "", column 2 is 'X'.
+  // When a differential dirty range starts at column 1 (`["", "X"]`), emitting "X"
+  // without positioning to column 2 would overwrite column 1 (the right half of the
+  // wide glyph) and shift the rest of the row left by one column.
+  sink.flushRanges(
+    [{ row: 0, startColumn: 1, values: ["", "X"] }],
+    {} as CanvasRenderStats,
+  );
+  const emitted = new TextDecoder().decode(
+    Uint8Array.from(chunks.flatMap((chunk) => Array.from(chunk))),
+  );
+  assertStringIncludes(emitted, "\x1b[1;3HX", "the cell after a leading empty follower must reposition explicitly");
+});
+
+Deno.test("ansi canvas sink brackets multi-chunk flushes in DEC mode 2026 when enabled", () => {
+  const writes: string[] = [];
+  const sink = new AnsiCanvasSink({
+    stdout: {
+      writeSync(data: Uint8Array): number {
+        writes.push(new TextDecoder().decode(data));
+        return data.length;
+      },
+    },
+    flushLimit: 24,
+    synchronizedOutput: true,
+  });
+
+  // Empty flush emits nothing (no spurious 2026 toggle).
+  sink.flushRanges([], {} as CanvasRenderStats);
+  sink.flush([], {} as CanvasRenderStats);
+  assertEquals(writes, []);
+
+  // Multi-chunk flushRanges starts with ?2026h on the first write and ends with ?2026l on the last.
+  sink.flushRanges(
+    [
+      { row: 0, startColumn: 0, values: ["A", "B", "C", "D", "E", "F", "G", "H"] },
+      { row: 1, startColumn: 0, values: ["1", "2", "3", "4", "5", "6", "7", "8"] },
+      { row: 2, startColumn: 0, values: ["X", "Y", "Z", "W", "Q", "R", "S", "T"] },
+    ],
+    {} as CanvasRenderStats,
+  );
+  assert(writes.length >= 2, "small flushLimit splits the frame across multiple writeSync calls");
+  const combined = writes.join("");
+  assert(combined.startsWith("\x1b[?2026h"), "frame opens synchronized output before the first byte");
+  assert(combined.endsWith("\x1b[?2026l"), "frame closes synchronized output after the last byte");
+  assertEquals(combined.split("\x1b[?2026h").length - 1, 1, "exactly one sync open per frame");
+  assertEquals(combined.split("\x1b[?2026l").length - 1, 1, "exactly one sync close per frame");
+
+  // Same guarantee for legacy flush(updates).
+  writes.length = 0;
+  sink.flush(
+    Array.from({ length: 12 }, (_, index) => ({ row: index % 3, column: index, value: "Z" })),
+    {} as CanvasRenderStats,
+  );
+  const combinedUpdates = writes.join("");
+  assert(combinedUpdates.startsWith("\x1b[?2026h"));
+  assert(combinedUpdates.endsWith("\x1b[?2026l"));
+});
+
+Deno.test("ansi canvas sink coalesces OSC 8 hyperlinks across cells and closes them cleanly", () => {
+  const chunks: Uint8Array[] = [];
+  const sink = new AnsiCanvasSink({
+    stdout: {
+      writeSync(data: Uint8Array): number {
+        chunks.push(data.slice());
+        return data.length;
+      },
+    },
+  });
+  const link = "https://example.com/path";
+  const linked = (ch: string) => `\x1b]8;;${link}\x1b\\\x1b[34m${ch}\x1b[0m\x1b]8;;\x1b\\`;
+  sink.flushRanges(
+    [{
+      row: 0,
+      startColumn: 0,
+      values: [linked("h"), linked("i"), linked("🔗"), "", linked("!"), "\x1b[37mX\x1b[0m"],
+    }],
+    {} as CanvasRenderStats,
+  );
+  const emitted = new TextDecoder().decode(
+    Uint8Array.from(chunks.flatMap((chunk) => Array.from(chunk))),
+  );
+  // One OSC 8 opener shared across "hi", "🔗", and "!", then closed before plain "X".
+  assertEquals(emitted.split(`\x1b]8;;${link}\x1b\\`).length - 1, 1);
+  assertStringIncludes(emitted, `\x1b]8;;${link}\x1b\\\x1b[34mhi`);
+  assertStringIncludes(emitted, "\x1b[1;5H!\x1b]8;;\x1b\\");
+  assert(emitted.includes("\x1b]8;;\x1b\\") && emitted.indexOf("\x1b]8;;\x1b\\") < emitted.lastIndexOf("X"));
+});

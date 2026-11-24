@@ -24,11 +24,14 @@ const STICKY_PRIVATE_MODES: readonly number[] = Object.freeze([
   1047, // alternate screen
   1049, // alternate screen + saved cursor
   2004, // bracketed paste
+  2027, // grapheme cluster width mode
 ]);
 
 const STICKY_MODE_SET: ReadonlySet<number> = new Set(STICKY_PRIVATE_MODES);
 /** Alternate-screen modes are emitted last so entering does not clobber the rest. */
 const ALTERNATE_MODES: ReadonlySet<number> = new Set([47, 1047, 1049]);
+const MAX_KITTY_KEYBOARD_STACK = 16;
+const KITTY_KEYBOARD_FLAG_MASK = 0b11111;
 
 /** Serializable view of the sticky state one session currently holds. */
 export interface ExomuxTerminalModeInspection {
@@ -37,10 +40,11 @@ export interface ExomuxTerminalModeInspection {
 }
 
 /**
- * Tracks the DEC private modes a child program has set, so a client attaching
- * after the raw replay buffer has rotated can still be told what the program
- * expects. Without this a long-running session loses mouse reporting, bracketed
- * paste and the alternate screen the moment its opening bytes are evicted.
+ * Tracks the DEC private modes and enhanced keyboard protocol a child program
+ * has set, so a client attaching after the raw replay buffer has rotated can
+ * still be told what the program expects. Without this a long-running session
+ * loses mouse reporting, bracketed paste, kitty keyboard flags, modifyOtherKeys
+ * and the alternate screen the moment its opening bytes are evicted.
  *
  * Deliberately not a screen model: it skips printable runs wholesale and only
  * inspects escape sequences, so a daemon can run one per session cheaply.
@@ -49,6 +53,8 @@ export class ExomuxTerminalModeTracker {
   #pending = "";
   readonly #modes = new Set<number>();
   #cursorVisible = true;
+  #kittyKeyboard: { main: number[]; alternate: number[] } = { main: [], alternate: [] };
+  #modifyOtherKeys = 0;
   readonly #decoder = new TextDecoder();
 
   /** Feeds one raw output chunk from the child. */
@@ -75,15 +81,26 @@ export class ExomuxTerminalModeTracker {
     }
   }
 
+  #isAlternate(): boolean {
+    return this.#modes.has(47) || this.#modes.has(1047) || this.#modes.has(1049);
+  }
+
   #apply(sequence: ReturnType<typeof parseTerminalControlSequence>): void {
     if (!sequence) return;
     // A full reset drops everything the program had established.
     if (sequence.kind === "esc" && sequence.command === "c") {
       this.#modes.clear();
       this.#cursorVisible = true;
+      this.#kittyKeyboard = { main: [], alternate: [] };
+      this.#modifyOtherKeys = 0;
       return;
     }
-    if (sequence.kind !== "csi" || sequence.prefix !== "?") return;
+    if (sequence.kind !== "csi" || sequence.intermediates) return;
+    if (sequence.prefix === ">" || sequence.prefix === "<" || sequence.prefix === "=") {
+      this.#applyKeyboardProtocol(sequence);
+      return;
+    }
+    if (sequence.prefix !== "?") return;
     if (sequence.command !== "h" && sequence.command !== "l") return;
     const enabled = sequence.command === "h";
     for (const raw of sequence.params.split(";")) {
@@ -97,6 +114,38 @@ export class ExomuxTerminalModeTracker {
       if (!STICKY_MODE_SET.has(mode)) continue;
       if (enabled) this.#modes.add(mode);
       else this.#modes.delete(mode);
+    }
+  }
+
+  #applyKeyboardProtocol(sequence: NonNullable<ReturnType<typeof parseTerminalControlSequence>>): void {
+    const params = sequence.params === ""
+      ? []
+      : sequence.params.split(";").map((part) => (part === "" ? 0 : Number.parseInt(part, 10) || 0));
+    if (sequence.command === "u") {
+      const stack = this.#isAlternate() ? this.#kittyKeyboard.alternate : this.#kittyKeyboard.main;
+      if (sequence.prefix === ">") {
+        stack.push((params[0] ?? 0) & KITTY_KEYBOARD_FLAG_MASK);
+        if (stack.length > MAX_KITTY_KEYBOARD_STACK) stack.shift();
+      } else if (sequence.prefix === "<") {
+        stack.splice(Math.max(0, stack.length - Math.max(1, params[0] || 1)));
+      } else if (sequence.prefix === "=") {
+        const flags = (params[0] ?? 0) & KITTY_KEYBOARD_FLAG_MASK;
+        const current = stack.length > 0 ? stack[stack.length - 1]! : 0;
+        const mode = params[1] || 1;
+        const next = mode === 2 ? current | flags : mode === 3 ? current & ~flags : flags;
+        if (stack.length > 0) stack[stack.length - 1] = next;
+        else stack.push(next);
+      }
+      return;
+    }
+    if (sequence.command === "m" && sequence.prefix === ">") {
+      if (params.length === 0 || params[0] === 4) {
+        this.#modifyOtherKeys = Math.max(0, Math.min(2, params[1] ?? 0));
+      }
+      return;
+    }
+    if (sequence.command === "n" && sequence.prefix === ">") {
+      if (params.length === 0 || params[0] === 4) this.#modifyOtherKeys = 0;
     }
   }
 
@@ -114,7 +163,16 @@ export class ExomuxTerminalModeTracker {
     }
     let output = "";
     for (const mode of plain) output += `\x1b[?${mode}h`;
+    const mainKitty = this.#kittyKeyboard.main.at(-1) ?? 0;
+    // `CSI = flags ; 1 u` replaces the top of the stack (or pushes if empty),
+    // keeping repeated preamble replays idempotent.
+    if (mainKitty !== 0) output += `\x1b[=${mainKitty};1u`;
     for (const mode of alternate) output += `\x1b[?${mode}h`;
+    if (alternate.length > 0) {
+      const altKitty = this.#kittyKeyboard.alternate.at(-1) ?? 0;
+      if (altKitty !== 0) output += `\x1b[=${altKitty};1u`;
+    }
+    if (this.#modifyOtherKeys > 0) output += `\x1b[>4;${this.#modifyOtherKeys}m`;
     if (!this.#cursorVisible) output += "\x1b[?25l";
     return output;
   }

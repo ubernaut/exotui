@@ -367,3 +367,34 @@ Deno.test("decodeBuffer maps legacy X10 wheel bytes to signed vertical scroll", 
   assertEquals(down[0]!.scroll, 1);
   assertEquals(decodeMouseEvents("\x1b[M\x62\x25\x26"), []);
 });
+
+Deno.test("modifier parameters decode as a bitmask, so chords keep every modifier", () => {
+  const pick = (code: string) => {
+    const { key, shift, meta, ctrl } = decode(code);
+    return { key, shift, meta, ctrl };
+  };
+  assertEquals(pick("\x1b[1;2A"), { key: "up", shift: true, meta: false, ctrl: false });
+  assertEquals(pick("\x1b[1;4C"), { key: "right", shift: true, meta: true, ctrl: false });
+  assertEquals(pick("\x1b[1;7D"), { key: "left", shift: false, meta: true, ctrl: true });
+  assertEquals(pick("\x1b[1;8B"), { key: "down", shift: true, meta: true, ctrl: true });
+  assertEquals(pick("\x1bM"), { key: "M", shift: true, meta: true, ctrl: false });
+});
+
+Deno.test("kitty and modifyOtherKeys reports decode to the legacy key names", () => {
+  const pick = (code: string) => {
+    const { key, shift, meta, ctrl } = decode(code);
+    return { key, shift, meta, ctrl };
+  };
+  assertEquals(pick("\x1b[13;2u"), { key: "return", shift: true, meta: false, ctrl: false });
+  assertEquals(pick("\x1b[27u"), { key: "escape", shift: false, meta: false, ctrl: false });
+  assertEquals(pick("\x1b[99;5u"), { key: "c", shift: false, meta: false, ctrl: true });
+  assertEquals(pick("\x1b[122;6u"), { key: "z", shift: true, meta: false, ctrl: true });
+  assertEquals(pick("\x1b[109;4u"), { key: "M", shift: true, meta: true, ctrl: false });
+  assertEquals(pick("\x1b[109;3u"), { key: "m", shift: false, meta: true, ctrl: false });
+  assertEquals(pick("\x1b[9;5u"), { key: "tab", shift: false, meta: false, ctrl: true });
+  assertEquals(pick("\x1b[127;3u"), { key: "backspace", shift: false, meta: true, ctrl: false });
+  // Alternate-key and event-type subfields ride along without changing the key.
+  assertEquals(pick("\x1b[97:65;6:1u"), { key: "a", shift: true, meta: false, ctrl: true });
+  assertEquals(pick("\x1b[27;2;13~"), { key: "return", shift: true, meta: false, ctrl: false });
+  assertEquals(pick("\x1b[27;6;122~"), { key: "z", shift: true, meta: false, ctrl: true });
+});

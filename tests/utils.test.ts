@@ -142,6 +142,10 @@ Deno.test("utils string helpers measure unicode and ANSI-styled cells", async (t
   await t.step("stripStyles()", () => {
     assertEquals(stripStyles("\x1b[32mHello\x1b[0m"), "Hello");
     assertEquals(stripStyles("\x1b[2J\x1b[32mHello\x1b[0m"), "Hello");
+    assertEquals(
+      stripStyles("\x1b]8;;https://example.com/home\x1b\\\x1b[38;2;1;2;3mLink\x1b[0m\x1b]8;;\x1b\\"),
+      "Link",
+    );
   });
 
   await t.step("textWidth()", () => {

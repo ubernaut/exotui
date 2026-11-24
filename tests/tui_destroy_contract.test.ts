@@ -68,3 +68,37 @@ Deno.test("destroy() is idempotent enough to call after an emitted shutdown", ()
   tui.destroy();
   assert(true, "repeated teardown did not throw");
 });
+
+Deno.test("Tui toggles host grapheme clustering and closes synchronized output on destroy", () => {
+  const chunks: string[] = [];
+  const stdout = {
+    write(data: Uint8Array): Promise<number> {
+      chunks.push(new TextDecoder().decode(data));
+      return Promise.resolve(data.length);
+    },
+    writeSync(data: Uint8Array): number {
+      chunks.push(new TextDecoder().decode(data));
+      return data.length;
+    },
+    isTerminal(): boolean {
+      return false;
+    },
+    rid: 1,
+  };
+  const canvas = new Canvas({ sink: new MemoryCanvasSink(), size: { columns: 20, rows: 6 } });
+  const tui = new Tui({
+    canvas,
+    stdout: stdout as unknown as ConstructorParameters<typeof Tui>[0]["stdout"],
+    enableSynchronizedOutput: true,
+    enableGraphemeClustering: true,
+  });
+  tui.run();
+  const opened = chunks.join("");
+  assert(opened.includes("\x1b[?2027h"), "run() enables mode 2027 when requested");
+
+  chunks.length = 0;
+  tui.destroy();
+  const closed = chunks.join("");
+  assert(closed.includes("\x1b[?2026l"), "destroy() closes any open synchronized output frame");
+  assert(closed.includes("\x1b[?2027l"), "destroy() disables mode 2027 when run() enabled it");
+});

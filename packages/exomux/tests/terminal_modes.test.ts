@@ -88,3 +88,34 @@ Deno.test("mode tracker emits nothing for a plain shell session", () => {
   assertEquals(tracker.inspect().modes, []);
   assertEquals(tracker.preamble(), "");
 });
+
+Deno.test("mode tracker preserves kitty keyboard protocol, modifyOtherKeys, and mode 2027 across rotated replays", () => {
+  const tracker = new ExomuxTerminalModeTracker();
+  // Matches the startup sequence emitted by Charmbracelet/Ultraviolet CLIs (e.g. agy).
+  tracker.write("\x1b[?2004h\x1b[?2027h\x1b[>4;2m\x1b[>5u");
+  assertEquals(tracker.inspect().modes, [2004, 2027]);
+
+  const screen = new TerminalScreenController({ columns: 80, rows: 24 });
+  screen.write(tracker.preamble());
+  assertEquals(screen.keyboardProtocol, { kittyFlags: 5, modifyOtherKeys: 2 });
+  assertEquals(screen.inspect().privateModes.includes(2004), true);
+  assertEquals(screen.inspect().privateModes.includes(2027), true);
+
+  // Replaying the preamble twice stays idempotent (uses `CSI = flags;1 u`, not push).
+  screen.write(tracker.preamble());
+  assertEquals(screen.keyboardProtocol, { kittyFlags: 5, modifyOtherKeys: 2 });
+
+  // Alternate screen tracks its own kitty keyboard stack separately from main.
+  tracker.write("\x1b[?1049h\x1b[>1u");
+  const altScreen = new TerminalScreenController({ columns: 80, rows: 24 });
+  altScreen.write(tracker.preamble());
+  assertEquals(altScreen.inspect().alternate, true);
+  assertEquals(altScreen.keyboardProtocol, { kittyFlags: 1, modifyOtherKeys: 2 });
+
+  // Exiting alternate restores main's kitty keyboard flags.
+  tracker.write("\x1b[?1049l");
+  const mainScreen = new TerminalScreenController({ columns: 80, rows: 24 });
+  mainScreen.write(tracker.preamble());
+  assertEquals(mainScreen.inspect().alternate, false);
+  assertEquals(mainScreen.keyboardProtocol, { kittyFlags: 5, modifyOtherKeys: 2 });
+});

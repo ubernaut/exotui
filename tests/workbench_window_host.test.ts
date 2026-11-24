@@ -9,6 +9,7 @@ import {
   TiledWorkspaceController,
   WorkbenchWindowHostController,
 } from "../mod.ts";
+import type { Key } from "../src/input_reader/types.ts";
 
 const BOUNDS = { column: 0, row: 0, width: 100, height: 32 };
 
@@ -31,7 +32,7 @@ Deno.test("workbench window host shares one workspace and projects tiled floatin
     assertEquals(pinned.semantic.description?.includes("always on top"), true);
     const pinControl = pinned.controls.find((control) => control.kind === "always-on-top");
     assertEquals(pinControl?.semantic.label, "Return window to normal stacking");
-    assertEquals(pinControl?.semantic.shortcut, "Alt+P");
+    assertEquals(pinControl?.semantic.shortcut, "Shift+Alt+P");
     assertEquals(pinned.clientRect, { column: 56, row: 7, width: 22, height: 6 });
   } finally {
     host.dispose();
@@ -646,6 +647,67 @@ Deno.test("workbench window host keeps floating chrome and clients above tiled s
     assertEquals(client.reason, "window-client-focus-pass-through");
     assertEquals(client.handled, false);
     assertEquals(host.inspect().separatorResize, undefined);
+  } finally {
+    host.dispose();
+    workspace.dispose();
+  }
+});
+
+Deno.test("window chords need Shift with Alt, so Alt alone reaches the program in the window", () => {
+  const workspace = new TiledWorkspaceController({ gap: 1 });
+  const host = createHost(workspace);
+  try {
+    host.execute({ kind: "focus", id: "normal" }, BOUNDS);
+    const before = floatingRect(host.controller.snapshot(), "normal");
+    for (const key of ["m", "f", "c", "r", "p", "d", "left", "right", "up", "down"] as const) {
+      const result = host.handleKey({ key, ctrl: false, meta: true, shift: false }, BOUNDS);
+      assertEquals([key, result.handled, result.reason], [key, false, "window-modifier-not-held"]);
+    }
+    assertEquals(host.handleKey({ key: "left", ctrl: true, meta: true, shift: false }, BOUNDS).handled, false);
+    assertEquals(floatingRect(host.controller.snapshot(), "normal"), before);
+    assertEquals(host.controller.inspect().windows.find((window) => window.id === "normal")?.state, "normal");
+
+    // A legacy terminal reports Shift+Alt+M as ESC M: the capital, with both modifiers.
+    assertEquals(
+      host.handleKey({ key: "M" as Key, ctrl: false, meta: true, shift: true }, BOUNDS).command?.kind,
+      "minimize",
+    );
+    assertEquals(host.controller.inspect().windows.find((window) => window.id === "normal")?.state, "minimized");
+  } finally {
+    host.dispose();
+    workspace.dispose();
+  }
+});
+
+Deno.test("Shift+Alt+arrows tile to an edge, and two arrows pressed together tile to the corner", () => {
+  const workspace = new TiledWorkspaceController({ gap: 1 });
+  let clock = 1_000;
+  const host = createHost(workspace, () => clock);
+  const press = (key: Key, ctrl = false) => host.handleKey({ key, ctrl, meta: true, shift: true }, BOUNDS);
+  try {
+    host.execute({ kind: "focus", id: "normal" }, BOUNDS);
+    assertEquals(press("up").command, { kind: "snap", target: { kind: "workspace", edge: "top" } });
+    clock += 40;
+    assertEquals(press("right").command, { kind: "snap", target: { kind: "corner", corner: "top-right" } });
+    // The chord is spent: a third arrow in the window is an edge again.
+    clock += 40;
+    assertEquals(press("down").command, { kind: "snap", target: { kind: "workspace", edge: "bottom" } });
+    // Order does not matter, only that the two are on different axes.
+    clock += 40;
+    assertEquals(press("left").command, { kind: "snap", target: { kind: "corner", corner: "bottom-left" } });
+    // Opposite edges on one axis never make a corner.
+    clock += 5_000;
+    press("left");
+    clock += 40;
+    assertEquals(press("right").command, { kind: "snap", target: { kind: "workspace", edge: "right" } });
+    // A second arrow after the window has passed is its own gesture.
+    clock += 5_000;
+    press("up");
+    clock += 600;
+    assertEquals(press("right").command, { kind: "snap", target: { kind: "workspace", edge: "right" } });
+    // Ctrl+Shift+Alt+arrow is the keyboard move.
+    clock += 5_000;
+    assertEquals(press("left", true).command?.kind, "nudge");
   } finally {
     host.dispose();
     workspace.dispose();

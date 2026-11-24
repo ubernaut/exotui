@@ -20,6 +20,9 @@ export class FakeExomuxClient implements ExomuxClientPort {
   rejectKill = false;
   shutdownCalls = 0;
   readonly inputs: Array<{ sessionId: string; data: string }> = [];
+  readonly attachRequests: Array<{ sessionId: string; sinceSequence: number }> = [];
+  /** Attaches resuming before this sequence are refused the way a pre-fix daemon refuses an oversized replay. */
+  oversizedReplayBelow = 0;
   readonly spawned: ExomuxSpawnOptions[] = [];
   readonly detached: string[] = [];
   readonly killed: string[] = [];
@@ -115,6 +118,12 @@ export class FakeExomuxClient implements ExomuxClientPort {
     },
   ): Promise<ExomuxAttachResult> {
     if (this.rejectAttach) return Promise.reject(new Error("fake attach rejected"));
+    this.attachRequests.push({ sessionId, sinceSequence: options.sinceSequence ?? 0 });
+    if ((options.sinceSequence ?? 0) < this.oversizedReplayBelow) {
+      return Promise.reject(
+        Object.assign(new Error("Terminal data exceeds the protocol quota."), { code: "data-too-large" }),
+      );
+    }
     const current = this.#sessions.get(sessionId);
     if (!current) return Promise.reject(new Error("missing fake session"));
     this.#listeners.set(sessionId, options.onOutput);
@@ -182,6 +191,13 @@ export class FakeExomuxClient implements ExomuxClientPort {
 
   resize(sessionId: string, columns: number, rows: number): Promise<boolean> {
     this.resizes.push({ sessionId, columns, rows });
+    // The daemon reports a resize to every attached client, the resizer included.
+    const current = this.#sessions.get(sessionId);
+    if (current) {
+      const resized = { ...current, columns, rows };
+      this.#sessions.set(sessionId, resized);
+      this.#sessionListeners.get(sessionId)?.(resized);
+    }
     return Promise.resolve(true);
   }
 

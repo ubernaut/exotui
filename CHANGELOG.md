@@ -14,6 +14,40 @@ quickly, but the affected entrypoint or module family should be named here.
   in the active window could appear at the wrong place for a moment, or stay there.
 - Exomux no longer crashes, and no longer fails to reattach, when a session goes away while one of its warnings is still
   showing.
+- **Changed shortcuts.** The window chords of `WorkbenchWindowHostController.handleKey` (Exomux and the web desktop)
+  need Shift held with Alt: Shift+Alt+M minimizes, F maximizes, D floats or tiles, C closes, R recovers, P pins. Alt
+  alone now reaches the program in the window, so Alt+B/F/D word motions, Alt+arrows and an agent's own Alt bindings
+  work. Shift+Alt+arrow tiles the window to that edge, and two arrows on different axes pressed together tile it to the
+  corner between them. Ctrl+Shift+Alt+arrow moves a window. The keyboard resize chord is gone; drag a border. Alt+Tab
+  still opens the switcher.
+- The terminal screen no longer runs a private or intermediate control sequence as its plain namesake. The kitty
+  keyboard query `CSI ? u` was treated as "restore cursor", which sent the next redraw of a program such as agy to the
+  wrong place and left stale rows behind.
+- `TerminalScreenController` answers device attributes, XTVERSION, device status, DECRQM, DECRQSS, XTGETTCAP and the
+  kitty keyboard query through a new `onReply` option, and OSC 10/11 colour queries when `queryColors` is given. It
+  tracks the kitty keyboard flags and modifyOtherKeys level a program sets, exposed as `keyboardProtocol`. Exomux wires
+  all of it, so programs stop waiting out timeouts at start.
+- `encodeTerminalKeyPress` takes the child's `keyboardProtocol`: a program that asked for the kitty keyboard protocol or
+  modifyOtherKeys gets Shift+Enter, Ctrl+Shift+letter, Escape and Alt chords in the form it asked for. `Tui` gains
+  `enableEnhancedKeyboard`, which Exomux turns on, so a host terminal with the kitty protocol reports those chords in
+  the first place. A program that asked for nothing still gets legacy bytes.
+- The input reader decodes modifier parameters as a bitmask. Shift+Alt, Ctrl+Alt and Ctrl+Shift+Alt arrows used to
+  arrive as bare arrows. It also decodes kitty `CSI u` and modifyOtherKeys key reports.
+- Typing or pasting into an Exomux terminal that is scrolled back returns it to the live screen.
+- An Exomux floating window that was shrunk to fit a smaller host terminal gets its own size and position back when the
+  terminal grows again, unless it was moved or resized in between.
+- Two Exomux clients on one session no longer corrupt each other's terminals. A terminal's screen now always has the
+  size of its PTY, and a client asks the PTY to take its window's size only when the terminal is used there: typed or
+  pasted into, focused, or resized while that client already holds the size. Before, any client whose layout shifted
+  resized the shared PTY, and the other client went on drawing the program's output into a screen of a different size,
+  so text landed on the wrong rows. A window whose size differs from the PTY's shows the screen cropped or padded and
+  carries the PTY's size in its title, such as `[54x20]`.
+- Exomux reattaches to a terminal whose oldest retained output frame is already at the protocol's size limit. The daemon
+  used to refuse the whole attach ("Terminal data exceeds the protocol quota") when it could not fit the terminal-mode
+  preamble into that frame, which a busy agent hits after any large redraw. The client also recovers from a daemon that
+  still refuses, by resuming at the newest output and asking the program to repaint.
+- Exomux no longer drops the first keystrokes typed into a new session on a host terminal that does not answer the
+  launch probe, such as tmux.
 
 ## exotui 0.10.1 — 2026-11-19
 

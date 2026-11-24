@@ -130,3 +130,37 @@ Deno.test("TerminalScreen component renders a PTY screen with palette, cursor, a
     surface.dispose();
   }
 });
+
+Deno.test("TerminalScreen component forwards sanitized OSC 8 hyperlinks and drops unsafe schemes", async () => {
+  const screen = new TerminalScreenController({ columns: 12, rows: 2 });
+  screen.write(
+    "\x1b]8;;https://example.com/docs\x1b\\ok\x1b]8;;\x1b\\ \x1b]8;;javascript:alert(1)\x1b\\no\x1b]8;;\x1b\\",
+  );
+  const revision = new Signal(0);
+  const surface = new WidgetSurface(12, 2);
+  try {
+    surface.mount((tui) => [
+      new TerminalScreen({
+        parent: tui,
+        zIndex: 1,
+        rectangle: { column: 0, row: 0, width: 12, height: 2 },
+        screen,
+        revision,
+        colors: {
+          defaultBackground: SURFACE,
+          defaultForeground: TEXT,
+          cursorForeground: [0, 0, 0],
+          cursorBackground: [255, 200, 0],
+        },
+        showCursor: false,
+      }),
+    ]);
+    await surface.render();
+    const first = surface.cellAt(0, 0);
+    const unsafe = surface.cellAt(0, 3);
+    assert(typeof first === "string" && first.includes("\x1b]8;;https://example.com/docs\x1b\\"));
+    assert(typeof unsafe === "string" && !unsafe.includes("javascript:"));
+  } finally {
+    surface.dispose();
+  }
+});

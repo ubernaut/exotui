@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 1132
 - Unique re-export declarations: 743
 - Re-export declaration visits: 1129
-- Unique symbol declarations: 5173
-- Symbol declaration visits: 10482
-- Documented symbol declarations: 5142
+- Unique symbol declarations: 5186
+- Symbol declaration visits: 10514
+- Documented symbol declarations: 5155
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -21,12 +21,12 @@ separate while shared module declarations are listed once with explicit entrypoi
 
 | Specifier             | Path                                 | Runtime  | Stability    | Modules | Symbols |    Docs |
 | --------------------- | ------------------------------------ | -------- | ------------ | ------: | ------: | ------: |
-| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4386 | 100.00% |
+| `.`                   | `./mod.ts`                           | terminal | stable       |     459 |    4399 | 100.00% |
 | `./app`               | `./mod.app.ts`                       | terminal | beta         |      53 |     106 |  98.11% |
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
 | `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3702 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3709 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
 | `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     136 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
@@ -34,8 +34,8 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
 | `./showcase`          | `./src/showcase/mod.ts`              | shared   | beta         |       6 |      53 |  98.11% |
 | `./theme`             | `./mod.theme.ts`                     | shared   | beta         |      16 |     264 | 100.00% |
-| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     907 | 100.00% |
-| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     210 |  99.52% |
+| `./runtime`           | `./mod.runtime.ts`                   | shared   | beta         |      89 |     913 | 100.00% |
+| `./terminal`          | `./mod.terminal.ts`                  | terminal | beta         |      22 |     216 |  99.54% |
 | `./testing`           | `./mod.testing.ts`                   | terminal | beta         |      16 |     109 | 100.00% |
 | `./layout/yoga`       | `./src/layout/solvers/yoga.ts`       | shared   | experimental |       1 |       4 | 100.00% |
 | `./layout/taffy`      | `./src/layout/taffy.ts`              | shared   | experimental |       2 |      24 | 100.00% |
@@ -50,8 +50,8 @@ Full terminal package with core TUI runtime, widgets, app primitives, themes, ru
 - Stability: stable
 - Modules: 459
 - Re-export declarations: 460
-- Exported symbols: 4386
-- Documented symbols: 4386
+- Exported symbols: 4399
+- Documented symbols: 4399
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -125,8 +125,8 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Stability: beta
 - Modules: 366
 - Re-export declarations: 368
-- Exported symbols: 3702
-- Documented symbols: 3702
+- Exported symbols: 3709
+- Documented symbols: 3709
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -245,8 +245,8 @@ Shared runtime primitives for scheduling, storage, workers, resources, diagnosti
 - Stability: beta
 - Modules: 89
 - Re-export declarations: 88
-- Exported symbols: 907
-- Documented symbols: 907
+- Exported symbols: 913
+- Documented symbols: 913
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -260,9 +260,9 @@ Terminal parser, screen, shell, backend, PTY, workspace, and input-reader primit
 - Stability: beta
 - Modules: 22
 - Re-export declarations: 21
-- Exported symbols: 210
-- Documented symbols: 209
-- Documentation coverage: 99.52%
+- Exported symbols: 216
+- Documented symbols: 215
+- Documentation coverage: 99.54%
 - Duplicate symbols: 0
 - Missing targets: 0
 
@@ -467,7 +467,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/app/tabs_commands.ts`](#src-app-tabs-commands-ts)                                               | `.`, `./web`                             |          0 |       6 |          6 |
 | [`src/app/terminal_app.ts`](#src-app-terminal-app-ts)                                                 | `./app`                                  |          0 |       6 |          6 |
 | [`src/app/terminal_commands.ts`](#src-app-terminal-commands-ts)                                       | `.`, `./web`                             |          0 |      29 |         29 |
-| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      17 |         17 |
+| [`src/app/terminal_input.ts`](#src-app-terminal-input-ts)                                             | `.`, `./web`                             |          0 |      18 |         18 |
 | [`src/app/theme_commands.ts`](#src-app-theme-commands-ts)                                             | `.`, `./web`                             |          0 |      24 |         24 |
 | [`src/app/theme_editor.ts`](#src-app-theme-editor-ts)                                                 | `.`, `./web`                             |          0 |       9 |          9 |
 | [`src/app/theme_plugin.ts`](#src-app-theme-plugin-ts)                                                 | `.`, `./web`                             |          0 |      13 |         13 |
@@ -742,7 +742,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_backend.ts`](#src-runtime-terminal-backend-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       9 |          9 |
 | [`src/runtime/terminal_capabilities.ts`](#src-runtime-terminal-capabilities-ts)                       | `.`, `./runtime`, `./terminal`           |          0 |      27 |         27 |
 | [`src/runtime/terminal_color.ts`](#src-runtime-terminal-color-ts)                                     | `./terminal`                             |          0 |       4 |          3 |
-| [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
+| [`src/runtime/terminal_links.ts`](#src-runtime-terminal-links-ts)                                     | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       3 |          3 |
 | [`src/runtime/terminal_margins.ts`](#src-runtime-terminal-margins-ts)                                 | `.`, `./runtime`                         |          0 |       2 |          2 |
 | [`src/runtime/terminal_operations.ts`](#src-runtime-terminal-operations-ts)                           | `.`, `./runtime`                         |          0 |       5 |          5 |
 | [`src/runtime/terminal_palette.ts`](#src-runtime-terminal-palette-ts)                                 | `.`, `./runtime`, `./terminal`           |          0 |       8 |          8 |
@@ -750,7 +750,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/runtime/terminal_passthrough.ts`](#src-runtime-terminal-passthrough-ts)                         | `.`, `./runtime`                         |          0 |      11 |         11 |
 | [`src/runtime/terminal_queries.ts`](#src-runtime-terminal-queries-ts)                                 | `.`, `./runtime`                         |          0 |       4 |          4 |
 | [`src/runtime/terminal_sanitizer.ts`](#src-runtime-terminal-sanitizer-ts)                             | `.`, `./runtime`                         |          0 |       4 |          4 |
-| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       7 |          7 |
+| [`src/runtime/terminal_screen.ts`](#src-runtime-terminal-screen-ts)                                   | `.`, `./web`, `./runtime`, `./terminal`  |          0 |      12 |         12 |
 | [`src/runtime/terminal_scrollback.ts`](#src-runtime-terminal-scrollback-ts)                           | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       6 |          6 |
 | [`src/runtime/terminal_selection.ts`](#src-runtime-terminal-selection-ts)                             | `.`, `./web`, `./runtime`, `./terminal`  |          0 |       2 |          2 |
 | [`src/runtime/terminal_sequences.ts`](#src-runtime-terminal-sequences-ts)                             | `./terminal`                             |          0 |       3 |          3 |
@@ -855,7 +855,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/unicode/source_display.ts`](#src-unicode-source-display-ts)                                     | `.`                                      |          0 |       5 |          5 |
 | [`src/unicode/text_index.ts`](#src-unicode-text-index-ts)                                             | `.`                                      |          0 |       6 |          6 |
 | [`src/unicode/width.ts`](#src-unicode-width-ts)                                                       | `.`, `./web`, `./terminal`               |          0 |      21 |         21 |
-| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                                 | `.`                                      |          0 |      12 |         12 |
+| [`src/utils/ansi_codes.ts`](#src-utils-ansi-codes-ts)                                                 | `.`                                      |          0 |      18 |         18 |
 | [`src/utils/async.ts`](#src-utils-async-ts)                                                           | `.`, `./web`                             |          0 |       1 |          1 |
 | [`src/utils/component.ts`](#src-utils-component-ts)                                                   | `.`                                      |          0 |       2 |          2 |
 | [`src/utils/mod.ts`](#src-utils-mod-ts)                                                               | `.`                                      |          7 |       0 |          0 |
@@ -3426,6 +3426,7 @@ _Entrypoints: `.`, `./web`_
 | `TerminalInputRouteDecision`           | interface | yes       | yes   |
 | `TerminalInputRoutingOptions`          | interface | yes       | yes   |
 | `TerminalInputTarget`                  | interface | yes       | yes   |
+| `TerminalKeyEncodingOptions`           | interface | yes       | yes   |
 | `TerminalMouseInputEvent`              | interface | yes       | yes   |
 | `terminalMouseRoutingFromPrivateModes` | function  | no        | yes   |
 | `TerminalMouseTrackingMode`            | type      | yes       | yes   |
@@ -8333,10 +8334,11 @@ _Entrypoints: `./terminal`_
 
 _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 
-| Symbol                  | Kind     | Type Only | JSDoc |
-| ----------------------- | -------- | --------- | ----- |
-| `normalizeTerminalLink` | function | no        | yes   |
-| `terminalLinkAt`        | function | no        | yes   |
+| Symbol                      | Kind     | Type Only | JSDoc |
+| --------------------------- | -------- | --------- | ----- |
+| `normalizeTerminalLink`     | function | no        | yes   |
+| `sanitizeTerminalHyperlink` | function | no        | yes   |
+| `terminalLinkAt`            | function | no        | yes   |
 
 ### src/runtime/terminal_margins.ts
 
@@ -8430,15 +8432,20 @@ _Entrypoints: `.`, `./runtime`_
 
 _Entrypoints: `.`, `./web`, `./runtime`, `./terminal`_
 
-| Symbol                            | Kind      | Type Only | JSDoc |
-| --------------------------------- | --------- | --------- | ----- |
-| `TerminalScreenCell`              | interface | yes       | yes   |
-| `TerminalScreenController`        | class     | no        | yes   |
-| `TerminalScreenControllerOptions` | interface | yes       | yes   |
-| `TerminalScreenCursor`            | interface | yes       | yes   |
-| `TerminalScreenCursorStyle`       | interface | yes       | yes   |
-| `TerminalScreenGlyphInspection`   | interface | yes       | yes   |
-| `TerminalScreenInspection`        | interface | yes       | yes   |
+| Symbol                                        | Kind      | Type Only | JSDoc |
+| --------------------------------------------- | --------- | --------- | ----- |
+| `TerminalScreenCell`                          | interface | yes       | yes   |
+| `TerminalScreenColorReport`                   | interface | yes       | yes   |
+| `TerminalScreenController`                    | class     | no        | yes   |
+| `TerminalScreenControllerOptions`             | interface | yes       | yes   |
+| `TerminalScreenCursor`                        | interface | yes       | yes   |
+| `TerminalScreenCursorStyle`                   | interface | yes       | yes   |
+| `TerminalScreenGlyphInspection`               | interface | yes       | yes   |
+| `TerminalScreenInspection`                    | interface | yes       | yes   |
+| `TerminalScreenKeyboardProtocol`              | interface | yes       | yes   |
+| `TerminalSynchronizedOutputController`        | class     | no        | yes   |
+| `TerminalSynchronizedOutputControllerOptions` | interface | yes       | yes   |
+| `TerminalSynchronizedOutputSnapshot`          | interface | yes       | yes   |
 
 ### src/runtime/terminal_scrollback.ts
 
@@ -10205,20 +10212,26 @@ _Entrypoints: `.`, `./web`, `./terminal`_
 
 _Entrypoints: `.`_
 
-| Symbol                    | Kind     | Type Only | JSDoc |
-| ------------------------- | -------- | --------- | ----- |
-| `CLEAR_SCREEN`            | const    | no        | yes   |
-| `DISABLE_BRACKETED_PASTE` | const    | no        | yes   |
-| `DISABLE_FOCUS_EVENTS`    | const    | no        | yes   |
-| `DISABLE_MOUSE`           | const    | no        | yes   |
-| `ENABLE_BRACKETED_PASTE`  | const    | no        | yes   |
-| `ENABLE_FOCUS_EVENTS`     | const    | no        | yes   |
-| `ENABLE_MOUSE`            | const    | no        | yes   |
-| `HIDE_CURSOR`             | const    | no        | yes   |
-| `moveCursor`              | function | no        | yes   |
-| `SHOW_CURSOR`             | const    | no        | yes   |
-| `USE_PRIMARY_BUFFER`      | const    | no        | yes   |
-| `USE_SECONDARY_BUFFER`    | const    | no        | yes   |
+| Symbol                        | Kind     | Type Only | JSDoc |
+| ----------------------------- | -------- | --------- | ----- |
+| `BEGIN_SYNCHRONIZED_OUTPUT`   | const    | no        | yes   |
+| `CLEAR_SCREEN`                | const    | no        | yes   |
+| `DISABLE_BRACKETED_PASTE`     | const    | no        | yes   |
+| `DISABLE_ENHANCED_KEYBOARD`   | const    | no        | yes   |
+| `DISABLE_FOCUS_EVENTS`        | const    | no        | yes   |
+| `DISABLE_GRAPHEME_CLUSTERING` | const    | no        | yes   |
+| `DISABLE_MOUSE`               | const    | no        | yes   |
+| `ENABLE_BRACKETED_PASTE`      | const    | no        | yes   |
+| `ENABLE_ENHANCED_KEYBOARD`    | const    | no        | yes   |
+| `ENABLE_FOCUS_EVENTS`         | const    | no        | yes   |
+| `ENABLE_GRAPHEME_CLUSTERING`  | const    | no        | yes   |
+| `ENABLE_MOUSE`                | const    | no        | yes   |
+| `END_SYNCHRONIZED_OUTPUT`     | const    | no        | yes   |
+| `HIDE_CURSOR`                 | const    | no        | yes   |
+| `moveCursor`                  | function | no        | yes   |
+| `SHOW_CURSOR`                 | const    | no        | yes   |
+| `USE_PRIMARY_BUFFER`          | const    | no        | yes   |
+| `USE_SECONDARY_BUFFER`        | const    | no        | yes   |
 
 ### src/utils/async.ts
 

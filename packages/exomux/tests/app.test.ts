@@ -946,7 +946,7 @@ Deno.test("Exomux restores a chrome-closed terminal when the host rejects its ki
   }
 });
 
-Deno.test("Exomux Meta-C kills the terminal that was active before generic close changed focus", async () => {
+Deno.test("Exomux Shift-Alt-C kills the terminal that was active before generic close changed focus", async () => {
   const initial = session("meta-close", "keyboard target", 0);
   const client = new FakeExomuxClient([initial]);
   const controller = await createExomuxController({ client, initialSessions: [initial] });
@@ -956,7 +956,11 @@ Deno.test("Exomux Meta-C kills the terminal that was active before generic close
   try {
     const mounted = mount.current;
     assert(mounted);
+    // Alt alone is the child's chord: it must reach the terminal, not close it.
     await harness.pilot.press("c", { meta: true });
+    await mounted.whenIdle();
+    assertEquals(client.killed, []);
+    await harness.pilot.press("c", { meta: true, shift: true });
     await mounted.whenIdle();
     assertEquals(client.killed, [initial.id]);
     assertEquals(controller.runtime(initial.id), undefined);
@@ -3674,7 +3678,7 @@ Deno.test("Exomux glyph columns classify single- and double-width characters", (
   for (const glyph of [" ", "a", "#", "~", "░", "▓", "█", "·", "･", "ﾊ", "─", "│", "✕"]) {
     assertEquals(exomuxGlyphColumns(glyph), 1, `${JSON.stringify(glyph)} should be one column`);
   }
-  for (const glyph of ["日", "中", "ア", "・", "🙂"]) {
+  for (const glyph of ["日", "中", "ア", "・", "🙂", "1\ufe0f\u20e3", "#\ufe0f\u20e3"]) {
     assertEquals(exomuxGlyphColumns(glyph), 2, `${JSON.stringify(glyph)} should be two columns`);
   }
 });
@@ -3880,11 +3884,12 @@ Deno.test("Exomux clean attach sends no repaint wiggle", async () => {
   const client = new FakeExomuxClient([initial]);
   const controller = await createExomuxController({ client, initialSessions: [initial] });
   try {
-    await waitForCondition(() => client.resizes.length >= 1, 2_000);
-    // Give a hypothetical second (wiggle) resize a moment to appear; it must not.
+    await waitForCondition(() => controller.runtime(initial.id)?.attached.peek() === true, 2_000);
+    // Give a hypothetical wiggle a moment to appear; it must not. An attach is
+    // not use, so a clean one may send no resize at all — never two sizes.
     await new Promise((resolve) => setTimeout(resolve, 50));
     const rowSizes = client.resizes.map((entry) => entry.rows);
-    assertEquals(new Set(rowSizes).size, 1, "every resize carries the real geometry, no wiggle");
+    assert(new Set(rowSizes).size <= 1, "every resize carries the real geometry, no wiggle");
   } finally {
     await controller.dispose();
   }
@@ -6238,6 +6243,183 @@ Deno.test("Exomux scp targets the OSC 7 working directory without probing (035 D
     await waitForCondition(() => client.spawned.some((options) => options.command === "scp"), 2_000);
     const scpSpawn = client.spawned.find((options) => options.command === "scp")!;
     assertEquals(scpSpawn.args!.at(-1), "studio.tail.net:/srv/deploys/");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux answers a child's queries and reports keys the way the child asked", async () => {
+  const initial = session("kbd-1", "agent", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 28 } });
+  const encode = (text: string) => new TextEncoder().encode(text);
+  const sent = () => client.inputs.splice(0).map((entry) => entry.data);
+  let sequence = 1;
+  const emit = (data: string) => client.emitOutput({ sessionId: initial.id, sequence: sequence++, data });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    sent();
+
+    // What agy sends on start: push kitty flags, ask what took, ask for the background.
+    emit("\x1b[>4;2m\x1b[>5u\x1b[?u\x1b]11;?\x07\x1b[c");
+    await mounted.whenIdle();
+    const replies = sent().join("");
+    assertStringIncludes(replies, "\x1b[?5u");
+    assertStringIncludes(replies, "\x1b[?62;22c");
+    assert(/\x1b\]11;rgb:[0-9a-f]{4}\/[0-9a-f]{4}\/[0-9a-f]{4}\x1b\\/.test(replies), "the background is reported");
+    assertEquals(controller.runtime(initial.id)!.screen.keyboardProtocol, { kittyFlags: 5, modifyOtherKeys: 2 });
+
+    // A legacy host terminal: the chords it can report arrive disambiguated.
+    await harness.pilot.press("c", { ctrl: true, buffer: new Uint8Array([3]) });
+    await harness.pilot.press("escape", { buffer: new Uint8Array([27]) });
+    await harness.pilot.press("a", { buffer: encode("a") });
+    // An enhanced host terminal adds the ones legacy bytes cannot carry.
+    await harness.pilot.press("return", { shift: true, buffer: encode("\x1b[13;2u") });
+    await mounted.whenIdle();
+    assertEquals(sent().join("|"), "\x1b[99;5u|\x1b[27u|a|\x1b[13;2u");
+
+    // The child leaves the protocol: enhanced host reports must not leak into it.
+    emit("\x1b[<u\x1b[>4m");
+    await mounted.whenIdle();
+    await harness.pilot.press("c", { ctrl: true, buffer: encode("\x1b[99;5u") });
+    await harness.pilot.press("return", { shift: true, buffer: encode("\x1b[13;2u") });
+    await harness.pilot.press("escape", { buffer: encode("\x1b[27u") });
+    await mounted.whenIdle();
+    assertEquals(sent().join("|"), "\x03|\r|\x1b");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux returns a scrolled-back terminal to its prompt when the user types", async () => {
+  const initial = session("snap-1", "agent", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 28 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    const lines = Array.from({ length: 120 }, (_, index) => `line ${index}`).join("\r\n");
+    client.emitOutput({ sessionId: initial.id, sequence: 1, data: lines });
+    await mounted.whenIdle();
+    const runtime = controller.runtime(initial.id)!;
+
+    runtime.scrollback.scrollLines(-6);
+    assertEquals(runtime.scrollback.mode, "copy");
+    await harness.pilot.press("a", { buffer: new TextEncoder().encode("a") });
+    await mounted.whenIdle();
+    assertEquals(runtime.scrollback.mode, "live");
+    assertEquals(client.inputs.at(-1)?.data, "a");
+
+    // A chord the desktop keeps for itself types nothing, so it leaves the view alone.
+    runtime.scrollback.scrollLines(-6);
+    await harness.pilot.press("up", { meta: true, shift: true });
+    await mounted.whenIdle();
+    assertEquals(runtime.scrollback.mode, "copy");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux paints the frozen pre-sync frame while DEC mode 2026 is open", async () => {
+  const initial = session("sync-paint", "agy", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 24 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    client.emitOutput({ sessionId: initial.id, sequence: 1, data: "\x1b[1;1HBEFORE-SYNC" });
+    await harness.pilot.settle();
+
+    const terminal = mounted.windowProjection.peek().windows.find(
+      (window) => window.id === exomuxWindowId(initial.id),
+    )!;
+    const readRow0 = (): string => {
+      const row = harness.canvas.frameBuffer[terminal.clientRect.row] ?? [];
+      let text = "";
+      for (let offset = 0; offset < 12; offset += 1) {
+        const value = row[terminal.clientRect.column + offset];
+        const decoded = typeof value === "string" ? value : value ? new TextDecoder().decode(value) : "";
+        text += stripAnsi(decoded);
+      }
+      return text;
+    };
+    assertEquals(readRow0().trimEnd(), "BEFORE-SYNC");
+
+    // Start synchronized update that erases the screen mid-frame, and force a desktop repaint.
+    client.emitOutput({ sessionId: initial.id, sequence: 2, data: "\x1b[?2026h\x1b[2J\x1b[HTORN" });
+    controller.themeRevision.value += 1;
+    await harness.pilot.settle();
+    assertEquals(readRow0().trimEnd(), "BEFORE-SYNC", "mid-sync repaint must show the frozen stable frame");
+
+    // Closing synchronized update paints the final frame atomically.
+    client.emitOutput({ sessionId: initial.id, sequence: 3, data: "\x1b[1;1HAFTER-SYNC \x1b[?2026l" });
+    await harness.pilot.settle();
+    assertEquals(readRow0().trimEnd(), "AFTER-SYNC");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});
+
+Deno.test("Exomux forwards sanitized OSC 8 hyperlinks to painted desktop cells", async () => {
+  const initial = session("osc8-links", "agy", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const terminalOptions = createExomuxTerminalOptions(controller, mount, {
+    synchronizedOutput: true,
+    graphemeClustering: true,
+  });
+  assertEquals(terminalOptions.tuiOptions?.enableSynchronizedOutput, true);
+  assertEquals(terminalOptions.tuiOptions?.enableGraphemeClustering, true);
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = terminalOptions;
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 24 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    client.emitOutput({
+      sessionId: initial.id,
+      sequence: 1,
+      data: "\x1b[1;1H\x1b]8;;https://example.com/a\x07web\x1b]8;;\x07 " +
+        "\x1b]8;;file:///tmp/demo.ts#L9\x1b\\src\x1b]8;;\x1b\\ " +
+        "\x1b]8;;javascript:alert(1)\x07bad\x1b]8;;\x07",
+    });
+    await harness.pilot.settle();
+
+    const terminal = mounted.windowProjection.peek().windows.find(
+      (window) => window.id === exomuxWindowId(initial.id),
+    )!;
+    const row = harness.canvas.frameBuffer[terminal.clientRect.row] ?? [];
+    const rawAt = (offset: number): string => {
+      const value = row[terminal.clientRect.column + offset];
+      return typeof value === "string" ? value : value ? new TextDecoder().decode(value) : "";
+    };
+    assert(rawAt(0).includes("\x1b]8;;https://example.com/a\x1b\\"), "https OSC 8 link is preserved");
+    assert(rawAt(0).endsWith("\x1b]8;;\x1b\\"), "each linked cell closes its OSC 8 envelope");
+    assertEquals(stripAnsi(rawAt(0)), "w");
+    assertEquals(rawAt(3).includes("\x1b]8;;"), false, "plain separator has no hyperlink");
+    assert(rawAt(4).includes("\x1b]8;;file:///tmp/demo.ts#L9\x1b\\"), "file:// OSC 8 link is preserved");
+    assertEquals(rawAt(8).includes("\x1b]8;;"), false, "unsafe schemes like javascript: are stripped");
+    assertEquals(stripAnsi(rawAt(8)), "b");
   } finally {
     harness.destroy();
     await controller.dispose();

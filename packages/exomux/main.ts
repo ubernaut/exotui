@@ -454,7 +454,11 @@ async function runExomuxClientSession(
   }
   try {
     await launchInitialExomuxTerminalIfEmpty(controller, connectionStatus);
-    const runtime = await createExomuxTerminalApp({ controller });
+    const runtime = await createExomuxTerminalApp({
+      controller,
+      synchronizedOutput: probe.synchronizedOutput === true,
+      graphemeClustering: probe.graphemeClustering === "reset",
+    });
     liveRuntime = runtime;
     bindAwaitedExomuxClientShutdown(runtime, () => requestedSwitch !== undefined);
     runtime.start();
@@ -700,6 +704,10 @@ export interface ExomuxHostProbe {
    */
   readonly graphics?: boolean;
   readonly cellPixels?: { readonly width: number; readonly height: number };
+  /** Whether DECRQM `?2026$p` reported host support for synchronized output. */
+  readonly synchronizedOutput?: boolean;
+  /** DECRQM `?2027$p` state: enable `?2027h` only when currently `"reset"`, never disabling a host's default `"set"`. */
+  readonly graphemeClustering?: "set" | "reset" | "unsupported";
 }
 
 /** The image id used only for the launch probe, matched in the reply. */
@@ -711,10 +719,16 @@ const HOST_PROBE_IMAGE_ID = 4_242_424;
  * Pure, because the parsing is the part worth pinning: the graphics reply is
  * an APC naming the probe id — `OK` is support, any other status (an EBADPNG,
  * an ENOTSUPPORTED) is a host that parses the protocol without honouring it —
- * and the cell size arrives as `CSI 6 ; height ; width t`.
+ * the cell size arrives as `CSI 6 ; height ; width t`, and DECRQM reports
+ * mode `2026` (synchronized output) and `2027` (grapheme clustering).
  */
 export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
-  const result: { graphics?: boolean; cellPixels?: { width: number; height: number } } = {};
+  const result: {
+    graphics?: boolean;
+    cellPixels?: { width: number; height: number };
+    synchronizedOutput?: boolean;
+    graphemeClustering?: "set" | "reset" | "unsupported";
+  } = {};
   const graphics = new RegExp(`\\x1b_Gi=${HOST_PROBE_IMAGE_ID}[^;]*;([^\\x1b]*)\\x1b\\\\`).exec(seen);
   if (graphics) result.graphics = graphics[1] === "OK";
   const cell = /\x1b\[6;(\d+);(\d+)t/.exec(seen);
@@ -723,13 +737,39 @@ export function parseHostProbeReplies(seen: string): ExomuxHostProbe {
     const width = Number(cell[2]);
     if (width > 0 && height > 0) result.cellPixels = { width, height };
   }
+  const syncMode = /\x1b\[\?2026;([0-4])\$y/.exec(seen);
+  if (syncMode) {
+    const value = Number(syncMode[1]);
+    result.synchronizedOutput = value === 1 || value === 2 || value === 3;
+  }
+  const graphemeMode = /\x1b\[\?2027;([0-4])\$y/.exec(seen);
+  if (graphemeMode) {
+    const value = Number(graphemeMode[1]);
+    result.graphemeClustering = value === 1 || value === 3 ? "set" : value === 2 ? "reset" : "unsupported";
+  }
   return result;
 }
 
 /**
+ * True once the launch probe has heard everything it is going to: both answers,
+ * or the primary device attributes reply that closes the batch.
+ *
+ * Every terminal answers DA1, and answers in order, so its reply arriving means
+ * the two optional queries ahead of it were answered or never will be. Without
+ * that sentinel a host that answers neither — tmux, a plain SSH client — left
+ * the probe's last `read` pending past its deadline, and that orphaned read
+ * swallowed the first keystrokes the user typed into the new session.
+ */
+export function hostProbeComplete(seen: string): boolean {
+  const parsed = parseHostProbeReplies(seen);
+  if (parsed.graphics !== undefined && parsed.cellPixels) return true;
+  return /\x1b\[\?[0-9;]*c/.test(seen);
+}
+
+/**
  * Asks the host terminal, once, what it can do: the kitty graphics query and
- * the XTWINOPS cell-size query in one write, replies collected until both
- * arrive or the deadline does.
+ * the XTWINOPS cell-size query in one write, closed by a DA1 query, replies
+ * collected until the batch is complete or the deadline passes.
  *
  * A raw, bounded round trip on the real stdin/stdout, run before the TUI owns
  * either. Asking beats recognising: a terminal's name says what it is, the
@@ -744,7 +784,7 @@ async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
   }
   try {
     await runtimeHost.stdout.write(new TextEncoder().encode(
-      `\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t`,
+      `\x1b[?2026$p\x1b[?2027$p\x1b_Gi=${HOST_PROBE_IMAGE_ID},a=q,t=d,f=24,s=1,v=1;AAAA\x1b\\\x1b[16t\x1b[c`,
     ));
     const decoder = new TextDecoder();
     const buffer = new Uint8Array(256);
@@ -757,9 +797,7 @@ async function probeHostTerminal(deadlineMs = 300): Promise<ExomuxHostProbe> {
       ]);
       if (read === null || read === 0) break;
       seen += decoder.decode(buffer.subarray(0, read));
-      const parsed = parseHostProbeReplies(seen);
-      if (parsed.graphics !== undefined && parsed.cellPixels) return parsed;
-      if (seen.length > 1024) break;
+      if (hostProbeComplete(seen) || seen.length > 1024) break;
     }
     return parseHostProbeReplies(seen);
   } catch {
@@ -815,6 +853,8 @@ export async function runExomuxDaemon(options: ExomuxShowcaseLaunchOptions): Pro
     // descriptor without it is a daemon that hands children Ghostty's
     // environment — the client warns rather than letting an app believe it.
     sanitizedChildEnv: true,
+    // This daemon arbitrates `reply` messages so only one attached client answers child queries.
+    queryArbitration: true,
     hostId: server.controller.id,
     url: address.url,
     token: authToken,

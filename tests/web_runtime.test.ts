@@ -71,6 +71,13 @@ Deno.test("parseAnsiCell extracts text and ANSI colors for browser rendering", (
     bold: false,
     dim: false,
   });
+  assertEquals(parseAnsiCell("\x1b]8;;https://example.com/home\x1b\\\x1b[38;2;1;2;3mL\x1b[0m\x1b]8;;\x1b\\"), {
+    text: "L",
+    foreground: "rgb(1,2,3)",
+    bold: false,
+    dim: false,
+    hyperlink: "https://example.com/home",
+  });
 });
 
 Deno.test("BrowserCellCanvasSink paints dirty cells to a 2D context", () => {

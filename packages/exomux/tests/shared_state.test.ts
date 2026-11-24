@@ -228,3 +228,62 @@ Deno.test("a phone shares its closes but never imposes its one-window layout", a
     await phone.dispose();
   }
 });
+
+Deno.test("a floating window gets its own size back when the desktop grows back", async () => {
+  const sessions = [session("grow-one", "shell one", 0)];
+  const client = new FakeExomuxClient(sessions);
+  const desk = await createExomuxController({ client, initialSessions: sessions });
+  const id = "terminal-grow-one";
+  const rect = () => desk.windowHost.controller.inspect().windows.find((window) => window.id === id)?.floatingRect;
+  try {
+    await desk.ready;
+    const roomy = { column: 0, row: 1, width: 160, height: 44 };
+    const cramped = { column: 0, row: 1, width: 60, height: 17 };
+    const phone = { column: 0, row: 1, width: 40, height: 17 };
+    const own = { column: 16, row: 3, width: 86, height: 28 };
+    desk.applyViewportLayout(roomy);
+    desk.windowHost.execute({ kind: "set-placement", id, placement: "floating", rect: own }, roomy);
+
+    // Shrinking the host terminal fits the window to it; that must stay a loan.
+    desk.applyViewportLayout(cramped);
+    assertEquals(rect(), { column: 0, row: 1, width: 60, height: 17 });
+    desk.applyViewportLayout(roomy);
+    assertEquals(rect(), own, "the fitted rect was never the window's own");
+
+    // Through the phone layout and back, by way of a cramped desktop.
+    desk.applyViewportLayout(cramped);
+    desk.applyViewportLayout(phone);
+    assert(desk.mobileLayout(phone));
+    desk.applyViewportLayout(roomy);
+    assertEquals(rect(), own);
+    assertEquals(windowState(desk, id), "normal");
+
+    // A window the user placed while the desktop was small keeps that placement.
+    desk.applyViewportLayout(cramped);
+    const chosen = { column: 4, row: 2, width: 40, height: 12 };
+    desk.windowHost.execute({ kind: "set-placement", id, placement: "floating", rect: chosen }, cramped);
+    desk.applyViewportLayout(roomy);
+    assertEquals(rect(), chosen);
+  } finally {
+    await desk.dispose();
+  }
+});
+
+Deno.test("a terminal whose replay an older daemon refuses still attaches, past the refused frames", async () => {
+  const initial = { ...session("big-one", "agent", 0), sequence: 4200 };
+  const client = new FakeExomuxClient([initial]);
+  // Every resume point before 4200 starts on a frame the daemon cannot send.
+  client.oversizedReplayBelow = 4200;
+  const desk = await createExomuxController({ client, initialSessions: [initial] });
+  try {
+    await desk.ready;
+    const runtime = desk.runtime(initial.id)!;
+    await waitFor(() => runtime.attached.peek(), "the terminal to attach");
+    assertEquals(client.attachRequests.map((request) => request.sinceSequence), [0, 4200]);
+    // Output after the skipped stretch is accepted rather than dropped as stale.
+    client.emitOutput({ sessionId: initial.id, sequence: 4201, data: "after" });
+    assertEquals(runtime.screen.textRows()[0]!.trim(), "after");
+  } finally {
+    await desk.dispose();
+  }
+});

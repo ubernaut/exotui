@@ -17,9 +17,11 @@ import {
   type RuntimePermissionActivationReport,
   type RuntimePermissionManifest,
   Signal,
+  type TerminalScreenColorReport,
   TerminalScreenController,
   TerminalScrollbackController,
   TerminalSelectionController,
+  TerminalSynchronizedOutputController,
   TreeController,
   type TreeNode,
   type WorkbenchWindowHostDescriptor,
@@ -75,6 +77,8 @@ import {
   EXOMUX_MAX_COLUMNS,
   EXOMUX_MAX_ROWS,
   EXOMUX_MAX_SESSIONS,
+  EXOMUX_RAW_TERMINAL_BACKGROUND,
+  EXOMUX_RAW_TERMINAL_FOREGROUND,
   EXOMUX_THEME_EDITOR_PREVIEW_ID,
   EXOMUX_THEMES,
   EXOMUX_WINDOW_SETTING_SPECS,
@@ -621,6 +625,10 @@ export interface ExomuxTerminalRuntime {
   attachGeneration: number;
   requestedColumns: number;
   requestedRows: number;
+  /** True once this client has asked the PTY to take this window's size; a fresh view has not. */
+  sizeClaimed: boolean;
+  /** Holds the last complete screen frame while DEC synchronized output (mode 2026) is open. */
+  readonly syncOutput: TerminalSynchronizedOutputController;
 }
 
 /** Outcome of a session rename attempt. */
@@ -959,8 +967,24 @@ export class ExomuxController {
   /** Bound once so every runtime shares one identity for the size answerer. */
   readonly #sizeQuery = (sessionId: string, kind: 14 | 16 | 18): void => this.answerWindowSizeQuery(sessionId, kind);
   readonly #cursorQuery = (sessionId: string, row: number, column: number): void => {
-    // writeSession only writes to an attached runtime, not during replay.
-    void this.writeSession(sessionId, `\x1b[${row};${column}R`).catch(() => false);
+    this.#writeTerminalReply(sessionId, `\x1b[${row};${column}R`);
+  };
+  /**
+   * Answers the screen composes itself — device attributes, status, mode and
+   * colour reports, the kitty keyboard flags. Like the cursor report, each goes
+   * to the child's input, and only once the runtime is attached, so replaying
+   * an old query on reattach answers nothing.
+   */
+  readonly #terminalReply = (sessionId: string, data: string): void => {
+    this.#writeTerminalReply(sessionId, data);
+  };
+  /** The default colours an OSC 10/11 query reports: what this window actually paints unset cells with. */
+  readonly #terminalColors = (sessionId: string): TerminalScreenColorReport => {
+    if (!this.windowSettingsFor(sessionId).themed) {
+      return { foreground: EXOMUX_RAW_TERMINAL_FOREGROUND, background: EXOMUX_RAW_TERMINAL_BACKGROUND };
+    }
+    const theme = this.theme.peek();
+    return { foreground: theme.text, background: theme.surface };
   };
   readonly #defaultArgs?: readonly string[];
   readonly #defaultCwd?: string;
@@ -992,6 +1016,8 @@ export class ExomuxController {
   #lastBounds: Rectangle = { column: 0, row: 0, width: 120, height: 36 };
   /** The window this controller handed the mobile layout's full-screen slot. */
   #mobileMaximizedId?: string;
+  /** Floating rects the reflow pass shrank or moved, with the rect each window had before. */
+  readonly #reflowRescues = new Map<string, { original: Rectangle; fitted: Rectangle }>();
   readonly #networkExpansion = new Set<string>(["hosts", "tailscale"]);
   #tailnetPoller?: TailnetPoller;
   readonly #tailnetSource: Pick<TailnetStatusSource, "fetchStatus">;
@@ -1035,7 +1061,14 @@ export class ExomuxController {
     for (const session of initialSessions) {
       this.#runtimes.set(
         session.id,
-        createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery),
+        createTerminalRuntime(
+          session,
+          this.#graphicsPassthrough,
+          this.#sizeQuery,
+          this.#cursorQuery,
+          this.#terminalReply,
+          this.#terminalColors,
+        ),
       );
     }
 
@@ -2474,21 +2507,47 @@ export class ExomuxController {
     let changed = false;
     // Cascade successive rescued windows so several never land on one another.
     let cascadeIndex = 0;
+    const seen = new Set<string>();
     for (const window of this.windowHost.controller.inspect().windows) {
+      seen.add(window.id);
       if (window.placement !== "floating" || window.state !== "normal") continue;
       const rect = window.floatingRect;
       if (!rect) continue;
-      if (floatingRectFitsIn(rect, viewport)) continue;
-      // A window too big for the view, or with most of its body off it, is
-      // re-centered (and cascaded); one that is only slightly off is nudged
-      // back on so a small resize does not yank it to the middle.
-      const tooBig = rect.width > viewport.width || rect.height > viewport.height;
-      const fitted = tooBig || floatingVisibleFraction(rect, viewport) < EXOMUX_REFLOW_CENTER_THRESHOLD
-        ? centerFloatingRect(rect, viewport, cascadeIndex++)
-        : nudgeFloatingRectIntoView(rect, viewport);
+      // A rescue is a loan against the rect the window had before the desktop
+      // shrank. It is repaid when the desktop grows back — unless the user has
+      // moved or resized the window since, which makes the fitted rect theirs.
+      let rescue = this.#reflowRescues.get(window.id);
+      if (rescue && !sameRectangle(rect, rescue.fitted)) {
+        this.#reflowRescues.delete(window.id);
+        rescue = undefined;
+      }
+      const wanted = rescue?.original ?? rect;
+      let fitted: Rectangle;
+      if (floatingRectFitsIn(wanted, viewport)) {
+        if (!rescue) continue;
+        fitted = wanted;
+      } else {
+        // A window too big for the view, or with most of its body off it, is
+        // re-centered (and cascaded); one that is only slightly off is nudged
+        // back on so a small resize does not yank it to the middle.
+        const tooBig = wanted.width > viewport.width || wanted.height > viewport.height;
+        fitted = tooBig || floatingVisibleFraction(wanted, viewport) < EXOMUX_REFLOW_CENTER_THRESHOLD
+          ? centerFloatingRect(wanted, viewport, cascadeIndex++)
+          : nudgeFloatingRectIntoView(wanted, viewport);
+      }
+      if (sameRectangle(fitted, rect)) continue;
       this.windowHost.execute({ kind: "set-placement", id: window.id, placement: "floating", rect: fitted }, viewport);
       changed = true;
+      if (fitted === wanted) {
+        this.#reflowRescues.delete(window.id);
+        continue;
+      }
+      // Remember what the host actually stored, so "unchanged since" is exact.
+      const stored = this.windowHost.controller.inspect().windows.find((entry) => entry.id === window.id)
+        ?.floatingRect;
+      this.#reflowRescues.set(window.id, { original: { ...wanted }, fitted: { ...(stored ?? fitted) } });
     }
+    for (const id of this.#reflowRescues.keys()) if (!seen.has(id)) this.#reflowRescues.delete(id);
     if (changed) this.#lastBounds = { ...viewport };
     return changed;
   }
@@ -2836,7 +2895,14 @@ export class ExomuxController {
     });
     try {
       const session = normalizeSession(await this.client.spawn(spawnOptions));
-      const runtime = createTerminalRuntime(session, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
+      const runtime = createTerminalRuntime(
+        session,
+        this.#graphicsPassthrough,
+        this.#sizeQuery,
+        this.#cursorQuery,
+        this.#terminalReply,
+        this.#terminalColors,
+      );
       const candidateRuntimes = new Map(this.#runtimes);
       candidateRuntimes.set(session.id, runtime);
       const reconciliation = await this.#reconcileWindows(
@@ -3204,7 +3270,14 @@ export class ExomuxController {
     while (this.#spawnFlight) await this.#spawnFlight;
     if (this.#disposed || this.#runtimes.has(summary.id)) return;
     if (this.#runtimes.size >= EXOMUX_MAX_SESSIONS) return;
-    const runtime = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
+    const runtime = createTerminalRuntime(
+      summary,
+      this.#graphicsPassthrough,
+      this.#sizeQuery,
+      this.#cursorQuery,
+      this.#terminalReply,
+      this.#terminalColors,
+    );
     const candidates = new Map(this.#runtimes);
     candidates.set(summary.id, runtime);
     const reconciliation = await this.#reconcileWindows(this.#windowDescriptors(candidates));
@@ -3450,15 +3523,45 @@ export class ExomuxController {
   answerWindowSizeQuery(sessionId: string, kind: 14 | 16 | 18): void {
     const runtime = this.#runtimes.get(sessionId);
     if (!runtime) return;
-    const columns = runtime.requestedColumns;
-    const rows = runtime.requestedRows;
+    const columns = runtime.screen.columns;
+    const rows = runtime.screen.rows;
     let reply: string | undefined;
     if (kind === 18) reply = `\x1b[8;${rows};${columns}t`;
     else if (this.#hostCellPixels) {
       const { width, height } = this.#hostCellPixels;
       reply = kind === 16 ? `\x1b[6;${height};${width}t` : `\x1b[4;${rows * height};${columns * width}t`;
     }
-    if (reply !== undefined) void this.writeSession(sessionId, reply).catch(() => false);
+    if (reply !== undefined) this.#writeTerminalReply(sessionId, reply);
+  }
+
+  /**
+   * Routes terminal-emulator query replies through daemon-side arbitration when
+   * available so co-attached clients never inject duplicates; falls back to
+   * suppressing passive mismatched-geometry viewers against older daemons.
+   */
+  #writeTerminalReply(sessionId: string, data: string): void {
+    if (this.#disposed) return;
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime || !runtime.attached.peek() || !runtime.summary.peek().running) return;
+    if (this.client.queryArbitration && this.client.reply) {
+      void this.client.reply(sessionId, data).catch(() => false);
+      return;
+    }
+    if (!this.#shouldAnswerQueries(sessionId)) return;
+    void this.writeSession(sessionId, data).catch(() => false);
+  }
+
+  /**
+   * Fallback for older daemons without query arbitration: passive observers
+   * showing a mismatched `[WxH]` window while another client owns the PTY stay
+   * silent on child queries.
+   */
+  #shouldAnswerQueries(sessionId: string): boolean {
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime || !runtime.attached.peek() || !runtime.summary.peek().running) return false;
+    if (runtime.sizeClaimed) return true;
+    const host = runtime.summary.peek();
+    return host.columns === runtime.requestedColumns && host.rows === runtime.requestedRows;
   }
 
   /** Writes exact bytes to one ingress-captured daemon session. */
@@ -3500,25 +3603,52 @@ export class ExomuxController {
       const columns = clampDimension(window.clientRect.width, runtime.requestedColumns, EXOMUX_MAX_COLUMNS);
       const rows = clampDimension(window.clientRect.height, runtime.requestedRows, EXOMUX_MAX_ROWS);
       runtime.scrollback.setViewportRows(rows);
+      const host = runtime.summary.peek();
       if (columns === runtime.requestedColumns && rows === runtime.requestedRows) {
-        const host = runtime.summary.peek();
-        if (
-          window.id === focused && (focusIn || focusChanged) && runtime.attached.peek() && host.running &&
-          (host.columns !== columns || host.rows !== rows) && !this.#resizeFlights.has(runtime.sessionId)
-        ) {
-          this.#scheduleTerminalResize(runtime, columns, rows);
-        }
+        if (window.id === focused && (focusIn || focusChanged)) this.#claimTerminalSize(runtime);
         continue;
       }
+      // The PTY has one size and every attached client shares it. This window
+      // changing shape may only resize the PTY when this client already held
+      // it — the PTY was the size this window last asked for — or is the one
+      // the user is working in. A passive client whose layout shifts must not
+      // take the size from whoever is typing: that left the typing client
+      // drawing a program laid out for one size into a screen of another.
+      const held = runtime.sizeClaimed && host.columns === runtime.requestedColumns &&
+        host.rows === runtime.requestedRows;
       runtime.requestedColumns = columns;
       runtime.requestedRows = rows;
-      runtime.selection.clear();
-      runtime.screen.resize(columns, rows);
       runtime.renderRevision.value += 1;
-      if (runtime.attached.peek() && runtime.summary.peek().running) {
-        this.#scheduleTerminalResize(runtime, columns, rows);
-      }
+      if (held || window.id === focused) this.#claimTerminalSize(runtime);
     }
+  }
+
+  /**
+   * Takes the shared PTY's size for this client's window. Called when the user
+   * works in a terminal here — types, pastes, focuses it — so the size follows
+   * whoever is using it, the way tmux's `window-size latest` does.
+   */
+  claimTerminalSize(sessionId: string): void {
+    if (this.#disposed) return;
+    const runtime = this.#runtimes.get(sessionId);
+    if (runtime) this.#claimTerminalSize(runtime);
+  }
+
+  #claimTerminalSize(runtime: ExomuxTerminalRuntime): void {
+    const host = runtime.summary.peek();
+    if (!runtime.attached.peek() || !host.running) return;
+    runtime.sizeClaimed = true;
+    if (host.columns === runtime.requestedColumns && host.rows === runtime.requestedRows) return;
+    if (this.#resizeFlights.has(runtime.sessionId)) {
+      // A flight is already carrying an older size; make it finish on this one.
+      this.#pendingResizes.set(runtime.sessionId, {
+        columns: runtime.requestedColumns,
+        rows: runtime.requestedRows,
+        repaint: this.#pendingResizes.get(runtime.sessionId)?.repaint ?? false,
+      });
+      return;
+    }
+    this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows);
   }
 
   /** Reconciles the local navigator with the authoritative host inventory. */
@@ -3535,7 +3665,14 @@ export class ExomuxController {
       const runtime = this.#runtimes.get(summary.id);
       if (runtime) candidateRuntimes.set(summary.id, runtime);
       else {
-        const created = createTerminalRuntime(summary, this.#graphicsPassthrough, this.#sizeQuery, this.#cursorQuery);
+        const created = createTerminalRuntime(
+          summary,
+          this.#graphicsPassthrough,
+          this.#sizeQuery,
+          this.#cursorQuery,
+          this.#terminalReply,
+          this.#terminalColors,
+        );
         createdRuntimes.push(created);
         candidateRuntimes.set(summary.id, created);
       }
@@ -3605,6 +3742,7 @@ export class ExomuxController {
     if (!state.connected) {
       this.#connectionStatus = state.reconnecting ? "Reconnecting to terminals…" : "Terminal connection lost.";
       for (const runtime of this.#runtimes.values()) {
+        runtime.syncOutput.reset();
         runtime.attachGeneration += 1;
         runtime.attached.value = false;
         runtime.renderRevision.value += 1;
@@ -3707,14 +3845,26 @@ export class ExomuxController {
       }
       const generation = ++runtime.attachGeneration;
       try {
-        const attachment = await this.client.attach(runtime.sessionId, {
-          sinceSequence: runtime.lastSequence,
-          onOutput: (frame) => this.#acceptOutput(runtime, frame, generation),
-          onSession: (summary) => this.#acceptSession(runtime, summary, generation),
-        });
+        const handlers = {
+          onOutput: (frame: ExomuxOutputFrame) => this.#acceptOutput(runtime, frame, generation),
+          onSession: (summary: ExomuxSessionSummary) => this.#acceptSession(runtime, summary, generation),
+        };
+        let attachment: Awaited<ReturnType<ExomuxClientPort["attach"]>>;
+        let skippedReplay = false;
+        try {
+          attachment = await this.client.attach(runtime.sessionId, {
+            sinceSequence: runtime.lastSequence,
+            ...handlers,
+          });
+        } catch (error) {
+          if (!isOversizedReplayRefusal(error)) throw error;
+          attachment = await this.#attachPastOversizedReplay(runtime.sessionId, handlers);
+          skippedReplay = true;
+        }
         if (generation !== runtime.attachGeneration || this.#disposed) return;
-        const truncated = attachment.truncated;
+        const truncated = attachment.truncated || skippedReplay;
         if (truncated) {
+          runtime.syncOutput.reset();
           runtime.screen.clear();
           this.#warn(runtime, "Replay buffer was truncated; this view resumed at the retained boundary.");
           runtime.lastSequence = 0;
@@ -3727,7 +3877,17 @@ export class ExomuxController {
         // scrolled out of the buffer long ago, so the window resumes blank
         // until the child repaints. Ask it to, the only way a pty can: a real
         // size change and back (an unchanged TIOCSWINSZ raises no SIGWINCH).
-        this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows, truncated);
+        // Attaching is not using: only the window the user is in takes the PTY's
+        // size. A truncated view of any other terminal still needs its child to
+        // repaint, so that one is wiggled around the size the PTY already has.
+        const focusedHere = exomuxWindowId(runtime.sessionId) === this.#focusedGeometryWindow;
+        if (focusedHere) {
+          runtime.sizeClaimed = true;
+          this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows, truncated);
+        } else if (truncated) {
+          const host = runtime.summary.peek();
+          this.#scheduleTerminalResize(runtime, host.columns, host.rows, true);
+        }
         runtime.renderRevision.value += 1;
         this.#publishSessions();
         result = true;
@@ -3741,6 +3901,35 @@ export class ExomuxController {
     return tail.then(() => result);
   }
 
+  /**
+   * A daemon built before the fix refuses an attach whose first retained frame
+   * is already at the protocol's size limit, and daemons outlive the clients
+   * that are upgraded around them. Resuming from the session's newest sequence
+   * leaves nothing to replay, so there is no frame to trip on; the view is then
+   * treated as truncated, which asks the child to repaint. Retried because the
+   * child may write another full frame between the listing and the attach.
+   */
+  async #attachPastOversizedReplay(
+    sessionId: string,
+    handlers: {
+      onOutput: (frame: ExomuxOutputFrame) => void;
+      onSession: (summary: ExomuxSessionSummary) => void;
+    },
+  ): Promise<Awaited<ReturnType<ExomuxClientPort["attach"]>>> {
+    let refusal: unknown;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const latest = (await this.client.list()).find((session) => session.id === sessionId)?.sequence;
+      if (latest === undefined) break;
+      try {
+        return await this.client.attach(sessionId, { sinceSequence: latest, ...handlers });
+      } catch (error) {
+        if (!isOversizedReplayRefusal(error)) throw error;
+        refusal = error;
+      }
+    }
+    throw refusal ?? new Error("Exomux session is no longer listed.");
+  }
+
   #detachRuntime(runtime: ExomuxTerminalRuntime): Promise<boolean> {
     let result = false;
     const tail = (this.#lifecycleTails.get(runtime.sessionId) ?? Promise.resolve()).then(async () => {
@@ -3749,6 +3938,7 @@ export class ExomuxController {
         return;
       }
       runtime.attachGeneration += 1;
+      runtime.syncOutput.reset();
       this.#pendingResizes.delete(runtime.sessionId);
       try {
         result = await this.client.detach(runtime.sessionId);
@@ -3770,6 +3960,8 @@ export class ExomuxController {
       this.#warn(runtime, `Output sequence gap (${runtime.lastSequence} → ${sequence}).`);
     }
     runtime.lastSequence = sequence;
+    const liveAttached = runtime.attached.peek();
+    runtime.syncOutput.beforeWrite(frameValue.data, liveAttached);
     const graphicsBefore = runtime.screen.kittyGraphicsConsumed;
     runtime.screen.write(frameValue.data);
     if (graphicsBefore === 0 && runtime.screen.kittyGraphicsConsumed > 0 && !runtime.graphics) {
@@ -3787,7 +3979,8 @@ export class ExomuxController {
       const text = typeof frameValue.data === "string" ? frameValue.data : new TextDecoder().decode(frameValue.data);
       for (const tap of runtime.outputTaps) tap(text);
     }
-    const observedTitle = runtime.screen.inspect().title;
+    const inspection = runtime.screen.inspect();
+    const observedTitle = inspection.title;
     if (observedTitle !== undefined) {
       const screenTitle = normalizeRuntimeTitle(observedTitle);
       if (screenTitle !== runtime.screenTitle) {
@@ -3800,7 +3993,9 @@ export class ExomuxController {
         }
       }
     }
-    runtime.renderRevision.value += 1;
+    if (runtime.syncOutput.afterWrite(inspection, liveAttached)) {
+      runtime.renderRevision.value += 1;
+    }
   }
 
   #acceptSession(runtime: ExomuxTerminalRuntime, summary: ExomuxSessionSummary, generation: number): void {
@@ -3815,6 +4010,22 @@ export class ExomuxController {
     runtime.summary.value = runtime.screenTitle === undefined
       ? normalized
       : normalizeSession({ ...normalized, title: runtime.screenTitle });
+    if (!normalized.running && runtime.syncOutput.snapshot) {
+      runtime.syncOutput.reset();
+      runtime.renderRevision.value += 1;
+    }
+    // The screen model is always the PTY's size, never this window's: the
+    // child lays its output out for the PTY, and a model of any other size
+    // wraps and scrolls differently from what the child counted on. A window
+    // of another size shows the model cropped or padded, which is coherent;
+    // a mis-sized model is not. The host reports a resize in order with the
+    // output around it, so the model changes exactly where the child's does.
+    if (normalized.columns !== runtime.screen.columns || normalized.rows !== runtime.screen.rows) {
+      runtime.syncOutput.reset();
+      runtime.selection.clear();
+      runtime.screen.resize(normalized.columns, normalized.rows);
+      runtime.renderRevision.value += 1;
+    }
   }
 
   #scheduleTerminalResize(runtime: ExomuxTerminalRuntime, columns: number, rows: number, repaint = false): void {
@@ -3829,9 +4040,8 @@ export class ExomuxController {
     const settle = () => {
       if (this.#resizeFlights.get(runtime.sessionId) !== flight) return;
       this.#resizeFlights.delete(runtime.sessionId);
-      if (this.#pendingResizes.has(runtime.sessionId)) {
-        this.#scheduleTerminalResize(runtime, runtime.requestedColumns, runtime.requestedRows);
-      }
+      const pending = this.#pendingResizes.get(runtime.sessionId);
+      if (pending) this.#scheduleTerminalResize(runtime, pending.columns, pending.rows, pending.repaint);
     };
     void flight.then(settle, settle);
   }
@@ -4138,6 +4348,8 @@ function createTerminalRuntime(
   graphicsPassthrough: boolean,
   onSizeQuery?: (sessionId: string, kind: 14 | 16 | 18) => void,
   onCursorQuery?: (sessionId: string, row: number, column: number) => void,
+  onReply?: (sessionId: string, data: string) => void,
+  queryColors?: (sessionId: string) => TerminalScreenColorReport | undefined,
 ): ExomuxTerminalRuntime {
   // A disjoint host-id block per relay, so two sessions both calling their
   // image `i=1` cannot collide at the host. The base skips low ids that the
@@ -4152,6 +4364,9 @@ function createTerminalRuntime(
     scrollbackLimit: 2_000,
     ...(onSizeQuery ? { onWindowSizeQuery: (kind) => onSizeQuery(summary.id, kind) } : {}),
     ...(onCursorQuery ? { onCursorPositionQuery: (row, column) => onCursorQuery(summary.id, row, column) } : {}),
+    ...(onReply ? { onReply: (data) => onReply(summary.id, data) } : {}),
+    ...(queryColors ? { queryColors: () => queryColors(summary.id) } : {}),
+    identity: { name: "exomux" },
     ...(relay
       ? {
         onKittyGraphics: (data, cursor) => {
@@ -4165,6 +4380,13 @@ function createTerminalRuntime(
       }
       : {}),
   });
+  const renderRevision = new Signal(0);
+  const syncOutput = new TerminalSynchronizedOutputController({
+    screen,
+    onTimeout: () => {
+      renderRevision.value += 1;
+    },
+  });
   return {
     sessionId: summary.id,
     screen,
@@ -4174,7 +4396,7 @@ function createTerminalRuntime(
     selection: new TerminalSelectionController(),
     summary: new Signal(summary),
     attached: new Signal(false),
-    renderRevision: new Signal(0),
+    renderRevision,
     warning: new Signal<string | undefined>(undefined),
     outputTaps: new Set(),
     hostTitle: summary.title,
@@ -4182,10 +4404,13 @@ function createTerminalRuntime(
     attachGeneration: 0,
     requestedColumns: summary.columns,
     requestedRows: summary.rows,
+    sizeClaimed: false,
+    syncOutput,
   };
 }
 
 function disposeTerminalRuntime(runtime: ExomuxTerminalRuntime): void {
+  runtime.syncOutput.dispose();
   runtime.summary.dispose();
   runtime.attached.dispose();
   runtime.renderRevision.dispose();
@@ -4289,6 +4514,16 @@ function floatingVisibleFraction(rect: Rectangle, bounds: Rectangle): number {
 }
 
 /** True when a floating rect already sits wholly inside the viewport at its current size. */
+/** The host's "Terminal data exceeds the protocol quota" refusal, raised while it builds an attach replay. */
+function isOversizedReplayRefusal(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "data-too-large";
+}
+
+function sameRectangle(left: Rectangle, right: Rectangle): boolean {
+  return left.column === right.column && left.row === right.row && left.width === right.width &&
+    left.height === right.height;
+}
+
 function floatingRectFitsIn(rect: Rectangle, bounds: Rectangle): boolean {
   return (
     rect.width <= bounds.width && rect.height <= bounds.height &&

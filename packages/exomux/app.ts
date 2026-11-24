@@ -92,6 +92,8 @@ import {
   EXOMUX_BACKGROUND_IDS,
   EXOMUX_BACKGROUND_SETTING_SPECS,
   EXOMUX_GLOBAL_SETTING_SPECS,
+  EXOMUX_RAW_TERMINAL_BACKGROUND,
+  EXOMUX_RAW_TERMINAL_FOREGROUND,
   EXOMUX_THEMES,
   EXOMUX_WINDOW_SETTING_SPECS,
   exomuxActiveTitlebarForeground,
@@ -112,7 +114,7 @@ import {
   exomuxWindowId,
   type ExomuxWindowSettings,
 } from "./model.ts";
-import { terminalClipboardSequence, textWidth } from "@ubernaut/exotui";
+import { sanitizeTerminalHyperlink, terminalClipboardSequence, textWidth } from "@ubernaut/exotui";
 import {
   exomuxBackgroundOvergrows,
   type ExomuxOvergrowthEdges,
@@ -244,6 +246,10 @@ export interface ExomuxPointerInputSource {
 export interface CreateExomuxAppDefinitionOptions {
   readonly controller?: ExomuxController;
   readonly controllerOptions?: ExomuxControllerOptions;
+  /** Bracket host canvas flushes in DEC mode 2026 when the host terminal supports it. */
+  readonly synchronizedOutput?: boolean;
+  /** Enable DEC mode 2027 (grapheme cluster width) on the host terminal when it defaults off. */
+  readonly graphemeClustering?: boolean;
 }
 
 /** Running real-terminal Exomux instance. */
@@ -616,7 +622,10 @@ export async function createExomuxAppDefinition(
   return {
     controller,
     mount,
-    terminalOptions: createExomuxTerminalOptions(controller, mount),
+    terminalOptions: createExomuxTerminalOptions(controller, mount, {
+      synchronizedOutput: options.synchronizedOutput,
+      graphemeClustering: options.graphemeClustering,
+    }),
   };
 }
 
@@ -831,6 +840,7 @@ function startGraphicsPassthroughFlush(
 export function createExomuxTerminalOptions(
   controller: ExomuxController,
   mount: ExomuxAppMountRef = {},
+  hostCapabilities: { readonly synchronizedOutput?: boolean; readonly graphemeClustering?: boolean } = {},
 ): TerminalAppOptions<ExomuxAppAction> {
   return {
     id: "exomux",
@@ -840,7 +850,13 @@ export function createExomuxTerminalOptions(
     // focused child terminal instead of the kernel killing the multiplexer.
     // External signals (kill, closing the outer terminal) still shut down.
     input: { captureKeyboardSignals: true },
-    tuiOptions: { refreshRate: 1000 / 60, enableFocusEvents: true },
+    tuiOptions: {
+      refreshRate: 1000 / 60,
+      enableFocusEvents: true,
+      enableEnhancedKeyboard: true,
+      ...(hostCapabilities.synchronizedOutput ? { enableSynchronizedOutput: true } : {}),
+      ...(hostCapabilities.graphemeClustering ? { enableGraphemeClustering: true } : {}),
+    },
     commands: exomuxCommands(),
     onAction: (action) => handleExomuxAction(action, mount),
     setup(app) {
@@ -1194,6 +1210,13 @@ export function mountExomuxDesktop(
     controller.windowSettings.value;
     const adornments: string[] = [];
     if (runtime?.scrollback.mode === "copy") adornments.push("[SCROLL]");
+    // Another client holds the PTY at a different size, so this view is
+    // cropped or padded until the user works in it here and takes it back.
+    const hostSize = runtime?.summary.value;
+    if (
+      runtime && hostSize && runtime.attached.value && hostSize.running &&
+      (hostSize.columns !== runtime.requestedColumns || hostSize.rows !== runtime.requestedRows)
+    ) adornments.push(`[${hostSize.columns}x${hostSize.rows}]`);
     if (!controller.windowSettingsFor(sessionId).mouseReporting) adornments.push("[NO MOUSE]");
     return adornments;
   };
@@ -3778,6 +3801,31 @@ export function mountExomuxDesktop(
     return tree.handleKeyPress(event, height) !== undefined;
   };
 
+  // Input answers whatever is at the bottom of the terminal. A window left
+  // scrolled into its history kept taking keystrokes while showing none of
+  // them — typing into a prompt that was off screen.
+  const snapActiveTerminalToLive = (): void => {
+    const runtime = controller.activeRuntime();
+    if (!runtime || runtime.scrollback.mode !== "copy") return;
+    runtime.scrollback.exitCopyMode();
+    runtime.renderRevision.value += 1;
+    controller.status.value = `Live terminal · ${runtime.summary.peek().title}`;
+  };
+  // The child decides how its keys are reported: one that asked for the kitty
+  // keyboard protocol or modifyOtherKeys gets those forms, and every other
+  // child gets legacy bytes even though this desktop's own host terminal
+  // reports in the enhanced form.
+  const encodeKeyForActiveTerminal = (event: KeyPressEvent): Uint8Array | undefined => {
+    const runtime = controller.activeRuntime();
+    const bytes = encodeTerminalKeyPress(event, runtime?.screen.keyboardProtocol);
+    if (bytes) {
+      snapActiveTerminalToLive();
+      // Typing here means this client is the one using the terminal.
+      if (runtime) controller.claimTerminalSize(runtime.sessionId);
+    }
+    return bytes;
+  };
+
   const routeKeyInBarrier = async (
     event: KeyPressEvent,
     forwardTerminalInput: (bytes: Uint8Array) => void | Promise<unknown> = (bytes) => controller.writeActive(bytes),
@@ -4148,7 +4196,7 @@ export function mountExomuxDesktop(
         controller.openQuitModal();
         return;
       }
-      await forwardTerminalInput(new Uint8Array([3]));
+      await forwardTerminalInput(encodeKeyForActiveTerminal(event) ?? new Uint8Array([3]));
       return;
     }
     if (shouldRouteAsWorkbenchKey(controller, event)) {
@@ -4172,7 +4220,7 @@ export function mountExomuxDesktop(
         return;
       }
     }
-    const bytes = encodeTerminalKeyPress(event);
+    const bytes = encodeKeyForActiveTerminal(event);
     if (bytes) await forwardTerminalInput(bytes);
   };
 
@@ -4252,7 +4300,7 @@ export function mountExomuxDesktop(
         await routeKeyInBarrier(event, appendToActive);
         continue;
       }
-      const bytes = encodeTerminalKeyPress(event);
+      const bytes = encodeKeyForActiveTerminal(event);
       if (bytes) appendToActive(bytes);
     }
     await flushClassifiedInput(segments);
@@ -4361,7 +4409,7 @@ export function mountExomuxDesktop(
       enqueueClassifiedKey(event);
       return;
     }
-    const bytes = encodeTerminalKeyPress(event);
+    const bytes = encodeKeyForActiveTerminal(event);
     if (bytes) void enqueueRaw(bytes);
   }));
   unsubscribers.push(app.tui.on("paste", (event) => {
@@ -4369,6 +4417,9 @@ export function mountExomuxDesktop(
     // Preserve the reader's raw bytes when available and let the operation
     // queue perform the sole bounded copy/encoding step at ingress.
     const paste = event.buffer.byteLength > 0 ? event.buffer : event.text;
+    snapActiveTerminalToLive();
+    const pasteTarget = controller.activeRuntime();
+    if (pasteTarget) controller.claimTerminalSize(pasteTarget.sessionId);
     // A pasted local file path aimed at a network-panel SSH shell becomes a
     // transfer offer instead of literal input; every other paste flows through.
     const activeSessionId = controller.activeRuntime()?.sessionId;
@@ -5857,8 +5908,6 @@ function paintNativeList(
 }
 
 /** Unthemed terminal defaults used when a window opts out of theme recoloring. */
-const RAW_TERMINAL_BACKGROUND: ExomuxRgb = [0, 0, 0];
-const RAW_TERMINAL_FOREGROUND: ExomuxRgb = [229, 229, 229];
 
 function paintTerminal(
   painter: DesktopPainter,
@@ -5870,13 +5919,21 @@ function paintTerminal(
   opacity = 1,
   backdrop?: ExomuxBackdrop,
 ): void {
-  const inspection = runtime.screen.inspect();
   const scrollback = runtime.scrollback.inspectViewport();
+  const syncSnapshot = !runtime.selection.active && scrollback.mode === "live"
+    ? runtime.syncOutput.snapshot
+    : undefined;
+  const inspection = syncSnapshot ? syncSnapshot.inspection : runtime.screen.inspect();
   const rows = runtime.selection.active
     ? runtime.selection.rows
     : scrollback.mode === "copy"
     ? runtime.screen.cellRowsRange(scrollback.offset, scrollback.viewportRows)
+    : syncSnapshot
+    ? syncSnapshot.cells
     : runtime.screen.cellRows();
+  if (!syncSnapshot && !runtime.selection.active && scrollback.mode === "live") {
+    runtime.syncOutput.recordStableFrame(rows, inspection);
+  }
   const cursorActive = !runtime.selection.active && scrollback.mode === "live" && active && runtime.attached.peek() &&
     runtime.summary.peek().running && inspection.cursorVisible;
   // Theme-off keeps the child's true ANSI colors over a plain terminal ground;
@@ -5885,8 +5942,8 @@ function paintTerminal(
   // and dim fading all live in the shared exotui resolver (WS-002).
   const themed = settings.themed;
   const cellOptions: TerminalCellStyleOptions = {
-    defaultBackground: themed ? theme.surface : RAW_TERMINAL_BACKGROUND,
-    defaultForeground: themed ? theme.text : RAW_TERMINAL_FOREGROUND,
+    defaultBackground: themed ? theme.surface : EXOMUX_RAW_TERMINAL_BACKGROUND,
+    defaultForeground: themed ? theme.text : EXOMUX_RAW_TERMINAL_FOREGROUND,
     contrastLift: themed,
     dimToward: settings.dimInactive && !active ? theme.surface : undefined,
     ground: backdrop,
@@ -5896,16 +5953,18 @@ function paintTerminal(
   };
   for (let row = 0; row < rect.height; row += 1) {
     const cells = rows[row] ?? [];
+    let skipContinuationColumn = -1;
     for (let column = 0; column < rect.width; column += 1) {
       const cell = cells[column] ?? { char: " " };
       // The screen model marks the column a double-width glyph also occupies.
-      // Skipping it here — rather than re-deriving the pairing by measuring the
-      // glyph — is what keeps the render in step with the model when something
-      // has overwritten or shifted one half of a pair.
-      if (cell.continuation) continue;
+      // Only skip it when the immediately preceding column actually painted a
+      // double-width glyph; otherwise paint a blank so stale backdrop cells
+      // cannot leak through a width disagreement or clipped right-edge glyph.
+      if (cell.continuation && column === skipContinuationColumn) continue;
+      const effectiveCell = cell.continuation ? { ...cell, char: " ", continuation: undefined } : cell;
       const cursor = cursorActive && inspection.cursor.row === row && inspection.cursor.column === column;
       const resolved = resolveTerminalCellStyle(
-        cell,
+        effectiveCell,
         rect.column + column,
         rect.row + row,
         cursor,
@@ -5913,7 +5972,9 @@ function paintTerminal(
       );
       // A double-width glyph on the last content column would put its follower
       // on the window border, so it degrades to a blank inside the client area.
-      const glyph = exomuxGlyphColumns(resolved.glyph) === 2 && column + 1 >= rect.width ? " " : resolved.glyph;
+      const glyphColumns = exomuxGlyphColumns(resolved.glyph);
+      const glyph = glyphColumns === 2 && column + 1 >= rect.width ? " " : resolved.glyph;
+      if (glyph !== " " && glyphColumns === 2) skipContinuationColumn = column + 1;
       painter.cell(rect.column + column, rect.row + row, glyph, {
         foreground: runtime.selection.contains(column, row) ? theme.background : resolved.foreground,
         background: runtime.selection.contains(column, row) ? theme.accent : resolved.background,
@@ -5925,6 +5986,7 @@ function paintTerminal(
         underlineColor: resolved.underlineColor,
         overline: resolved.overline,
         strikethrough: resolved.strikethrough,
+        hyperlink: sanitizeTerminalHyperlink(effectiveCell.hyperlink),
       });
     }
   }
@@ -5998,6 +6060,8 @@ const EXOMUX_HELP_ENTRIES: readonly ExomuxHelpEntry[] = [
   { keys: "Ctrl-N z", action: "maximize / restore" },
   { keys: "Ctrl-N arrows", action: "snap to edge" },
   { keys: "Ctrl-N m", action: "minimize to shelf" },
+  { keys: "Shift-Alt arrows", action: "tile edge / corner" },
+  { keys: "Shift-Alt m/f/d", action: "min / max / tile" },
   { keys: "Ctrl-N n / p", action: "next / previous" },
   { keys: "Ctrl-N w", action: "window switcher" },
   { keys: "Ctrl-N s", action: "session manager" },
@@ -6018,7 +6082,7 @@ const EXOMUX_HELP_NOTES: readonly string[] = [
   "Drag terminal text to copy; double-click a word, triple-click a line. Escape clears.",
   "Alt-drag overrides child mouse reporting (Shift works if forwarded). Copy needs OSC 52.",
   "Ctrl-click terminal links to open locally, including links printed by SSH programs.",
-  "Title-bar X / Meta-C kills that terminal; Ctrl-N d/x and quitting only detach.",
+  "Title-bar X / Shift-Alt-C kills that terminal; Ctrl-N d/x and quitting only detach.",
   "Ctrl-N & asks before killing. Drag title bars; drag borders to resize.",
   "Top bar: start menu at the left, open terminals beside it, quit at the right.",
   "F1 opens/closes help. Escape, q, or ? close it; mouse and touch use Close.",
@@ -7708,6 +7772,7 @@ interface PaintedStyle {
   underlineColor?: ExomuxRgb;
   overline?: boolean;
   strikethrough?: boolean;
+  hyperlink?: string;
 }
 
 /** Small paint buffer that caches ANSI style functions by exact cell style. */
@@ -7728,8 +7793,10 @@ const exomuxCellDecoder = new TextDecoder();
  * persists until something forces a full repaint.
  */
 export function exomuxGlyphColumns(glyph: string): 1 | 2 {
-  const code = glyph.codePointAt(0);
-  if (code === undefined || code < 0x80) return 1;
+  // Single ASCII scalar fast path; multi-scalar clusters starting with ASCII
+  // (such as emoji keycaps like `1️⃣` = `1` + U+FE0F + U+20E3) must measure
+  // the full cluster so they stay aligned with TerminalScreenController.
+  if (glyph.length === 0 || (glyph.length === 1 && glyph.charCodeAt(0) < 0x80)) return 1;
   // Measured once per distinct glyph. A background paints tens of thousands of
   // non-ASCII cells a second and they come from a handful of glyph sets, so the
   // uncached form spent more time measuring widths than drawing.
@@ -7832,22 +7899,24 @@ class DesktopPainter {
     // Overwriting either half of an existing double-width glyph has to retire
     // the other half, or its two-column render desynchronises every later cell.
     this.#retireWideGlyphAt(target, localColumn);
+    const wrapLink = (painted: string): string =>
+      style.hyperlink ? `\x1b]8;;${style.hyperlink}\x1b\\${painted}\x1b]8;;\x1b\\` : painted;
     if (exomuxGlyphColumns(glyph) === 1) {
-      target[localColumn] = paint(glyph);
+      target[localColumn] = wrapLink(paint(glyph));
       this.#depositGround?.deposit(column, row, exomuxDepositColor(glyph, style.foreground, style.background));
       return;
     }
     // A double-width glyph on the final column has nowhere to put its follower,
     // so it degrades to a blank rather than spilling past the desktop edge.
     if (localColumn + 1 >= this.bounds.width) {
-      target[localColumn] = paint(" ");
+      target[localColumn] = wrapLink(paint(" "));
       this.#depositGround?.deposit(column, row, style.background);
       return;
     }
     // The follower is left empty so the sink emits nothing for it and the real
     // cursor, already advanced two columns by the glyph, stays in step.
     this.#retireWideGlyphAt(target, localColumn + 1);
-    target[localColumn] = paint(glyph);
+    target[localColumn] = wrapLink(paint(glyph));
     target[localColumn + 1] = EXOMUX_WIDE_GLYPH_FOLLOWER;
     if (this.#depositGround) {
       // A wide glyph covers both columns, so both take its impression.

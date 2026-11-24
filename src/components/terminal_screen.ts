@@ -8,6 +8,7 @@ import { createAnsiStyle } from "../theme.ts";
 import type { Style, Theme } from "../theme.ts";
 import { textWidth } from "../utils/strings.ts";
 import type { TerminalScreenController } from "../runtime/terminal_screen.ts";
+import { sanitizeTerminalHyperlink } from "../runtime/terminal_links.ts";
 import type { TerminalScrollbackController } from "../runtime/terminal_scrollback.ts";
 import {
   type ResolvedTerminalCellStyle,
@@ -190,12 +191,14 @@ export class TerminalScreen extends Component {
     for (let row = 0; row < rectangle.height; row += 1) {
       const cells = rows[row] ?? [];
       const target = new Array<string>(rectangle.width).fill("");
+      let skipContinuationColumn = -1;
       for (let column = 0; column < rectangle.width; column += 1) {
         const cell = cells[column] ?? { char: " " };
-        if (cell.continuation) continue;
+        if (cell.continuation && column === skipContinuationColumn) continue;
+        const effectiveCell = cell.continuation ? { ...cell, char: " ", continuation: undefined } : cell;
         const cursor = cursorActive && inspection.cursor.row === row && inspection.cursor.column === column;
         const resolved = resolveTerminalCellStyle(
-          cell,
+          effectiveCell,
           rectangle.column + column,
           rectangle.row + row,
           cursor,
@@ -203,8 +206,12 @@ export class TerminalScreen extends Component {
         );
         // A double-width glyph on the last column has nowhere to park its
         // follower, so it degrades to a blank inside the viewport.
-        const glyph = textWidth(resolved.glyph) === 2 && column + 1 >= rectangle.width ? " " : resolved.glyph;
-        target[column] = this.#style(resolved)(glyph);
+        const glyphColumns = textWidth(resolved.glyph);
+        const glyph = glyphColumns === 2 && column + 1 >= rectangle.width ? " " : resolved.glyph;
+        if (glyph !== " " && glyphColumns === 2) skipContinuationColumn = column + 1;
+        const styled = this.#style(resolved)(glyph);
+        const hyperlink = sanitizeTerminalHyperlink(effectiveCell.hyperlink);
+        target[column] = hyperlink ? `\x1b]8;;${hyperlink}\x1b\\${styled}\x1b]8;;\x1b\\` : styled;
       }
       rendered.push(target);
     }

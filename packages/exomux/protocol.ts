@@ -39,6 +39,7 @@ export type ExomuxRequestOperation =
   | "attach"
   | "detach"
   | "input"
+  | "reply"
   | "resize"
   | "kill"
   | "ping"
@@ -97,6 +98,20 @@ export interface ExomuxInputRequest {
   data: string;
 }
 
+/**
+ * Terminal-emulator query reply (DSR/CPR, DECRQM, DA, OSC 10/11, XTWINOPS).
+ * Routed separately from user `input` so the daemon forwards only the active
+ * query owner's answer and drops duplicates from co-attached clients.
+ */
+export interface ExomuxReplyRequest {
+  version: typeof EXOMUX_PROTOCOL_VERSION;
+  type: "reply";
+  requestId: number;
+  sessionId: string;
+  /** Canonical base64 bytes of the terminal reply sequence. */
+  data: string;
+}
+
 export interface ExomuxResizeRequest {
   version: typeof EXOMUX_PROTOCOL_VERSION;
   type: "resize";
@@ -151,6 +166,7 @@ export type ExomuxClientRequest =
   | ExomuxAttachRequest
   | ExomuxSessionRequest
   | ExomuxInputRequest
+  | ExomuxReplyRequest
   | ExomuxResizeRequest
   | ExomuxPingRequest
   | ExomuxShutdownRequest
@@ -209,7 +225,7 @@ export interface ExomuxAcknowledgedMessage {
   version: typeof EXOMUX_PROTOCOL_VERSION;
   type: "ack";
   requestId: number;
-  operation: "detach" | "input" | "resize" | "kill" | "shutdown" | "rename" | "workspace";
+  operation: "detach" | "input" | "reply" | "resize" | "kill" | "shutdown" | "rename" | "workspace";
   sessionId?: string;
 }
 
@@ -278,6 +294,7 @@ const STATUSES = new Set<ExomuxSessionStatus>(["idle", "running", "exited", "fai
 const ACK_OPERATIONS = new Set<ExomuxAcknowledgedMessage["operation"]>([
   "detach",
   "input",
+  "reply",
   "resize",
   "kill",
   "shutdown",
@@ -445,7 +462,8 @@ export function normalizeExomuxClientMessage(value: unknown): ExomuxClientMessag
         sessionId: sessionId(root.sessionId),
       };
     }
-    case "input": {
+    case "input":
+    case "reply": {
       exact(root, ["version", "type", "requestId", "sessionId", "data"]);
       const data = stringValue(root.data, "data", Math.ceil(EXOMUX_PROTOCOL_LIMITS.inputBytes / 3) * 4);
       decodeExomuxData(data);

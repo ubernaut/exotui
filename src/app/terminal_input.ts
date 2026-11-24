@@ -72,10 +72,44 @@ const textEncoder = new TextEncoder();
 const defaultReservedKeys = new Set(["f10", "escape"]);
 const defaultReservedCtrlKeys = new Set(["c"]);
 
-/** Encodes a decoded key press into terminal input bytes for a child process. */
+/** The key reporting a child program asked its terminal for. */
+export interface TerminalKeyEncodingOptions {
+  /** Kitty keyboard flags the child has in force (`TerminalScreenController.keyboardProtocol`). */
+  kittyFlags?: number;
+  /** xterm modifyOtherKeys level the child set. */
+  modifyOtherKeys?: number;
+}
+
+/**
+ * Encodes a decoded key press into terminal input bytes for a child process.
+ *
+ * With no options the child gets the bytes the host terminal sent, unchanged.
+ * Two things break that identity. A child that asked for the kitty keyboard
+ * protocol or modifyOtherKeys gets the chords it asked to tell apart in the
+ * form it asked for. And a host that reports keys in an enhanced form — because
+ * the embedding application asked it to — must not leak that form into a child
+ * that never asked: the key is re-encoded from its decoded fields instead.
+ */
 export function encodeTerminalKeyPress(
   event: Pick<KeyPressEvent, "key" | "buffer" | "ctrl" | "meta" | "shift">,
+  options: TerminalKeyEncodingOptions = {},
 ): Uint8Array | undefined {
+  const enhancedSource = isEnhancedKeyReport(event.buffer);
+  const kitty = ((options.kittyFlags ?? 0) & (KITTY_DISAMBIGUATE | KITTY_REPORT_ALL)) !== 0;
+  const modifyOtherKeys = options.modifyOtherKeys ?? 0;
+  if (kitty || modifyOtherKeys > 0 || enhancedSource) {
+    const chord = keyChord(event, enhancedSource);
+    const enhanced = kitty
+      ? kittyKeyBytes(chord)
+      : modifyOtherKeys > 0
+      ? modifyOtherKeysBytes(chord, modifyOtherKeys)
+      : undefined;
+    if (enhanced !== undefined) return textEncoder.encode(enhanced);
+    if (enhancedSource) {
+      const legacy = legacyChordBytes(chord);
+      return legacy === undefined ? undefined : textEncoder.encode(legacy);
+    }
+  }
   if (event.buffer.byteLength > 0) return new Uint8Array(event.buffer);
   if (event.meta) return undefined;
   if (event.ctrl && /^[a-z]$/.test(event.key)) {
@@ -89,6 +123,158 @@ export function encodeTerminalKeyPress(
     return textEncoder.encode(value);
   }
   return undefined;
+}
+
+const KITTY_DISAMBIGUATE = 1;
+const KITTY_REPORT_ALL = 8;
+
+interface KeyChord {
+  key: string;
+  shift: boolean;
+  alt: boolean;
+  ctrl: boolean;
+}
+
+/** `CSI code ; modifiers u` (kitty) or `CSI 27 ; modifiers ; code ~` (modifyOtherKeys). */
+function isEnhancedKeyReport(buffer: Uint8Array): boolean {
+  const length = buffer.byteLength;
+  if (length < 4 || buffer[0] !== 0x1b || buffer[1] !== 0x5b) return false;
+  const final = buffer[length - 1];
+  if (final === 0x75) {
+    for (let index = 2; index < length - 1; index += 1) {
+      const byte = buffer[index]!;
+      if (!(byte >= 0x30 && byte <= 0x3b)) return false;
+    }
+    return true;
+  }
+  return final === 0x7e && buffer[2] === 0x32 && buffer[3] === 0x37 && buffer[4] === 0x3b;
+}
+
+/**
+ * The chord a key event stands for. A legacy `ESC` + byte report of Alt+Enter,
+ * Alt+Tab or Alt+Backspace decodes without its Alt, so that one modifier is
+ * read back off the bytes.
+ */
+function keyChord(
+  event: Pick<KeyPressEvent, "key" | "buffer" | "ctrl" | "meta" | "shift">,
+  enhancedSource: boolean,
+): KeyChord {
+  let alt = event.meta;
+  if (!enhancedSource && !alt && event.buffer.byteLength === 2 && event.buffer[0] === 0x1b) {
+    alt = event.key === "return" || event.key === "tab" || event.key === "backspace" || event.key === "space";
+  }
+  return { key: event.key, shift: event.shift, alt, ctrl: event.ctrl };
+}
+
+function chordModifier(chord: KeyChord): number {
+  return 1 + (chord.shift ? 1 : 0) + (chord.alt ? 2 : 0) + (chord.ctrl ? 4 : 0);
+}
+
+/** The code point both enhanced protocols name a key by: unshifted, lower case. */
+function chordCodepoint(chord: KeyChord): number | undefined {
+  switch (chord.key) {
+    case "return":
+      return 13;
+    case "tab":
+      return 9;
+    case "backspace":
+      return 127;
+    case "escape":
+      return 27;
+    case "space":
+      return 32;
+  }
+  if ([...chord.key].length !== 1) return undefined;
+  return chord.key.toLowerCase().codePointAt(0);
+}
+
+/**
+ * Kitty "disambiguate escape codes": Escape, and every text key held with Ctrl
+ * or Alt, and Enter, Tab or Backspace held with any modifier, become
+ * `CSI code ; modifiers u`. Plain and shifted text stays text, and the cursor
+ * and function keys keep the legacy forms the protocol leaves them in.
+ */
+function kittyKeyBytes(chord: KeyChord): string | undefined {
+  const codepoint = chordCodepoint(chord);
+  if (codepoint === undefined) return undefined;
+  const modifier = chordModifier(chord);
+  const functional = codepoint === 13 || codepoint === 9 || codepoint === 127;
+  if (codepoint === 27) return modifier === 1 ? "\x1b[27u" : `\x1b[27;${modifier}u`;
+  if (functional ? modifier === 1 : !(chord.ctrl || chord.alt)) return undefined;
+  return `\x1b[${codepoint};${modifier}u`;
+}
+
+/**
+ * modifyOtherKeys: only the chords the legacy encoding cannot express are
+ * rewritten — modified Enter, Tab, Backspace and Escape, and Ctrl held with
+ * Shift or with a key that has no control byte. Ctrl+letter and Alt+key keep
+ * their legacy bytes, which every level's reader accepts.
+ */
+function modifyOtherKeysBytes(chord: KeyChord, level: number): string | undefined {
+  const codepoint = chordCodepoint(chord);
+  if (codepoint === undefined) return undefined;
+  const modifier = chordModifier(chord);
+  if (modifier === 1) return undefined;
+  const functional = codepoint === 13 || codepoint === 9 || codepoint === 127 || codepoint === 27;
+  if (functional) {
+    // Shift+Tab has a legacy form of its own, and Alt alone is an ESC prefix.
+    if (codepoint === 9 && modifier === 2) return undefined;
+    if (modifier === 3) return undefined;
+    return `\x1b[27;${modifier};${codepoint}~`;
+  }
+  if (!chord.ctrl) return undefined;
+  const letter = codepoint >= 97 && codepoint <= 122;
+  if (letter && !chord.shift) return undefined;
+  if (!letter && level < 2 && legacyControlByte(chord.key) !== undefined) return undefined;
+  return `\x1b[27;${modifier};${codepoint}~`;
+}
+
+/** The control byte a legacy terminal sends for Ctrl held with this key, when it has one. */
+function legacyControlByte(key: string): number | undefined {
+  if (/^[a-zA-Z]$/.test(key)) return key.toLowerCase().charCodeAt(0) - 96;
+  switch (key) {
+    case "space":
+    case "@":
+    case "2":
+      return 0x00;
+    case "[":
+    case "3":
+      return 0x1b;
+    case "\\":
+    case "4":
+      return 0x1c;
+    case "]":
+    case "5":
+      return 0x1d;
+    case "^":
+    case "6":
+      return 0x1e;
+    case "_":
+    case "-":
+    case "/":
+    case "7":
+      return 0x1f;
+    case "?":
+    case "8":
+      return 0x7f;
+    default:
+      return undefined;
+  }
+}
+
+/** Legacy bytes for a chord that arrived in an enhanced form the child did not ask for. */
+function legacyChordBytes(chord: KeyChord): string | undefined {
+  const prefix = chord.alt ? "\x1b" : "";
+  if (chord.key === "tab" && chord.shift) return `${prefix}\x1b[Z`;
+  if (chord.key === "backspace") return `${prefix}${chord.ctrl ? "\b" : "\x7f"}`;
+  if (chord.ctrl) {
+    const control = legacyControlByte(chord.key);
+    if (control !== undefined) return `${prefix}${String.fromCharCode(control)}`;
+  }
+  const special = specialKeyBytes(chord.key);
+  if (special) return `${prefix}${special}`;
+  if ([...chord.key].length !== 1) return undefined;
+  return `${prefix}${chord.shift ? chord.key.toUpperCase() : chord.key}`;
 }
 
 /** Encodes paste payload text for a child process, optionally using xterm bracketed paste framing. */

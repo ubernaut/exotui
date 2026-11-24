@@ -50,6 +50,10 @@ export type ExomuxThemeId = ExomuxBuiltInThemeId | (string & Record<never, never
 /** RGB tuple used by the renderer without depending on terminal palette state. */
 export type ExomuxRgb = readonly [red: number, green: number, blue: number];
 
+/** The ground and ink of a window with theming off: the child's own ANSI colours over plain black. */
+export const EXOMUX_RAW_TERMINAL_BACKGROUND: ExomuxRgb = [0, 0, 0];
+export const EXOMUX_RAW_TERMINAL_FOREGROUND: ExomuxRgb = [229, 229, 229];
+
 /** Seven named T2 color families used to keep the theme deliberate and testable. */
 /** Seven named T2 color families, shared with the library catalog. */
 export const EXOMUX_T2_SWATCHES = SHELL_T2_SWATCHES;
@@ -149,6 +153,10 @@ export interface ExomuxClientPort {
   ): Promise<ExomuxAttachResult>;
   detach(sessionId: string): Promise<boolean>;
   input(sessionId: string, data: string | Uint8Array): Promise<boolean>;
+  /** True when the connected daemon arbitrates `reply()` so only one client answers child queries. */
+  readonly queryArbitration?: boolean;
+  /** Writes a terminal query reply (DSR, DECRQM, OSC 10/11, XTWINOPS) through daemon arbitration. */
+  reply?(sessionId: string, data: string | Uint8Array): Promise<boolean>;
   resize(sessionId: string, columns: number, rows: number): Promise<boolean>;
   kill(sessionId: string): Promise<boolean>;
   shutdownHost(): Promise<boolean>;

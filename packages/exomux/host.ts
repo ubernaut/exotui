@@ -176,6 +176,20 @@ function prependModePreamble(
   if (!first) {
     return [{ sequence: latestSequence, data: encodeExomuxData(bytes), bytes: bytes.byteLength }];
   }
+  // A frame is already at the protocol's size limit whenever the child wrote
+  // more than one frame's worth at once — an agent redrawing its transcript
+  // does it on every resize — and the preamble cannot ride on one of those:
+  // encoding the merged frame threw, and the throw refused the whole attach, so
+  // the terminal could not be reattached until the ring rotated past the burst.
+  // The preamble takes the sequence just before it instead. A client resuming
+  // from exactly that point drops it as already seen, and that client never
+  // lost the modes in the first place.
+  if (bytes.byteLength + first.bytes > EXOMUX_PROTOCOL_LIMITS.outputBytes) {
+    return [
+      { sequence: Math.max(0, first.sequence - 1), data: encodeExomuxData(bytes), bytes: bytes.byteLength },
+      ...retained,
+    ];
+  }
   // Replay payloads are base64, so the preamble is merged before encoding
   // rather than concatenated after it.
   const head = decodeExomuxData(first.data);
@@ -204,6 +218,8 @@ interface HostSession {
   /** Sticky DEC private modes, so a rotated replay cannot lose them. */
   modes: ExomuxTerminalModeTracker;
   clients: Set<HostConnection>;
+  /** Single attached client authorized to answer child terminal queries for this session. */
+  queryOwner?: HostConnection;
   /** Unattached drain budget accounting; see ExomuxHostLimits.unattachedBytesPerSecond. */
   drainWindowStart: number;
   drainWindowBytes: number;
@@ -433,9 +449,23 @@ export class ExomuxHostController {
     if (this.#connections.get(connection.id) !== connection) return;
     this.#connections.delete(connection.id);
     for (const sessionId of connection.attachments) {
-      this.#sessions.get(sessionId)?.clients.delete(connection);
+      const session = this.#sessions.get(sessionId);
+      if (!session) continue;
+      session.clients.delete(connection);
+      this.#releaseQueryOwner(session, connection);
     }
     connection.attachments.clear();
+  }
+
+  #releaseQueryOwner(session: HostSession, connection: HostConnection): void {
+    if (session.queryOwner !== connection) return;
+    session.queryOwner = undefined;
+    for (const remaining of session.clients) {
+      if (!remaining.closed) {
+        session.queryOwner = remaining;
+        return;
+      }
+    }
   }
 
   async #dispatch(connection: HostConnection, request: ExomuxClientRequest): Promise<void> {
@@ -457,6 +487,7 @@ export class ExomuxHostController {
       case "detach": {
         const session = this.#requireSession(request.sessionId);
         session.clients.delete(connection);
+        this.#releaseQueryOwner(session, connection);
         connection.attachments.delete(session.id);
         connection.cancelReplay(session.id);
         connection.enqueue(ack(request.requestId, "detach", session.id));
@@ -468,6 +499,7 @@ export class ExomuxHostController {
         if (!session.handle.inspect().running) {
           throw hostError("session-not-running", "Terminal session is not running.");
         }
+        session.queryOwner = connection;
         const accepted = await session.handle.write(decodeExomuxData(request.data));
         if (!accepted) throw hostError("input-rejected", "Terminal backend rejected input.");
         session.updatedAt = this.#now();
@@ -480,9 +512,26 @@ export class ExomuxHostController {
         }, SESSION_TITLE_REFRESH_MS);
         return;
       }
+      case "reply": {
+        const session = this.#requireSession(request.sessionId);
+        requireAttachment(connection, session);
+        if (!session.handle.inspect().running) {
+          throw hostError("session-not-running", "Terminal session is not running.");
+        }
+        // Only the designated query owner answers child queries so co-attached
+        // clients (even at identical geometry) never inject duplicate replies.
+        if (session.queryOwner === connection) {
+          const accepted = await session.handle.write(decodeExomuxData(request.data));
+          if (!accepted) throw hostError("input-rejected", "Terminal backend rejected input.");
+          session.updatedAt = this.#now();
+        }
+        connection.enqueue(ack(request.requestId, "reply", session.id));
+        return;
+      }
       case "resize": {
         const session = this.#requireSession(request.sessionId);
         requireAttachment(connection, session);
+        session.queryOwner = connection;
         const accepted = await session.handle.resize(request.columns, request.rows);
         if (!accepted && session.handle.inspect().resizeSupported) {
           throw hostError("resize-rejected", "Terminal backend rejected resize.");
@@ -620,6 +669,7 @@ export class ExomuxHostController {
         replayBytes: 0,
         modes: new ExomuxTerminalModeTracker(),
         clients: new Set([connection]),
+        queryOwner: connection,
         drainWindowStart: createdAt,
         drainWindowBytes: 0,
         ready: false,
@@ -671,6 +721,9 @@ export class ExomuxHostController {
       return;
     }
     session.clients.add(connection);
+    if (!session.queryOwner || session.queryOwner.closed || !session.clients.has(session.queryOwner)) {
+      session.queryOwner = connection;
+    }
     connection.attachments.add(session.id);
     // A watcher arrived: leave the unattached drain budget behind immediately.
     session.drainWindowStart = this.#now();

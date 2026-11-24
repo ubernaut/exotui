@@ -1278,6 +1278,45 @@ Deno.test("exomux re-asserts sticky terminal modes when the replay ring has rota
   assert(replayed.indexOf("later output one") < replayed.indexOf("later output two"));
 });
 
+Deno.test("exomux attaches when the first retained frame is already at the size limit", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend, { replayEntries: 2, replayBytes: 4 * 1024 * 1024 });
+  const ownerPeer = new FakePeer();
+  const owner = host.connect(ownerPeer);
+  await authenticate(owner);
+  await owner.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "demo" }));
+  await drain();
+  const spawned = ownerPeer.messages().find((message) => message.type === "spawned");
+  assert(spawned?.type === "spawned");
+  owner.disconnect();
+
+  const handle = backend.handles[0]!;
+  handle.emit("\x1b[?2004h");
+  // An agent redrawing its transcript writes more than one frame's worth at
+  // once, so the frames of that burst are each exactly at the limit — and the
+  // ring's oldest survivor is one of them.
+  const full = "x".repeat(EXOMUX_PROTOCOL_LIMITS.outputBytes);
+  handle.emit(full);
+  handle.emit("tail");
+
+  const peer = new FakePeer();
+  const client = host.connect(peer);
+  await authenticate(client);
+  await client.receive(
+    wire({ version: 1, type: "attach", requestId: 1, sessionId: spawned.session.id, afterSequence: 0 }),
+  );
+  await drain();
+
+  assertEquals(peer.messages().filter((message) => message.type === "error"), []);
+  const attached = peer.messages().find((message) => message.type === "attached");
+  assert(attached?.type === "attached", "the attach is accepted, not refused over the preamble's few bytes");
+  const outputs = peer.messages().filter((message) => message.type === "output");
+  const replayed = outputs.map((message) => textDecoder.decode(decodeExomuxData(message.data))).join("");
+  assertEquals(replayed, "\x1b[?2004h" + full + "tail");
+  // The preamble is a frame of its own just before the frame it could not ride on.
+  assertEquals(outputs.map((message) => message.sequence), [1, 2, 3]);
+});
+
 Deno.test("exomux drops sticky modes the child turned off before a client attaches", async () => {
   const backend = new FakeTerminalBackend();
   const host = createHost(backend, { replayEntries: 2, replayBytes: 1024 });
@@ -1659,6 +1698,58 @@ Deno.test("an unknown message type still closes when uncorrelated or unauthentic
   const second = host.connect(unauthenticated);
   await second.receive(wire({ version: 1, type: "presence", requestId: 3 }));
   assertEquals(unauthenticated.closes.length, 1, "an unauthenticated stranger is still shown the door");
+
+  await host.shutdown();
+});
+
+Deno.test("exomux host arbitrates query replies to one owner across co-attached clients", async () => {
+  const backend = new FakeTerminalBackend();
+  const host = createHost(backend);
+
+  const peerA = new FakePeer();
+  const clientA = host.connect(peerA);
+  await authenticate(clientA);
+  await clientA.receive(wire({ version: 1, type: "spawn", requestId: 1, command: "/bin/fake" }));
+  const spawned = peerA.messages().find((message) => message.type === "spawned");
+  assert(spawned?.type === "spawned");
+  const sessionId = spawned.session.id;
+  const handle = backend.handles[0]!;
+
+  // Second client attaches at the exact same geometry.
+  const peerB = new FakePeer();
+  const clientB = host.connect(peerB);
+  await authenticate(clientB);
+  await clientB.receive(wire({ version: 1, type: "attach", requestId: 1, sessionId }));
+
+  // Both answer a child query: only owner A reaches the PTY, both receive ack.
+  await clientA.receive(
+    wire({ version: 1, type: "reply", requestId: 2, sessionId, data: encodeExomuxData("\x1b[5;3R") }),
+  );
+  await clientB.receive(
+    wire({ version: 1, type: "reply", requestId: 2, sessionId, data: encodeExomuxData("\x1b[5;3R") }),
+  );
+  assertEquals(handle.writes.map((bytes) => textDecoder.decode(bytes)), ["\x1b[5;3R"]);
+  assert(peerA.messages().some((message) => message.type === "ack" && message.operation === "reply"));
+  assert(peerB.messages().some((message) => message.type === "ack" && message.operation === "reply"));
+
+  // User input from B transfers ownership to B; replies from A are now dropped.
+  handle.writes.length = 0;
+  await clientB.receive(wire({ version: 1, type: "input", requestId: 3, sessionId, data: encodeExomuxData("x") }));
+  await clientA.receive(
+    wire({ version: 1, type: "reply", requestId: 3, sessionId, data: encodeExomuxData("\x1b[?2026;2$y") }),
+  );
+  await clientB.receive(
+    wire({ version: 1, type: "reply", requestId: 4, sessionId, data: encodeExomuxData("\x1b[?2026;2$y") }),
+  );
+  assertEquals(handle.writes.map((bytes) => textDecoder.decode(bytes)), ["x", "\x1b[?2026;2$y"]);
+
+  // Disconnecting owner B automatically promotes A back to owner so queries never stall.
+  handle.writes.length = 0;
+  clientB.disconnect();
+  await clientA.receive(
+    wire({ version: 1, type: "reply", requestId: 4, sessionId, data: encodeExomuxData("\x1b[6;1R") }),
+  );
+  assertEquals(handle.writes.map((bytes) => textDecoder.decode(bytes)), ["\x1b[6;1R"]);
 
   await host.shutdown();
 });
