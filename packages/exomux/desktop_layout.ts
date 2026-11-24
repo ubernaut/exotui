@@ -20,6 +20,10 @@ export const EXOMUX_HEADER_ROWS = 1;
 export const EXOMUX_FOOTER_ROWS = 0;
 /** Cells the quick-quit control claims at the right end of the top bar. */
 export const EXOMUX_MENU_QUIT_WIDTH = 5;
+/** Compact top-bar badge shown beside the quit button when low-bandwidth mode is active. */
+export const EXOMUX_LOW_BANDWIDTH_BADGE = "[LOW-BW]";
+/** Minimum terminal width required to show the low-bandwidth badge alongside the taskbar. */
+export const EXOMUX_LOW_BANDWIDTH_BADGE_MIN_WIDTH = 38;
 
 /** The start button: fixed size, top-left, always at the head of the top bar. */
 export const EXOMUX_START_BUTTON: Rectangle = Object.freeze({ column: 0, row: 0, width: 14, height: 1 });
@@ -30,6 +34,18 @@ export function exomuxMenuQuitRect(bounds: Rectangle): Rectangle {
     column: bounds.column + Math.max(0, bounds.width - EXOMUX_MENU_QUIT_WIDTH),
     row: 0,
     width: Math.min(EXOMUX_MENU_QUIT_WIDTH, bounds.width),
+    height: 1,
+  };
+}
+
+/** Top-bar badge rect shown immediately left of the quit button while low-bandwidth mode is active. */
+export function exomuxLowBandwidthBadgeRect(bounds: Rectangle, active: boolean): Rectangle | undefined {
+  if (!active || bounds.width < EXOMUX_LOW_BANDWIDTH_BADGE_MIN_WIDTH) return undefined;
+  const width = EXOMUX_LOW_BANDWIDTH_BADGE.length;
+  return {
+    column: bounds.column + Math.max(EXOMUX_START_BUTTON.width + 1, bounds.width - EXOMUX_MENU_QUIT_WIDTH - width - 1),
+    row: 0,
+    width,
     height: 1,
   };
 }
@@ -46,10 +62,11 @@ export function exomuxBodyRect(bounds: Rectangle): Rectangle {
 
 /**
  * The window taskbar, which shares the top bar: it starts just past the start
- * button and stops short of the quick-quit control.
+ * button and stops short of the quick-quit control (and optional status badge).
  */
-export function exomuxShelfBounds(bounds: Rectangle): Rectangle {
+export function exomuxShelfBounds(bounds: Rectangle, reservedRight = 0): Rectangle {
   const column = EXOMUX_START_BUTTON.width + 1;
-  const available = Math.max(0, bounds.width - column - EXOMUX_MENU_QUIT_WIDTH - 1);
+  const reserved = Math.max(0, Math.floor(reservedRight));
+  const available = Math.max(0, bounds.width - column - EXOMUX_MENU_QUIT_WIDTH - reserved - 1);
   return { column, row: 0, width: Math.max(1, available), height: 1 };
 }

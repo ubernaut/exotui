@@ -3,6 +3,16 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 23 Low-bandwidth mode (`Auto` / `On` / `Off`)
+
+`feature/low-bandwidth-mode`: added core wire-efficiency upgrades to `AnsiCanvasSink` (cross-range SGR persistence,
+partial fg/bg deltas, runtime xterm-256 color quantization, and ECMA-48 `REP` run-length compression), zero-byte `rttMs`
+latency measurement in `probeHostTerminal()`, core `LowBandwidthController` (combining startup RTT, SSH/Mosh hints, and
+live `AnsiFlushTelemetry` backpressure with hysteresis), `RenderLoop.requestSoon()` / `deferNext()` and `Tui`
+degraded-flush congestion backoff, plus Exomux's three-position `Low-bandwidth mode` (`Auto` / `On` / `Off`) setting
+with non-destructive visual/input/transport mitigations and hidden-window render suppression. See
+`log/detail/feature--low-bandwidth-mode.md`.
+
 ## November 23 Terminal app compatibility, agy fixes, and core runtime upstreaming
 
 `bug/exomux-agy-compat` and `feature/terminal-app-compat`: resolved `agy` visual corruption inside Exomux (tab-stop

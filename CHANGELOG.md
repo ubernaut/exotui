@@ -6,6 +6,20 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Added three-position **Low-bandwidth mode** (`Auto` / `On` / `Off`) across core `exotui` and `exomux`:
+  - `AnsiCanvasSink` now persists color-only SGR state across dirty row ranges, emits partial fg/bg deltas instead of
+    redundant full prefixes, and supports runtime `configure({ colorDepth: "truecolor" | "256", repeatCompression })`
+    (`rgbToXterm256` + ECMA-48 `REP` run-length compression).
+  - `probeHostTerminal()` records pre-launch round-trip latency (`rttMs`) at zero extra wire cost.
+  - Added core `LowBandwidthController` and `detectRemoteTerminalEnvironment()` (`src/perf/low_bandwidth.ts`) combining
+    startup RTT, SSH/Mosh hints, and live `AnsiFlushTelemetry` backpressure with hysteresis recovery, plus
+    `RenderLoop.requestSoon()`, `RenderLoop.deferNext()`, `Tui.setRefreshRate()`, and automatic degraded-flush backoff.
+  - Exomux adds a `Low-bandwidth mode` (`Auto` / `On` / `Off`) global setting with non-destructive runtime overrides:
+    forces opaque windows, freezes animated backgrounds and overgrowth, disables window/menu transitions and block
+    cursor, switches borders to 1-byte ASCII, steps host mouse tracking down from `1003` to `1002` (unless the focused
+    child explicitly requests `1003`), pauses Kitty graphics passthrough, caps output rendering to 12 FPS while waking
+    promptly on input, skips desktop repaints for minimized hidden terminals, and shows a compact `[LOW-BW]` top-bar
+    badge.
 - Fixed `agy` and general terminal-app rendering compatibility across core `exotui`, `exowebtui`, and `exomux`:
   - `TerminalScreenController` now preserves tab stops on widen (`DECST8C`), preserves scrollback on main-screen height
     shrink, retains deferred wrap across non-moving controls, splits main/alternate `DECSC` cursor slots, clamps

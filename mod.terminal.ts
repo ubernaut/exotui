@@ -10,6 +10,7 @@ export * from "./src/runtime/terminal_palette.ts";
 export * from "./src/runtime/terminal_modes.ts";
 export * from "./src/runtime/terminal_env.ts";
 export * from "./src/runtime/host_terminal_probe.ts";
+export * from "./src/perf/low_bandwidth.ts";
 export * from "./src/runtime/host_desktop.ts";
 export * from "./src/runtime/terminal_screen.ts";
 export * from "./src/runtime/terminal_scrollback.ts";

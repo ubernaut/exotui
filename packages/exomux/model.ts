@@ -1,8 +1,8 @@
 // Copyright 2023 Im-Beast. MIT license.
 
 import { defineShowcaseManifest, type ShowcaseManifest } from "@ubernaut/exotui/showcase";
-import { grWizardThemePalettes, SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
-import type { SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/exotui";
+import { grWizardThemePalettes, LOW_BANDWIDTH_MODES, SURFACE_ANIMATION_KINDS } from "@ubernaut/exotui";
+import type { LowBandwidthMode, SurfaceAnimationChoice, SurfaceAnimationSpeed } from "@ubernaut/exotui";
 
 /** Current Exomux workspace metadata schema. Live PTYs remain daemon-owned. */
 export const EXOMUX_SESSION_SCHEMA_VERSION = 1 as const;
@@ -282,7 +282,12 @@ function formatOpacity(value: ExomuxSettingValue): string {
  * single place the two are combined; anything reading `settings.opacity`
  * directly would render an unresolved sentinel.
  */
-export function exomuxResolvedOpacity(global: ExomuxGlobalSettings, window?: ExomuxWindowSettings): number {
+export function exomuxResolvedOpacity(
+  global: ExomuxGlobalSettings,
+  window?: ExomuxWindowSettings,
+  lowBandwidthActive = false,
+): number {
+  if (lowBandwidthActive) return 1;
   const own = window?.opacity ?? EXOMUX_OPACITY_INHERIT;
   const resolved = own === EXOMUX_OPACITY_INHERIT ? global.opacity : own;
   return Number.isFinite(resolved) ? Math.min(1, Math.max(0, resolved)) : 1;
@@ -540,6 +545,10 @@ export function exomuxBorderGlyphs(id: unknown): ExomuxBorderGlyphs {
 export const EXOMUX_MOBILE_LAYOUT_MODES = ["auto", "on", "off"] as const;
 export type ExomuxMobileLayoutMode = (typeof EXOMUX_MOBILE_LAYOUT_MODES)[number];
 
+/** Three-position low-bandwidth toggle (`auto`, `on`, `off`). */
+export const EXOMUX_LOW_BANDWIDTH_MODES = LOW_BANDWIDTH_MODES;
+export type ExomuxLowBandwidthMode = LowBandwidthMode;
+
 /**
  * Body columns the floating-window desktop needs to stay usable. Width alone
  * decides it: a short terminal still stacks windows fine, but a narrow one
@@ -576,6 +585,12 @@ export interface ExomuxGlobalSettings {
    * columns of body area.
    */
   readonly mobileLayout: ExomuxMobileLayoutMode;
+  /**
+   * Low-bandwidth performance mode. "auto" engages on high-latency/Mosh links
+   * or live tty backpressure; "on" flattens visual effects, caps output FPS,
+   * and enables 256-color + REP wire compression without altering saved settings.
+   */
+  readonly lowBandwidth: ExomuxLowBandwidthMode;
   /**
    * How opaque terminal windows are by default.
    *
@@ -664,6 +679,13 @@ export const EXOMUX_GLOBAL_SETTING_SPECS: readonly ExomuxGlobalSettingSpec[] = O
     format: (value: ExomuxSettingValue) => value === "auto" ? "Auto" : value === "on" ? "Always" : "Never",
   }),
   Object.freeze({
+    id: "lowBandwidth" as const,
+    label: "Low-bandwidth mode",
+    detail: "Auto adapts to slow/SSH links; On flattens effects, caps FPS, and compresses ANSI.",
+    values: Object.freeze([...EXOMUX_LOW_BANDWIDTH_MODES]),
+    format: (value: ExomuxSettingValue) => value === "auto" ? "Auto" : value === "on" ? "On" : "Off",
+  }),
+  Object.freeze({
     id: "opacity" as const,
     label: "Window opacity",
     detail: "Below opaque, terminal windows show the desktop background through their text.",
@@ -744,6 +766,9 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
     // Phone-sized terminals get one full-screen window at a time; a roomy
     // terminal keeps the floating desktop.
     mobileLayout: "auto" as const,
+    // Auto adapts to high-RTT/Mosh links and live tty backpressure; local
+    // terminals stay at full fidelity.
+    lowBandwidth: "auto" as const,
     // Slightly translucent out of the box: the live desktop showing through
     // terminal text is the look Exomux leads with.
     opacity: 0.85,
@@ -767,6 +792,25 @@ export function defaultExomuxGlobalSettings(): ExomuxGlobalSettings {
 /** Strictly normalizes persisted desktop-wide settings. */
 export function normalizeExomuxGlobalSettings(value: unknown): ExomuxGlobalSettings {
   return normalizeSettings(value, EXOMUX_GLOBAL_SETTING_SPECS, defaultExomuxGlobalSettings());
+}
+
+/**
+ * Returns the runtime-effective global settings when low-bandwidth mode is
+ * active, flattening visual effects without mutating saved user preferences.
+ */
+export function exomuxEffectiveGlobalSettings(
+  global: ExomuxGlobalSettings,
+  lowBandwidthActive: boolean,
+): ExomuxGlobalSettings {
+  if (!lowBandwidthActive) return global;
+  return {
+    ...global,
+    opacity: 1,
+    overgrowInactive: false,
+    animationSpeed: "off",
+    blockCursor: false,
+    borderStyle: "ascii",
+  };
 }
 
 /** Returns the next value for one desktop-wide setting. */

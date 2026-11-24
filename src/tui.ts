@@ -144,6 +144,11 @@ export class Tui extends EventEmitter<
       tick: () => {
         this.updateCanvasSize();
         this.canvas.render();
+        // Back off gently after a degraded/saturated flush instead of blasting
+        // another full repaint 16ms later into an already full tty buffer.
+        if (this.canvas.lastFlushDegraded) {
+          this.renderLoop.deferNext(Math.max(this.refreshRate * 2, 120));
+        }
       },
     });
     this.enableBracketedPaste = options.enableBracketedPaste ?? false;
@@ -176,6 +181,13 @@ export class Tui extends EventEmitter<
         Math.max(1_000, this.refreshRate * 10),
       );
     }
+  }
+
+  /** Updates the target frame interval (ms) for the active render loop at runtime. */
+  setRefreshRate(intervalMs: number): void {
+    const next = Math.max(1, intervalMs);
+    this.refreshRate = next;
+    this.renderLoop.intervalMs = next;
   }
 
   addChild(child: Component): void {
