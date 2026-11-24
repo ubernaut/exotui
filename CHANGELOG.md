@@ -6,6 +6,26 @@ quickly, but the affected entrypoint or module family should be named here.
 
 ## Unreleased
 
+- Fixed `agy` and general terminal-app rendering compatibility across core `exotui`, `exowebtui`, and `exomux`:
+  - `TerminalScreenController` now preserves tab stops on widen (`DECST8C`), preserves scrollback on main-screen height
+    shrink, retains deferred wrap across non-moving controls, splits main/alternate `DECSC` cursor slots, clamps
+    `DECSTBM` vertically, and reports DECSET `2026`.
+  - `TerminalScreenController` now supports `DECCKM` (`CSI ? 1 h`), `DECSET 1004` focus reporting, bounded write-only
+    child `OSC 52` clipboard writes, main-screen logical-line text reflow on width resize (`reflowOnResize`), `OSC 4` /
+    `OSC 104` ANSI palette queries/overrides, `DECRQSS m`/`s`, `DECLRMM` (`?69h`) + `DECSLRM` (`CSI l;r s`) +
+    `DECIC`/`DECDC` left/right scroll margins, and `serializeSnapshot()` / `serializeTerminalScreenSnapshot()`.
+  - `encodeTerminalKeyPress` and `encodeRemoteTerminalInput` honor `DECCKM` application cursor keys, `DECSET 1004` focus
+    events (`encodeTerminalFocusEvent`), and Kitty keyboard flag-4 alternate/shifted keys (`CSI > 5 u`).
+  - `resolveTerminalCellStyle` and core `TerminalScreen` render child `DECSCUSR` cursor shapes (`block` / `bar` /
+    `underline`), `OSC 4` palette overrides, and `OSC 8` hyperlinks (including `BrowserCellCanvasSink` in `exowebtui`).
+  - Fixed `AnsiCanvasSink` wide-follower cursor isolation and `stripStyles` paired ST-terminated OSC stripping.
+  - Promoted `TerminalSynchronizedOutputController`, `sanitizeTerminalHyperlink`, `TerminalModeTracker`,
+    `terminalChildEnvironment`, `probeHostTerminal`, `readLocalHostClipboard`, `sanitizeTerminalClipboardPaste`,
+    `openLocalTerminalLink`, and `formatAnsiFlushTelemetry` into core `exotui` (and exposed browser-safe
+    `terminal_modes.ts` and `terminal_palette.ts` on `mod.web.ts`).
+  - Exomux daemon maintains a bounded 200-row shadow screen per session and advertises `screenSnapshot: true` for
+    version-skew-safe snapshot restoration on rotated replays, plus single-responder query arbitration across attached
+    clients.
 - Experimental `./mermaid` native frames join line strokes that share a cell, so boxes, dividers, lifelines and edges
   meet in corners, tees and crossings. Arrowheads are drawn as arrow glyphs, tight curves as rounded corners, start and
   end states as `●` and `◉`, and a line no longer overwrites the label it passes behind. `MermaidScenePath` gains an

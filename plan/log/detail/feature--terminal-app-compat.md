@@ -152,3 +152,9 @@ with `exomux` standing thinly on top:
   narrowing from 80 columns does not reflow a 60-cell styled line into 4-column tail rows.
 - `scripts/e2e.ts` & `docs/assets/*`: rebuilt GitHub Pages web bundles and ratcheted `web-workbench-bundle` `maxBytes`
   from `600_000` to `615_000` (`586,664 -> 606,701` bytes from the new `TerminalScreenController` VT features).
+- Bidirectional daemon/client version-skew verified live against `main` (`0a8121cd`) in isolated temp state dirs:
+  - Old daemon (`0a8121cd`) + new client (`HEAD`): spawn, attach, detach, reattach, and kill succeed cleanly without
+    sending `snapshotFallback`.
+  - New daemon (`HEAD`, `screenSnapshot: true`) + old client (`0a8121cd`) on a >5 MiB rotated session: old client reads
+    the new descriptor cleanly and attaches with `truncated: true` (no `snapshot` field), while a new client attaching
+    to the same rotated session receives `truncated: true, snapshot: true` containing the live screen tail.

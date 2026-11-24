@@ -3,6 +3,21 @@
 The narrative history. Read this to see where things stand; the branch logs under `detail/` have the decisions, dead
 ends, and repro details behind it. Newest first.
 
+## November 23 Terminal app compatibility, agy fixes, and core runtime upstreaming
+
+`bug/exomux-agy-compat` and `feature/terminal-app-compat`: resolved `agy` visual corruption inside Exomux (tab-stop
+preservation on widen, scrollback-preserving height resize, deferred wrap, split main/alt `DECSC`, DECSET `2026`/`2027`
+synchronized output & grapheme clustering, `OSC 8` hyperlink passthrough, wide-follower cursor isolation, single-client
+query arbitration, and paired ST-terminated OSC stripping) and delivered 8 focused terminal-app compatibility upgrades
+core-first across `exotui`, `exowebtui`, and `exomux`: `DECCKM` application cursor keys, `DECSET 1004` focus reporting,
+bounded write-only `OSC 52` clipboard forwarding, `DECSCUSR` cursor shapes, main-screen logical-line reflow on resize,
+Kitty flag-4 alternate keys + `OSC 4`/`104` palette overrides + `DECRQSS m`, `DECLRMM`/`DECSLRM` left/right margins, and
+reusable ANSI screen snapshot serialization with version-skew-safe daemon rotated-replay fallback. Followed by an
+upstreaming pass promoting `TerminalModeTracker`, `terminalChildEnvironment`, `probeHostTerminal`,
+`readLocalHostClipboard`/`sanitizeTerminalClipboardPaste`/`openLocalTerminalLink`, and `formatAnsiFlushTelemetry` into
+core (and exposing `terminal_modes.ts` + `terminal_palette.ts` on `mod.web.ts`). See
+`log/detail/feature--terminal-app-compat.md`.
+
 ## November 19 Mermaid native line glyphs
 
 `feature/mermaid-native-line-glyphs`: the maintainer asked for work on the terminal ("ASCII") Mermaid renderer to
