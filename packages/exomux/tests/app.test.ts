@@ -6425,3 +6425,45 @@ Deno.test("Exomux forwards sanitized OSC 8 hyperlinks to painted desktop cells",
     await controller.dispose();
   }
 });
+
+Deno.test("Exomux honors DECCKM (CSI ? 1 h) when forwarding cursor keys to the active terminal", async () => {
+  const initial = session("decckm", "vim", 0);
+  const client = new FakeExomuxClient([initial]);
+  const controller = await createExomuxController({ client, initialSessions: [initial] });
+  const mount: ExomuxAppMountRef = {};
+  const { tuiOptions: _tuiOptions, ...headlessOptions } = createExomuxTerminalOptions(controller, mount);
+  const harness = await createTestTerminalApp({ ...headlessOptions, size: { columns: 96, rows: 24 } });
+  try {
+    const mounted = mount.current;
+    assert(mounted);
+    await mounted.whenIdle();
+    controller.windowHost.execute({ kind: "close", id: EXOMUX_SESSIONS_WINDOW_ID }, mounted.bodyRect.peek());
+    controller.windowHost.execute({ kind: "focus", id: exomuxWindowId(initial.id) }, mounted.bodyRect.peek());
+    await harness.pilot.settle();
+
+    // Default (DECCKM off): host CSI Up stays CSI Up.
+    client.inputs.length = 0;
+    await harness.pilot.press("up", { buffer: new TextEncoder().encode("\x1b[A") });
+    await mounted.whenIdle();
+    assertEquals(client.inputs.at(-1)?.data, "\x1b[A");
+
+    // Child enables DECCKM (`CSI ? 1 h`): unmodified Up/Home translate to SS3, Shift+Up stays CSI.
+    client.emitOutput({ sessionId: initial.id, sequence: 1, data: "\x1b[?1h" });
+    await mounted.whenIdle();
+    await harness.pilot.press("up", { buffer: new TextEncoder().encode("\x1b[A") });
+    await harness.pilot.press("home", { buffer: new TextEncoder().encode("\x1b[H") });
+    await harness.pilot.press("up", { shift: true, buffer: new TextEncoder().encode("\x1b[1;2A") });
+    await mounted.whenIdle();
+    assertEquals(client.inputs.slice(-3).map((entry) => entry.data), ["\x1bOA", "\x1bOH", "\x1b[1;2A"]);
+
+    // Child disables DECCKM (`CSI ? 1 l`): Up returns to CSI even if host sent SS3.
+    client.emitOutput({ sessionId: initial.id, sequence: 2, data: "\x1b[?1l" });
+    await mounted.whenIdle();
+    await harness.pilot.press("up", { buffer: new TextEncoder().encode("\x1bOA") });
+    await mounted.whenIdle();
+    assertEquals(client.inputs.at(-1)?.data, "\x1b[A");
+  } finally {
+    harness.destroy();
+    await controller.dispose();
+  }
+});

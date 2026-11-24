@@ -3817,7 +3817,15 @@ export function mountExomuxDesktop(
   // reports in the enhanced form.
   const encodeKeyForActiveTerminal = (event: KeyPressEvent): Uint8Array | undefined => {
     const runtime = controller.activeRuntime();
-    const bytes = encodeTerminalKeyPress(event, runtime?.screen.keyboardProtocol);
+    const bytes = encodeTerminalKeyPress(
+      event,
+      runtime
+        ? {
+          ...runtime.screen.keyboardProtocol,
+          applicationCursorKeys: runtime.screen.applicationCursorKeys,
+        }
+        : undefined,
+    );
     if (bytes) {
       snapActiveTerminalToLive();
       // Typing here means this client is the one using the terminal.

@@ -69,3 +69,33 @@ Deno.test("a child that set modifyOtherKeys gets only the chords legacy bytes ca
   // Kitty wins when a child set both, as agy does.
   assertEquals(relay("\x1b[13;2u", { kittyFlags: 1, modifyOtherKeys: 2 }), "\x1b[13;2u");
 });
+
+Deno.test("DECCKM translates unmodified cursor and Home/End keys between CSI and SS3", () => {
+  const appMode = { applicationCursorKeys: true };
+  const normalMode = { applicationCursorKeys: false };
+  for (
+    const [csi, ss3] of [
+      ["\x1b[A", "\x1bOA"],
+      ["\x1b[B", "\x1bOB"],
+      ["\x1b[C", "\x1bOC"],
+      ["\x1b[D", "\x1bOD"],
+      ["\x1b[H", "\x1bOH"],
+      ["\x1b[F", "\x1bOF"],
+    ] as const
+  ) {
+    assertEquals(relay(csi, appMode), ss3);
+    assertEquals(relay(ss3, appMode), ss3);
+    assertEquals(relay(ss3, normalMode), csi);
+    assertEquals(relay(csi, normalMode), csi);
+    // Without explicit DECCKM mode, host bytes pass through unchanged.
+    assertEquals(relay(csi), csi);
+    assertEquals(relay(ss3), ss3);
+  }
+  // Modified cursor keys remain CSI even when DECCKM is active.
+  assertEquals(relay("\x1b[1;2A", appMode), "\x1b[1;2A");
+  assertEquals(relay("\x1b[1;5C", appMode), "\x1b[1;5C");
+  assertEquals(relay("\x1b[1;3D", appMode), "\x1b[1;3D");
+  // Kitty disambiguation still honors DECCKM for unmodified arrows.
+  assertEquals(relay("\x1b[A", { kittyFlags: 1, applicationCursorKeys: true }), "\x1bOA");
+  assertEquals(relay("\x1bOA", { kittyFlags: 1, applicationCursorKeys: false }), "\x1b[A");
+});

@@ -29,6 +29,12 @@ export interface TerminalInputRoutingOptions {
   mouseOrigin?: { column: number; row: number };
   reservedKeys?: readonly string[];
   reservedCtrlKeys?: readonly string[];
+  /** Kitty keyboard flags the child has in force (`TerminalScreenController.keyboardProtocol`). */
+  kittyFlags?: number;
+  /** xterm modifyOtherKeys level the child set. */
+  modifyOtherKeys?: number;
+  /** DECCKM (`CSI ? 1 h`): emit SS3 cursor/Home/End keys instead of CSI when unmodified. */
+  applicationCursorKeys?: boolean;
 }
 
 /** Inspection summary used by paste confirmation policies. */
@@ -78,17 +84,25 @@ export interface TerminalKeyEncodingOptions {
   kittyFlags?: number;
   /** xterm modifyOtherKeys level the child set. */
   modifyOtherKeys?: number;
+  /**
+   * DECCKM (`CSI ? 1 h`): when `true`, unmodified cursor and Home/End keys
+   * encode as SS3 (`ESC O A/B/C/D/H/F`); when `false`, as CSI (`ESC [ ...`).
+   * Omit to preserve the host buffer verbatim.
+   */
+  applicationCursorKeys?: boolean;
 }
 
 /**
  * Encodes a decoded key press into terminal input bytes for a child process.
  *
  * With no options the child gets the bytes the host terminal sent, unchanged.
- * Two things break that identity. A child that asked for the kitty keyboard
+ * Three things break that identity. A child that asked for the kitty keyboard
  * protocol or modifyOtherKeys gets the chords it asked to tell apart in the
- * form it asked for. And a host that reports keys in an enhanced form — because
- * the embedding application asked it to — must not leak that form into a child
- * that never asked: the key is re-encoded from its decoded fields instead.
+ * form it asked for. A child that toggled DECCKM (`CSI ? 1 h`) gets SS3 or CSI
+ * cursor/Home/End bytes to match its own mode rather than the host's. And a
+ * host that reports keys in an enhanced form — because the embedding
+ * application asked it to — must not leak that form into a child that never
+ * asked: the key is re-encoded from its decoded fields instead.
  */
 export function encodeTerminalKeyPress(
   event: Pick<KeyPressEvent, "key" | "buffer" | "ctrl" | "meta" | "shift">,
@@ -109,6 +123,10 @@ export function encodeTerminalKeyPress(
       const legacy = legacyChordBytes(chord);
       return legacy === undefined ? undefined : textEncoder.encode(legacy);
     }
+  }
+  if (options.applicationCursorKeys !== undefined && !event.ctrl && !event.meta && !event.shift) {
+    const cursorBytes = cursorKeyBytes(event.key, options.applicationCursorKeys);
+    if (cursorBytes !== undefined) return textEncoder.encode(cursorBytes);
   }
   if (event.buffer.byteLength > 0) return new Uint8Array(event.buffer);
   if (event.meta) return undefined;
@@ -376,7 +394,7 @@ export async function routeTerminalKeyPress(
   if ((options.mode ?? "workbench") !== "raw") return { routed: false, reason: "workbench-mode" };
   if (isReservedTerminalKey(event, options)) return { routed: false, reason: "reserved" };
   if (!terminalInputTargetRunning(session)) return { routed: false, reason: "not-running" };
-  const bytes = encodeTerminalKeyPress(event);
+  const bytes = encodeTerminalKeyPress(event, options);
   if (!bytes) return { routed: false, reason: "unencodable" };
   const routed = await writeTerminalInput(session, bytes);
   return routed ? { routed, reason: "encoded", bytes } : { routed, reason: "write-failed", bytes };
@@ -482,6 +500,26 @@ function terminalReservedKeyIncludes(
     if (override[index] === key) return true;
   }
   return false;
+}
+
+function cursorKeyBytes(key: string, application: boolean): string | undefined {
+  const prefix = application ? "\x1bO" : "\x1b[";
+  switch (key) {
+    case "up":
+      return `${prefix}A`;
+    case "down":
+      return `${prefix}B`;
+    case "right":
+      return `${prefix}C`;
+    case "left":
+      return `${prefix}D`;
+    case "home":
+      return `${prefix}H`;
+    case "end":
+      return `${prefix}F`;
+    default:
+      return undefined;
+  }
 }
 
 function specialKeyBytes(key: string): string | undefined {

@@ -317,6 +317,11 @@ export class TerminalScreenController {
     return { kittyFlags: this.#kittyFlags(), modifyOtherKeys: this.#modifyOtherKeys };
   }
 
+  /** Whether DECCKM (`CSI ? 1 h`, Application Cursor Keys) is currently active. */
+  get applicationCursorKeys(): boolean {
+    return this.#privateModes.has(1);
+  }
+
   get scrollbackRows(): number {
     return this.#scrollback.length;
   }

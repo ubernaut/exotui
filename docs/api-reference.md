@@ -10,9 +10,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 - Module visits: 1132
 - Unique re-export declarations: 743
 - Re-export declaration visits: 1129
-- Unique symbol declarations: 5186
-- Symbol declaration visits: 10514
-- Documented symbol declarations: 5155
+- Unique symbol declarations: 5187
+- Symbol declaration visits: 10516
+- Documented symbol declarations: 5156
 - Documentation coverage: 99.40%
 - Duplicate symbol groups: 0
 - Missing targets: 0
@@ -26,9 +26,9 @@ separate while shared module declarations are listed once with explicit entrypoi
 | `./document`          | `./mod.document.ts`                  | shared   | beta         |      12 |      89 | 100.00% |
 | `./mermaid`           | `./mod.mermaid.ts`                   | shared   | experimental |      12 |      65 | 100.00% |
 | `./mermaid/headless`  | `./mod.mermaid_headless.ts`          | terminal | experimental |       5 |      14 | 100.00% |
-| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3709 | 100.00% |
+| `./web`               | `./mod.web.ts`                       | browser  | beta         |     366 |    3710 | 100.00% |
 | `./shell`             | `./mod.shell.ts`                     | shared   | beta         |      23 |     181 | 100.00% |
-| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     136 | 100.00% |
+| `./remote`            | `./mod.remote.ts`                    | remote   | experimental |      14 |     137 | 100.00% |
 | `./three-ascii`       | `./mod.three_ascii.ts`               | shared   | experimental |      13 |      83 | 100.00% |
 | `./viz`               | `./src/viz/mod.ts`                   | shared   | beta         |      19 |     137 |  81.02% |
 | `./viz/three`         | `./src/viz/three/mod.ts`             | shared   | experimental |       3 |      10 |  90.00% |
@@ -125,8 +125,8 @@ Standalone browser-safe package for shared controllers, themes, layout, canvas s
 - Stability: beta
 - Modules: 366
 - Re-export declarations: 368
-- Exported symbols: 3709
-- Documented symbols: 3709
+- Exported symbols: 3710
+- Documented symbols: 3710
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -155,8 +155,8 @@ Hosted terminal/client bridge protocol and browser WebSocket transport.
 - Stability: experimental
 - Modules: 14
 - Re-export declarations: 13
-- Exported symbols: 136
-- Documented symbols: 136
+- Exported symbols: 137
+- Documented symbols: 137
 - Documentation coverage: 100.00%
 - Duplicate symbols: 0
 - Missing targets: 0
@@ -905,7 +905,7 @@ Real Taffy WASM layout solver over the pinned npm:taffy-layout distribution.
 | [`src/web/mermaid_svg.ts`](#src-web-mermaid-svg-ts)                                                   | `./mermaid`                              |          0 |       7 |          7 |
 | [`src/web/mod.ts`](#src-web-mod-ts)                                                                   | `./web`                                  |          7 |       0 |          0 |
 | [`src/web/platform.ts`](#src-web-platform-ts)                                                         | `./web`                                  |          0 |       7 |          7 |
-| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                      |          0 |      33 |         33 |
+| [`src/web/remote_terminal.ts`](#src-web-remote-terminal-ts)                                           | `./web`, `./remote`                      |          0 |      34 |         34 |
 | [`src/web/web_presenter.ts`](#src-web-web-presenter-ts)                                               | `./web`                                  |          0 |       4 |          4 |
 
 ## Module Details
@@ -10950,6 +10950,7 @@ _Entrypoints: `./web`, `./remote`_
 | `RemoteTerminalClientEvents`                    | type      | yes       | yes   |
 | `RemoteTerminalClientInspection`                | interface | yes       | yes   |
 | `RemoteTerminalClientMessage`                   | type      | yes       | yes   |
+| `RemoteTerminalInputEncodingOptions`            | interface | yes       | yes   |
 | `RemoteTerminalInputEvent`                      | type      | yes       | yes   |
 | `RemoteTerminalNegotiationError`                | class     | no        | yes   |
 | `RemoteTerminalNegotiationErrorCode`            | type      | yes       | yes   |
